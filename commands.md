@@ -6,4 +6,4 @@
     - npm install firebase
     - npm install --save-dev @types/react-native @types/react @types/react-navigation
     - npm install react-native-dotenv --save-dev
-    - 
+    - npm install --save-dev metro-react-native-babel-preset

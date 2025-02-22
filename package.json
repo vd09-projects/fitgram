@@ -10,6 +10,8 @@
     "build-env": "npx babel --plugins module:react-native-dotenv --out-file env.js src/config/envConfig.ts"
   },
   "dependencies": {
+    "@react-navigation/native": "^7.0.14",
+    "@react-navigation/stack": "^7.1.1",
     "expo": "~52.0.37",
     "expo-status-bar": "~2.0.1",
     "firebase": "^11.3.1",
