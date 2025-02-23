@@ -1,12 +1,12 @@
 // src/screens/auth/SignInScreen.tsx
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, Alert, StyleSheet, TouchableOpacity } from 'react-native';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../../firebase/';
+import { View, Text, TextInput, Alert, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
+import { signInUser } from '../../services/db/authService'; // Import the auth service
 import styles from '../../constants/styles';
+import Toast from 'react-native-toast-message';
 
 type SignInScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'SignIn'>;
 
@@ -18,9 +18,25 @@ export default function SignInScreen() {
 
   const handleSignIn = async () => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInUser(email, password);
+      // Alert.alert('Success', 'Logged in successfully!');
+      Toast.show({
+        type: 'success',
+        text1: 'Login Successful',
+        text2: 'Welcome back!',
+        position: 'top',
+        visibilityTime: 3000, // Auto-hide after 3 seconds
+        autoHide: true,
+      });
     } catch (error: any) {
-      Alert.alert('Login Error', error.message);
+      Toast.show({
+        type: 'error',
+        text1: 'Login Failed',
+        text2: error.message,
+        position: 'top',
+        visibilityTime: 4000,
+        autoHide: true,
+      });
     }
   };
 

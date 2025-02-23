@@ -1,12 +1,12 @@
+// src/screens/auth/SignUpScreen.tsx
 import React, { useState } from 'react';
 import { View, Text, TextInput, Alert, TouchableOpacity } from 'react-native';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, collection } from 'firebase/firestore';
-import { auth, db } from '../../firebase';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
+import { signUpUser } from '../../services/db/authService';
 import styles from '../../constants/styles';
+import Toast from 'react-native-toast-message';
 
 type SignUpScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'SignUp'>;
 
@@ -18,29 +18,25 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState('');
 
   const handleSignUp = async () => {
-    if (!name || !email || !password) {
-      Alert.alert('Error', 'All fields are required.');
-      return;
-    }
-
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      const userRef = doc(db, 'users', user.uid);
-
-      // Store user info
-      await setDoc(doc(userRef, 'info', 'data'), {
-        name: name,
-        email: email,
-        uid: user.uid,
-        createdAt: new Date(),
-        role: 'user', // Default role
+      await signUpUser(name, email, password);
+      Toast.show({
+        type: 'success',
+        text1: '🎉 Account Created',
+        text2: 'Welcome aboard! Please log in.',
+        position: 'top',
+        visibilityTime: 3000,
+        autoHide: true,
       });
-
-      Alert.alert('Success', 'Account created successfully!');
-      navigation.navigate('SignIn');
     } catch (error: any) {
-      Alert.alert('Sign Up Error', error.message);
+      Toast.show({
+        type: 'error',
+        text1: '⚠️ Sign Up Failed',
+        text2: error.message,
+        position: 'top',
+        visibilityTime: 4000,
+        autoHide: true,
+      });
     }
   };
 
