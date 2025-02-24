@@ -53,3 +53,48 @@ const styles = StyleSheet.create({
   });
 
 export default styles;
+
+export const headerStyles = StyleSheet.create({
+  container: {
+    height: 92,
+    backgroundColor: '#B2B5E0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+  },
+  text: {
+    color: '#5A3E62',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginTop: 40,
+    marginRight: 10,
+  },
+  companyName: {
+    fontSize: 24,
+    marginTop: 40,
+    color: '#5A3E62',
+    fontFamily: 'cursive',
+    fontStyle: 'italic',
+    fontWeight: 'bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 6,
+    letterSpacing: 1.4,
+  },
+  tabButton: {
+    padding: 10,
+  },
+});
+
+export const layoutStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#C5ADC5',
+  },
+  content: {
+    flex: 1,
+    // The middle area
+    padding: 16,
+  },
+});
