@@ -32,7 +32,10 @@
 1. **(2-3 days)** Enable users to **start/stop** workout plans  
 1. **(1-2 days)** If a workout plan is active, add a **quick-access button** in the footer  
 
-### 🔹 Phase 5: Social Media & Extras  
+### 🔹 Phase 5: Data Access 
+1. **(TBD)** Allow user to access there own data only 
+
+### 🔹 Phase 6: Social Media & Extras  
 1. **(TBD)** Develop a **basic social media feed**  
 
 
