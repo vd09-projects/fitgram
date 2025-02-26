@@ -3,13 +3,13 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Alert, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import type { AuthStackParamList } from '../../navigation/AuthNavigator';
+import type { ScreenNavigationProp } from '../../navigation/AuthNavigator';
 import { signUpUser } from '../../services/db/authService';
 import styles from '../../constants/styles';
 import Toast from 'react-native-toast-message';
 import { AuthRoutes } from '../../constants/routes';
 
-type SignUpScreenNavigationProp = StackNavigationProp<AuthStackParamList, keyof typeof AuthRoutes>;
+type SignUpScreenNavigationProp = ScreenNavigationProp<typeof AuthRoutes.SignUp>;
 
 export default function SignUpScreen() {
   const navigation = useNavigation<SignUpScreenNavigationProp>();
