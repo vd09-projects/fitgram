@@ -98,3 +98,31 @@ export const layoutStyles = StyleSheet.create({
     padding: 16,
   },
 });
+
+export const footerStyles = StyleSheet.create({
+  tabButton: {
+    padding: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  container: {
+    height: 60,
+    backgroundColor: '#5A3E62',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  tabText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#B2B5E0',
+  },
+  activeText: {
+    color: '#B2B5E0',
+    fontWeight: 'bold',
+  },
+});

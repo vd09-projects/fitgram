@@ -9,7 +9,9 @@
 1. **(1-2 days)** Build the **header**, create a **dummy home page**, and add a **logout button** → ✅
 1. **(1-2 days)** Implement **logout functionality** → ✅
 1. **(1-2 days)** update color schema for text → 🚫
-1. **(1-2 days)** Add a **footer** with two buttons: **Feed** (dummy feed page) & **Exercise** → 🚫
+1. **(1-2 days)** Add a **footer** with two buttons: **Feed** (dummy feed page) & **Exercise** → ✅
+1. **(1-2 days)** Centerlize the stylings of pages → 🚫
+1. **(1-2 days)** Insted of string better way to navigate → 🚫
 
 ### 🔹 Phase 2: Exercise Section  
 1. **(2-3 days)** Design the **exercise layout** with three buttons:

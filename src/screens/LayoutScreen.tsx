@@ -5,6 +5,7 @@ import Header from '../components/Header';
 import HomeScreen from './HomeScreen';
 import { layoutStyles } from '../constants/styles';
 import AnimatedScreen from '../components/AnimatedText';
+import Footer from '../components/Footer';
 
 export default function LayoutScreen() {
   // Map old names to new keys: "Home" | "record" | "configure" | "insights"
@@ -40,6 +41,14 @@ export default function LayoutScreen() {
           {content}
         </AnimatedScreen>
       </View>
+
+      {/* Hide the footer if keyboard is open */}
+      {!isKeyboardVisible && (
+        <Footer
+          activeTab={activeTab}
+          onChangeTab={(tab) => setActiveTab(tab)}
+        />
+      )}
     </View>
   );
 }
