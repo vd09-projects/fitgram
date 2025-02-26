@@ -6,9 +6,10 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { signInUser } from '../../services/db/authService'; // Import the auth service
 import styles from '../../constants/styles';
+import { AuthRoutes } from '../../constants/routes';
 import Toast from 'react-native-toast-message';
 
-type SignInScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'SignIn'>;
+type SignInScreenNavigationProp = StackNavigationProp<AuthStackParamList, keyof typeof AuthRoutes>;
 
 export default function SignInScreen() {
   const navigation = useNavigation<SignInScreenNavigationProp>();
@@ -67,7 +68,7 @@ export default function SignInScreen() {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+      <TouchableOpacity onPress={() => navigation.navigate(AuthRoutes.SignUp)}>
         <Text style={styles.switchText}>Don't have an account?</Text>
       </TouchableOpacity>
     </View>

@@ -1,79 +1,111 @@
 import { StyleSheet } from 'react-native';
 
+// Common Values
+const COLORS = {
+  primary: '#C5ADC5',
+  secondary: '#B2B5E0',
+  accent: '#5A3E62',
+  textPrimary: '#5A3E62',
+  textSecondary: '#FFFFFF',
+  link: '#0000FF',
+  border: '#B2B5E0',
+  buttonBackground: '#A084CF',
+  shadow: '#000',
+};
+
+const FONT_SIZES = {
+  small: 12,
+  medium: 16,
+  large: 18,
+  xLarge: 24,
+};
+
+const SPACING = {
+  small: 10,
+  medium: 12,
+  large: 16,
+  xLarge: 20,
+};
+
+const BORDER_RADIUS = 8;
+const SHADOW = {
+  shadowColor: COLORS.shadow,
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+  elevation: 3,
+};
+
 const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: '#C5ADC5',
-    },
-    title: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      marginBottom: 20,
-      color: '#5A3E62',
-    },
-    input: {
-      width: '80%',
-      padding: 10,
-      marginBottom: 10,
-      borderWidth: 1,
-      borderColor: '#B2B5E0',
-      borderRadius: 8,
-      backgroundColor: '#fff',
-    },
-    link: {
-      color: '#0000FF',
-      marginTop: 10,
-    },
-    button: {
-      backgroundColor: '#A084CF', // Soft Lavender
-      paddingVertical: 12,
-      paddingHorizontal: 20,
-      borderRadius: 8,
-      alignItems: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3, // For Android shadow
-    },
-    buttonText: {
-      color: '#FFFFFF', // White text for contrast
-      fontSize: 18,
-      fontWeight: 'bold',
-    },
-    switchText: {
-        marginVertical: 12,
-        color: '#5A3E62',
-        textAlign: 'center',
-        textDecorationLine: 'underline',
-        fontStyle: 'italic',
-      },
-  });
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+  },
+  title: {
+    fontSize: FONT_SIZES.xLarge,
+    fontWeight: 'bold',
+    marginBottom: SPACING.xLarge,
+    color: COLORS.textPrimary,
+  },
+  input: {
+    width: '80%',
+    padding: SPACING.small,
+    marginBottom: SPACING.small,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS,
+    backgroundColor: COLORS.textSecondary,
+  },
+  link: {
+    color: COLORS.link,
+    marginTop: SPACING.small,
+  },
+  button: {
+    backgroundColor: COLORS.buttonBackground,
+    paddingVertical: SPACING.medium,
+    paddingHorizontal: SPACING.large,
+    borderRadius: BORDER_RADIUS,
+    alignItems: 'center',
+    ...SHADOW,
+  },
+  buttonText: {
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZES.large,
+    fontWeight: 'bold',
+  },
+  switchText: {
+    marginVertical: SPACING.medium,
+    color: COLORS.textPrimary,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
+    fontStyle: 'italic',
+  },
+});
 
 export default styles;
 
 export const headerStyles = StyleSheet.create({
   container: {
     height: 92,
-    backgroundColor: '#B2B5E0',
+    backgroundColor: COLORS.secondary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: SPACING.large,
   },
   text: {
-    color: '#5A3E62',
+    color: COLORS.textPrimary,
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: FONT_SIZES.medium,
     marginTop: 40,
-    marginRight: 10,
+    marginRight: SPACING.small,
   },
   companyName: {
-    fontSize: 24,
+    fontSize: FONT_SIZES.xLarge,
     marginTop: 40,
-    color: '#5A3E62',
+    color: COLORS.textPrimary,
     fontFamily: 'cursive',
     fontStyle: 'italic',
     fontWeight: 'bold',
@@ -83,46 +115,45 @@ export const headerStyles = StyleSheet.create({
     letterSpacing: 1.4,
   },
   tabButton: {
-    padding: 10,
+    padding: SPACING.small,
   },
 });
 
 export const layoutStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#C5ADC5',
+    backgroundColor: COLORS.primary,
   },
   content: {
     flex: 1,
-    // The middle area
-    padding: 16,
+    padding: SPACING.large,
   },
 });
 
 export const footerStyles = StyleSheet.create({
   tabButton: {
-    padding: 10,
+    padding: SPACING.small,
     alignItems: 'center',
     justifyContent: 'center',
   },
   container: {
     height: 60,
-    backgroundColor: '#5A3E62',
+    backgroundColor: COLORS.accent,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
   },
   tabText: {
-    color: '#FFFFFF',
-    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZES.small,
     marginTop: 2,
   },
   activeTab: {
     borderBottomWidth: 2,
-    borderBottomColor: '#B2B5E0',
+    borderBottomColor: COLORS.secondary,
   },
   activeText: {
-    color: '#B2B5E0',
+    color: COLORS.secondary,
     fontWeight: 'bold',
   },
 });

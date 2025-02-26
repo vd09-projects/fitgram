@@ -4,6 +4,7 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import SignInScreen from '../screens/auth/SignInScreen';
 import SignUpScreen from '../screens/auth/SignUpScreen';
+import { AuthRoutes } from '../constants/routes';
 
 export type AuthStackParamList = {
   SignIn: undefined;
@@ -16,12 +17,12 @@ export default function AuthNavigator() {
   return (
     <Stack.Navigator>
       <Stack.Screen
-        name="SignIn"
+        name={AuthRoutes.SignIn}
         component={SignInScreen}
-        options={{ headerShown: false }} 
+        options={{ headerShown: false }}
       />
       <Stack.Screen
-        name="SignUp"
+        name={AuthRoutes.SignUp}
         component={SignUpScreen}
         options={{ headerShown: false }}
       />
