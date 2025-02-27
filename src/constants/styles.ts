@@ -1,7 +1,7 @@
 import { StyleSheet } from 'react-native';
 
 // Common Values
-const COLORS = {
+export const COLORS = {
   primary: '#C5ADC5',
   secondary: '#B2B5E0',
   accent: '#5A3E62',

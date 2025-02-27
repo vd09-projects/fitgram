@@ -6,9 +6,10 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { headerStyles } from '../constants/styles';
 import Toast from 'react-native-toast-message';
+import { LayoutRoutes } from '../constants/routes';
 
 interface HeaderProps {
-  onPressTab: (tab: 'Home' | 'record' | 'configure' | 'insights') => void;
+  onPressTab: (tab: keyof typeof LayoutRoutes) => void;
 }
 
 export default function Header({ onPressTab }: HeaderProps) {

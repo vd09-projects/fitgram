@@ -9,7 +9,7 @@ import { useAuthUser } from '../hooks/useAuthUser';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, headerStyles } from '../constants/styles';
 
-export default function HomeScreen() {
+export default function FeedScreen() {
   const { user } = useAuthUser();
 
   return (
@@ -21,9 +21,9 @@ export default function HomeScreen() {
         <Ionicons name="barbell-outline" size={64} color={'#5A3E62'} />
         <Text style={styles.greeting}>Hi</Text>
         <Text style={styles.nameGreeting}>{user?.email || 'Guest'}</Text>
-        <Text style={styles.welcome}>Welcome to</Text>
+        <Text style={styles.welcome}>Your Feed</Text>
         <Text style={styles.appName}>
-          <Text style={[headerStyles.companyName, {fontSize: 30}]}>Fitgram</Text>
+          <Text style={[headerStyles.companyName, { fontSize: 30 }]}>Fitgram</Text>
         </Text>
       </View>
     </ImageBackground>

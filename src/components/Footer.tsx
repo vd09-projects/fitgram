@@ -3,17 +3,17 @@ import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { footerStyles } from '../constants/styles';
+import { LayoutRoutes } from '../constants/routes';
 
 interface FooterProps {
-  activeTab: 'Home' | 'record' | 'configure' | 'insights';
-  onChangeTab: (tab: 'Home' | 'record' | 'configure' | 'insights') => void;
+  activeTab: keyof typeof LayoutRoutes;
+  onChangeTab: (tab: keyof typeof LayoutRoutes) => void;
 }
 
 export default function Footer({ activeTab, onChangeTab }: FooterProps) {
   const tabs = [
-    { key: 'record' as const, label: 'Record', icon: 'create-outline' as const },
-    { key: 'configure' as const, label: 'Setup', icon: 'settings-outline' as const },
-    { key: 'insights' as const, label: 'Progress', icon: 'bar-chart-outline' as const },
+    { key: LayoutRoutes.Feed, label: 'Feed', icon: 'home-outline' as const },
+    { key: LayoutRoutes.Workout, label: 'Workout', icon: 'barbell-outline' as const },
   ];
 
   return (

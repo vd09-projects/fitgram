@@ -1,54 +1,55 @@
-// src/screens/LayoutScreen.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet, Keyboard } from 'react-native';
+import { createStackNavigator } from '@react-navigation/stack';
+import { useNavigation } from '@react-navigation/native';
 import Header from '../components/Header';
-import HomeScreen from './HomeScreen';
+import Footer from '../components/Footer';
+import LayoutNavigator, { LayoutScreenNavigationProp } from '../navigation/LayoutNavigator';
+import { LayoutRoutes } from '../constants/routes';
 import { layoutStyles } from '../constants/styles';
 import AnimatedScreen from '../components/AnimatedText';
-import Footer from '../components/Footer';
+
+const Stack = createStackNavigator();
+
+type SignInScreenNavigationProp = LayoutScreenNavigationProp<typeof LayoutRoutes.Feed>;
+
 
 export default function LayoutScreen() {
-  // Map old names to new keys: "Home" | "record" | "configure" | "insights"
-  const [activeTab, setActiveTab] = useState<'Home' | 'record' | 'configure' | 'insights'>('Home');
-
-  // State to track if keyboard is open
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-
-  useEffect(() => {
-    const showSub = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
-    const hideSub = Keyboard.addListener('keyboardDidHide', () => setIsKeyboardVisible(false));
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
-  // Decide which middle content to render
-  let content;
-  switch (activeTab) {
-    default:
-      content = <HomeScreen />;
-      break;
-  }
+  const [activeTab, setActiveTab] = useState<keyof typeof LayoutRoutes>('Home');
+  const navigation = useNavigation<SignInScreenNavigationProp>();
 
   return (
     <View style={layoutStyles.container}>
-      <Header onPressTab={(tab) => setActiveTab(tab as any)} />
+      {/* 🔹 Header Always Present */}
+      <Header onPressTab={(tab) => {
+          setActiveTab(tab);
+          navigation.navigate(tab);
+        }} />
 
-        {/* 🔥 Force remounting AnimatedScreen using `key={activeTab}` */}
-      <View style={layoutStyles.content}>
+      {/* 🔹 Navigation in the Middle */}
+      {/* <View style={styles.content}>
+        <LayoutNavigator />
+      </View> */}
+       {/* 🔥 Force remounting AnimatedScreen using key={activeTab} */}
+       <View style={layoutStyles.content}>
         <AnimatedScreen key={activeTab} animationType="fade">
-          {content}
+        <LayoutNavigator />
         </AnimatedScreen>
       </View>
 
-      {/* Hide the footer if keyboard is open */}
-      {!isKeyboardVisible && (
-        <Footer
-          activeTab={activeTab}
-          onChangeTab={(tab) => setActiveTab(tab)}
-        />
-      )}
+      {/* 🔹 Footer Always Present */}
+      <Footer
+        activeTab={activeTab}
+        onChangeTab={(tab) => {
+          setActiveTab(tab);
+          navigation.navigate(tab);
+        }}
+      />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  content: { flex: 1 }
+});
