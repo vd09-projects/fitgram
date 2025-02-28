@@ -3,11 +3,35 @@ import {
   View,
   Text,
   StyleSheet,
-  ImageBackground
+  ImageBackground,
+  TouchableOpacity
 } from 'react-native';
 import { useAuthUser } from '../hooks/useAuthUser';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, headerStyles } from '../constants/styles';
+
+const workoutOptions = [
+  {
+    title: 'Exercise History',
+    description: 'Track past workouts & progress.',
+    icon: 'time-outline',
+    action: () => console.log('Navigating to Exercise History')
+  },
+  {
+    title: 'Add New Workout',
+    description: 'Create & customize your workout routine.',
+    icon: 'add-circle-outline',
+    action: () => console.log('Navigating to Add Workout'),
+    primary: true
+  },
+  {
+    title: 'Start Workout',
+    description: 'Begin your workout session now.',
+    icon: 'play-circle-outline',
+    action: () => console.log('Navigating to Start Workout'),
+    primary: true
+  }
+];
 
 export default function WorkoutScreen() {
   const { user } = useAuthUser();
@@ -18,13 +42,31 @@ export default function WorkoutScreen() {
       source={{ uri: 'https://source.unsplash.com/featured/?gym,fitness' }} // Dynamic gym-themed background
     >
       <View style={styles.content}>
-        <Ionicons name="barbell-outline" size={64} color={'#5A3E62'} />
-        <Text style={styles.greeting}>Hi</Text>
-        <Text style={styles.nameGreeting}>{user?.email || 'Guest'}</Text>
-        <Text style={styles.welcome}>Weorkout</Text>
-        <Text style={styles.appName}>
-          <Text style={[headerStyles.companyName, { fontSize: 30 }]}>Fitgram</Text>
-        </Text>
+
+        {/* 🔹 Workout Options (Dynamic Buttons) */}
+        <View style={styles.buttonContainer}>
+          {workoutOptions.map((option, index) => (
+            <TouchableOpacity
+              key={index}
+              style={option.primary ? styles.buttonPrimary : styles.button}
+              onPress={option.action}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={option.icon as keyof typeof Ionicons.glyphMap}
+                size={24}
+                color={option.primary ? COLORS.primary : COLORS.textSecondary}
+                style={styles.icon}
+              />
+              <View style={styles.buttonTextContainer}>
+                <Text style={option.primary ? styles.buttonTextPrimary : styles.buttonText}>
+                  {option.title}
+                </Text>
+                <Text style={styles.buttonSubText}>{option.description}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
     </ImageBackground>
   );
@@ -33,39 +75,77 @@ export default function WorkoutScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'flex-start',
+    // justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: COLORS.primary,
   },
   content: {
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: '25%',
+    paddingTop: '10%',
   },
   greeting: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#5A3E62',
-    marginBottom: 10,
-  },
-  nameGreeting: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#5A3E62',
-    marginBottom: 10,
-  },
-  welcome: {
     fontSize: 22,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: 'bold',
+    color: COLORS.secondary,
     marginBottom: 5,
   },
-  appName: {
-    fontSize: 26,
+  nameGreeting: {
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: COLORS.textPrimary,
+    marginBottom: 15,
   },
-  highlighted: {
-    color: '#5A3E62',
+  welcome: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginBottom: 30,
+  },
+  buttonContainer: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  button: {
+    width: '85%',
+    flexDirection: 'row',
+    backgroundColor: COLORS.secondary,
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  buttonPrimary: {
+    width: '85%',
+    flexDirection: 'row',
+    backgroundColor: COLORS.accent,
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  icon: {
+    marginRight: 15,
+  },
+  buttonTextContainer: {
+    flex: 1,
+  },
+  buttonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.textSecondary,
+  },
+  buttonSubText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginTop: 3,
+  },
+  buttonTextPrimary: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.primary,
   },
 });

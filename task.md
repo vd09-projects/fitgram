@@ -14,15 +14,15 @@
 1. **(1-2 days)** Insted of string better way to navigate → ✅
 
 ### 🔹 Phase 2: Exercise Section  
-1. **(2-3 days)** Design the **exercise layout** with three buttons:
+1. **(2-3 days)** Design the **exercise layout** with three buttons:  → ✅
     - View Exercise  
     - Add New Workout & Exercise  
     - Log Exercise / Start Workout  
-1. **(1-2 days)** Create the **exercise logging page**  
-1. **(1-2 days)** Implement **exercise logging functionality**  
-1. **(2-3 days)** Develop a **workout management page**  
-1. **(2-3 days)** Add **exercise logging functionality** within the workout management page  
-1. **(2-3 days)** Implement **workout & exercise management features**  
+1. **(1-2 days)** Create the **exercise logging page** → 🚫
+1. **(1-2 days)** Implement **exercise logging functionality** → 🚫
+1. **(2-3 days)** Develop a **workout management page** → 🚫
+1. **(2-3 days)** Add **exercise logging functionality** within the workout management page → 🚫
+1. **(2-3 days)** Implement **workout & exercise management features** → 🚫
 
 ### 🔹 Phase 3: Data Tracking & Visualization  
 1. **(2-3 days)** Develop the **data viewing feature**  
