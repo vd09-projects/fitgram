@@ -18,7 +18,7 @@
     - View Exercise  
     - Add New Workout & Exercise  
     - Log Exercise / Start Workout  
-1. **(1-2 days)** Create the **exercise logging page** → 🚫
+1. **(1-2 days)** Create the **Add exercise page** → 🚫
 1. **(1-2 days)** Implement **exercise logging functionality** → 🚫
 1. **(2-3 days)** Develop a **workout management page** → 🚫
 1. **(2-3 days)** Add **exercise logging functionality** within the workout management page → 🚫

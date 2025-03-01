@@ -9,32 +9,39 @@ import {
 import { useAuthUser } from '../hooks/useAuthUser';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, headerStyles } from '../constants/styles';
+import { WorkoutScreenNavigationProp } from '../navigation/WorkoutNavigator';
+import { WorkoutRoutes } from '../constants/routes';
+import { useNavigation } from '@react-navigation/native';
 
 const workoutOptions = [
   {
     title: 'Exercise History',
     description: 'Track past workouts & progress.',
     icon: 'time-outline',
-    action: () => console.log('Navigating to Exercise History')
+    action: (navigation: workoutScreenNavigationProp) => console.log('Navigating to Exercise History'), 
   },
   {
     title: 'Add New Workout',
     description: 'Create & customize your workout routine.',
     icon: 'add-circle-outline',
-    action: () => console.log('Navigating to Add Workout'),
+    // action: () => console.log('Navigating to Add Workout'),
+    action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.AddExercise),
     primary: true
   },
   {
     title: 'Start Workout',
     description: 'Begin your workout session now.',
     icon: 'play-circle-outline',
-    action: () => console.log('Navigating to Start Workout'),
+    action: (navigation: workoutScreenNavigationProp) => console.log('Navigating to Start Workout'), 
     primary: true
   }
 ];
 
+type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.WorkoutHome>;
+
 export default function WorkoutScreen() {
   const { user } = useAuthUser();
+  const navigation = useNavigation<workoutScreenNavigationProp>();
 
   return (
     <ImageBackground
@@ -49,7 +56,7 @@ export default function WorkoutScreen() {
             <TouchableOpacity
               key={index}
               style={option.primary ? styles.buttonPrimary : styles.button}
-              onPress={option.action}
+              onPress={() => option.action(navigation)}
               activeOpacity={0.8}
             >
               <Ionicons

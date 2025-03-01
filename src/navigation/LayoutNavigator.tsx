@@ -1,9 +1,9 @@
 import React from 'react';
 import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack';
 import FeedScreen from '../screens/FeedScreen';
-import WorkoutScreen from '../screens/WorkoutScreen';
 import { LayoutRoutes } from '../constants/routes';
 import HomeScreen from '../screens/HomeScreen';
+import WorkoutNavigator from './WorkoutNavigator';  // ✅ Import WorkoutNavigator
 
 export type LayoutStackParamList = {
   Feed: undefined;
@@ -21,9 +21,10 @@ export default function LayoutNavigator() {
         component={FeedScreen}
         options={{ headerShown: false }} />
 
+      {/* ✅ Replace direct WorkoutScreen navigation with WorkoutNavigator */}
       <Stack.Screen
         name={LayoutRoutes.Workout}
-        component={WorkoutScreen}
+        component={WorkoutNavigator}  
         options={{ headerShown: false }} />
         
       <Stack.Screen

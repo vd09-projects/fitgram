@@ -8,3 +8,8 @@ export const LayoutRoutes = {
     Workout: "Workout",
     Home: "Home",
 } as const;
+
+export const WorkoutRoutes = {
+    AddExercise: "AddExercise",
+    WorkoutHome: "WorkoutHome",
+} as const;
