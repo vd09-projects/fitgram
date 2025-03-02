@@ -4,13 +4,24 @@ import { StyleSheet } from 'react-native';
 export const COLORS = {
   primary: '#C5ADC5',
   secondary: '#B2B5E0',
+  tertiary: '#5A3E62',
+
+  button: '#4B5E79',
+  dropdown: '#DCE5F7',
+
   accent: '#5A3E62',
   textPrimary: '#5A3E62',
   textSecondary: '#FFFFFF',
+
   link: '#0000FF',
   border: '#B2B5E0',
-  buttonBackground: '#A084CF',
+
+  // buttonBackground: '#A084CF',
   shadow: '#000',
+
+  fail: '#FF0000',  // Added red
+  sucess: '#00FF00', // Added green
+  warninig: '#FFA500', // Added orange
 };
 
 const FONT_SIZES = {
@@ -27,14 +38,18 @@ const SPACING = {
   xLarge: 20,
 };
 
-const BORDER_RADIUS = 8;
-const SHADOW = {
+export const BORDER_RADIUS = 8;
+
+export const getShadow = (level: number) => ({
   shadowColor: COLORS.shadow,
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 4,
-  elevation: 3,
-};
+  shadowOffset: { width: 0, height: level },
+  shadowOpacity: level * 0.1,
+  shadowRadius: level * 2,
+  elevation: level * 2,
+});
+
+export const SHADOW = getShadow(2);
+export const SHADOW_3 = getShadow(3);
 
 const styles = StyleSheet.create({
   container: {
@@ -63,7 +78,7 @@ const styles = StyleSheet.create({
     marginTop: SPACING.small,
   },
   button: {
-    backgroundColor: COLORS.buttonBackground,
+    backgroundColor: COLORS.button,
     paddingVertical: SPACING.medium,
     paddingHorizontal: SPACING.large,
     borderRadius: BORDER_RADIUS,
@@ -138,7 +153,7 @@ export const footerStyles = StyleSheet.create({
   },
   container: {
     height: 60,
-    backgroundColor: COLORS.accent,
+    backgroundColor: COLORS.tertiary,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',

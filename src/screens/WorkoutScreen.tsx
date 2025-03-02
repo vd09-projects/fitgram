@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   buttonPrimary: {
     width: '85%',
     flexDirection: 'row',
-    backgroundColor: COLORS.accent,
+    backgroundColor: COLORS.textPrimary,
     padding: 15,
     borderRadius: 10,
     marginBottom: 15,
