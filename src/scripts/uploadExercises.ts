@@ -1,4 +1,5 @@
 // src/scripts/uploadExercises.ts
+import { addPredefinedExercise } from '../services/db/exercises';
 import { db } from '../services/firebase/firebase';
 import { collection, doc, setDoc } from 'firebase/firestore';
 
@@ -51,14 +52,10 @@ const predefinedExercises: { label: string; value: string; fields: string[] }[] 
 // Function to upload exercises to Firestore
 const uploadExercises = async () => {
     try {
-        const exercisesCollection = collection(db, 'exercises');
-
         for (const exercise of predefinedExercises) {
-            const exerciseDoc = doc(exercisesCollection, exercise.value);
-            await setDoc(exerciseDoc, exercise);
+            await addPredefinedExercise(exercise);
             console.log(`Uploaded: ${exercise.label}`);
         }
-
         console.log('✅ All exercises have been uploaded successfully!');
     } catch (error) {
         console.error('❌ Error uploading exercises:', error);
