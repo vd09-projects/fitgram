@@ -36,7 +36,7 @@ export default function SearchableInputDropdown({
     title = 'Select Field',
 }: SearchableInputDropdownProps) {
     const [isNewMode, setIsNewMode] = useState(false);
-    const [customValue, setCustomValue] = useState('');
+    const [customValue, setCustomValue] = useState(value ? value : '');
 
     const handleAddCustomField = () => {
         if (customValue.trim() === '') return;
