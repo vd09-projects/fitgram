@@ -16,6 +16,7 @@ export interface DropdownItem {
 }
 
 export interface DropdownSelection {
+    label: string
     value: string;
     isCustom: boolean;
 }
@@ -40,8 +41,9 @@ export default function SearchableInputDropdown({
 
     const handleAddCustomField = () => {
         if (customValue.trim() === '') return;
-        onChange({ value: customValue, isCustom: true });
-        setCustomValue('');
+        // todo: change add color to green
+        onChange({ label: customValue, value: customValue, isCustom: true });
+        // setCustomValue('');
     };
 
     return (
@@ -91,7 +93,7 @@ export default function SearchableInputDropdown({
                     placeholder={"Choose " + placeholder}
                     searchPlaceholder="Search..."
                     value={value}
-                    onChange={(item) => onChange({ value: item.value, isCustom: false })}
+                    onChange={(item) => onChange({ label:item.label, value: item.value, isCustom: false })}
                 />
             )}
         </View>

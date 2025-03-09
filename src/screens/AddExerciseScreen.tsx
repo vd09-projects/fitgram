@@ -41,7 +41,7 @@ export default function AddExerciseScreen() {
     // 🔹 Fetch predefined exercises from Firestore
     useEffect(() => {
         const fetchExercises = async () => {
-            if (!user) return;
+            // if (!user) return;
             try {
                 setLoading(true);
                 const exercises = await getAllPredefinedExercises();
@@ -130,7 +130,7 @@ export default function AddExerciseScreen() {
                     {/* 🔹 Input Fields for Selected or Custom Exercise */}
                     {(selectedExercise) && (
                         <>
-                            <Text style={styles.subheading}>Enter Exercise Details</Text>
+                            <Text style={styles.subheading}>Enter {selectedExercise.label} Details </Text>
                             {(predefinedExercises.find((e) => e.value === selectedExercise?.value)?.fields || customFields).map((field, index) => (
                                 <TextInput
                                     key={index}
