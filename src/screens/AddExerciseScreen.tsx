@@ -24,6 +24,7 @@ import { getAllPredefinedExercises } from '../services/db/exercises';
 import { Exercise, WorkoutPlan } from '../types/workoutType';
 import { useAuthUser } from '../hooks/useAuthUser';
 import { getAllWorkoutPlans } from '../services/db/user';
+import EditableList from '../components/EditableList';
 
 export default function AddExerciseScreen() {
     const { user } = useAuthUser();
@@ -128,65 +129,7 @@ export default function AddExerciseScreen() {
                     />
 
                     {/* 🔹 Input Fields for Selected or Custom Exercise */}
-                    {(selectedExercise) && (
-                        <>
-                            <Text style={styles.subheading}>Select `{selectedExercise.label}` Fields </Text>
-                            {/* 🔹 Display Selected Custom Fields with a Remove Option */}
-                            {customFields.length > 0 && (
-                                <>
-                                    {customFields.map((field, index) => (
-                                        <View key={index} style={styles.fieldContainer}>
-                                            {/* Editable Text Field */}
-                                            <TextInput
-                                                style={styles.fieldInput}
-                                                value={customFields[index]} // Use value from the array
-                                                onChangeText={(text) => {
-                                                    const updatedFields = [...customFields];
-                                                    updatedFields[index] = text; // Update the value at the current index
-                                                    setCustomFields(updatedFields);
-                                                }}
-                                            />
-
-                                            {/* Delete Button */}
-                                            <TouchableOpacity
-                                                onPress={() => {
-                                                    setCustomFields(customFields.filter((_, i) => i !== index));
-                                                }}
-                                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} // Expands the touch area
-                                            >
-                                                <Ionicons name="close-circle" size={20} color="red" />
-                                            </TouchableOpacity>
-                                        </View>
-                                    ))}
-                                </>
-                            )}
-
-                            {/* 🔹 Input to Add a Custom Field */}
-                            <View style={styles.addFieldContainer}>
-                                <TextInput
-                                    style={styles.newFieldInput}
-                                    placeholder="Enter new field name"
-                                    value={newField}
-                                    onChangeText={setNewField}
-                                />
-
-                                {/* 🔹 Add Button */}
-                                <TouchableOpacity
-                                    style={styles.addButton}
-                                    onPress={() => {
-                                        if (newField.trim() !== "" && !customFields.includes(newField)) {
-                                            setCustomFields([...customFields, newField]);
-                                            setNewField("");
-                                        } else {
-                                            Alert.alert("Invalid Field", "Field name is empty or already exists.");
-                                        }
-                                    }}
-                                >
-                                    <Text style={styles.addButtonText}>Add</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </>
-                    )}
+                    {selectedExercise && <EditableList title={"Select `" + selectedExercise.label + "` Fields"} items={customFields} onItemsChange={setCustomFields} />}
 
                     {/* 🔹 Submit Button */}
                     <TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>

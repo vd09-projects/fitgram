@@ -29,26 +29,29 @@ const EditableList: React.FC<EditableListProps> = ({ title, items, onItemsChange
         <View style={styles.container}>
             <Text style={styles.title}>{title}</Text>
 
-            <FlatList
-                data={items}
-                keyExtractor={(item, index) => `${item}-${index}`}
-                renderItem={({ item, index }) => (
-                    <View style={styles.itemContainer}>
+            <>
+                {items.map((field, index) => (
+                    <View key={index} style={styles.itemContainer}>
+                        {/* Editable Text Field */}
                         <TextInput
                             style={styles.itemInput}
-                            value={items[index]}
+                            value={items[index]} // Use value from the array
                             onChangeText={(text) => {
-                                const updatedItems = [...items];
-                                updatedItems[index] = text;
-                                onItemsChange(updatedItems);
+                                const updatedFields = [...items];
+                                updatedFields[index] = text; // Update the value at the current index
+                                onItemsChange(updatedFields);
                             }}
                         />
-                        <TouchableOpacity onPress={() => handleRemoveItem(index)}>
+
+                        {/* Delete Button */}
+                        <TouchableOpacity onPress={() => handleRemoveItem(index)}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} // Expands the touch area
+                        >
                             <Ionicons name="close-circle" size={20} color="red" />
                         </TouchableOpacity>
                     </View>
-                )}
-            />
+                ))}
+            </>
 
             {/* Input for adding a new item */}
             <View style={styles.addItemContainer}>
@@ -71,9 +74,11 @@ const styles = StyleSheet.create({
         marginTop: 15,
     },
     title: {
-        fontSize: 18,
-        fontWeight: 'bold',
         marginBottom: 10,
+        flex: 1,
+        fontSize: 16,
+        color: COLORS.textPrimary,
+        fontWeight: 'bold',
     },
     itemContainer: {
         flexDirection: 'row',
