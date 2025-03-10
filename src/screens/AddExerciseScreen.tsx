@@ -5,7 +5,8 @@ import {
     StyleSheet,
     TouchableOpacity,
     Alert,
-    ActivityIndicator
+    ActivityIndicator,
+    View
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -29,14 +30,14 @@ export default function AddExerciseScreen() {
     // assert(user, 'User must be authenticated to access this screen.');
 
     const [predefinedExercises, setPredefinedExercises] = useState<Exercise[]>([]);
-    const [selectedExercise, setSelectedExercise] = useState<DropdownSelection | null>(null);
+    const [selectedExercise, setSelectedExercise] = useState<DropdownSelection | undefined>(undefined);
 
     const [workoutPlans, setWorkoutPlans] = useState<WorkoutPlan[]>([]);
-    const [selectedWorkout, setSelectedWorkout] = useState<DropdownSelection | null>(null);
+    const [selectedWorkout, setSelectedWorkout] = useState<DropdownSelection | undefined>(undefined);
 
     const [customFields, setCustomFields] = useState<string[]>([]);
-    const [exerciseData, setExerciseData] = useState<{ [key: string]: string }>({});
     const [loading, setLoading] = useState(true);
+    const [newField, setNewField] = useState("");
 
     // 🔹 Fetch predefined exercises from Firestore
     useEffect(() => {
@@ -74,15 +75,14 @@ export default function AddExerciseScreen() {
 
     const handleSelectExercise = (exercise: DropdownSelection) => {
         setSelectedExercise(exercise);
-        setCustomFields([]);
-        setExerciseData({});
+        const selectedExerciseFields = predefinedExercises.find((e) => e.value === exercise.value)?.fields || [];
+        setCustomFields(selectedExerciseFields);
     };
 
     const handleSelectWorkout = (workout: DropdownSelection) => {
         setSelectedWorkout(workout);
-        setSelectedExercise(null);
+        setSelectedExercise(undefined);
         setCustomFields([]);
-        setExerciseData({});
     };
 
     const handleSubmit = () => {
@@ -93,7 +93,7 @@ export default function AddExerciseScreen() {
             Alert.alert('Exercise Name Required', 'Please select or enter an exercise name.');
             return;
         }
-        console.log('Saved Exercise:', { name: exerciseName, data: exerciseData });
+        console.log('Saved Exercise:', { name: exerciseName });
         Alert.alert('Exercise Saved', `Successfully saved: ${exerciseName}`);
     };
 
@@ -113,34 +113,78 @@ export default function AddExerciseScreen() {
                             return { label: name, value: id };
                         })}
                         placeholder="Workout"
-                        value={selectedWorkout?.value}
+                        value={selectedWorkout}
                         onChange={handleSelectWorkout}
-                        title="Workout"
+                        title={"Workout" + (selectedWorkout?.value ? ` : ${selectedWorkout?.label}` : '')}
                     />
 
                     {/* 🔹 Select Exercise */}
                     <SearchableInputDropdown
                         data={predefinedExercises.map(({ label, value }) => ({ label, value }))}
                         placeholder="Exercise"
-                        value={selectedExercise?.value}
+                        value={selectedExercise}
                         onChange={handleSelectExercise}
-                        title="Select/Create Exercise"
+                        title={"Exercise" + (selectedExercise?.value ? ` : ${selectedExercise?.label}` : '')}
                     />
 
                     {/* 🔹 Input Fields for Selected or Custom Exercise */}
                     {(selectedExercise) && (
                         <>
-                            <Text style={styles.subheading}>Enter {selectedExercise.label} Details </Text>
-                            {(predefinedExercises.find((e) => e.value === selectedExercise?.value)?.fields || customFields).map((field, index) => (
+                            <Text style={styles.subheading}>Select `{selectedExercise.label}` Fields </Text>
+                            {/* 🔹 Display Selected Custom Fields with a Remove Option */}
+                            {customFields.length > 0 && (
+                                <>
+                                    {customFields.map((field, index) => (
+                                        <View key={index} style={styles.fieldContainer}>
+                                            {/* Editable Text Field */}
+                                            <TextInput
+                                                style={styles.fieldInput}
+                                                value={customFields[index]} // Use value from the array
+                                                onChangeText={(text) => {
+                                                    const updatedFields = [...customFields];
+                                                    updatedFields[index] = text; // Update the value at the current index
+                                                    setCustomFields(updatedFields);
+                                                }}
+                                            />
+
+                                            {/* Delete Button */}
+                                            <TouchableOpacity
+                                                onPress={() => {
+                                                    setCustomFields(customFields.filter((_, i) => i !== index));
+                                                }}
+                                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} // Expands the touch area
+                                            >
+                                                <Ionicons name="close-circle" size={20} color="red" />
+                                            </TouchableOpacity>
+                                        </View>
+                                    ))}
+                                </>
+                            )}
+
+                            {/* 🔹 Input to Add a Custom Field */}
+                            <View style={styles.addFieldContainer}>
                                 <TextInput
-                                    key={index}
-                                    style={styles.input}
-                                    placeholder={field}
-                                    value={exerciseData[field] || ''}
-                                    onChangeText={(text) => setExerciseData({ ...exerciseData, [field]: text })}
-                                    keyboardType="numeric"
+                                    style={styles.newFieldInput}
+                                    placeholder="Enter new field name"
+                                    value={newField}
+                                    onChangeText={setNewField}
                                 />
-                            ))}
+
+                                {/* 🔹 Add Button */}
+                                <TouchableOpacity
+                                    style={styles.addButton}
+                                    onPress={() => {
+                                        if (newField.trim() !== "" && !customFields.includes(newField)) {
+                                            setCustomFields([...customFields, newField]);
+                                            setNewField("");
+                                        } else {
+                                            Alert.alert("Invalid Field", "Field name is empty or already exists.");
+                                        }
+                                    }}
+                                >
+                                    <Text style={styles.addButtonText}>Add</Text>
+                                </TouchableOpacity>
+                            </View>
                         </>
                     )}
 
@@ -168,13 +212,7 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: COLORS.textSecondary,
         marginBottom: 10,
-    },
-    input: {
-        backgroundColor: COLORS.textSecondary,
-        padding: 10,
-        borderRadius: 8,
-        marginBottom: 10,
-        fontSize: 16,
+        marginTop: 12,
     },
     saveButton: {
         flexDirection: 'row',
@@ -190,5 +228,54 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: COLORS.primary,
         marginLeft: 8,
+    },
+    fieldContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: COLORS.textSecondary,
+        padding: 4,
+        borderRadius: 8,
+        marginBottom: 10,
+        justifyContent: 'space-between',
+    },
+    fieldText: {
+        fontSize: 16,
+        color: COLORS.textPrimary,
+        flex: 1,
+    },
+    fieldInput: {
+        fontSize: 16,
+        color: COLORS.textPrimary,
+        flex: 1,
+        backgroundColor: 'white',
+        paddingHorizontal: 8,
+        borderRadius: 6,
+    },
+    addFieldContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginTop: 10,
+    },
+    newFieldInput: {
+        flex: 1,
+        backgroundColor: "white",
+        padding: 10,
+        borderRadius: 6,
+        fontSize: 16,
+        color: COLORS.textPrimary,
+        paddingHorizontal: 8,
+    },
+    addButton: {
+        marginLeft: 10,
+        backgroundColor: COLORS.button,
+        padding: 10,
+        borderWidth: 1,
+        borderRadius: 8,
+    },
+    addButtonText: {
+        fontSize: 16,
+        fontWeight: "bold",
+        color: "white",
+        paddingHorizontal: 6,
     },
 });

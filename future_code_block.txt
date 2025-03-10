@@ -1,0 +1,10 @@
+--------------------------------------------------------set values to custom fields
+                    <TextInput
+                                    key={index}
+                                    style={styles.input}
+                                    placeholder={field}
+                                    value={exerciseData[field] || ''}
+                                    onChangeText={(text) => setExerciseData({ ...exerciseData, [field]: text })}
+                                    keyboardType="numeric"
+                                />
+----------------------------------------------------------------------------------------------

@@ -24,7 +24,7 @@ export interface DropdownSelection {
 interface SearchableInputDropdownProps {
     data: DropdownItem[];
     placeholder?: string;
-    value: string | undefined;
+    value: DropdownSelection | undefined;
     onChange: (data: DropdownSelection) => void;
     title?: string;
 }
@@ -37,13 +37,16 @@ export default function SearchableInputDropdown({
     title = 'Select Field',
 }: SearchableInputDropdownProps) {
     const [isNewMode, setIsNewMode] = useState(false);
-    const [customValue, setCustomValue] = useState(value ? value : '');
+    const [customValue, setCustomValue] = useState(value?.label ? value?.label : '');
 
     const handleAddCustomField = () => {
         if (customValue.trim() === '') return;
-        // todo: change add color to green
-        onChange({ label: customValue, value: customValue, isCustom: true });
-        // setCustomValue('');
+        onChange({ label: customValue, value: customValue.replace(/\s+/g, '_'), isCustom: true });
+    };
+
+    const handleSelectField = (item : DropdownSelection) => {
+        onChange({ label:item.label, value: item.value, isCustom: false })
+        setCustomValue(item.label);
     };
 
     return (
@@ -54,7 +57,7 @@ export default function SearchableInputDropdown({
                     <Switch
                         value={isNewMode}
                         onValueChange={setIsNewMode}
-                        trackColor={{ false: COLORS.tertiary, true: COLORS.tertiary }}
+                        trackColor={{ false: COLORS.secondary, true: COLORS.tertiary }}
                         thumbColor={COLORS.textSecondary}
                         style={{ transform: [{ scaleX: 1.1 }] }}
                     />
@@ -93,7 +96,7 @@ export default function SearchableInputDropdown({
                     placeholder={"Choose " + placeholder}
                     searchPlaceholder="Search..."
                     value={value}
-                    onChange={(item) => onChange({ label:item.label, value: item.value, isCustom: false })}
+                    onChange={handleSelectField}
                 />
             )}
         </View>
@@ -113,15 +116,19 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 10,
+        width: '100%',
     },
     heading: {
         fontSize: 18,
         fontWeight: 'bold',
         color: COLORS.textPrimary,
+        flexShrink: 1, // Ensures the title text wraps instead of pushing switch
+        maxWidth: '70%', // Limits how wide the title can be
     },
     switchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'space-between',
         paddingLeft: 8,
     },
     switchLabel: {
