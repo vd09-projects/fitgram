@@ -8,7 +8,13 @@ export interface Exercise {
 }
 
 export type WorkoutPlan = {
-  id?: string;
-  name: string;
-  exercises: Exercise[];
-};
+    id?: string;
+    name: string;
+    exercises: Exercise[];
+  };
+
+  export type WorkoutPlanDB = {
+    id?: string;
+    name: string;
+    exercise: Exercise;
+  };
