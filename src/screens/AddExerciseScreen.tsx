@@ -14,8 +14,13 @@ import SearchableInputDropdown, { DropdownSelection } from '../components/Search
 import EditableList from '../components/EditableList';
 import usePredefinedExercises from '../hooks/usePredefinedExercises';
 import useWorkoutPlans from '../hooks/useWorkoutPlans';
+import show from '../utils/toastUtils';
+import { saveWorkoutDetails } from '../services/db/userDB';
+import { useAuthUser } from '../hooks/useAuthUser';
 
 export default function AddExerciseScreen() {
+    const { user } = useAuthUser();
+    
     const predefinedExercises = usePredefinedExercises();
     const workoutPlans = useWorkoutPlans();
 
@@ -36,15 +41,48 @@ export default function AddExerciseScreen() {
     };
 
     const handleSubmit = () => {
-        const exerciseName = selectedExercise
-            ? predefinedExercises.find((e) => e.value === selectedExercise.value)?.label
-            : '';
-        if (!exerciseName || exerciseName.trim() === '') {
-            Alert.alert('Exercise Name Required', 'Please select or enter an exercise name.');
+        if (selectedExercise === undefined) {
+            show.alert('Exercise Required', 'Please select an exercise.');
             return;
         }
-        console.log('Saved Exercise:', { name: exerciseName });
-        Alert.alert('Exercise Saved', `Successfully saved: ${exerciseName}`);
+
+        if (selectedWorkout === undefined) {
+            show.alert('Workout Required', 'Please select a workout.');
+            return;
+        }
+
+        if (!selectedExercise.label || selectedExercise.label.trim() === '') {
+            show.alert('Exercise Name Required', 'Please select or enter an exercise name.');
+            return;
+        }
+
+        if (!selectedWorkout.label || selectedWorkout.label.trim() === '') {
+            show.alert('Workout Name Required', 'Please select or enter a workout name.');
+            return;
+        }
+
+        if (customFields.length === 0) {
+            show.alert('Fields Required', 'Please enter at least one field.');
+            return;
+        }
+
+        if (customFields.some((field) => field.trim() === '')) {
+            show.alert('Invalid Field', 'Field cannot be empty.');
+            return;
+        }
+        
+
+        saveWorkoutDetails(user?.uid || "", {
+            id: selectedWorkout.value,
+            name: selectedWorkout.label,
+            exercise: {
+                label: selectedExercise.label,
+                value: selectedExercise.value,
+                fields: customFields
+            }
+        })
+        handleSelectWorkout(selectedWorkout);
+        show.success('Workout Details Saved', `Successfully saved: ${selectedWorkout.label} - ${selectedExercise.label}`);
     };
 
     return (
@@ -72,7 +110,13 @@ export default function AddExerciseScreen() {
             />
 
             {/* 🔹 Input Fields for Selected or Custom Exercise */}
-            {selectedExercise && <EditableList title={"Select `" + selectedExercise.label + "` Fields"} items={customFields} onItemsChange={setCustomFields} />}
+            {selectedExercise &&
+                <EditableList
+                    title={"Select `" + selectedExercise.label + "` Fields"}
+                    items={customFields}
+                    onItemsChange={setCustomFields}
+                />
+            }
 
             {/* 🔹 Submit Button */}
             <TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>

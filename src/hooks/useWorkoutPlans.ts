@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Alert } from "react-native";
-import { getAllWorkoutPlans } from "../services/db/user";
+import { getAllWorkoutPlans } from "../services/db/userDB";
 import { WorkoutPlan } from "../types/workoutType";
 import { useAuthUser } from "../hooks/useAuthUser";
 

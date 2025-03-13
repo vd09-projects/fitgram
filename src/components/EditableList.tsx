@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, Alert, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/styles';
 
@@ -7,18 +7,29 @@ interface EditableListProps {
     title: string;
     items: string[];
     onItemsChange: (updatedItems: string[]) => void;
+    showDeleteButton?: boolean; // Controls the visibility of delete buttons
+    showInputField?: boolean; // Controls the visibility of the input area
 }
 
-const EditableList: React.FC<EditableListProps> = ({ title, items, onItemsChange }) => {
+const EditableList: React.FC<EditableListProps> = ({
+    title,
+    items,
+    onItemsChange,
+    showDeleteButton = true,
+    showInputField = true
+}) => {
     const [newItem, setNewItem] = useState('');
+    const [duplicateError, setDuplicateError] = useState(false);
 
     const handleAddItem = () => {
-        if (newItem.trim() === '' || items.includes(newItem.trim())) {
-            Alert.alert("Invalid Input", "Item cannot be empty or duplicate.");
+        const trimmedItem = newItem.trim();
+        if (trimmedItem === '' || items.includes(trimmedItem)) {
+            setDuplicateError(true);
             return;
         }
-        onItemsChange([...items, newItem.trim()]);
+        onItemsChange([...items, trimmedItem]);
         setNewItem('');
+        setDuplicateError(false);
     };
 
     const handleRemoveItem = (index: number) => {
@@ -29,42 +40,54 @@ const EditableList: React.FC<EditableListProps> = ({ title, items, onItemsChange
         <View style={styles.container}>
             <Text style={styles.title}>{title}</Text>
 
-            <>
-                {items.map((field, index) => (
-                    <View key={index} style={styles.itemContainer}>
+            {items.map((field, index) => {
+                const isDuplicate = duplicateError && field === newItem.trim();
+
+                return (
+                    <View key={index} style={[styles.itemContainer, isDuplicate && styles.duplicateItem]}>
                         {/* Editable Text Field */}
                         <TextInput
-                            style={styles.itemInput}
-                            value={items[index]} // Use value from the array
+                            style={[styles.itemInput, isDuplicate && styles.duplicateItem]}
+                            value={field}
                             onChangeText={(text) => {
                                 const updatedFields = [...items];
-                                updatedFields[index] = text; // Update the value at the current index
+                                updatedFields[index] = text;
                                 onItemsChange(updatedFields);
                             }}
                         />
 
-                        {/* Delete Button */}
-                        <TouchableOpacity onPress={() => handleRemoveItem(index)}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} // Expands the touch area
-                        >
-                            <Ionicons name="close-circle" size={20} color="red" />
-                        </TouchableOpacity>
+                        {/* Conditional Delete Button */}
+                        {showDeleteButton && (
+                            <TouchableOpacity
+                                onPress={() => handleRemoveItem(index)}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                                <Ionicons name="close-circle" size={20} color="red" />
+                            </TouchableOpacity>
+                        )}
                     </View>
-                ))}
-            </>
+                );
+            })}
 
-            {/* Input for adding a new item */}
-            <View style={styles.addItemContainer}>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Enter new item"
-                    value={newItem}
-                    onChangeText={setNewItem}
-                />
-                <TouchableOpacity style={styles.addButton} onPress={handleAddItem}>
-                    <Text style={styles.addButtonText}>Add</Text>
-                </TouchableOpacity>
-            </View>
+            {/* Conditional Input for Adding New Items */}
+            {showInputField && (
+                <View style={styles.addItemContainer}>
+                    <TextInput
+                        style={[styles.input, duplicateError ? styles.errorInput : {}]}
+                        placeholder="Enter new item"
+                        value={newItem}
+                        onChangeText={(text) => {
+                            setNewItem(text);
+                            setDuplicateError(false);
+                        }}
+                    />
+                    <TouchableOpacity style={styles.addButton} onPress={handleAddItem}>
+                        <Text style={styles.addButtonText}>Add</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+
+            {duplicateError && <Text style={styles.errorText}>*This item already exists!</Text>}
         </View>
     );
 };
@@ -75,7 +98,6 @@ const styles = StyleSheet.create({
     },
     title: {
         marginBottom: 10,
-        flex: 1,
         fontSize: 16,
         color: COLORS.textPrimary,
         fontWeight: 'bold',
@@ -108,6 +130,10 @@ const styles = StyleSheet.create({
         borderRadius: 6,
         fontSize: 16,
     },
+    errorInput: {
+        borderColor: 'red',
+        borderWidth: 1,
+    },
     addButton: {
         marginLeft: 10,
         backgroundColor: COLORS.button,
@@ -119,6 +145,15 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: 'white',
         paddingHorizontal: 6,
+    },
+    errorText: {
+        color: 'red',
+        fontSize: 14,
+        fontWeight: 'bold',
+        marginTop: 5,
+    },
+    duplicateItem: {
+        backgroundColor: '#ffcccc',
     },
 });
 
