@@ -4,7 +4,7 @@ import { getAllWorkoutPlans } from "../services/db/userDB";
 import { WorkoutPlan } from "../types/workoutType";
 import { useAuthUser } from "../hooks/useAuthUser";
 
-export default function useWorkoutPlans() {
+export default function useWorkoutPlans(param: boolean) {
   const { user } = useAuthUser();
   const [workoutPlans, setWorkoutPlans] = useState<WorkoutPlan[]>([]);
 
@@ -12,6 +12,7 @@ export default function useWorkoutPlans() {
     const fetchWorkouts = async () => {
       if (!user) return;
       try {
+        console.log("param", param);
         const workouts = await getAllWorkoutPlans(user.uid);
         setWorkoutPlans(workouts);
       } catch (error) {
@@ -21,7 +22,7 @@ export default function useWorkoutPlans() {
     };
 
     fetchWorkouts();
-  }, [user]);
+  }, [user, param]);
 
   return workoutPlans;
 }

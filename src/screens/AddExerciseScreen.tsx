@@ -17,16 +17,24 @@ import useWorkoutPlans from '../hooks/useWorkoutPlans';
 import show from '../utils/toastUtils';
 import { saveWorkoutDetails } from '../services/db/userDB';
 import { useAuthUser } from '../hooks/useAuthUser';
+import CollapsibleExerciseList from '../components/CollapsibleExerciseList';
+import { WorkoutPlanDB } from '../types/workoutType';
 
 export default function AddExerciseScreen() {
     const { user } = useAuthUser();
-    
-    const predefinedExercises = usePredefinedExercises();
-    const workoutPlans = useWorkoutPlans();
 
     const [selectedExercise, setSelectedExercise] = useState<DropdownSelection | undefined>(undefined);
     const [selectedWorkout, setSelectedWorkout] = useState<DropdownSelection | undefined>(undefined);
     const [customFields, setCustomFields] = useState<string[]>([]);
+
+    const [reload, setReload] = useState<boolean>(false);
+
+    const predefinedExercises = usePredefinedExercises();
+    const workoutPlans = useWorkoutPlans(reload);
+
+    const currentWorkout = workoutPlans.find((workout) => workout.id === selectedWorkout?.value);
+
+    const handleReload = () => setReload((prev) => !prev);
 
     const handleSelectExercise = (exercise: DropdownSelection) => {
         setSelectedExercise(exercise);
@@ -70,9 +78,14 @@ export default function AddExerciseScreen() {
             show.alert('Invalid Field', 'Field cannot be empty.');
             return;
         }
-        
 
-        saveWorkoutDetails(user?.uid || "", {
+        const saveWourkout = async (wk: WorkoutPlanDB) => {
+            await saveWorkoutDetails(user?.uid || "", wk)
+            handleSelectWorkout(selectedWorkout);
+            handleReload();
+        };
+
+        saveWourkout({
             id: selectedWorkout.value,
             name: selectedWorkout.label,
             exercise: {
@@ -81,7 +94,6 @@ export default function AddExerciseScreen() {
                 fields: customFields
             }
         })
-        handleSelectWorkout(selectedWorkout);
         show.success('Workout Details Saved', `Successfully saved: ${selectedWorkout.label} - ${selectedExercise.label}`);
     };
 
@@ -99,6 +111,19 @@ export default function AddExerciseScreen() {
                 onChange={handleSelectWorkout}
                 title={"Workout" + (selectedWorkout?.value ? ` : ${selectedWorkout?.label}` : '')}
             />
+
+            {/* 🔹 Collapsible Exercise List Component */}
+            {currentWorkout?.exercises && currentWorkout.exercises.length > 0 && (
+                <CollapsibleExerciseList
+                    exercises={currentWorkout.exercises}
+                    onUpdate={(updatedExercises) => {
+                        // 🔹 Update workoutPlans with new exercises
+                        const updatedWorkoutPlans = workoutPlans.map((workout) =>
+                            workout.id === currentWorkout.id ? { ...workout, exercises: updatedExercises } : workout
+                        );
+                        // setSelectedWorkout({ ...selectedWorkout, exercises: updatedExercises });
+                    }} />
+            )}
 
             {/* 🔹 Select Exercise */}
             <SearchableInputDropdown

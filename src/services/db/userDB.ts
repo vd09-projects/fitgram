@@ -38,7 +38,7 @@ export const saveWorkoutDetails = async (
             // Workout does not exist, create it with the new exercise
             await setDoc(workoutRef, {
                 id: workout.id,
-                name: 'New Workout', // Default name, can be updated later
+                name: workout.name, // Default name, can be updated later
                 exercises: [workout.exercise]
             });
             console.log('✅ Workout and exercise created successfully');
