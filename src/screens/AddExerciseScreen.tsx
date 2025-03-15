@@ -127,18 +127,22 @@ export default function AddExerciseScreen() {
 
 
             {/* 🔹 Collapsible Exercise List Component */}
-            {/* {currentWorkout?.exercises?.length > 0 && (
+            {selectedWorkout?.value?.exercises && selectedWorkout?.value?.exercises?.length > 0 && (
                 <CollapsibleExerciseList
-                    exercises={currentWorkout.exercises}
+                    exercises={selectedWorkout.value.exercises}
                     onUpdate={(index, updatedExercises) => {
+                        if (!selectedWorkout?.value || !selectedWorkout.value?.exercises) return;
                         if (!updatedExercises) {
-                            currentWorkout.exercises.splice(index, 1);
-                            return;
+                            selectedWorkout.value.exercises.splice(index, 1);
+                        } else {
+                            selectedWorkout.value.exercises.splice(index, 1, updatedExercises);
                         }
-                        currentWorkout.exercises[index] = updatedExercises;
+                        const newWorkout = { ...selectedWorkout } as DropdownSelection<WorkoutPlan>;
+                        console.log('🔥 Updated Workout:', newWorkout);
+                        setSelectedWorkout(newWorkout);
                     }}
                 />
-            )} */}
+            )}
 
             {/* 🔹 Select Exercise */}
             <SearchableInputDropdown<Exercise>
