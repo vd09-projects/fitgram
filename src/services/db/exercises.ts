@@ -33,9 +33,9 @@ export const getAllPredefinedExercises = async (): Promise<Exercise[]> => {
  */
 export const addPredefinedExercise = async (exercise: Exercise) => {
     try {
-        const exerciseDoc = doc(predefinedExercisesCollection, exercise.value);
+        const exerciseDoc = doc(predefinedExercisesCollection, exercise.id);
         await setDoc(exerciseDoc, exercise);
-        console.log(`✅ Exercise added: ${exercise.label}`);
+        console.log(`✅ Exercise added: ${exercise.name}`);
 
         return { success: true, message: 'Exercise added successfully' };
     } catch (error: any) {

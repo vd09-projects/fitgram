@@ -46,7 +46,7 @@ export const saveWorkoutDetails = async (
         }
 
         const workoutData = workoutSnap.data() as WorkoutPlan;
-        const existingExercise = workoutData.exercises.find(ex => ex.value === workout.exercise.value);
+        const existingExercise = workoutData.exercises.find(ex => ex.id === workout.exercise.id);
 
         if (existingExercise) {
             // If exercise exists, update it (remove old and add new)

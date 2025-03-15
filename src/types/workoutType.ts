@@ -1,14 +1,14 @@
 // src/types/workoutType.ts
 
 export interface Exercise {
-  id?: string;
-  label: string;
-  value: string;
+  id: string;
+  name: string;
+  // value: string;
   fields: string[];
 }
 
 export type WorkoutPlan = {
-    id?: string;
+    id: string;
     name: string;
     exercises: Exercise[];
   };

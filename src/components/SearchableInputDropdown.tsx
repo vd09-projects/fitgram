@@ -10,42 +10,42 @@ import {
 import { Dropdown } from 'react-native-element-dropdown';
 import { BORDER_RADIUS, COLORS, SHADOW, SHADOW_3 } from '../constants/styles';
 
-export interface DropdownItem {
+export interface DropdownItem<T> {
     label: string;
-    value: string;
+    value: T;
 }
 
-export interface DropdownSelection {
-    label: string
-    value: string;
+export interface DropdownSelection<T> {
+    label: string;
+    value: T | undefined;
     isCustom: boolean;
 }
 
-interface SearchableInputDropdownProps {
-    data: DropdownItem[];
+interface SearchableInputDropdownProps<T> {
+    data: DropdownItem<T>[];
     placeholder?: string;
-    value: DropdownSelection | undefined;
-    onChange: (data: DropdownSelection) => void;
+    value: DropdownSelection<T> | undefined;
+    onChange: (data: DropdownSelection<T>) => void;
     title?: string;
 }
 
-export default function SearchableInputDropdown({
+export default function SearchableInputDropdown<T>({
     data,
     placeholder = 'Select a field',
     value,
     onChange,
     title = 'Select Field',
-}: SearchableInputDropdownProps) {
+}: SearchableInputDropdownProps<T>) {
     const [isNewMode, setIsNewMode] = useState(false);
-    const [customValue, setCustomValue] = useState(value?.label ? value?.label : '');
+    const [customValue, setCustomValue] = useState(value?.label || '');
 
     const handleAddCustomField = () => {
         if (customValue.trim() === '') return;
-        onChange({ label: customValue, value: customValue.replace(/\s+/g, '_'), isCustom: true });
+        onChange({ label: customValue, value: undefined, isCustom: true });
     };
 
-    const handleSelectField = (item : DropdownSelection) => {
-        onChange({ label:item.label, value: item.value, isCustom: false })
+    const handleSelectField = (item: DropdownItem<T>) => {
+        onChange({ label: item.label, value: item.value, isCustom: false });
         setCustomValue(item.label);
     };
 
@@ -66,7 +66,6 @@ export default function SearchableInputDropdown({
             </View>
 
             {isNewMode ? (
-                // Custom Input Mode
                 <View style={styles.customInputContainer}>
                     <TextInput
                         style={styles.input}
@@ -80,7 +79,6 @@ export default function SearchableInputDropdown({
                     </TouchableOpacity>
                 </View>
             ) : (
-                // Searchable Dropdown Mode
                 <Dropdown
                     style={styles.dropdown}
                     containerStyle={styles.dropdownContainer}
@@ -122,8 +120,8 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         color: COLORS.textPrimary,
-        flexShrink: 1, // Ensures the title text wraps instead of pushing switch
-        maxWidth: '70%', // Limits how wide the title can be
+        flexShrink: 1,
+        maxWidth: '70%',
     },
     switchContainer: {
         flexDirection: 'row',

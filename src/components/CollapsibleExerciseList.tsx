@@ -1,55 +1,93 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, memo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/styles';
 import EditableList from './EditableList';
+import { Exercise } from '../types/workoutType';
 
 interface CollapsibleExerciseListProps {
-    exercises: { label: string; value: string; fields: string[] }[];
-    onUpdate: (updatedExercises: { label: string; value: string; fields: string[] }[]) => void;
+    exercises: Exercise[];
+    onUpdate: (index: number, updatedExercise?: Exercise) => void;
 }
 
-const CollapsibleExerciseList: React.FC<CollapsibleExerciseListProps> = ({ exercises, onUpdate }) => {
+/**
+ * Memoized individual collapsible item to prevent re-renders of the full list.
+ */
+const CollapsibleExerciseItem = memo(({ 
+    exercise, 
+    index, 
+    expanded, 
+    onToggle, 
+    onUpdate 
+}: { 
+    exercise: Exercise; 
+    index: number; 
+    expanded: boolean; 
+    onToggle: (id: string) => void; 
+    onUpdate: (index: number, updatedExercise?: Exercise) => void;
+}) => (
+    <View style={styles.exerciseContainer}>
+        <TouchableOpacity 
+            onPress={() => onToggle(exercise.id)} 
+            style={styles.exerciseHeader}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+            <Text style={styles.exerciseText}>{exercise.name}</Text>
+            <View style={styles.iconContainer}>
+                <TouchableOpacity onPress={() => onUpdate(index, undefined)}> 
+                    <Ionicons name="trash-outline" size={20} color="red" /> 
+                </TouchableOpacity>
+                <Ionicons 
+                    name={expanded ? "chevron-up-outline" : "chevron-down-outline"} 
+                    size={20} 
+                    color={COLORS.textPrimary} 
+                />
+            </View>
+        </TouchableOpacity>
+
+        {expanded && (
+            <EditableList
+                title={`Edit "${exercise.name}" Fields`}
+                items={exercise.fields}
+                onItemsChange={(updatedFields) => {
+                    const updatedExercise = { ...exercise, fields: updatedFields }; 
+                    onUpdate(index, updatedExercise);
+                }}
+            />
+        )}
+    </View>
+));
+
+/**
+ * The main collapsible list component.
+ */
+const CollapsibleExerciseList: React.FC<CollapsibleExerciseListProps> = memo(({ exercises, onUpdate }) => {
     const [expandedExercises, setExpandedExercises] = useState<{ [key: string]: boolean }>({});
 
-    const toggleExerciseExpand = (exerciseId: string) => {
+    // Function to toggle exercise visibility
+    const toggleExerciseExpand = useCallback((exerciseId: string) => {
         setExpandedExercises((prev) => ({
             ...prev,
             [exerciseId]: !prev[exerciseId],
         }));
-    };
+    }, []);
 
     return (
         <View style={styles.section}>
             <Text style={styles.subHeading}>Existing Exercises</Text>
-            {exercises.map((exercise) => (
-                <View key={exercise.value} style={styles.exerciseContainer}>
-                    <TouchableOpacity onPress={() => toggleExerciseExpand(exercise.value)} style={styles.exerciseHeader}>
-                        <Text style={styles.exerciseText}>{exercise.label}</Text>
-                        <Ionicons 
-                            name={expandedExercises[exercise.value] ? "chevron-up-outline" : "chevron-down-outline"} 
-                            size={20} 
-                            color={COLORS.textPrimary} 
-                        />
-                    </TouchableOpacity>
-
-                    {expandedExercises[exercise.value] && (
-                        <EditableList
-                            title={`Edit "${exercise.label}" Fields`}
-                            items={exercise.fields}
-                            onItemsChange={(updatedFields) => {
-                                const updatedExercises = exercises.map((ex) =>
-                                    ex.value === exercise.value ? { ...ex, fields: updatedFields } : ex
-                                );
-                                onUpdate(updatedExercises);
-                            }}
-                        />
-                    )}
-                </View>
+            {exercises.map((exercise, index) => (
+                <CollapsibleExerciseItem
+                    key={exercise.id}
+                    exercise={exercise}
+                    index={index}
+                    expanded={expandedExercises[exercise.id] || false}
+                    onToggle={toggleExerciseExpand}
+                    onUpdate={onUpdate}
+                />
             ))}
         </View>
     );
-};
+});
 
 const styles = StyleSheet.create({
     section: {
@@ -79,6 +117,11 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
         color: COLORS.textPrimary,
+    },
+    iconContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10, // Space between delete and expand icons
     },
 });
 
