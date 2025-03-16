@@ -26,14 +26,15 @@ export default function LayoutScreen() {
           navigation.navigate(tab);
         }} />
 
-      {/* 🔹 Navigation in the Middle */}
-      {/* <View style={styles.content}>
-        <LayoutNavigator />
-      </View> */}
        {/* 🔥 Force remounting AnimatedScreen using key={activeTab} */}
-       <View style={layoutStyles.content}>
+       {/* <View style={layoutStyles.content}>
         <AnimatedScreen key={activeTab} animationType="fade">
         <LayoutNavigator />
+        </AnimatedScreen>
+      </View> */}
+      <View style={layoutStyles.content}>
+        <AnimatedScreen animationType="fade">
+          <LayoutNavigator />
         </AnimatedScreen>
       </View>
 
@@ -42,7 +43,10 @@ export default function LayoutScreen() {
         activeTab={activeTab}
         onChangeTab={(tab) => {
           setActiveTab(tab);
-          navigation.navigate(tab);
+          navigation.reset({
+            index: 0,
+            routes: [{ name: tab }],
+          });
         }}
       />
     </View>
