@@ -12,7 +12,6 @@ export default function useWorkoutPlans(param: boolean) {
     const fetchWorkouts = async () => {
       if (!user) return;
       try {
-        console.log("param", param);
         const workouts = await getAllWorkoutPlans(user.uid);
         setWorkoutPlans(workouts);
       } catch (error) {

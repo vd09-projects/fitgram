@@ -15,7 +15,7 @@ import EditableList from '../components/EditableList';
 import usePredefinedExercises from '../hooks/usePredefinedExercises';
 import useWorkoutPlans from '../hooks/useWorkoutPlans';
 import show from '../utils/toastUtils';
-import { saveWorkoutDetails } from '../services/db/userDB';
+import { overrideWorkoutDetails, saveWorkoutDetails } from '../services/db/userDB';
 import { useAuthUser } from '../hooks/useAuthUser';
 import CollapsibleExerciseList from '../components/CollapsibleExerciseList';
 import { Exercise, WorkoutPlan, WorkoutPlanDB } from '../types/workoutType';
@@ -26,13 +26,12 @@ export default function AddExerciseScreen() {
     const [selectedExercise, setSelectedExercise] = useState<DropdownSelection<Exercise> | undefined>(undefined);
     const [selectedWorkout, setSelectedWorkout] = useState<DropdownSelection<WorkoutPlan> | undefined>(undefined);
     const [customFields, setCustomFields] = useState<string[]>([]);
+    const [workoutDetailsUpdated, setWorkoutDetailsUpdated] = useState<boolean>(false);
 
     const [reload, setReload] = useState<boolean>(false);
 
     const predefinedExercises = usePredefinedExercises();
     const workoutPlans = useWorkoutPlans(reload);
-
-    // const currentWorkout = workoutPlans.find((workout) => workout.id === selectedWorkout?.value);
 
     const handleReload = () => setReload((prev) => !prev);
 
@@ -41,12 +40,12 @@ export default function AddExerciseScreen() {
             exercise.value = {
                 id: exercise.label.replace(/\s+/g, '_'),
                 name: exercise.label,
-                // value: exercise.label.replace(/\s+/g, '_'),
                 fields: []
             };
         }
-        setSelectedExercise(exercise);
+        setWorkoutDetailsUpdated(true);
         setCustomFields(exercise.value?.fields || []);
+        setSelectedExercise(exercise);
     };
 
     const handleSelectWorkout = (workout: DropdownSelection<WorkoutPlan>) => {
@@ -57,24 +56,14 @@ export default function AddExerciseScreen() {
                 exercises: []
             };
         }
-        setSelectedWorkout(workout);
-        setSelectedExercise(undefined);
         setCustomFields([]);
+        setSelectedExercise(undefined);
+        setSelectedWorkout(workout);
     };
 
     const handleSubmit = () => {
-        if (!selectedExercise || !selectedExercise.value) {
-            show.alert('Exercise Required', 'Please select an exercise.');
-            return;
-        }
-
         if (!selectedWorkout || !selectedWorkout.value) {
             show.alert('Workout Required', 'Please select a workout.');
-            return;
-        }
-
-        if (!selectedExercise.label.trim()) {
-            show.alert('Exercise Name Required', 'Please select or enter an exercise name.');
             return;
         }
 
@@ -83,33 +72,44 @@ export default function AddExerciseScreen() {
             return;
         }
 
-        if (customFields.length === 0) {
-            show.alert('Fields Required', 'Please enter at least one field.');
-            return;
-        }
+        var wk = selectedWorkout.value
+        if (selectedExercise) {
+            if (!selectedExercise.value) {
+                show.alert('Exercise Required', 'Please select or enter an exercise name.');
+                return;
+            }
 
-        if (customFields.some((field) => field.trim() === '')) {
-            show.alert('Invalid Field', 'Field cannot be empty.');
-            return;
-        }
+            if (!selectedExercise.label.trim()) {
+                show.alert('Exercise Name Required', 'Please select or enter an exercise name.');
+                return;
+            }
 
-        const saveWorkout = async (wk: WorkoutPlanDB) => {
-            await saveWorkoutDetails(user?.uid || "", wk);
-            handleSelectWorkout(selectedWorkout);
-            handleReload();
-        };
+            if (customFields.length === 0) {
+                show.alert('Fields Required', 'Please enter at least one field.');
+                return;
+            }
 
-        saveWorkout({
-            id: selectedWorkout.value.id,
-            name: selectedWorkout.label,
-            exercise: {
+            if (customFields.some((field) => field.trim() === '')) {
+                show.alert('Invalid Field', 'Field cannot be empty.');
+                return;
+            }
+
+            wk.exercises.push({
                 id: selectedExercise.value.id,
                 name: selectedExercise.label,
-                // value: selectedExercise.value.value,
                 fields: customFields
-            }
-        });
-        show.success('Workout Details Saved', `Successfully saved: ${selectedWorkout.label} - ${selectedExercise.label}`);
+            });
+        }
+
+        const saveWorkout = async (lwkp: WorkoutPlan) => {
+            await overrideWorkoutDetails(user?.uid || "", lwkp);
+            show.success('Workout Details Saved', `Successfully saved: ${selectedWorkout.label}`);
+            handleSelectWorkout(selectedWorkout);
+            handleReload();
+            setWorkoutDetailsUpdated(false);
+        };
+
+        saveWorkout(wk);
     };
 
     return (
@@ -139,6 +139,7 @@ export default function AddExerciseScreen() {
                         }
                         const newWorkout = { ...selectedWorkout } as DropdownSelection<WorkoutPlan>;
                         console.log('🔥 Updated Workout:', newWorkout);
+                        setWorkoutDetailsUpdated(true);
                         setSelectedWorkout(newWorkout);
                     }}
                 />
@@ -163,10 +164,10 @@ export default function AddExerciseScreen() {
             )}
 
             {/* 🔹 Submit Button */}
-            <TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
+            {workoutDetailsUpdated && (<TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
                 <Ionicons name="checkmark-circle-outline" size={24} color={COLORS.textSecondary} />
                 <Text style={styles.saveButtonText}>Save Exercise</Text>
-            </TouchableOpacity>
+            </TouchableOpacity>)}
         </ScrollableScreen>
     );
 }

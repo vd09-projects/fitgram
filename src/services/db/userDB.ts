@@ -68,3 +68,45 @@ export const saveWorkoutDetails = async (
         console.error('❌ Error saving workout details:', error);
     }
 };
+
+
+export const overrideWorkoutDetails = async (
+    userId: string,
+    workout: WorkoutPlan
+  ): Promise<void> => {
+    if (
+      !userId ||
+      !workout.id ||
+      !workout.exercises ||
+      workout.exercises.length === 0
+    ) {
+      console.error("❌ Missing required parameters");
+      return;
+    }
+  
+    try {
+      const workoutRef = doc(
+        db,
+        tables.users.collection,
+        userId,
+        tables.users.fields.workouts.collection,
+        workout.id
+      );
+  
+      // Overwrite the workout completely
+      await setDoc(
+        workoutRef,
+        {
+          id: workout.id,
+          name: workout.name,
+          exercises: workout.exercises,
+        },
+        { merge: false }
+      ); // `merge: false` ensures complete overwrite
+  
+      console.log("✅ Workout overwritten successfully");
+    } catch (error) {
+      console.error("❌ Error saving workout details:", error);
+    }
+  };
+  
