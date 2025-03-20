@@ -72,7 +72,8 @@ export default function AddExerciseScreen() {
             return;
         }
 
-        var wk = selectedWorkout.value
+        var newWk = undefined
+        const exerciseIds = new Set();
         if (selectedExercise) {
             if (!selectedExercise.value) {
                 show.alert('Exercise Required', 'Please select or enter an exercise name.');
@@ -94,11 +95,24 @@ export default function AddExerciseScreen() {
                 return;
             }
 
-            wk.exercises.push({
+            newWk = {
                 id: selectedExercise.value.id,
                 name: selectedExercise.label,
                 fields: customFields
-            });
+            };
+            exerciseIds.add(newWk.id);
+        }
+
+        var wk = selectedWorkout.value
+        for (const ex of wk.exercises) {
+            if (exerciseIds.has(ex.id)) {
+                show.alert('Duplicate Exercise', ex.name + 'is duplicate exercises in the workout.');
+                return;
+            }
+            exerciseIds.add(ex.id);
+        }
+        if (newWk) {
+            wk.exercises.push(newWk);
         }
 
         const saveWorkout = async (lwkp: WorkoutPlan) => {
