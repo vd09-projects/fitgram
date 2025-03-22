@@ -2,81 +2,80 @@ import React, { useState } from "react";
 import { 
   View, 
   Text, 
-  StyleSheet, 
-  ScrollView, 
+  FlatList, 
   TouchableOpacity, 
-  Alert 
+  ScrollView, 
+  StyleSheet 
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import useWorkoutPlans from "../hooks/useWorkoutPlans";
 import { WorkoutPlan } from "../types/workoutType";
 import { COLORS } from "../constants/styles";
+import ScrollableScreen from "../components/ScrollableScreen";
 
 export default function StartWorkoutScreen() {
-  const workoutPlans = useWorkoutPlans(true);  // Fetch workouts
-  const [selectedWorkout, setSelectedWorkout] = useState<string | null>(null);
+  const workoutPlans = useWorkoutPlans(true);
+  const [selectedWorkout, setSelectedWorkout] = useState<WorkoutPlan | null>(null);
 
-  const toggleWorkout = (workoutId: string) => {
-    setSelectedWorkout(prev => (prev === workoutId ? null : workoutId));
-  };
-
-  const handleStartWorkout = (exerciseName: string) => {
-    Alert.alert("Workout Started", `You started: ${exerciseName}`);
+  const handleStartWorkout = () => {
+    if (selectedWorkout) {
+      console.log(`Starting workout: ${selectedWorkout.name}`);
+    }
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.header}>Select Your Workout</Text>
-
-      {workoutPlans.length === 0 ? (
-        <Text style={styles.noWorkouts}>No workouts available</Text>
-      ) : (
-        workoutPlans.map((workout: WorkoutPlan) => (
-          <View key={workout.id} style={styles.workoutContainer}>
-            {/* Workout Title (Accordion Toggle) */}
-            <TouchableOpacity
-              style={styles.workoutHeader}
-              onPress={() => toggleWorkout(workout.id)}
-            >
-              <Text style={styles.workoutTitle}>{workout.name}</Text>
-              <Ionicons
-                name={selectedWorkout === workout.id ? "chevron-up" : "chevron-down"}
-                size={24}
-                color={COLORS.textPrimary}
-              />
-            </TouchableOpacity>
-
-            {/* Exercise List (Visible when expanded) */}
-            {selectedWorkout === workout.id && (
-              <View style={styles.exerciseList}>
-                {workout.exercises.map((exercise) => (
-                  <View key={exercise.id} style={styles.exerciseCard}>
-                    <Text style={styles.exerciseName}>{exercise.name}</Text>
-
-                    {/* Start Workout Button */}
-                    <TouchableOpacity
-                      style={styles.startButton}
-                      onPress={() => handleStartWorkout(exercise.name)}
-                    >
-                      <Text style={styles.startButtonText}>Start</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            )}
+    <ScrollableScreen
+      title={
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <MaterialCommunityIcons name="arm-flex-outline" size={24} color={COLORS.textPrimary} style={{ marginRight: 5 }} />
+          <Text style={{ fontSize: 22, fontWeight: 'bold', color: COLORS.textPrimary }}>Start Workout</Text>
+          <MaterialCommunityIcons name="arm-flex-outline" size={24} color={COLORS.textPrimary} style={{ marginLeft: 5, transform: [{ scaleX: -1 }] }} />
           </View>
-        ))
+      }
+    >
+      {/* 🏋️ Workout Grid Selection */}
+      <FlatList
+        data={workoutPlans}
+        keyExtractor={(item) => item.id}
+        numColumns={2}
+        columnWrapperStyle={styles.gridRow}
+        renderItem={({ item }) => (
+          <TouchableOpacity 
+            style={[
+              styles.workoutCard, 
+              selectedWorkout?.id === item.id && styles.selectedWorkout
+            ]}
+            onPress={() => setSelectedWorkout(item)}
+          >
+            <Text style={styles.workoutTitle}>{item.name}</Text>
+          </TouchableOpacity>
+        )}
+      />
+
+      {/* 📜 Exercise List (Shown only when a workout is selected) */}
+      {selectedWorkout && (
+        <ScrollView style={styles.exerciseList}>
+          <Text style={styles.exerciseHeader}>Exercises in {selectedWorkout.name}</Text>
+          {selectedWorkout.exercises.map((exercise) => (
+            <View key={exercise.id} style={styles.exerciseCard}>
+              <Ionicons name="barbell-outline" size={20} color={COLORS.primary} />
+              <Text style={styles.exerciseText}>{exercise.name}</Text>
+            </View>
+          ))}
+        </ScrollView>
       )}
-    </ScrollView>
+
+      {/* ▶️ Floating Start Workout Button */}
+      {selectedWorkout && (
+        <TouchableOpacity style={styles.startWorkoutButton} onPress={handleStartWorkout}>
+          <Text style={styles.startWorkoutText}>Start {selectedWorkout.name}</Text>
+        </TouchableOpacity>
+      )}
+    </ScrollableScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.primary,
-    padding: 20,
-  },
   header: {
     fontSize: 24,
     fontWeight: "bold",
@@ -84,55 +83,73 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 20,
   },
-  noWorkouts: {
-    textAlign: "center",
-    color: COLORS.textSecondary,
-    fontSize: 16,
-    marginTop: 20,
-  },
-  workoutContainer: {
-    backgroundColor: COLORS.secondary,
-    borderRadius: 10,
-    marginBottom: 15,
-    padding: 10,
-  },
-  workoutHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  quickStartCard: {
+    backgroundColor: COLORS.primary,
     padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  quickStartText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "white",
+  },
+  gridRow: {
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  workoutCard: {
+    flex: 1,
+    backgroundColor: COLORS.secondary,
+    padding: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginHorizontal: 5,
+  },
+  selectedWorkout: {
+    borderColor: COLORS.primary,
+    borderWidth: 2,
   },
   workoutTitle: {
     fontSize: 18,
     fontWeight: "bold",
     color: COLORS.textPrimary,
+    textAlign: "center",
   },
   exerciseList: {
-    paddingHorizontal: 15,
-    paddingBottom: 10,
+    marginTop: 20,
+  },
+  exerciseHeader: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: COLORS.textPrimary,
+    marginBottom: 10,
   },
   exerciseCard: {
-    backgroundColor: COLORS.textPrimary,
+    flexDirection: "row",
+    alignItems: "center",
     padding: 10,
+    backgroundColor: COLORS.textPrimary,
     borderRadius: 8,
     marginBottom: 10,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
   },
-  exerciseName: {
+  exerciseText: {
     fontSize: 16,
     fontWeight: "bold",
-    color: COLORS.secondary,
+    marginLeft: 10,
+    color: COLORS.textSecondary,
   },
-  startButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 5,
+  startWorkoutButton: {
+    paddingVertical: 15,
+    borderRadius: 10,
+    backgroundColor: COLORS.button,
+    alignItems: "center",
   },
-  startButtonText: {
-    color: "white",
+  startWorkoutText: {
+    fontSize: 18,
     fontWeight: "bold",
+    color: "white",
   },
 });

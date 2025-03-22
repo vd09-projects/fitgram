@@ -1,16 +1,21 @@
 import React, { ReactNode } from 'react';
-import { ScrollView, View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { ScrollView, View, StyleSheet, KeyboardAvoidingView, Platform, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/styles';
 
 interface ScrollableScreenProps {
   children: ReactNode;
-  style?: object; // Allows overriding styles
+  title?: ReactNode; // ✅ Allow passing JSX instead of a string
+  style?: object;
 }
 
-const ScrollableScreen: React.FC<ScrollableScreenProps> = ({ children, style }) => {
+const ScrollableScreen: React.FC<ScrollableScreenProps> = ({ children, style, title }) => {
   return (
     <SafeAreaView style={[styles.safeArea, style]}>
+      {/* Fixed Title Section (Accepts JSX) */}
+      {title && <View style={styles.titleContainer}>{title}</View>}
+
+      {/* Scrollable Content */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
@@ -34,6 +39,15 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.primary,
+  },
+  titleContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: COLORS.primary,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   flex: {
     flex: 1,
