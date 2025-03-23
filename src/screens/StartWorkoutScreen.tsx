@@ -26,7 +26,7 @@ export default function StartWorkoutScreen() {
     );
 
     const toggleWorkoutSelection = (workout: WorkoutPlan) => {
-        setSelectedWorkout((prevSelected) => 
+        setSelectedWorkout((prevSelected) =>
             prevSelected?.id === workout.id ? null : workout
         );
     };
@@ -119,7 +119,12 @@ const styles = StyleSheet.create({
         marginHorizontal: 5,
     },
     selectedWorkout: {
-        borderColor: COLORS.primary,
+        borderColor: COLORS.button,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        elevation: 8,
         borderWidth: 2,
     },
     workoutTitle: {
@@ -142,7 +147,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         padding: 10,
         backgroundColor: COLORS.textPrimary,
-        borderRadius: 8,
+        borderRadius: BORDER_RADIUS,
         marginBottom: 10,
     },
     exerciseText: {
