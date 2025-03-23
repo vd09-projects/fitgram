@@ -36,9 +36,12 @@ export default function StartWorkoutScreen() {
             {/* 🏋️ Workout Grid Selection */}
             <FlatList
                 data={workoutPlans}
+                key={selectedWorkout ? "horizontal" : "grid"}
                 keyExtractor={(item) => item.id}
-                numColumns={2}
-                columnWrapperStyle={styles.gridRow}
+                horizontal={!!selectedWorkout}
+                showsHorizontalScrollIndicator={!!selectedWorkout}
+                numColumns={selectedWorkout ? undefined : 2}
+                columnWrapperStyle={!selectedWorkout ? styles.gridRow : null}
                 renderItem={({ item }) => (
                     <TouchableOpacity
                         style={[
