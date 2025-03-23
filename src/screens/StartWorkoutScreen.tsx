@@ -56,6 +56,7 @@ export default function StartWorkoutScreen() {
                 key={selectedWorkout ? "horizontal" : "grid"}
                 keyExtractor={(item) => item.id}
                 horizontal={!!selectedWorkout}
+                scrollEnabled={!!selectedWorkout}
                 showsHorizontalScrollIndicator={!!selectedWorkout}
                 numColumns={selectedWorkout ? undefined : 2}
                 columnWrapperStyle={!selectedWorkout ? styles.gridRow : null}
