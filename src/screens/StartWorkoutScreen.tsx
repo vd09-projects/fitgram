@@ -21,9 +21,16 @@ export default function StartWorkoutScreen() {
     const [searchQuery, setSearchQuery] = useState("");
 
     // Filter workouts based on search query
-    const filteredWorkouts = workoutPlans.filter((workout) =>
-        workout.name.toLowerCase().includes(searchQuery.toLowerCase())
+    let filteredWorkouts = workoutPlans.filter((workout) =>
+        workout.name.trim().toLowerCase().includes(searchQuery.trim().toLowerCase())
     );
+
+    if (selectedWorkout && filteredWorkouts.some(workout => workout.id === selectedWorkout.id)) {
+        filteredWorkouts = [
+            selectedWorkout,
+            ...filteredWorkouts.filter((workout) => workout.id !== selectedWorkout.id),
+        ];
+    }
 
     const toggleWorkoutSelection = (workout: WorkoutPlan) => {
         setSelectedWorkout((prevSelected) =>
