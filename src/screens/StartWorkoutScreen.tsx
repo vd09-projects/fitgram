@@ -5,17 +5,31 @@ import {
     FlatList,
     TouchableOpacity,
     ScrollView,
+    TextInput,
     StyleSheet
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import useWorkoutPlans from "../hooks/useWorkoutPlans";
 import { WorkoutPlan } from "../types/workoutType";
-import { COLORS } from "../constants/styles";
+import { BORDER_RADIUS, COLORS } from "../constants/styles";
 import ScrollableScreen from "../components/ScrollableScreen";
+import SearchBox from "../components/SearchBox";
 
 export default function StartWorkoutScreen() {
     const workoutPlans = useWorkoutPlans(true);
     const [selectedWorkout, setSelectedWorkout] = useState<WorkoutPlan | null>(null);
+    const [searchQuery, setSearchQuery] = useState("");
+
+    // Filter workouts based on search query
+    const filteredWorkouts = workoutPlans.filter((workout) =>
+        workout.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const toggleWorkoutSelection = (workout: WorkoutPlan) => {
+        setSelectedWorkout((prevSelected) => 
+            prevSelected?.id === workout.id ? null : workout
+        );
+    };
 
     const handleStartWorkout = () => {
         if (selectedWorkout) {
@@ -33,9 +47,12 @@ export default function StartWorkoutScreen() {
                 </View>
             }
         >
+            {/* 🔍 Search Box Component */}
+            <SearchBox value={searchQuery} onChangeText={setSearchQuery} placeholder="Search workout..." />
+
             {/* 🏋️ Workout Grid Selection */}
             <FlatList
-                data={workoutPlans}
+                data={filteredWorkouts}
                 key={selectedWorkout ? "horizontal" : "grid"}
                 keyExtractor={(item) => item.id}
                 horizontal={!!selectedWorkout}
@@ -48,11 +65,14 @@ export default function StartWorkoutScreen() {
                             styles.workoutCard,
                             selectedWorkout?.id === item.id && styles.selectedWorkout
                         ]}
-                        onPress={() => setSelectedWorkout(item)}
+                        onPress={() => toggleWorkoutSelection(item)}
                     >
                         <Text style={styles.workoutTitle}>{item.name}</Text>
                     </TouchableOpacity>
                 )}
+                ListEmptyComponent={
+                    <Text style={styles.noResultsText}>No workouts found</Text>
+                }
             />
 
             {/* ▶️ Floating Start Workout Button */}
@@ -79,24 +99,11 @@ export default function StartWorkoutScreen() {
 }
 
 const styles = StyleSheet.create({
-    header: {
-        fontSize: 24,
-        fontWeight: "bold",
-        color: COLORS.textPrimary,
+    noResultsText: {
         textAlign: "center",
-        marginBottom: 20,
-    },
-    quickStartCard: {
-        backgroundColor: COLORS.primary,
-        padding: 15,
-        borderRadius: 10,
-        alignItems: "center",
-        marginBottom: 15,
-    },
-    quickStartText: {
         fontSize: 18,
-        fontWeight: "bold",
-        color: "white",
+        color: COLORS.textSecondary,
+        marginTop: 20,
     },
     gridRow: {
         justifyContent: "space-between",

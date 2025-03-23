@@ -12,6 +12,7 @@ export const COLORS = {
   accent: '#5A3E62',
   textPrimary: '#5A3E62',
   textSecondary: '#FFFFFF',
+  textPrimaryPlaceholder: '#8A6C92',
 
   link: '#0000FF',
   border: '#B2B5E0',
