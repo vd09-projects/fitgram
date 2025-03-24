@@ -35,14 +35,6 @@ const workoutOptions = [
     // action: (navigation: workoutScreenNavigationProp) => console.log('Navigating to Start Workout'), 
     action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.StartWorkout),
     primary: true
-  },
-  {
-    title: 'Log Workout',
-    description: 'Begin your workout session now.',
-    icon: 'play-circle-outline',
-    // action: (navigation: workoutScreenNavigationProp) => console.log('Navigating to Start Workout'), 
-    action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.TestWorkoutScreen),
-    primary: true
   }
 ];
 
