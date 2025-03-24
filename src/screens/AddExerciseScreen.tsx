@@ -18,7 +18,7 @@ import show from '../utils/toastUtils';
 import { overrideWorkoutDetails, saveWorkoutDetails } from '../services/db/userDB';
 import { useAuthUser } from '../hooks/useAuthUser';
 import CollapsibleExerciseList from '../components/CollapsibleExerciseList';
-import { Exercise, WorkoutPlan, WorkoutPlanDB } from '../types/workoutType';
+import { Exercise, WorkoutPlan } from '../types/workoutType';
 
 export default function AddExerciseScreen() {
     const { user } = useAuthUser();

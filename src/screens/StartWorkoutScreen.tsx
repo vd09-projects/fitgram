@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     View,
     Text,
@@ -14,8 +14,17 @@ import { WorkoutPlan } from "../types/workoutType";
 import { BORDER_RADIUS, COLORS } from "../constants/styles";
 import ScrollableScreen from "../components/ScrollableScreen";
 import SearchBox from "../components/SearchBox";
+import { useWorkoutStore } from "../hooks/useWorkoutStore";
+import { useSyncWorkout } from "../hooks/useSyncWorkout";
+import show from "../utils/toastUtils";
 
 export default function StartWorkoutScreen() {
+    const { startWorkout, activeWorkout } = useWorkoutStore();
+    const { syncWorkout } = useSyncWorkout();
+    useEffect(() => {
+        syncWorkout(); // Try syncing any offline data before starting a new workout
+    }, []);
+
     const workoutPlans = useWorkoutPlans(true);
     const [selectedWorkout, setSelectedWorkout] = useState<WorkoutPlan | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
@@ -40,6 +49,11 @@ export default function StartWorkoutScreen() {
 
     const handleStartWorkout = () => {
         if (selectedWorkout) {
+            // if (activeWorkout) {
+            //     show.alert("Active Workout", "Finish your current workout before starting a new one.");
+            //     return;
+            // }
+            // startWorkout(selectedWorkout);
             console.log(`Starting workout: ${selectedWorkout.name}`);
         }
     };

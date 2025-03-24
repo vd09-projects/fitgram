@@ -3,7 +3,6 @@
 export interface Exercise {
   id: string;
   name: string;
-  // value: string;
   fields: string[];
 }
 

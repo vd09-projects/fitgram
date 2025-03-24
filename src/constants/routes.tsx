@@ -13,4 +13,5 @@ export const WorkoutRoutes = {
     AddExercise: "AddExercise",
     StartWorkout: "StartWorkout",
     WorkoutHome: "WorkoutHome",
+    TestWorkoutScreen: "TestWorkoutScreen",
 } as const;
