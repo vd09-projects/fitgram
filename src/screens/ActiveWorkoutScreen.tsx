@@ -4,7 +4,7 @@ import { useWorkoutStore } from "../hooks/useWorkoutStore";
 import ExerciseLogger from "../components/ExerciseLogger";
 
 export default function ActiveWorkoutScreen() {
-  const { activeWorkout, endWorkout } = useWorkoutStore();
+  const { activeWorkout, endWorkout, cancelWorkout } = useWorkoutStore();
 
   if (!activeWorkout) {
     return <Text>No active workout. Start a new one.</Text>;
@@ -13,13 +13,16 @@ export default function ActiveWorkoutScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{activeWorkout.name}</Text>
-      
+
       <FlatList
         data={activeWorkout.exercises}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <ExerciseLogger exercise={item} />}
       />
 
+      <TouchableOpacity style={styles.endButton} onPress={cancelWorkout}>
+        <Text>Cancle Workout</Text>
+      </TouchableOpacity>
       <TouchableOpacity style={styles.endButton} onPress={endWorkout}>
         <Text>End Workout</Text>
       </TouchableOpacity>

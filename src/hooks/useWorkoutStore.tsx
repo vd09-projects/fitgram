@@ -13,6 +13,7 @@ export interface ExerciseSet {
 export interface LoggedExercise {
   id: string;
   name: string;
+  fields: string[];
   sets: ExerciseSet[];
 }
 
@@ -36,6 +37,7 @@ interface WorkoutStoreState {
   addSetToExercise: (exerciseId: string, newSet: ExerciseSet) => Promise<void>;
   updateSet: (exerciseId: string, setId: number, updatedFields: Record<string, string | number>) => Promise<void>;
   endWorkout: () => Promise<void>;
+  cancelWorkout: () => Promise<void>;
   loadWorkoutFromStorage: () => Promise<void>;
 }
 
@@ -54,6 +56,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       exercises: workout.exercises.map((ex) => ({
         id: ex.id,
         name: ex.name,
+        fields: ex.fields,
         sets: [], // Empty sets initially
       })),
       isPersisted: false, // Mark as not persisted initially
@@ -136,6 +139,17 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       }
     } catch (error) {
       console.error("Failed to persist workout:", error);
+    }
+  },
+
+  /** 🔹 Cancel Workout (Discard Without Saving) */
+  cancelWorkout: async () => {
+    try {
+      await AsyncStorage.removeItem("activeWorkout"); // Remove stored workout
+      set({ activeWorkout: null, currentExercise: null });
+      console.log("Workout cancelled successfully.");
+    } catch (error) {
+      console.error("Failed to cancel workout:", error);
     }
   },
 

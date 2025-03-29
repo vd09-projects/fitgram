@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import {
     Text,
     TouchableOpacity,
-    Alert,
-    View,
     StyleSheet
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

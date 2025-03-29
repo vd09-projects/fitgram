@@ -17,8 +17,15 @@ import SearchBox from "../components/SearchBox";
 import { useWorkoutStore } from "../hooks/useWorkoutStore";
 import { useSyncWorkout } from "../hooks/useSyncWorkout";
 import show from "../utils/toastUtils";
+import { WorkoutRoutes } from "../constants/routes";
+import { WorkoutScreenNavigationProp } from "../navigation/WorkoutNavigator";
+import { useNavigation } from "@react-navigation/native";
+
+type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.WorkoutHome>;
 
 export default function StartWorkoutScreen() {
+    const navigation = useNavigation<workoutScreenNavigationProp>();
+
     const { startWorkout, activeWorkout } = useWorkoutStore();
     const { syncWorkout } = useSyncWorkout();
     useEffect(() => {
@@ -55,6 +62,8 @@ export default function StartWorkoutScreen() {
             }
             startWorkout(selectedWorkout);
             console.log(`Starting workout: ${selectedWorkout.name}`);
+            show.info(`Starting workout: ${selectedWorkout.name}`);
+            navigation.navigate(WorkoutRoutes.LogWorkout)
         }
     };
 
