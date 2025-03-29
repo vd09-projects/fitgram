@@ -27,14 +27,16 @@ interface SearchableInputDropdownProps<T> {
     value: DropdownSelection<T> | undefined;
     onChange: (data: DropdownSelection<T>) => void;
     title?: string;
+    allowCustomInput?: boolean; // NEW PROP: Enables/Disables custom input (default: true)
 }
 
 export default function SearchableInputDropdown<T>({
     data,
-    placeholder = 'Select a field',
+    placeholder = 'field',
     value,
     onChange,
     title = 'Select Field',
+    allowCustomInput = true, // Default to true
 }: SearchableInputDropdownProps<T>) {
     const [isNewMode, setIsNewMode] = useState(false);
     const [customValue, setCustomValue] = useState(value?.label || '');
@@ -53,19 +55,21 @@ export default function SearchableInputDropdown<T>({
         <View style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.heading}>{title}</Text>
-                <View style={styles.switchContainer}>
-                    <Switch
-                        value={isNewMode}
-                        onValueChange={setIsNewMode}
-                        trackColor={{ false: COLORS.secondary, true: COLORS.tertiary }}
-                        thumbColor={COLORS.textSecondary}
-                        style={{ transform: [{ scaleX: 1.1 }] }}
-                    />
-                    <Text style={[styles.switchLabel, { opacity: isNewMode ? 1 : 0.5 }]}>New</Text>
-                </View>
+                {allowCustomInput && (
+                    <View style={styles.switchContainer}>
+                        <Switch
+                            value={isNewMode}
+                            onValueChange={setIsNewMode}
+                            trackColor={{ false: COLORS.secondary, true: COLORS.tertiary }}
+                            thumbColor={COLORS.textSecondary}
+                            style={{ transform: [{ scaleX: 1.1 }] }}
+                        />
+                        <Text style={[styles.switchLabel, { opacity: isNewMode ? 1 : 0.5 }]}>New</Text>
+                    </View>
+                )}
             </View>
 
-            {isNewMode ? (
+            {allowCustomInput && isNewMode ? (
                 <View style={styles.customInputContainer}>
                     <TextInput
                         style={styles.input}

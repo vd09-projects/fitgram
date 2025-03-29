@@ -25,15 +25,16 @@ export const COLORS = {
   warninig: '#FFA500', // Added orange
 };
 
-const FONT_SIZES = {
+export const FONT_SIZES = {
   small: 12,
   medium: 16,
   large: 18,
   xLarge: 24,
 };
 
-const SPACING = {
-  small: 10,
+export const SPACING = {
+  xSmall: 4,
+  small: 8,
   medium: 12,
   large: 16,
   xLarge: 20,
@@ -142,7 +143,8 @@ export const layoutStyles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: SPACING.large,
+    margin: SPACING.xSmall,
+    marginBottom: 0,
   },
 });
 

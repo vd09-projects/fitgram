@@ -47,6 +47,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
             ))}
           </View>
         )}
+        scrollEnabled={false}
         ListEmptyComponent={<Text style={styles.noSetsText}>No sets logged yet.</Text>}
       />
 
@@ -78,8 +79,14 @@ const styles = StyleSheet.create({
   loggedSet: { padding: 10, backgroundColor: "#f8f8f8", marginVertical: 5, borderRadius: 5 },
   loggedSetText: { fontSize: 14 },
   noSetsText: { fontStyle: "italic", color: "gray", marginBottom: 10 },
-  inputContainer: { flexDirection: "row", gap: 10, marginBottom: 10 },
-  input: { flex: 1, padding: 8, borderWidth: 1, borderColor: "#ccc", borderRadius: 5 },
+  inputContainer: { marginBottom: 10 },
+  input: { 
+    padding: 8, 
+    borderWidth: 1, 
+    borderColor: "#ccc", 
+    borderRadius: 5, 
+    marginVertical: 5,
+  },
   logButton: { backgroundColor: "#28a745", padding: 10, borderRadius: 5, alignItems: "center" },
   logButtonText: { color: "#fff", fontWeight: "bold" },
 });
