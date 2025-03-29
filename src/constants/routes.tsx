@@ -12,5 +12,6 @@ export const LayoutRoutes = {
 export const WorkoutRoutes = {
     AddExercise: "AddExercise",
     StartWorkout: "StartWorkout",
+    LogWorkout: "LogWorkout",
     WorkoutHome: "WorkoutHome",
 } as const;

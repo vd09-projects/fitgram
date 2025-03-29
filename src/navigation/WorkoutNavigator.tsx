@@ -5,11 +5,13 @@ import AddExerciseScreen from '../screens/AddExerciseScreen';
 import { COLORS } from '../constants/styles';
 import { WorkoutRoutes } from '../constants/routes';
 import StartWorkoutScreen from '../screens/StartWorkoutScreen';
+import ActiveWorkoutScreen from '../screens/ActiveWorkoutScreen';
 
 export type WorkoutStackParamList = {
     AddExercise: undefined;
     StartWorkout: undefined;
     WorkoutHome: undefined;
+    LogWorkout: undefined;
 };
 
 const Stack = createStackNavigator<WorkoutStackParamList>();
@@ -39,6 +41,12 @@ export default function WorkoutNavigator() {
             <Stack.Screen
                 name={WorkoutRoutes.AddExercise}
                 component={AddExerciseScreen}
+                options={{ headerShown: false }}
+            />
+
+            <Stack.Screen
+                name={WorkoutRoutes.LogWorkout}
+                component={ActiveWorkoutScreen}
                 options={{ headerShown: false }}
             />
         </Stack.Navigator>

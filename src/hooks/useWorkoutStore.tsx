@@ -10,14 +10,14 @@ export interface ExerciseSet {
 }
 
 // Type for logged exercises
-interface LoggedExercise {
+export interface LoggedExercise {
   id: string;
   name: string;
   sets: ExerciseSet[];
 }
 
 // Type for active workout
-interface ActiveWorkout {
+export interface ActiveWorkout {
   id: string;
   name: string;
   startTime: number;

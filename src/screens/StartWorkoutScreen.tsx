@@ -49,11 +49,11 @@ export default function StartWorkoutScreen() {
 
     const handleStartWorkout = () => {
         if (selectedWorkout) {
-            // if (activeWorkout) {
-            //     show.alert("Active Workout", "Finish your current workout before starting a new one.");
-            //     return;
-            // }
-            // startWorkout(selectedWorkout);
+            if (activeWorkout) {
+                show.alert("Active Workout", "Finish your current workout before starting a new one.");
+                return;
+            }
+            startWorkout(selectedWorkout);
             console.log(`Starting workout: ${selectedWorkout.name}`);
         }
     };
