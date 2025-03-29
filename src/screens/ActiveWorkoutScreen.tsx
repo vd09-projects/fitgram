@@ -10,12 +10,12 @@ export default function ActiveWorkoutScreen() {
   const { activeWorkout, endWorkout, cancelWorkout } = useWorkoutStore();
 
   // State to track selected exercise
-  const [selectedExercise, setSelectedExercise] = useState<LoggedExercise | null>(null);
+  const [selectedExercise, setSelectedExercise] = useState<LoggedExercise | null>(activeWorkout?.exercises?.[activeWorkout?.currentExerciseIndex ?? 0] ?? null);
 
   // ✅ Fix: Always call hooks first, before conditional rendering
   useEffect(() => {
     if (activeWorkout && activeWorkout.exercises.length > 0) {
-      setSelectedExercise(activeWorkout.exercises[0]);
+      setSelectedExercise(activeWorkout?.exercises?.[activeWorkout?.currentExerciseIndex ?? 0] ?? null);
     }
   }, [activeWorkout]);
 
@@ -61,12 +61,14 @@ export default function ActiveWorkoutScreen() {
       {selectedExercise && <ExerciseLogger exercise={selectedExercise} />}
 
       {/* Buttons for ending/canceling workout */}
-      <TouchableOpacity style={styles.endButton} onPress={cancelWorkout}>
-        <Text>Cancel Workout</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.endButton} onPress={endWorkout}>
-        <Text>End Workout</Text>
-      </TouchableOpacity>
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity style={[styles.endButton, {backgroundColor:COLORS.cancelButton}]} onPress={cancelWorkout}>
+          <Text style={styles.buttonText}>Cancel Workout</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.endButton} onPress={endWorkout}>
+          <Text style={styles.buttonText}>Save Workout</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollableScreen>
   );
 }
@@ -74,5 +76,23 @@ export default function ActiveWorkoutScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, paddingBottom: 0 },
   title: { fontSize: FONT_SIZES.xLarge, fontWeight: "bold", marginBottom: 10, color: COLORS.textPrimary },
-  endButton: { backgroundColor: "red", padding: 15, marginTop: 20, alignItems: "center", borderRadius: BORDER_RADIUS },
+  buttonContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 20,
+  },
+  endButton: {
+    backgroundColor: COLORS.button,
+    padding: 10,
+    paddingVertical: 18,
+    alignItems: "center",
+    borderRadius: BORDER_RADIUS,
+    flex: 1,
+    marginHorizontal: 5,
+  },
+  buttonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
 });

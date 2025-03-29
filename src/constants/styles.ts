@@ -7,6 +7,8 @@ export const COLORS = {
   tertiary: '#5A3E62',
 
   button: '#4B5E79',
+  cancelButton: '#E74C3C', // A strong yet slightly muted red (less aggressive than pure red)
+  // cancelButton: '#D64545', // More vibrant than dull red but not neon
   dropdown: '#DCE5F7',
 
   accent: '#5A3E62',
@@ -20,9 +22,9 @@ export const COLORS = {
   // buttonBackground: '#A084CF',
   shadow: '#000',
 
-  fail: '#FF0000',  // Added red
-  sucess: '#00FF00', // Added green
-  warninig: '#FFA500', // Added orange
+  fail: '#FF0000',  // Red for failure/error
+  success: '#00FF00', // Green for success
+  warning: '#FFA500', // Orange for warnings
 };
 
 export const FONT_SIZES = {

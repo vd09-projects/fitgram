@@ -25,12 +25,12 @@ export interface ActiveWorkout {
   lastUpdated: number;
   exercises: LoggedExercise[];
   isPersisted: boolean;
+  currentExerciseIndex: number | null; // Track the current exercise index
 }
 
 // Zustand Store Type
 interface WorkoutStoreState {
   activeWorkout: ActiveWorkout | null;
-  currentExercise: LoggedExercise | null;
 
   // Actions
   startWorkout: (workout: WorkoutPlan) => Promise<void>;
@@ -43,7 +43,6 @@ interface WorkoutStoreState {
 
 export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
   activeWorkout: null,
-  currentExercise: null,
 
   /** 🔹 Start a Workout */
   startWorkout: async (workout: WorkoutPlan) => {
@@ -59,11 +58,12 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
         fields: ex.fields,
         sets: [], // Empty sets initially
       })),
-      isPersisted: false, // Mark as not persisted initially
+      isPersisted: false,
+      currentExerciseIndex: workout.exercises.length > 0 ? 0 : null,
     };
 
     await AsyncStorage.setItem("activeWorkout", JSON.stringify(newWorkout));
-    set({ activeWorkout: newWorkout, currentExercise: null });
+    set({ activeWorkout: newWorkout });
   },
 
   /** 🔹 Add a New Set to an Exercise */
@@ -82,10 +82,13 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       return exercise;
     });
 
+    const exerciseIndex = activeWorkout.exercises.findIndex((ex) => ex.id === exerciseId);
+
     const updatedWorkout: ActiveWorkout = {
       ...activeWorkout,
       exercises: updatedExercises,
       lastUpdated: Date.now(),
+      currentExerciseIndex: exerciseIndex !== -1 ? exerciseIndex : null,
     };
 
     await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
@@ -109,10 +112,13 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       return exercise;
     });
 
+    const exerciseIndex = activeWorkout.exercises.findIndex((ex) => ex.id === exerciseId);
+
     const updatedWorkout: ActiveWorkout = {
       ...activeWorkout,
       exercises: updatedExercises,
       lastUpdated: Date.now(),
+      currentExerciseIndex: exerciseIndex !== -1 ? exerciseIndex : null,
     };
 
     await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
@@ -131,7 +137,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
         console.log("Uploading workout to database:", activeWorkout);
         await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulating API delay
         await AsyncStorage.removeItem("activeWorkout"); // Clear local storage
-        set({ activeWorkout: null, currentExercise: null });
+        set({ activeWorkout: null });
       } else {
         // ❌ No internet - Store offline and mark as not persisted
         await AsyncStorage.setItem("activeWorkout", JSON.stringify({ ...activeWorkout, isPersisted: false }));
@@ -146,7 +152,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
   cancelWorkout: async () => {
     try {
       await AsyncStorage.removeItem("activeWorkout"); // Remove stored workout
-      set({ activeWorkout: null, currentExercise: null });
+      set({ activeWorkout: null });
       console.log("Workout cancelled successfully.");
     } catch (error) {
       console.error("Failed to cancel workout:", error);
