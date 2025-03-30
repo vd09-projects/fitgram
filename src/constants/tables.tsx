@@ -28,8 +28,28 @@ export const tables = {
                         },
                     },
                 },
-            }
+            },
+
+            workout_logs: {
+                collection: "workout_logs",
+                fields: {
+                    logs: {
+                        collection: "logs",
+                        fields: {
+                            timestamp: "timestamp", // Log timestamp
+                            exercises: {
+                                collection: "exercises",
+                                fields: {
+                                    exerciseId: "exerciseId",
+                                    exerciseName: "exerciseName",
+                                    sets: "sets",
+                                },
+                            },
+                        },
+                    },
+                },
+            },
         },
         predefinedExercises: "predefined_exercises",
-    }
-}
+    },
+};

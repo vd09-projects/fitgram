@@ -2,31 +2,9 @@
 import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WorkoutPlan, Exercise } from "../types/workoutType";
-
-// Type for a single set in an exercise
-export interface ExerciseSet {
-  id: number;
-  fields: Record<string, string | number>; // Dynamic fields (e.g., reps, weight, time)
-}
-
-// Type for logged exercises
-export interface LoggedExercise {
-  id: string;
-  name: string;
-  fields: string[];
-  sets: ExerciseSet[];
-}
-
-// Type for active workout
-export interface ActiveWorkout {
-  id: string;
-  name: string;
-  startTime: number;
-  lastUpdated: number;
-  exercises: LoggedExercise[];
-  isPersisted: boolean;
-  currentExerciseIndex: number | null; // Track the current exercise index
-}
+import { ActiveWorkout, ExerciseSet } from "../types/zustandWorkoutType";
+import { saveActiveWorkoutLog } from "../services/db/userDB";
+import show from "../utils/toastUtils";
 
 // Zustand Store Type
 interface WorkoutStoreState {
@@ -36,7 +14,7 @@ interface WorkoutStoreState {
   startWorkout: (workout: WorkoutPlan) => Promise<void>;
   addSetToExercise: (exerciseId: string, newSet: ExerciseSet) => Promise<void>;
   updateSet: (exerciseId: string, setId: number, updatedFields: Record<string, string | number>) => Promise<void>;
-  endWorkout: () => Promise<void>;
+  endWorkout: (userId : string | undefined) => Promise<void>;
   cancelWorkout: () => Promise<void>;
   loadWorkoutFromStorage: () => Promise<void>;
 }
@@ -126,7 +104,12 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
   },
 
   /** 🔹 End Workout & Persist Data */
-  endWorkout: async () => {
+  endWorkout: async (userId : string | undefined) => {
+    if (!userId) {
+      show.alert("User is not logined in.");
+      return;
+    }
+
     const { activeWorkout } = get();
     if (!activeWorkout) return;
 
@@ -135,7 +118,8 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       const isOnline = true; // Replace with actual connectivity check
       if (isOnline) {
         console.log("Uploading workout to database:", activeWorkout);
-        await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulating API delay
+        await saveActiveWorkoutLog(userId, activeWorkout); // Replace with actual user ID
+        show.info("Workout saved successfully!");
         await AsyncStorage.removeItem("activeWorkout"); // Clear local storage
         set({ activeWorkout: null });
       } else {

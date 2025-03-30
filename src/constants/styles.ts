@@ -7,7 +7,7 @@ export const COLORS = {
   tertiary: '#5A3E62',
 
   button: '#4B5E79',
-  buttonSecondary: '#B2B5E0',
+  buttonSecondary: '#5D6D7E',
   cancelButton: '#E74C3C', // A strong yet slightly muted red (less aggressive than pure red)
   // cancelButton: '#D64545', // More vibrant than dull red but not neon
   dropdown: '#DCE5F7',

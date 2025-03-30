@@ -1,10 +1,10 @@
 import React, { useState, useRef } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Animated } from "react-native";
 import { useWorkoutStore } from "../hooks/useWorkoutStore";
-import { LoggedExercise } from "../hooks/useWorkoutStore";
 import { Ionicons } from "@expo/vector-icons";
 import Table from "./Table";
 import { COLORS, SPACING } from "../constants/styles";
+import { LoggedExercise } from "../types/zustandWorkoutType";
 
 export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise }) {
   const { addSetToExercise } = useWorkoutStore();
@@ -31,8 +31,6 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
 
   return (
     <View style={styles.container}>
-      {/* <Text style={styles.exerciseName}>{exercise.name}</Text> */}
-
       <TouchableOpacity
         style={styles.toggleButton}
         onPress={toggleCollapse}
@@ -86,8 +84,8 @@ const styles = StyleSheet.create({
   exerciseName: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
   toggleButton: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: COLORS.dropdownBright, borderRadius: 5, marginBottom: SPACING.medium, marginLeft: SPACING.xSmall, padding: SPACING.medium,},
   toggleButtonText: { color: "#fff", fontWeight: "bold" },
-  inputContainer: { margin: SPACING.xSmall },
+  inputContainer: { marginBottom: SPACING.medium },
   input: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 5, backgroundColor: COLORS.textSecondary, margin: SPACING.xSmall, padding: SPACING.medium },
-  logButton: { backgroundColor: "#28a745", padding: 10, borderRadius: 5, alignItems: "center" },
+  logButton: { backgroundColor: COLORS.buttonSecondary, padding: 10, borderRadius: 5, alignItems: "center" },
   logButtonText: { color: "#fff", fontWeight: "bold" },
 });

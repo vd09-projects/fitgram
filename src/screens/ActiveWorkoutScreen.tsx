@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { LoggedExercise, useWorkoutStore } from "../hooks/useWorkoutStore";
+import { useWorkoutStore } from "../hooks/useWorkoutStore";
 import ExerciseLogger from "../components/ExerciseLogger";
 import SearchableInputDropdown, { DropdownSelection, DropdownItem } from "../components/SearchableInputDropdown";
 import ScrollableScreen from "../components/ScrollableScreen";
 import { BORDER_RADIUS, COLORS, FONT_SIZES } from "../constants/styles";
+import { LoggedExercise } from "../types/zustandWorkoutType";
+import { useAuthUser } from "../hooks/useAuthUser";
+import show from "../utils/toastUtils";
 
 export default function ActiveWorkoutScreen() {
+    const { user } = useAuthUser();
   const { activeWorkout, endWorkout, cancelWorkout } = useWorkoutStore();
 
   // State to track selected exercise
@@ -30,6 +34,14 @@ export default function ActiveWorkoutScreen() {
   // Handle exercise selection
   const handleSelectExercise = (selected: DropdownSelection<LoggedExercise>) => {
     setSelectedExercise(selected.value || null);
+  };
+
+  const handleSaveWorkout = async () => {
+    if (activeWorkout) {
+      await endWorkout(user?.uid);
+    } else {
+      show.alert("No active workout to save.");
+    }
   };
 
   if (!activeWorkout) {
@@ -65,7 +77,7 @@ export default function ActiveWorkoutScreen() {
         <TouchableOpacity style={[styles.endButton, {backgroundColor:COLORS.cancelButton}]} onPress={cancelWorkout}>
           <Text style={styles.buttonText}>Cancel Workout</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.endButton} onPress={endWorkout}>
+        <TouchableOpacity style={styles.endButton} onPress={handleSaveWorkout}>
           <Text style={styles.buttonText}>Save Workout</Text>
         </TouchableOpacity>
       </View>
