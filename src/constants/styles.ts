@@ -7,9 +7,11 @@ export const COLORS = {
   tertiary: '#5A3E62',
 
   button: '#4B5E79',
+  buttonSecondary: '#B2B5E0',
   cancelButton: '#E74C3C', // A strong yet slightly muted red (less aggressive than pure red)
   // cancelButton: '#D64545', // More vibrant than dull red but not neon
   dropdown: '#DCE5F7',
+  dropdownBright: '#5A3E62',
 
   accent: '#5A3E62',
   textPrimary: '#5A3E62',
@@ -27,7 +29,7 @@ export const COLORS = {
   warning: '#FFA500', // Orange for warnings
 
   // Table UI Elements
-  tableHeader: '#5A3E62', // Darker tone for headers for strong contrast
+  tableHeader: 'rgb(145, 85, 150)', // Darker tone for headers for strong contrast
   tableRowEven: '#E6E0EB', // Soft lavender for alternating row background
   tableRowOdd: '#F3EDF7', // Slightly lighter shade for differentiation
   tableBorder: '#B2B5E0', // Consistent with general border color

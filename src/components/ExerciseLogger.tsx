@@ -4,6 +4,7 @@ import { useWorkoutStore } from "../hooks/useWorkoutStore";
 import { LoggedExercise } from "../hooks/useWorkoutStore";
 import { Ionicons } from "@expo/vector-icons";
 import Table from "./Table";
+import { COLORS, SPACING } from "../constants/styles";
 
 export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise }) {
   const { addSetToExercise } = useWorkoutStore();
@@ -74,7 +75,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
       </View>
 
       <TouchableOpacity style={styles.logButton} onPress={logSet} accessibilityLabel="Log Set">
-        <Text style={styles.logButtonText}>Log Set</Text>
+        <Text style={styles.logButtonText}>Save Set</Text>
       </TouchableOpacity>
     </View>
   );
@@ -83,10 +84,10 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
 const styles = StyleSheet.create({
   container: { paddingVertical: 15, borderBottomWidth: 1, borderColor: "#ddd" },
   exerciseName: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
-  toggleButton: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 10, backgroundColor: "#007bff", borderRadius: 5, marginBottom: 10 },
+  toggleButton: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: COLORS.dropdownBright, borderRadius: 5, marginBottom: SPACING.medium, marginLeft: SPACING.xSmall, padding: SPACING.medium,},
   toggleButtonText: { color: "#fff", fontWeight: "bold" },
-  inputContainer: { marginBottom: 10 },
-  input: { padding: 8, borderWidth: 1, borderColor: "#ccc", borderRadius: 5, marginVertical: 5 },
+  inputContainer: { margin: SPACING.xSmall },
+  input: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 5, backgroundColor: COLORS.textSecondary, margin: SPACING.xSmall, padding: SPACING.medium },
   logButton: { backgroundColor: "#28a745", padding: 10, borderRadius: 5, alignItems: "center" },
   logButtonText: { color: "#fff", fontWeight: "bold" },
 });
