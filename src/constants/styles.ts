@@ -25,6 +25,14 @@ export const COLORS = {
   fail: '#FF0000',  // Red for failure/error
   success: '#00FF00', // Green for success
   warning: '#FFA500', // Orange for warnings
+
+  // Table UI Elements
+  tableHeader: '#5A3E62', // Darker tone for headers for strong contrast
+  tableRowEven: '#E6E0EB', // Soft lavender for alternating row background
+  tableRowOdd: '#F3EDF7', // Slightly lighter shade for differentiation
+  tableBorder: '#B2B5E0', // Consistent with general border color
+  tableText: '#4B5E79', // Readable, slightly desaturated dark blue
+  tableSelectedFilter: '#B2B5E0', // Matches secondary for highlighted filters
 };
 
 export const FONT_SIZES = {
