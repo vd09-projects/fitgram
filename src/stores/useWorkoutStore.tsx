@@ -119,7 +119,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       if (isOnline) {
         console.log("Uploading workout to database:", activeWorkout);
         await saveActiveWorkoutLog(userId, activeWorkout); // Replace with actual user ID
-        show.info("Workout saved successfully!");
+        show.success("Workout saved successfully!");
         await AsyncStorage.removeItem("activeWorkout"); // Clear local storage
         set({ activeWorkout: null });
       } else {

@@ -1,9 +1,9 @@
-// src/components/Footer.tsx
 import React from 'react';
-import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { footerStyles } from '../constants/styles';
 import { LayoutRoutes } from '../constants/routes';
+import { useKeyboardVisibility } from '../hooks/useKeyboardVisibility'; // Optimized hook
 
 interface FooterProps {
   activeTab: keyof typeof LayoutRoutes;
@@ -11,6 +11,10 @@ interface FooterProps {
 }
 
 export default function Footer({ activeTab, onChangeTab }: FooterProps) {
+  const isKeyboardVisible = useKeyboardVisibility(); // No effect needed, just works
+
+  if (isKeyboardVisible) return null; // Hide footer when keyboard is visible
+
   const tabs = [
     { key: LayoutRoutes.Feed, label: 'Feed', icon: 'home-outline' as const },
     { key: LayoutRoutes.Workout, label: 'Workout', icon: 'barbell-outline' as const },

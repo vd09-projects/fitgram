@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Animated } from "react-native";
-import { useWorkoutStore } from "../hooks/useWorkoutStore";
+import { useWorkoutStore } from "../stores/useWorkoutStore";
 import { Ionicons } from "@expo/vector-icons";
 import Table from "./Table";
 import { COLORS, SPACING } from "../constants/styles";

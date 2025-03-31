@@ -1,16 +1,23 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { useWorkoutStore } from "../hooks/useWorkoutStore";
+import { useWorkoutStore } from "../stores/useWorkoutStore";
 import ExerciseLogger from "../components/ExerciseLogger";
 import SearchableInputDropdown, { DropdownSelection, DropdownItem } from "../components/SearchableInputDropdown";
 import ScrollableScreen from "../components/ScrollableScreen";
-import { BORDER_RADIUS, COLORS, FONT_SIZES } from "../constants/styles";
+import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "../constants/styles";
 import { LoggedExercise } from "../types/zustandWorkoutType";
 import { useAuthUser } from "../hooks/useAuthUser";
 import show from "../utils/toastUtils";
+import { WorkoutScreenNavigationProp } from "../navigation/WorkoutNavigator";
+import { WorkoutRoutes } from "../constants/routes";
+import { useNavigation } from "@react-navigation/native";
+
+type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.LogWorkout>;
 
 export default function ActiveWorkoutScreen() {
-    const { user } = useAuthUser();
+  const navigation = useNavigation<workoutScreenNavigationProp>();
+
+  const { user } = useAuthUser();
   const { activeWorkout, endWorkout, cancelWorkout } = useWorkoutStore();
 
   // State to track selected exercise
@@ -45,7 +52,16 @@ export default function ActiveWorkoutScreen() {
   };
 
   if (!activeWorkout) {
-    return <Text>No active workout. Start a new one.</Text>;
+    return (
+      <View style={styles.noWorkoutContainer}>
+        <Text style={styles.noWorkoutText}>No active workout</Text>
+        <TouchableOpacity
+          hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+          onPress={() => navigation.navigate(WorkoutRoutes.StartWorkout)}>
+          <Text style={styles.switchText}>click to select a new one</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   // ❌ Don't return early before hooks. Instead, render conditionally inside JSX.
@@ -74,7 +90,7 @@ export default function ActiveWorkoutScreen() {
 
       {/* Buttons for ending/canceling workout */}
       <View style={styles.buttonContainer}>
-        <TouchableOpacity style={[styles.endButton, {backgroundColor:COLORS.cancelButton}]} onPress={cancelWorkout}>
+        <TouchableOpacity style={[styles.endButton, { backgroundColor: COLORS.cancelButton }]} onPress={cancelWorkout}>
           <Text style={styles.buttonText}>Cancel Workout</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.endButton} onPress={handleSaveWorkout}>
@@ -106,5 +122,28 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "bold",
     fontSize: 16,
+  },
+  noWorkoutContainer: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 90,
+    backgroundColor: COLORS.primary,
+  },
+  noWorkoutText: {
+    fontSize: FONT_SIZES.large,
+    color: COLORS.textPrimary,
+    textAlign: "center",
+    fontWeight: "bold",
+    opacity: 0.9,
+  },
+  switchText: {
+    fontSize: FONT_SIZES.medium,
+    color: COLORS.textPrimary,
+    textAlign: 'center',
+    fontWeight: "bold",
+    textDecorationLine: 'underline',
+    fontStyle: 'italic',
+    paddingVertical: SPACING.small,
+    opacity: 0.8,
   },
 });

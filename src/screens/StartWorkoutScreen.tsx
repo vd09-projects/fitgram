@@ -14,14 +14,14 @@ import { WorkoutPlan } from "../types/workoutType";
 import { BORDER_RADIUS, COLORS } from "../constants/styles";
 import ScrollableScreen from "../components/ScrollableScreen";
 import SearchBox from "../components/SearchBox";
-import { useWorkoutStore } from "../hooks/useWorkoutStore";
+import { useWorkoutStore } from "../stores/useWorkoutStore";
 import { useSyncWorkout } from "../hooks/useSyncWorkout";
 import show from "../utils/toastUtils";
 import { WorkoutRoutes } from "../constants/routes";
 import { WorkoutScreenNavigationProp } from "../navigation/WorkoutNavigator";
 import { useNavigation } from "@react-navigation/native";
 
-type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.WorkoutHome>;
+type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.StartWorkout>;
 
 export default function StartWorkoutScreen() {
     const navigation = useNavigation<workoutScreenNavigationProp>();

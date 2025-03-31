@@ -1,6 +1,6 @@
 // src/hooks/useSyncWorkout.tsx
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useWorkoutStore } from "./useWorkoutStore";
+import { useWorkoutStore } from "../stores/useWorkoutStore";
 
 export const useSyncWorkout = () => {
   const { activeWorkout, endWorkout } = useWorkoutStore();
