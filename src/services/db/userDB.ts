@@ -9,8 +9,11 @@ import {
   doc,
   getDoc,
   getDocs,
+  orderBy,
+  query,
   setDoc,
   updateDoc,
+  limit as limitFn,
 } from "firebase/firestore";
 
 export const getAllWorkoutPlans = async (
@@ -166,17 +169,58 @@ export const saveActiveWorkoutLog = async (userId: string, workout: ActiveWorkou
   }
 };
 
-export const getWorkoutLogExercises = async (userId: string, workoutId: string, logId: string) => {
-  if (!userId || !workoutId || !logId) return [];
+export const getLatestWorkoutLogExercises = async (
+  userId: string,
+  workoutId: string,
+  n: number
+) => {
+  const logsPath = `users/${userId}/workout_logs/${workoutId}/logs`;
+  const logsRef = collection(db, logsPath);
+  const logsQuery = query(logsRef, orderBy("timestamp", "desc"), limitFn(n));
 
   try {
-    const querySnapshot = await getDocs(
-      collection(db, "users", userId, "workout_logs", workoutId, "logs", logId, "exercises")
-    );
+    const logSnapshots = await getDocs(logsQuery);
+    const allLogsWithExercises: Record<string, any[]> = {};
 
-    return querySnapshot.docs.map((doc) => doc.data());
+    for (const logDoc of logSnapshots.docs) {
+      const logId = logDoc.id;
+      const exercisesRef = collection(db, `${logsPath}/${logId}/exercises`);
+      const exercisesSnap = await getDocs(exercisesRef);
+
+      const exercises = exercisesSnap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      allLogsWithExercises[logId] = exercises;
+    }
+
+    return allLogsWithExercises; // key = logId, value = exercise array
   } catch (error) {
-    console.error("❌ Error fetching workout exercises:", error);
-    return [];
+    console.error("❌ Error fetching latest workout log exercises:", error);
+    return null;
+  }
+};
+
+
+export const getWorkoutLogExercisesByLogId = async (
+  userId: string,
+  workoutId: string,
+  logId: string
+) => {
+  const exercisesRef = collection(db, `users/${userId}/workout_logs/${workoutId}/logs/${logId}/exercises`);
+
+  try {
+    const exercisesSnap = await getDocs(exercisesRef);
+
+    const exercises = exercisesSnap.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    return exercises;
+  } catch (error) {
+    console.error("❌ Error fetching workout log exercises by logId:", error);
+    return null;
   }
 };
