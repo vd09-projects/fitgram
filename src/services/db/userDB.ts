@@ -1,4 +1,5 @@
 import { tables } from "../../constants/tables";
+import { ExerciseLog, WorkoutLog } from "../../types/workoutLogs";
 import { WorkoutPlan, WorkoutPlanDB } from "../../types/workoutType";
 import { ActiveWorkout } from "../../types/zustandWorkoutType";
 import { db } from "../firebase/firebase";
@@ -169,54 +170,71 @@ export const saveActiveWorkoutLog = async (userId: string, workout: ActiveWorkou
   }
 };
 
+
 export const getLatestWorkoutLogExercises = async (
   userId: string,
   workoutId: string,
   n: number
-) => {
+): Promise<WorkoutLog[] | null> => {
   const logsPath = `users/${userId}/workout_logs/${workoutId}/logs`;
   const logsRef = collection(db, logsPath);
   const logsQuery = query(logsRef, orderBy("timestamp", "desc"), limitFn(n));
 
   try {
     const logSnapshots = await getDocs(logsQuery);
-    const allLogsWithExercises: Record<string, any[]> = {};
+    const workoutLogs: WorkoutLog[] = [];
 
     for (const logDoc of logSnapshots.docs) {
       const logId = logDoc.id;
+      const logData = logDoc.data();
+
       const exercisesRef = collection(db, `${logsPath}/${logId}/exercises`);
       const exercisesSnap = await getDocs(exercisesRef);
 
-      const exercises = exercisesSnap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
+      const exercises: ExerciseLog[] = exercisesSnap.docs.map(doc => ({
+        exerciseId: doc.id,
+        exerciseName: doc.data().exerciseName,
+        timestamp: doc.data().timestamp,
+        sets: doc.data().sets,
       }));
 
-      allLogsWithExercises[logId] = exercises;
+      workoutLogs.push({
+        id: logId,
+        workoutId,
+        userId,
+        exercises,
+      });
     }
 
-    return allLogsWithExercises; // key = logId, value = exercise array
+    return workoutLogs;
   } catch (error) {
     console.error("❌ Error fetching latest workout log exercises:", error);
     return null;
   }
 };
 
-
 export const getWorkoutLogExercisesByLogId = async (
   userId: string,
   workoutId: string,
   logId: string
-) => {
-  const exercisesRef = collection(db, `users/${userId}/workout_logs/${workoutId}/logs/${logId}/exercises`);
+): Promise<ExerciseLog[] | null> => {
+  const exercisesRef = collection(
+    db,
+    `users/${userId}/workout_logs/${workoutId}/logs/${logId}/exercises`
+  );
 
   try {
     const exercisesSnap = await getDocs(exercisesRef);
 
-    const exercises = exercisesSnap.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const exercises: ExerciseLog[] = exercisesSnap.docs.map(doc => {
+      const data = doc.data();
+      return {
+        exerciseId: doc.id,
+        exerciseName: data.exerciseName,
+        timestamp: data.timestamp,
+        sets: data.sets,
+      };
+    });
 
     return exercises;
   } catch (error) {
