@@ -20,14 +20,17 @@
     - Log Exercise / Start Workout  
 1. **(1-2 days)** Create the **Add exercise page** → ✅
 1. **(1-2 days)** Implement **exercise logging functionality** → ✅
-    1. **(1-2 days)** stop showing footer when writing input → 🚫
-    2. **(2-3 days)** adding validations to inputs → 🚫
-1. **(2-3 days)** Develop a **workout management page** → 🚫
-1. **(2-3 days)** Add **exercise logging functionality** within the workout management page → 🚫
-1. **(2-3 days)** Implement **workout & exercise management features** → 🚫
+    1. **(1-2 days)** stop showing footer when writing input → ✅
+    1. **(2-3 days)** adding validations to inputs → 🚫
+1. **(2-3 days)** Develop a **workout management page** → ✅
+    1. **(1 day)** rename the layout better → 🚫
+1. **(2-3 days)** Add **exercise logging functionality** within the workout management page → ✅
+    1. **(1-2 days)** make input box like when wriring data in input box then field name come in top → 🚫
+1. **(2-3 days)** Implement **workout & exercise management features** → 🚫 ???
+1. **(2-3 days)** When fetching data from DB add loading in a mean time so to not show any random/wrong data to user → 🚫
 
-### 🔹 Phase 3: Data Tracking & Visualization  
-1. **(2-3 days)** Develop the **data viewing feature**  
+### 🔹 Phase 3: Data Tracking & Visualization → 🚫
+1. **(2-3 days)** Develop the **data viewing feature** → 🚫
 1. **(1-2 days)** Design the **data viewing layout**  
 1. **(2-3 days)** Implement **data visualization graphs**  
 1. **(2-3 days)** Add **interactive data functionality**  

@@ -6,8 +6,10 @@ import { COLORS } from '../constants/styles';
 import { WorkoutRoutes } from '../constants/routes';
 import StartWorkoutScreen from '../screens/StartWorkoutScreen';
 import ActiveWorkoutScreen from '../screens/ActiveWorkoutScreen';
+import WorkoutLogsScreen from '../screens/WorkoutLogsScreen';
 
 export type WorkoutStackParamList = {
+    WorkoutLogs: undefined;
     AddExercise: undefined;
     StartWorkout: undefined;
     WorkoutHome: undefined;
@@ -26,6 +28,12 @@ export default function WorkoutNavigator() {
                 headerTitleStyle: { fontSize: 18, fontWeight: 'bold' }
             }}
         >
+            <Stack.Screen
+                name={WorkoutRoutes.WorkoutLogs}
+                component={WorkoutLogsScreen}
+                options={{ headerShown: false }}
+            />
+
             <Stack.Screen
                 name={WorkoutRoutes.WorkoutHome}
                 component={WorkoutScreen}

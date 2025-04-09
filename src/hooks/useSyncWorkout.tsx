@@ -1,8 +1,10 @@
 // src/hooks/useSyncWorkout.tsx
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useWorkoutStore } from "../stores/useWorkoutStore";
+import { useAuthUser } from "./useAuthUser";
 
 export const useSyncWorkout = () => {
+  const { user } = useAuthUser();
   const { activeWorkout, endWorkout } = useWorkoutStore();
 
   /** ✅ Check Internet Connectivity */
@@ -20,7 +22,7 @@ export const useSyncWorkout = () => {
         console.log("Syncing workout to the database:", activeWorkout);
         await new Promise((resolve) => setTimeout(resolve, 1000));
         await AsyncStorage.removeItem("activeWorkout");
-        await endWorkout(); // Reset state
+        await endWorkout(user?.uid); // Reset state
       } catch (error) {
         console.error("Sync failed:", error);
       }

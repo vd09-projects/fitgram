@@ -18,7 +18,8 @@ const workoutOptions = [
     title: 'Exercise History',
     description: 'Track past workouts & progress.',
     icon: 'time-outline',
-    action: (navigation: workoutScreenNavigationProp) => console.log('Navigating to Exercise History'), 
+    // action: (navigation: workoutScreenNavigationProp) => console.log('Navigating to Exercise History'), 
+    action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.WorkoutLogs), 
   },
   {
     title: 'Add New Workout',

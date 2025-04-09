@@ -1,5 +1,5 @@
 import { tables } from "../../constants/tables";
-import { ExerciseLog, WorkoutLog } from "../../types/workoutLogs";
+import { ExerciseLog, SetLog, WorkoutLog } from "../../types/workoutLogs";
 import { WorkoutPlan, WorkoutPlanDB } from "../../types/workoutType";
 import { ActiveWorkout } from "../../types/zustandWorkoutType";
 import { db } from "../firebase/firebase";
@@ -15,6 +15,7 @@ import {
   setDoc,
   updateDoc,
   limit as limitFn,
+  startAfter,
 } from "firebase/firestore";
 
 export const getAllWorkoutPlans = async (
@@ -140,7 +141,10 @@ export const overrideWorkoutDetails = async (
   }
 };
 
-export const saveActiveWorkoutLog = async (userId: string, workout: ActiveWorkout) => {
+export const saveActiveWorkoutLog = async (
+  userId: string,
+  workout: ActiveWorkout
+) => {
   if (!userId || !workout || !workout.exercises.length) {
     console.error("❌ Missing required parameters.");
     return;
@@ -170,7 +174,6 @@ export const saveActiveWorkoutLog = async (userId: string, workout: ActiveWorkou
   }
 };
 
-
 export const getLatestWorkoutLogExercises = async (
   userId: string,
   workoutId: string,
@@ -191,7 +194,7 @@ export const getLatestWorkoutLogExercises = async (
       const exercisesRef = collection(db, `${logsPath}/${logId}/exercises`);
       const exercisesSnap = await getDocs(exercisesRef);
 
-      const exercises: ExerciseLog[] = exercisesSnap.docs.map(doc => ({
+      const exercises: ExerciseLog[] = exercisesSnap.docs.map((doc) => ({
         exerciseId: doc.id,
         exerciseName: doc.data().exerciseName,
         timestamp: doc.data().timestamp,
@@ -226,7 +229,7 @@ export const getWorkoutLogExercisesByLogId = async (
   try {
     const exercisesSnap = await getDocs(exercisesRef);
 
-    const exercises: ExerciseLog[] = exercisesSnap.docs.map(doc => {
+    const exercises: ExerciseLog[] = exercisesSnap.docs.map((doc) => {
       const data = doc.data();
       return {
         exerciseId: doc.id,
@@ -242,3 +245,75 @@ export const getWorkoutLogExercisesByLogId = async (
     return null;
   }
 };
+
+type GetWorkoutLogsOptions = {
+  page?: number;
+  limit?: number;
+  exerciseId?: string;
+  setId?: number;
+};
+
+export async function getWorkoutLogs(
+  userId: string,
+  workoutId: string,
+  options: GetWorkoutLogsOptions = {}
+): Promise<WorkoutLog[]> {
+  const { page = 1, limit = 5, exerciseId, setId } = options;
+
+  const logsPath = `users/${userId}/workout_logs/${workoutId}/logs`;
+  const logsRef = collection(db, logsPath);
+  const logsQuery = query(
+    logsRef,
+    orderBy("timestamp", "desc"),
+    startAfter((page - 1) * limit),
+    limitFn(page * limit)
+  );
+
+  try {
+    const logSnapshots = await getDocs(logsQuery);
+    const allLogs = logSnapshots.docs;
+
+    const result: WorkoutLog[] = [];
+
+    for (const logDoc of allLogs) {
+      const logId = logDoc.id;
+      const exercisesRef = collection(db, `${logsPath}/${logId}/exercises`);
+      const exercisesSnap = await getDocs(exercisesRef);
+
+      const filteredExercises: ExerciseLog[] = [];
+
+      for (const exerciseDoc of exercisesSnap.docs) {
+        const data = exerciseDoc.data();
+
+        // ✅ Filter by exercise if requested
+        if (exerciseId && data.exerciseId !== exerciseId) continue;
+
+        let sets: SetLog[] = data.sets || [];
+
+        // ✅ Filter specific set if provided
+        if (typeof setId === "number") {
+          sets = sets.filter((s: SetLog) => s.id === setId);
+        }
+
+        filteredExercises.push({
+          exerciseId: data.exerciseId,
+          exerciseName: data.exerciseName,
+          timestamp: data.timestamp,
+          sets,
+        });
+      }
+
+      result.push({
+        id: logId,
+        workoutId,
+        userId,
+        exercises: filteredExercises,
+      });
+    }
+
+    return result;
+  } catch (error) {
+    console.error("❌ Error fetching paginated logs:", error);
+    return [];
+  }
+}
