@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import Table from "./Table";
 import { COLORS, SPACING } from "../constants/styles";
 import { LoggedExercise } from "../types/zustandWorkoutType";
+import CollapsibleSection from "./CollapsibleSection";
 
 export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise }) {
   const { addSetToExercise } = useWorkoutStore();
@@ -31,32 +32,10 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        style={styles.toggleButton}
-        onPress={toggleCollapse}
-        activeOpacity={0.7}
-        accessibilityLabel="Toggle Log History"
-      >
-        <Text style={styles.toggleButtonText}>Log History</Text>
-        <Animated.View
-          style={{
-            transform: [
-              {
-                rotate: rotation.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ["0deg", "180deg"],
-                }),
-              },
-            ],
-          }}
-        >
-          <Ionicons name="chevron-down" size={20} color="#fff" />
-        </Animated.View>
-      </TouchableOpacity>
 
-      {!isCollapsed && (
+      <CollapsibleSection title={<Text style={styles.toggleButtonText}>Log History</Text>}>
         <Table key={exercise.id} headers={exercise.fields} data={exercise.sets.map((set) => set.fields)} />
-      )}
+      </CollapsibleSection>
 
       <View style={styles.inputContainer}>
         {exercise.fields.map((field, index) => (
@@ -82,7 +61,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
 const styles = StyleSheet.create({
   container: { paddingVertical: 15, borderBottomWidth: 1, borderColor: "#ddd" },
   exerciseName: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
-  toggleButton: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: COLORS.dropdownBright, borderRadius: 5, marginBottom: SPACING.medium, marginLeft: SPACING.xSmall, padding: SPACING.medium,},
+  toggleButton: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: COLORS.dropdownBright, borderRadius: 5, marginBottom: SPACING.medium, marginLeft: SPACING.xSmall, padding: SPACING.medium, },
   toggleButtonText: { color: "#fff", fontWeight: "bold" },
   inputContainer: { marginBottom: SPACING.medium },
   input: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 5, backgroundColor: COLORS.textSecondary, margin: SPACING.xSmall, padding: SPACING.medium },

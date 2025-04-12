@@ -13,6 +13,7 @@ import {
 import { ExerciseLog } from "../types/workoutLogs";
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONT_SIZES, SPACING } from "../constants/styles";
+import CollapsibleSection from "./CollapsibleSection";
 
 type Props = {
     log: ExerciseLog;
@@ -63,23 +64,10 @@ export default function ExerciseLogTableFlatList({
 
     return (
         <View style={styles.container}>
-            {/* Collapsible Header */}
-            <TouchableOpacity onPress={toggleCollapse} style={styles.headerTouchable}>
-                <View style={styles.headerRow}>
-                    <Ionicons
-                        name={isCollapsed ? "chevron-up-outline" : "chevron-down-outline"}
-                        size={18}
-                        color={COLORS.textSecondary}
-                        style={styles.icon}
-                    />
-                    <Text style={styles.dateText}>
-                        Logged on: {new Date(log.timestamp).toLocaleString()}
-                    </Text>
-                </View>
-            </TouchableOpacity>
-
             {/* Collapsible Content */}
-            {!isCollapsed && (
+            <CollapsibleSection title={<Text style={styles.dateText}>
+                Logged on: {new Date(log.timestamp).toLocaleString()}
+            </Text>}>
                 <ScrollView horizontal>
                     <View>
                         {/* Table Header */}
@@ -107,7 +95,7 @@ export default function ExerciseLogTableFlatList({
                         />
                     </View>
                 </ScrollView>
-            )}
+            </CollapsibleSection>
         </View>
     );
 }
@@ -155,6 +143,7 @@ const styles = StyleSheet.create({
     headerRow: {
         flexDirection: "row",
         alignItems: "center",
+        justifyContent: "space-between",
     },
 
     icon: {
