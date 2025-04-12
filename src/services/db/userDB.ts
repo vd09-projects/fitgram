@@ -1,3 +1,4 @@
+import { getAuth } from "firebase/auth";
 import { tables } from "../../constants/tables";
 import { ExerciseLog, SetLog, WorkoutLog } from "../../types/workoutLogs";
 import { WorkoutPlan, WorkoutPlanDB } from "../../types/workoutType";
@@ -16,6 +17,7 @@ import {
   updateDoc,
   limit as limitFn,
   startAfter,
+  startAt,
 } from "firebase/firestore";
 
 export const getAllWorkoutPlans = async (
@@ -151,17 +153,36 @@ export const saveActiveWorkoutLog = async (
   }
 
   try {
-    const logId = `log_${workout.id}_${Date.now()}`.replace(/\s+/g, "_"); // Replace spaces with underscores
-    const workoutRef = `users/${userId}/workout_logs/${workout.id}/logs/${logId}/exercises`;
+    const dateNow = Date.now();
+    const logId = `log_${workout.id}_${dateNow}`.replace(/\s+/g, "_");
+    
+    // Paths
+    const workoutRefPath = `users/${userId}/workout_logs/${workout.id}`;
+    const logRefPath = `${workoutRefPath}/logs/${logId}`;
+    const exercisesRefPath = `${logRefPath}/exercises`;
 
-    // Store each exercise as a separate document
+    // 1️⃣ Save the workout document (if not exists)
+    const workoutRef = doc(db, workoutRefPath);
+    await setDoc(workoutRef, {
+      workoutId: workout.id,
+      createdAt: dateNow,
+    }, { merge: true }); // merge avoids overwriting existing data
+
+    // 2️⃣ Save the log document
+    const logRef = doc(db, logRefPath);
+    await setDoc(logRef, {
+      logId,
+      timestamp: dateNow,
+    });
+
+    // 3️⃣ Save each exercise document
     for (const exercise of workout.exercises) {
-      const exerciseRef = doc(db, workoutRef, exercise.id); // Use exercise name as the document ID
+      const exerciseRef = doc(db, exercisesRefPath, exercise.id);
 
       const exerciseData = {
         exerciseId: exercise.id,
         exerciseName: exercise.name,
-        timestamp: Date.now(),
+        timestamp: dateNow,
         sets: exercise.sets,
       };
 
@@ -265,9 +286,11 @@ export async function getWorkoutLogs(
   const logsQuery = query(
     logsRef,
     orderBy("timestamp", "desc"),
-    startAfter((page - 1) * limit),
+    // startAt(((page - 1) * limit)),
     limitFn(page * limit)
   );
+
+  console.log("Fetching logs from path:");
 
   try {
     const logSnapshots = await getDocs(logsQuery);
