@@ -1,6 +1,8 @@
 export type SetLog = {
   id: number;
-  [key: string]: string | number; // Each set contains flexible key-value attributes (e.g., Reps, Sets, Weight, Duration, etc.)
+  fields: {
+    [key: string]: string; // e.g., "Reps", "Sets", "Weight (kg)"
+  };
 };
 
 export type ExerciseLog = {

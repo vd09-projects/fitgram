@@ -9,6 +9,7 @@ import { getWorkoutLogs } from "../services/db/userDB";
 import { useAuthUser } from "../hooks/useAuthUser";
 import show from "../utils/toastUtils";
 import { WorkoutLog } from "../types/workoutLogs";
+import ExerciseLogTableFlatList from "../components/ExerciseLogTableFlatList";
 
 export default function WorkoutLogsScreen() {
       const { user } = useAuthUser();
@@ -114,24 +115,21 @@ export default function WorkoutLogsScreen() {
                   </TouchableOpacity>
 
                   {/* 🔽 Workout Logs */}
-                  {workoutLogs && workoutLogs.map((log, index) => (
-                        <View key={index} style={styles.logCard}>
-                              <Text style={styles.logTitle}>{log.workoutId}</Text>
-                              {
-                                    log.exercises.map((exercise) => (
-                                          <View key={exercise.exerciseId}>
-                                                <Text style={styles.logTitle}>{exercise.exerciseName}</Text>
-                                                {exercise.sets.map((set, setIndex) => (
-                                                      <Text key={setIndex} style={styles.logSubtitle}>
-                                                            Set {setIndex + 1}: {JSON.stringify(set)}
-                                                      </Text>
-                                                ))}
-                                          </View>
-                                    ))
-                              }
-                        </View>
-                  ))}
+                  {workoutLogs && selectedExercises && workoutLogs.map((log, logIndex) => {
+                        const selectedExerciseLog = log.exercises.find(
+                              (exercise) => exercise.exerciseId === selectedExercises.value?.id
+                        );
 
+                        if (!selectedExerciseLog) return null;
+
+                        return (
+                              <ExerciseLogTableFlatList
+                                    key={logIndex}
+                                    log={selectedExerciseLog}
+                                    enableVerticalScroll={false} // Change to true if logs are long
+                              />
+                        );
+                  })}
 
             </ScrollableScreen>
       );
@@ -168,7 +166,7 @@ const styles = StyleSheet.create({
       logTitle: {
             fontSize: FONT_SIZES.large,
             fontWeight: "bold",
-            color: COLORS.textPrimary,
+            color: COLORS.textSecondary,
       },
       logSubtitle: {
             fontSize: FONT_SIZES.small,
