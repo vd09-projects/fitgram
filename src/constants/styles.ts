@@ -35,10 +35,14 @@ export const COLORS = {
   tableBorder: '#B2B5E0', // Consistent with general border color
   tableText: '#4B5E79', // Readable, slightly desaturated dark blue
   tableSelectedFilter: '#B2B5E0', // Matches secondary for highlighted filters
+
+  collapsed: '#708090',
+  collapsedBold: '#556B6F',
 };
 
 export const FONT_SIZES = {
   small: 12,
+  xMedium: 14,
   medium: 16,
   large: 18,
   xLarge: 24,

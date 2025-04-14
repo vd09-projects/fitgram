@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { ExerciseLog } from "../types/workoutLogs";
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, FONT_SIZES, SPACING } from "../constants/styles";
+import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "../constants/styles";
 import CollapsibleSection from "./CollapsibleSection";
 
 type Props = {
@@ -29,14 +29,7 @@ export default function ExerciseLogTableFlatList({
     log,
     enableVerticalScroll = false,
 }: Props) {
-    const [isCollapsed, setIsCollapsed] = useState(false);
-
     if (!log || !log.sets || log.sets.length === 0) return null;
-
-    const toggleCollapse = () => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setIsCollapsed(!isCollapsed);
-    };
 
     const allFieldKeys = Array.from(
         new Set(
@@ -63,11 +56,15 @@ export default function ExerciseLogTableFlatList({
     );
 
     return (
-        <View style={styles.container}>
+        <View>
             {/* Collapsible Content */}
-            <CollapsibleSection title={<Text style={styles.dateText}>
-                Logged on: {new Date(log.timestamp).toLocaleString()}
-            </Text>}>
+            <CollapsibleSection
+                title={<Text style={styles.dateText}>
+                    Logged on: {new Date(log.timestamp).toLocaleString()}
+                </Text>}
+                defaultCollapsed={false}
+                collapsibleStyle={styles.container}
+            >
                 <ScrollView horizontal>
                     <View>
                         {/* Table Header */}
@@ -102,9 +99,9 @@ export default function ExerciseLogTableFlatList({
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: COLORS.tertiary,
-        padding: SPACING.medium,
-        borderRadius: 10,
+        backgroundColor: COLORS.collapsed,
+        padding: SPACING.small,
+        borderRadius: BORDER_RADIUS,
         marginBottom: SPACING.medium,
     },
     headerTouchable: {
@@ -112,7 +109,7 @@ const styles = StyleSheet.create({
     },
     dateText: {
         fontSize: FONT_SIZES.medium,
-        fontWeight: "600",
+        fontWeight: "400",
         color: COLORS.textSecondary,
     },
     row: {
@@ -126,10 +123,13 @@ const styles = StyleSheet.create({
         textAlign: "center",
         fontSize: FONT_SIZES.small,
         color: COLORS.textSecondary,
+        marginLeft: SPACING.xSmall,
     },
     headerCell: {
         fontWeight: "bold",
-        color: COLORS.textSecondary,
+        color: COLORS.collapsedBold,
+        fontSize: FONT_SIZES.xMedium,
+        paddingVertical: 2,
     },
     fieldCell: {
         fontWeight: "600",
