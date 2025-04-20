@@ -9,13 +9,15 @@ import { LoggedExercise } from "../types/zustandWorkoutType";
 import { useAuthUser } from "../hooks/useAuthUser";
 import show from "../utils/toastUtils";
 import { WorkoutScreenNavigationProp } from "../navigation/WorkoutNavigator";
-import { WorkoutRoutes } from "../constants/routes";
+import { LayoutRoutes, WorkoutRoutes } from "../constants/routes";
 import { useNavigation } from "@react-navigation/native";
 
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.LogWorkout>;
+type layoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof LayoutRoutes.LogWorkout>;
 
 export default function ActiveWorkoutScreen() {
   const navigation = useNavigation<workoutScreenNavigationProp>();
+  const layoutNavigation = useNavigation<layoutScreenNavigationProp>();
 
   const { user } = useAuthUser();
   const { activeWorkout, endWorkout, cancelWorkout } = useWorkoutStore();

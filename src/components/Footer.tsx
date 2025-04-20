@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { footerStyles } from '../constants/styles';
 import { LayoutRoutes } from '../constants/routes';
 import { useKeyboardVisibility } from '../hooks/useKeyboardVisibility'; // Optimized hook
+import { useWorkoutStore } from '../stores/useWorkoutStore';
 
 interface FooterProps {
   activeTab: keyof typeof LayoutRoutes;
@@ -12,12 +13,14 @@ interface FooterProps {
 
 export default function Footer({ activeTab, onChangeTab }: FooterProps) {
   const isKeyboardVisible = useKeyboardVisibility(); // No effect needed, just works
+  const { activeWorkout } = useWorkoutStore();
 
   if (isKeyboardVisible) return null; // Hide footer when keyboard is visible
 
   const tabs = [
     { key: LayoutRoutes.Feed, label: 'Feed', icon: 'home-outline' as const },
     { key: LayoutRoutes.Workout, label: 'Workout', icon: 'barbell-outline' as const },
+    ...(activeWorkout ? [{ key: LayoutRoutes.LogWorkout, label: 'Log Workout', icon: 'list-outline' as const }] : []),
   ];
 
   return (

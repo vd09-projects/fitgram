@@ -170,6 +170,7 @@ export const footerStyles = StyleSheet.create({
     padding: SPACING.small,
     alignItems: 'center',
     justifyContent: 'center',
+    flex: 1,
   },
   container: {
     height: 60,

@@ -4,11 +4,13 @@ import FeedScreen from '../screens/FeedScreen';
 import { LayoutRoutes } from '../constants/routes';
 import HomeScreen from '../screens/HomeScreen';
 import WorkoutNavigator from './WorkoutNavigator';  // ✅ Import WorkoutNavigator
+import ActiveWorkoutScreen from '../screens/ActiveWorkoutScreen';
 
 export type LayoutStackParamList = {
   Feed: undefined;
   Workout: undefined;
   Home: undefined;
+  LogWorkout: undefined;
 };
 
 const Stack = createStackNavigator<LayoutStackParamList>();
@@ -27,9 +29,14 @@ export default function LayoutNavigator() {
         component={WorkoutNavigator}  
         options={{ headerShown: false }} />
         
-      <Stack.Screen
+        <Stack.Screen
         name={LayoutRoutes.Home}
         component={HomeScreen}
+        options={{ headerShown: false }} />
+
+<Stack.Screen
+        name={LayoutRoutes.LogWorkout}
+        component={ActiveWorkoutScreen}
         options={{ headerShown: false }} />
     </Stack.Navigator>
   );
