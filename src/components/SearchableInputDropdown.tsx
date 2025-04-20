@@ -6,6 +6,8 @@ import {
     StyleSheet,
     TouchableOpacity,
     Switch,
+    StyleProp,
+    ViewStyle,
 } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import { BORDER_RADIUS, COLORS, SHADOW, SHADOW_3 } from '../constants/styles';
@@ -28,6 +30,7 @@ interface SearchableInputDropdownProps<T> {
     onChange: (data: DropdownSelection<T>) => void;
     title?: string;
     allowCustomInput?: boolean; // NEW PROP: Enables/Disables custom input (default: true)
+    conatinerStyle?: StyleProp<ViewStyle> ;
 }
 
 export default function SearchableInputDropdown<T>({
@@ -37,6 +40,7 @@ export default function SearchableInputDropdown<T>({
     onChange,
     title = 'Select Field',
     allowCustomInput = true, // Default to true
+    conatinerStyle,
 }: SearchableInputDropdownProps<T>) {
     const [isNewMode, setIsNewMode] = useState(false);
     const [customValue, setCustomValue] = useState(value?.label || '');
@@ -52,7 +56,7 @@ export default function SearchableInputDropdown<T>({
     };
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, conatinerStyle]}>
             <View style={styles.header}>
                 <Text style={styles.heading}>{title}</Text>
                 {allowCustomInput && (

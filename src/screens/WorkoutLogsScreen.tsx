@@ -10,6 +10,7 @@ import { useAuthUser } from "../hooks/useAuthUser";
 import show from "../utils/toastUtils";
 import { WorkoutLog } from "../types/workoutLogs";
 import ExerciseLogTableFlatList from "../components/ExerciseLogTableFlatList";
+import ExerciseSetLogTable from "../components/ExerciseSetLogTable";
 
 export default function WorkoutLogsScreen() {
       const { user } = useAuthUser();
@@ -36,6 +37,39 @@ export default function WorkoutLogsScreen() {
 
       const [loadingLogs, setLoadingLogs] = useState(false);
       const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[] | null>(null);
+
+      const setNumberAllLabel = "All";
+      const convertedSetNumber = useMemo(() => {
+            const result = [{
+                  label: setNumberAllLabel,
+                  value: setNumberAllLabel,
+                  isCustom: false,
+            }];
+            if (!workoutLogs || !selectedExercises) return result;
+
+            const seen = new Set();
+            for (const log of workoutLogs) {
+                  const selectedExerciseLog = log.exercises.find(
+                        (exercise) => exercise.exerciseId === selectedExercises.value?.id
+                  );
+
+                  if (!selectedExerciseLog) continue;
+
+                  for (const set of selectedExerciseLog.sets) {
+                        const setValue = set.fields["Sets"];
+                        if (!seen.has(setValue)) {
+                              seen.add(setValue);
+                              result.push({
+                                    label: setValue,
+                                    value: setValue,
+                                    isCustom: false,
+                              });
+                        }
+                  }
+            }
+            return result;
+      }, [workoutLogs, selectedExercises]);
+      const [selectedSetNumber, setSelectedSetNumber] = useState<DropdownSelection<string> | undefined>(convertedSetNumber[0]);
 
       useEffect(() => {
             if (convertedWorkoutPlans.length > 0 && !selectedWorkout) {
@@ -104,7 +138,16 @@ export default function WorkoutLogsScreen() {
                               title="Exercises"
                               allowCustomInput={false}
                         />
-
+                        {workoutLogs && workoutLogs.length > 0 &&
+                              <SearchableInputDropdown<string>
+                                    placeholder="Sets"
+                                    data={convertedSetNumber ?? []}
+                                    value={selectedSetNumber}
+                                    onChange={setSelectedSetNumber}
+                                    title="Sets"
+                                    allowCustomInput={false}
+                              />
+                        }
                   </View>
 
                   {/* 🔘 Show Data Button */}
@@ -115,21 +158,33 @@ export default function WorkoutLogsScreen() {
                   </TouchableOpacity>
 
                   {/* 🔽 Workout Logs */}
-                  {workoutLogs && selectedExercises && workoutLogs.map((log, logIndex) => {
-                        const selectedExerciseLog = log.exercises.find(
-                              (exercise) => exercise.exerciseId === selectedExercises.value?.id
-                        );
+                  {workoutLogs && selectedExercises &&
+                        <View>
+                              {selectedSetNumber?.value !== setNumberAllLabel &&
+                                    <ExerciseSetLogTable
+                                          workoutLog={workoutLogs}
+                                          selectedSetNumber={selectedSetNumber?.value}
+                                          selectedExercise={selectedExercises.value}
+                                    />
+                              }
+                              {selectedSetNumber?.value === setNumberAllLabel &&
+                                    workoutLogs.map((log, logIndex) => {
+                                    const selectedExerciseLog = log.exercises.find(
+                                          (exercise) => exercise.exerciseId === selectedExercises.value?.id
+                                    );
 
-                        if (!selectedExerciseLog) return null;
+                                    if (!selectedExerciseLog) return null;
 
-                        return (
-                              <ExerciseLogTableFlatList
-                                    key={logIndex}
-                                    log={selectedExerciseLog}
-                                    enableVerticalScroll={false} // Change to true if logs are long
-                              />
-                        );
-                  })}
+                                    return (
+                                          <ExerciseLogTableFlatList
+                                                key={logIndex}
+                                                log={selectedExerciseLog}
+                                                enableVerticalScroll={false} // Change to true if logs are long
+                                          />
+                                    );
+                              })}
+                        </View>
+                  }
 
             </ScrollableScreen>
       );
@@ -152,16 +207,20 @@ const styles = StyleSheet.create({
             borderRadius: BORDER_RADIUS,
             alignItems: "center",
             marginVertical: SPACING.medium,
+            flexGrow: 1,
       },
       toggleText: {
             fontSize: FONT_SIZES.medium,
             color: COLORS.textSecondary,
       },
       logCard: {
-            backgroundColor: COLORS.tertiary,
-            padding: SPACING.medium,
+            // backgroundColor: COLORS.tertiary,
+            // padding: SPACING.medium,
             borderRadius: 10,
-            marginBottom: SPACING.medium,
+            // marginBottom: SPACING.medium,
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
       },
       logTitle: {
             fontSize: FONT_SIZES.large,

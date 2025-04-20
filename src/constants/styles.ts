@@ -30,10 +30,11 @@ export const COLORS = {
 
   // Table UI Elements
   tableHeader: 'rgb(145, 85, 150)', // Darker tone for headers for strong contrast
-  tableRowEven: '#E6E0EB', // Soft lavender for alternating row background
+  tableRowEven: '#DCE5F7',
   tableRowOdd: '#F3EDF7', // Slightly lighter shade for differentiation
   tableBorder: '#B2B5E0', // Consistent with general border color
   tableText: '#4B5E79', // Readable, slightly desaturated dark blue
+  tableHeaderText: '#FFFFFF', // Readable, slightly desaturated dark blue
   tableSelectedFilter: '#B2B5E0', // Matches secondary for highlighted filters
 
   collapsed: '#708090',

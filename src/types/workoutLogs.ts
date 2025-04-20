@@ -1,3 +1,4 @@
+export const SetsString = "Sets";
 export type SetLog = {
   id: number;
   fields: {
