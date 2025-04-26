@@ -5,6 +5,7 @@ const BasicColors = {
   primary: '#C5ADC5',
   secondary: '#B2B5E0',
   tertiary: '#5A3E62',
+  transparent: "transparent",
 
   button: '#4B5E79',
   buttonSecondary: '#5D6D7E',
@@ -57,6 +58,9 @@ export const SPACING = {
   medium: 12,
   large: 16,
   xLarge: 20,
+  xxLarge: 24,
+  xxxLarge: 32,
+  xxxxLarge: 40,
 };
 
 export const BORDER_RADIUS = 8;
@@ -124,31 +128,28 @@ export default styles;
 
 export const headerStyles = StyleSheet.create({
   container: {
-    height: 92,
     backgroundColor: COLORS.tertiary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.large,
+    paddingTop: SPACING.xxLarge,
+    paddingBottom: SPACING.xSmall,
   },
   text: {
     color: COLORS.textSecondary,
     fontWeight: 'bold',
     fontSize: FONT_SIZES.medium,
-    marginTop: 40,
     marginRight: SPACING.small,
   },
   companyName: {
     fontSize: FONT_SIZES.xLarge,
-    marginTop: 40,
     color: COLORS.textSecondary,
     fontFamily: 'cursive',
     fontStyle: 'italic',
     fontWeight: 'bold',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 6,
     letterSpacing: 1.4,
+    ...SHADOW,
   },
   tabButton: {
     padding: SPACING.small,
