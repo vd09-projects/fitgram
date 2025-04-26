@@ -160,6 +160,11 @@ export default function WorkoutLogsScreen() {
                   {/* 🔽 Workout Logs */}
                   {workoutLogs && selectedExercises &&
                         <View>
+                              {workoutLogs.length === 0 && (
+                                    <Text style={styles.noLogsTitle}>
+                                          No logs found for <Text style={{ fontWeight: "bold" }}>{selectedExercises.label}</Text>
+                                    </Text>
+                              )}
                               {selectedSetNumber?.value !== setNumberAllLabel &&
                                     <ExerciseSetLogTable
                                           workoutLog={workoutLogs}
@@ -169,20 +174,20 @@ export default function WorkoutLogsScreen() {
                               }
                               {selectedSetNumber?.value === setNumberAllLabel &&
                                     workoutLogs.map((log, logIndex) => {
-                                    const selectedExerciseLog = log.exercises.find(
-                                          (exercise) => exercise.exerciseId === selectedExercises.value?.id
-                                    );
+                                          const selectedExerciseLog = log.exercises.find(
+                                                (exercise) => exercise.exerciseId === selectedExercises.value?.id
+                                          );
 
-                                    if (!selectedExerciseLog) return null;
+                                          if (!selectedExerciseLog) return null;
 
-                                    return (
-                                          <ExerciseLogTableFlatList
-                                                key={logIndex}
-                                                log={selectedExerciseLog}
-                                                enableVerticalScroll={false} // Change to true if logs are long
-                                          />
-                                    );
-                              })}
+                                          return (
+                                                <ExerciseLogTableFlatList
+                                                      key={logIndex}
+                                                      log={selectedExerciseLog}
+                                                      enableVerticalScroll={false} // Change to true if logs are long
+                                                />
+                                          );
+                                    })}
                         </View>
                   }
 
@@ -212,6 +217,12 @@ const styles = StyleSheet.create({
       toggleText: {
             fontSize: FONT_SIZES.medium,
             color: COLORS.textSecondary,
+      },
+      noLogsTitle: {
+            fontSize: FONT_SIZES.large,
+            color: COLORS.textPrimary,
+            textAlign: "center",
+            marginTop: SPACING.medium,
       },
       logCard: {
             // backgroundColor: COLORS.tertiary,
