@@ -1,7 +1,7 @@
 import { StyleSheet } from 'react-native';
 
 // Common Values
-export const COLORS = {
+const BasicColors = {
   primary: '#C5ADC5',
   secondary: '#B2B5E0',
   tertiary: '#5A3E62',
@@ -40,6 +40,8 @@ export const COLORS = {
   collapsed: '#708090',
   collapsedBold: '#556B6F',
 };
+
+export const COLORS = BasicColors;
 
 export const FONT_SIZES = {
   small: 12,
@@ -123,14 +125,14 @@ export default styles;
 export const headerStyles = StyleSheet.create({
   container: {
     height: 92,
-    backgroundColor: COLORS.secondary,
+    backgroundColor: COLORS.tertiary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.large,
   },
   text: {
-    color: COLORS.textPrimary,
+    color: COLORS.textSecondary,
     fontWeight: 'bold',
     fontSize: FONT_SIZES.medium,
     marginTop: 40,
@@ -139,7 +141,7 @@ export const headerStyles = StyleSheet.create({
   companyName: {
     fontSize: FONT_SIZES.xLarge,
     marginTop: 40,
-    color: COLORS.textPrimary,
+    color: COLORS.textSecondary,
     fontFamily: 'cursive',
     fontStyle: 'italic',
     fontWeight: 'bold',

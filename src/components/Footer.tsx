@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { footerStyles } from '../constants/styles';
+import { COLORS, footerStyles } from '../constants/styles';
 import { LayoutRoutes } from '../constants/routes';
 import { useKeyboardVisibility } from '../hooks/useKeyboardVisibility'; // Optimized hook
 import { useWorkoutStore } from '../stores/useWorkoutStore';
@@ -36,7 +36,7 @@ export default function Footer({ activeTab, onChangeTab }: FooterProps) {
             <Ionicons
               name={tab.icon}
               size={22}
-              color={isActive ? '#B2B5E0' : '#FFFFFF'}
+              color={isActive ? COLORS.secondary : COLORS.textSecondary}
               style={{ marginBottom: 2 }}
             />
             <Text style={[footerStyles.tabText, isActive && footerStyles.activeText]}>
