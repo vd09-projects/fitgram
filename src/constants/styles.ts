@@ -133,7 +133,7 @@ export const headerStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.large,
-    paddingTop: SPACING.xxLarge,
+    paddingTop: SPACING.xxxLarge,
     paddingBottom: SPACING.xSmall,
   },
   text: {
@@ -141,6 +141,7 @@ export const headerStyles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: FONT_SIZES.medium,
     marginRight: SPACING.small,
+    paddingTop: SPACING.small,
   },
   companyName: {
     fontSize: FONT_SIZES.xLarge,

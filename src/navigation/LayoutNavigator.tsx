@@ -17,7 +17,10 @@ const Stack = createStackNavigator<LayoutStackParamList>();
 
 export default function LayoutNavigator() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator
+      initialRouteName={LayoutRoutes.Home}
+      screenOptions={{ headerShown: false }}
+    >
       <Stack.Screen
         name={LayoutRoutes.Feed}
         component={FeedScreen}
@@ -26,15 +29,15 @@ export default function LayoutNavigator() {
       {/* ✅ Replace direct WorkoutScreen navigation with WorkoutNavigator */}
       <Stack.Screen
         name={LayoutRoutes.Workout}
-        component={WorkoutNavigator}  
+        component={WorkoutNavigator}
         options={{ headerShown: false }} />
-        
-        <Stack.Screen
+
+      <Stack.Screen
         name={LayoutRoutes.Home}
         component={HomeScreen}
         options={{ headerShown: false }} />
 
-<Stack.Screen
+      <Stack.Screen
         name={LayoutRoutes.LogWorkout}
         component={ActiveWorkoutScreen}
         options={{ headerShown: false }} />

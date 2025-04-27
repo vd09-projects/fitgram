@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useAuthUser } from '../hooks/useAuthUser';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, headerStyles } from '../constants/styles';
+import { COLORS } from '../constants/styles';
 import { WorkoutScreenNavigationProp } from '../navigation/WorkoutNavigator';
 import { WorkoutRoutes } from '../constants/routes';
 import { useNavigation } from '@react-navigation/native';

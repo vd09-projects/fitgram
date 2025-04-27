@@ -52,8 +52,3 @@ export default function LayoutScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { flex: 1 }
-});
