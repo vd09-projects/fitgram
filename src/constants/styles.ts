@@ -16,6 +16,7 @@ const BasicColors = {
 
   accent: '#5A3E62',
   textPrimary: '#5A3E62',
+  // textPrimary: '#FF0000',
   textSecondary: '#FFFFFF',
   textPrimaryPlaceholder: '#8A6C92',
 

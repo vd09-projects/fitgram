@@ -1,13 +1,12 @@
-// src/screens/auth/SignInScreen.tsx
 import React, { useState } from 'react';
-import { View, Text, TextInput, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import type { StackNavigationProp } from '@react-navigation/stack';
 import type { ScreenNavigationProp } from '../../navigation/AuthNavigator';
-import { signInUser } from '../../services/db/authService'; // Import the auth service
+import { signInUser } from '../../services/db/authService';
 import styles from '../../constants/styles';
 import { AuthRoutes } from '../../constants/routes';
 import Toast from 'react-native-toast-message';
+import { PrimaryInputField } from '../../components/PrimaryInputField';
 
 type SignInScreenNavigationProp = ScreenNavigationProp<typeof AuthRoutes.SignIn>;
 
@@ -20,13 +19,12 @@ export default function SignInScreen() {
   const handleSignIn = async () => {
     try {
       await signInUser(email, password);
-      // Alert.alert('Success', 'Logged in successfully!');
       Toast.show({
         type: 'success',
         text1: 'Login Successful',
         text2: 'Welcome back!',
         position: 'top',
-        visibilityTime: 3000, // Auto-hide after 3 seconds
+        visibilityTime: 3000,
         autoHide: true,
       });
     } catch (error: any) {
@@ -44,22 +42,21 @@ export default function SignInScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Welcome Back</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        placeholderTextColor="#888"
-        autoCapitalize="none"
-        keyboardType="email-address"
+
+      <PrimaryInputField
+        label="Email"
         value={email}
         onChangeText={setEmail}
+        placeholder="Enter your email"
+        keyboardType="email-address"
       />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor="#888"
-        secureTextEntry
+
+      <PrimaryInputField
+        label="Password"
         value={password}
         onChangeText={setPassword}
+        placeholder="Enter your password"
+        secureTextEntry={true}
       />
 
       <View style={{ marginTop: 16 }}>
