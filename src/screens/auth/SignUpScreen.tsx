@@ -1,13 +1,14 @@
 // src/screens/auth/SignUpScreen.tsx
 import React, { useState } from 'react';
-import { View, Text, TextInput, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, Alert, TouchableOpacity, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { ScreenNavigationProp } from '../../navigation/AuthNavigator';
 import { signUpUser } from '../../services/db/authService';
-import styles from '../../constants/styles';
+import styles, { SPACING } from '../../constants/styles';
 import Toast from 'react-native-toast-message';
 import { AuthRoutes } from '../../constants/routes';
+import { PrimaryInputField } from '../../components/PrimaryInputField';
 
 type SignUpScreenNavigationProp = ScreenNavigationProp<typeof AuthRoutes.SignUp>;
 
@@ -42,46 +43,44 @@ export default function SignUpScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Create an Account</Text>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Full Name"
-        placeholderTextColor="#888"
-        autoCapitalize="words"
-        value={name}
-        onChangeText={setName}
-      />
+      <View style={styles.container}>
+        <Text style={styles.title}>Create an Account</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        placeholderTextColor="#888"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-      />
+        <PrimaryInputField
+          label="Full Name"
+          value={name}
+          onChangeText={setName}
+          placeholder="Enter your Full Name"
+        />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor="#888"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
+        <PrimaryInputField
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="Enter your email"
+          keyboardType="email-address"
+        />
 
-      <View style={{ marginTop: 16 }}>
-        <TouchableOpacity style={styles.button} onPress={handleSignUp}>
-          <Text style={styles.buttonText}>Sign Up</Text>
+        <PrimaryInputField
+          label="Password"
+          value={password}
+          onChangeText={setPassword}
+          placeholder="Enter your password"
+          secureTextEntry={true}
+        />
+
+        <View style={{ marginTop: SPACING.large }}>
+          <TouchableOpacity style={styles.button} onPress={handleSignUp}>
+            <Text style={styles.buttonText}>Sign Up</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity onPress={() => navigation.navigate(AuthRoutes.SignIn)}>
+          <Text style={styles.switchText}>Already have an account?</Text>
         </TouchableOpacity>
       </View>
-
-      <TouchableOpacity onPress={() => navigation.navigate(AuthRoutes.SignIn)}>
-        <Text style={styles.switchText}>Already have an account?</Text>
-      </TouchableOpacity>
-    </View>
+    </TouchableWithoutFeedback>
   );
 }

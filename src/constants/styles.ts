@@ -11,12 +11,15 @@ const BasicColors = {
   buttonSecondary: '#5D6D7E',
   cancelButton: '#E74C3C', // A strong yet slightly muted red (less aggressive than pure red)
   // cancelButton: '#D64545', // More vibrant than dull red but not neon
+
   dropdown: '#DCE5F7',
   dropdownBright: '#5A3E62',
 
+  // input: '#DCE5F7',
+  // inputBackground: '#DCE5F7',
+
   accent: '#5A3E62',
-  textPrimary: '#5A3E62',
-  // textPrimary: '#FF0000',
+  textPrimary: '#5A3E62', // textPrimary: '#FF0000',
   textSecondary: '#FFFFFF',
   textPrimaryPlaceholder: '#8A6C92',
 

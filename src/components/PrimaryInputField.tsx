@@ -2,6 +2,7 @@ import React from 'react';
 import { TextInput } from 'react-native-paper';
 import { StyleProp, TextStyle, StyleSheet, ViewStyle, KeyboardType } from 'react-native';
 import { BORDER_RADIUS, COLORS, FONT_SIZES, SHADOW, SPACING } from '../constants/styles'; // adjust path if needed
+import type {TextInputProps} from 'react-native-paper';
 
 type keyboardTypePassword = 'password';
 
@@ -55,7 +56,7 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
         ) : undefined
       }
 
-      placeholder={placeholder}
+      placeholder={placeholder + "..."}
       placeholderTextColor={placeholderTextColor}
 
       style={[styles.container, container]}
@@ -70,6 +71,13 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
           onSurfaceVariant: labelColor,
           background: backgroundColor,
         },
+        fonts: {
+          bodyLarge: {
+            fontSize: FONT_SIZES.large,
+            fontFamily: 'ComicRelief',
+            lineHeight: SPACING.large,
+          },
+        }
       }}
     />
   );
@@ -77,16 +85,14 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    width: '80%',
+    width: '85%',
     paddingBottom: SPACING.xSmall,
-    paddingLeft: SPACING.xSmall,
+    paddingLeft: SPACING.small,
     marginBottom: SPACING.small,
     borderWidth: 1,
     borderColor: COLORS.transparent,
     borderRadius: BORDER_RADIUS,
-    fontWeight: 'bold',
     fontSize: SPACING.xLarge,
-    fontFamily: 'ComicReliefBold',
     lineHeight: SPACING.xxxLarge,
   },
   outline: {
@@ -98,10 +104,8 @@ const styles = StyleSheet.create({
     padding: SPACING.small,
     color: COLORS.textPrimary,
     fontWeight: 'normal',
-    fontFamily: 'ComicRelief',
   },
   inputLabel: {
-    // fontSize: FONT_SIZES.small,
     fontWeight: 'bold',
     color: COLORS.textPrimary,
   },
