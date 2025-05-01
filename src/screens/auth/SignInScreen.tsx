@@ -13,6 +13,8 @@ import styles from '../../constants/styles';
 import { AuthRoutes } from '../../constants/routes';
 import Toast from 'react-native-toast-message';
 import { PrimaryInputField } from '../../components/PrimaryInputField';
+import { validateCredentials } from '../../utils/validation'; // 👈 imported here
+import show from '../../utils/toastUtils';
 
 type SignInScreenNavigationProp = ScreenNavigationProp<typeof AuthRoutes.SignIn>;
 
@@ -23,25 +25,17 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
 
   const handleSignIn = async () => {
+    const validationError = validateCredentials(email, password);
+    if (validationError) {
+      show.warn('Invalid Input', validationError);
+      return;
+    }
+
     try {
       await signInUser(email, password);
-      Toast.show({
-        type: 'success',
-        text1: 'Login Successful',
-        text2: 'Welcome back!',
-        position: 'top',
-        visibilityTime: 3000,
-        autoHide: true,
-      });
+      show.success('Login Successful', 'Welcome back!');
     } catch (error: any) {
-      Toast.show({
-        type: 'error',
-        text1: 'Login Failed',
-        text2: error.message,
-        position: 'top',
-        visibilityTime: 4000,
-        autoHide: true,
-      });
+      show.alert('Login Failed', error.message || 'Something went wrong.');
     }
   };
 
@@ -63,7 +57,7 @@ export default function SignInScreen() {
           value={password}
           onChangeText={setPassword}
           placeholder="Enter your password"
-          secureTextEntry={true}
+          secureTextEntry
         />
 
         <View style={{ marginTop: 16 }}>

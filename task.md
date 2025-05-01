@@ -18,8 +18,8 @@
 ### 🔹 **Phase 2: Logout/Login Setup**
 | Task | Status | Timeline | Notes |
 |------|--------|----------|-------|
-| **Adding validation to login page input fields** | 🚫 | 1-2 days | like email, name and passowrd |
-| **Show user name insted of email to home page** | 🚫 | 1-2 days | In hook try to fetch user details also |
+| **Adding validation to login page input fields** | ✅ | 1-2 days | like email, name and passowrd; Done. |
+| **Show user name insted of email to home page** | ⏳ | 1-2 days | In hook try to fetch user details also |
 | **Have color and design schema consistent every where till home and footer page** | 🚫 | 1-2 days | not yet started |
 
 ### 🔹 **Phase 3: Exercise Section**

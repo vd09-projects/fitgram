@@ -7,6 +7,7 @@ import { auth } from '../services/firebase';
 import { headerStyles } from '../constants/styles';
 import Toast from 'react-native-toast-message';
 import { LayoutRoutes } from '../constants/routes';
+import show from '../utils/toastUtils';
 
 interface HeaderProps {
   onPressTab: (tab: keyof typeof LayoutRoutes) => void;
@@ -18,15 +19,9 @@ export default function Header({ onPressTab }: HeaderProps) {
   const handleLogout = async () => {
     try {
       await signOut(auth);
+      show.success('Logout Successful', 'You have been logged out.');
     } catch (error: any) {
-      Toast.show({
-        type: 'error',
-        text1: 'Logout Failed',
-        text2: error.message,
-        position: 'top',
-        visibilityTime: 4000,
-        autoHide: true,
-      });
+      show.alert('Logout Failed', error.message || 'Something went wrong.');
     }
   };
 
