@@ -3,8 +3,6 @@ import { TextInput } from 'react-native-paper';
 import { StyleProp, TextStyle, StyleSheet, ViewStyle, KeyboardType } from 'react-native';
 import { BORDER_RADIUS, COLORS, FONT_FAMILY, FONT_SIZES, SPACING } from '../constants/styles'; // adjust path if needed
 
-type keyboardTypePassword = 'password';
-
 interface PrimaryInputFieldProps {
   label: string;
   value: string;
@@ -12,7 +10,7 @@ interface PrimaryInputFieldProps {
   placeholder?: string;
   keyboardType?: KeyboardType | undefined;
   secureTextEntry?: boolean;
-  container?: StyleProp<ViewStyle>;
+  container?: StyleProp<TextStyle>;
   outline?: StyleProp<ViewStyle>;
   inputBox?: StyleProp<TextStyle>;
   backgroundColor?: string;
@@ -90,7 +88,7 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    width: '85%',
+    width: '100%',
     paddingBottom: SPACING.xSmall,
     paddingLeft: SPACING.small,
     marginBottom: SPACING.small,
@@ -115,3 +113,8 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
   },
 });
+
+export const emptyOutlineStyle = {
+  borderWidth: 0,
+  borderColor: COLORS.transparent,
+}

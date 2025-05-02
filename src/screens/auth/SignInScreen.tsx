@@ -51,6 +51,7 @@ export default function SignInScreen() {
           onChangeText={setEmail}
           placeholder="Enter your email"
           keyboardType="email-address"
+          container={styles.authContainer}
         />
 
         <PrimaryInputField
@@ -58,6 +59,7 @@ export default function SignInScreen() {
           value={password}
           onChangeText={setPassword}
           placeholder="Enter your password"
+          container={styles.authContainer}
           secureTextEntry
         />
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/styles';
+import { TextBase } from './TextBase';
 
 interface EditableListProps {
     title: string;
@@ -38,7 +39,7 @@ const EditableList: React.FC<EditableListProps> = ({
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>{title}</Text>
+            <TextBase style={styles.title}>{title}</TextBase>
 
             {items.map((field, index) => {
                 const isDuplicate = duplicateError && field === newItem.trim();

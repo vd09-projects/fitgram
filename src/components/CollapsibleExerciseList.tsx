@@ -1,9 +1,10 @@
 import React, { useState, useCallback, memo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../constants/styles';
+import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from '../constants/styles';
 import EditableList from './EditableList';
 import { Exercise } from '../types/workoutType';
+import { TextBase } from './TextBase';
 
 interface CollapsibleExerciseListProps {
     exercises: Exercise[];
@@ -32,7 +33,7 @@ const CollapsibleExerciseItem = memo(({
             style={styles.exerciseHeader}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-            <Text style={styles.exerciseText}>{exercise.name}</Text>
+            <TextBase style={styles.exerciseText}>{exercise.name}</TextBase>
             <View style={styles.iconContainer}>
                 <TouchableOpacity onPress={() => onUpdate(index, undefined)}> 
                     <Ionicons name="trash-outline" size={20} color="red" /> 
@@ -74,7 +75,7 @@ const CollapsibleExerciseList: React.FC<CollapsibleExerciseListProps> = memo(({ 
 
     return (
         <View style={styles.section}>
-            <Text style={styles.subHeading}>Existing Exercises</Text>
+            <TextBase style={styles.subHeading}>Existing Exercises</TextBase>
             {exercises.map((exercise, index) => (
                 <CollapsibleExerciseItem
                     key={exercise.id}
@@ -91,37 +92,38 @@ const CollapsibleExerciseList: React.FC<CollapsibleExerciseListProps> = memo(({ 
 
 const styles = StyleSheet.create({
     section: {
-        borderRadius: 8,
-        marginVertical: 10,
+        borderRadius: BORDER_RADIUS,
+        marginTop: SPACING.large,
+        marginBottom: SPACING.medium,
     },
     subHeading: {
-        fontSize: 18,
+        fontSize: FONT_SIZES.large,
         fontWeight: 'bold',
         color: COLORS.textPrimary,
-        marginBottom: 8,
+        marginBottom: SPACING.medium,
     },
     exerciseContainer: {
         backgroundColor: COLORS.dropdown,
-        borderRadius: 12,
-        marginBottom: 10,
-        padding: 8,
+        borderRadius: BORDER_RADIUS,
+        marginBottom: SPACING.medium,
+        padding: SPACING.small,
     },
     exerciseHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: 8,
-        paddingHorizontal: 10,
+        paddingVertical: SPACING.small,
+        paddingHorizontal: SPACING.small,
     },
     exerciseText: {
-        fontSize: 16,
+        fontSize: FONT_SIZES.medium,
         fontWeight: 'bold',
         color: COLORS.textPrimary,
     },
     iconContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 10, // Space between delete and expand icons
+        gap: SPACING.small, // Space between delete and expand icons
     },
 });
 

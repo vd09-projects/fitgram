@@ -61,6 +61,7 @@ export const FONT_FAMILY = {
 };
 
 export const FONT_SIZES = {
+  xSmall: 10,
   small: 12,
   xMedium: 14,
   medium: 16,
@@ -127,6 +128,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     ...SHADOW,
   },
+  authContainer: { width: '85%' },
   buttonText: {
     color: COLORS.textSecondary,
     fontSize: FONT_SIZES.large,

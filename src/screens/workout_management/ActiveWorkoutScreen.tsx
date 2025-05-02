@@ -57,11 +57,11 @@ export default function ActiveWorkoutScreen() {
   if (!activeWorkout) {
     return (
       <View style={styles.noWorkoutContainer}>
-        <Text style={styles.noWorkoutText}>No active workout</Text>
+        <TextBase style={styles.noWorkoutText}>No active workout</TextBase>
         <TouchableOpacity
           hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
           onPress={() => navigation.navigate(WorkoutRoutes.StartWorkout)}>
-          <Text style={styles.switchText}>click to select a new one</Text>
+          <TextBase style={styles.switchText}>click to select a new one</TextBase>
         </TouchableOpacity>
       </View>
     );
@@ -71,7 +71,7 @@ export default function ActiveWorkoutScreen() {
   return (
     <ScrollableScreen
       style={styles.container}
-      title={<Text style={styles.title}>{activeWorkout.name}</Text>}
+      title={<TextBase style={styles.title}>{activeWorkout.name}</TextBase>}
     >
 
       {/* Dropdown for selecting exercise */}
@@ -105,7 +105,9 @@ export default function ActiveWorkoutScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, paddingBottom: 0 },
+  container: {
+    flex: 1,
+  },
   title: { fontSize: FONT_SIZES.xLarge, fontWeight: "bold", marginBottom: 10, color: COLORS.textPrimary },
   buttonContainer: {
     flexDirection: "row",
