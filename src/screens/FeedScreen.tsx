@@ -8,12 +8,12 @@ import { COLORS } from '../constants/styles';
 import { Greeting } from '../components/Greeting';
 
 export default function FeedScreen() {
-  const { user } = useAuthUser();
+  const { userInfo } = useAuthUser();
 
   return (
     <View style={styles.container}>
       <Greeting
-        name={user?.email || 'Guest'}
+        name={userInfo?.name || 'Guest'}
         message="Your Feed"
       />
     </View>

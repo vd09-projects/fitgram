@@ -1,19 +1,16 @@
 // src/hooks/useAuthUser.ts
+import { useEffect } from 'react';
+import { useAuthStore } from '../stores/authStore';
+import { initAuthIfNeeded } from '../services/initAuth';
 
-import { useState, useEffect } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '../services/firebase';
-
-export function useAuthUser() {
-  const [user, setUser] = useState<User | null>(null);
+export const useAuthUser = () => {
+  const { user, userInfo, initialized } = useAuthStore();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
-    });
+    if (!initialized) {
+      initAuthIfNeeded();
+    }
+  }, [initialized]);
 
-    return () => unsubscribe();
-  }, []);
-
-  return { user };
-}
+  return { user, userInfo };
+};
