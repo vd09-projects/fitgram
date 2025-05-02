@@ -4,7 +4,7 @@ import FeedScreen from '../screens/FeedScreen';
 import { LayoutRoutes } from '../constants/routes';
 import HomeScreen from '../screens/HomeScreen';
 import WorkoutNavigator from './WorkoutNavigator';  // ✅ Import WorkoutNavigator
-import ActiveWorkoutScreen from '../screens/ActiveWorkoutScreen';
+import ActiveWorkoutScreen from '../screens/workout_management/ActiveWorkoutScreen';
 
 export type LayoutStackParamList = {
   Feed: undefined;

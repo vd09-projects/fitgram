@@ -1,12 +1,12 @@
 import React from 'react';
 import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack';
 import WorkoutScreen from '../screens/WorkoutScreen';
-import AddExerciseScreen from '../screens/AddExerciseScreen';
 import { COLORS } from '../constants/styles';
 import { WorkoutRoutes } from '../constants/routes';
-import StartWorkoutScreen from '../screens/StartWorkoutScreen';
-import ActiveWorkoutScreen from '../screens/ActiveWorkoutScreen';
-import WorkoutLogsScreen from '../screens/WorkoutLogsScreen';
+import StartWorkoutScreen from '../screens/workout_management/StartWorkoutScreen';
+import ActiveWorkoutScreen from '../screens/workout_management/ActiveWorkoutScreen';
+import AddExerciseScreen from '../screens/workout_management/AddExerciseScreen';
+import WorkoutLogsScreen from '../screens/workout_management/WorkoutLogsScreen';
 
 export type WorkoutStackParamList = {
     WorkoutLogs: undefined;
