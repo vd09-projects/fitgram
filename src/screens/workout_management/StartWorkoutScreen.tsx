@@ -9,16 +9,16 @@ import {
     StyleSheet
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import useWorkoutPlans from "../hooks/useWorkoutPlans";
-import { WorkoutPlan } from "../types/workoutType";
-import { BORDER_RADIUS, COLORS } from "../constants/styles";
-import ScrollableScreen from "../components/ScrollableScreen";
-import SearchBox from "../components/SearchBox";
-import { useWorkoutStore } from "../stores/useWorkoutStore";
-import { useSyncWorkout } from "../hooks/useSyncWorkout";
-import show from "../utils/toastUtils";
-import { WorkoutRoutes } from "../constants/routes";
-import { WorkoutScreenNavigationProp } from "../navigation/WorkoutNavigator";
+import useWorkoutPlans from "../../hooks/useWorkoutPlans";
+import { WorkoutPlan } from "../../types/workoutType";
+import { BORDER_RADIUS, COLORS } from "../../constants/styles";
+import ScrollableScreen from "../../components/ScrollableScreen";
+import SearchBox from "../../components/SearchBox";
+import { useWorkoutStore } from "../../stores/useWorkoutStore";
+import { useSyncWorkout } from "../../hooks/useSyncWorkout";
+import show from "../../utils/toastUtils";
+import { WorkoutRoutes } from "../../constants/routes";
+import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
 import { useNavigation } from "@react-navigation/native";
 
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.StartWorkout>;

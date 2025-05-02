@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { useWorkoutStore } from "../stores/useWorkoutStore";
-import ExerciseLogger from "../components/ExerciseLogger";
-import SearchableInputDropdown, { DropdownSelection, DropdownItem } from "../components/SearchableInputDropdown";
-import ScrollableScreen from "../components/ScrollableScreen";
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "../constants/styles";
-import { LoggedExercise } from "../types/zustandWorkoutType";
-import { useAuthUser } from "../hooks/useAuthUser";
-import show from "../utils/toastUtils";
-import { WorkoutScreenNavigationProp } from "../navigation/WorkoutNavigator";
-import { LayoutRoutes, WorkoutRoutes } from "../constants/routes";
+import { useWorkoutStore } from "../../stores/useWorkoutStore";
+import ExerciseLogger from "../../components/ExerciseLogger";
+import SearchableInputDropdown, { DropdownSelection, DropdownItem } from "../../components/SearchableInputDropdown";
+import ScrollableScreen from "../../components/ScrollableScreen";
+import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "../../constants/styles";
+import { LoggedExercise } from "../../types/zustandWorkoutType";
+import { useAuthUser } from "../../hooks/useAuthUser";
+import show from "../../utils/toastUtils";
+import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
+import { LayoutRoutes, WorkoutRoutes } from "../../constants/routes";
 import { useNavigation } from "@react-navigation/native";
 
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.LogWorkout>;

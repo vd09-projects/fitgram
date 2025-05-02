@@ -1,7 +1,7 @@
 import React from 'react';
 import { TextInput } from 'react-native-paper';
 import { StyleProp, TextStyle, StyleSheet, ViewStyle, KeyboardType } from 'react-native';
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SHADOW, SPACING } from '../constants/styles'; // adjust path if needed
+import { BORDER_RADIUS, COLORS, FONT_FAMILY, FONT_SIZES, SPACING } from '../constants/styles'; // adjust path if needed
 import type {TextInputProps} from 'react-native-paper';
 
 type keyboardTypePassword = 'password';
@@ -74,7 +74,7 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
         fonts: {
           bodyLarge: {
             fontSize: FONT_SIZES.large,
-            fontFamily: 'ComicRelief',
+            fontFamily: FONT_FAMILY.regular.name,
             lineHeight: SPACING.large,
           },
         }

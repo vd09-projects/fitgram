@@ -6,17 +6,17 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '../constants/styles';
-import ScrollableScreen from '../components/ScrollableScreen';
-import SearchableInputDropdown, { DropdownSelection } from '../components/SearchableInputDropdown';
-import EditableList from '../components/EditableList';
-import usePredefinedExercises from '../hooks/usePredefinedExercises';
-import useWorkoutPlans from '../hooks/useWorkoutPlans';
-import show from '../utils/toastUtils';
-import { overrideWorkoutDetails, saveWorkoutDetails } from '../services/db/userDB';
-import { useAuthUser } from '../hooks/useAuthUser';
-import CollapsibleExerciseList from '../components/CollapsibleExerciseList';
-import { Exercise, WorkoutPlan } from '../types/workoutType';
+import { COLORS } from '../../constants/styles';
+import ScrollableScreen from '../../components/ScrollableScreen';
+import SearchableInputDropdown, { DropdownSelection } from '../../components/SearchableInputDropdown';
+import EditableList from '../../components/EditableList';
+import usePredefinedExercises from '../../hooks/usePredefinedExercises';
+import useWorkoutPlans from '../../hooks/useWorkoutPlans';
+import show from '../../utils/toastUtils';
+import { overrideWorkoutDetails, saveWorkoutDetails } from '../../services/db/userDB';
+import { useAuthUser } from '../../hooks/useAuthUser';
+import CollapsibleExerciseList from '../../components/CollapsibleExerciseList';
+import { Exercise, WorkoutPlan } from '../../types/workoutType';
 
 export default function AddExerciseScreen() {
     const { user } = useAuthUser();

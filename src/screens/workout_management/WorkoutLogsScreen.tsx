@@ -1,16 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from "react-native";
-import ScrollableScreen from "../components/ScrollableScreen";
-import SearchableInputDropdown, { DropdownSelection } from "../components/SearchableInputDropdown";
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "../constants/styles";
-import useWorkoutPlans from "../hooks/useWorkoutPlans";
-import { Exercise, WorkoutPlan } from "../types/workoutType";
-import { getWorkoutLogs } from "../services/db/userDB";
-import { useAuthUser } from "../hooks/useAuthUser";
-import show from "../utils/toastUtils";
-import { WorkoutLog } from "../types/workoutLogs";
-import ExerciseLogTableFlatList from "../components/ExerciseLogTableFlatList";
-import ExerciseSetLogTable from "../components/ExerciseSetLogTable";
+import ScrollableScreen from "../../components/ScrollableScreen";
+import SearchableInputDropdown, { DropdownSelection } from "../../components/SearchableInputDropdown";
+import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "../../constants/styles";
+import useWorkoutPlans from "../../hooks/useWorkoutPlans";
+import { Exercise, WorkoutPlan } from "../../types/workoutType";
+import { getWorkoutLogs } from "../../services/db/userDB";
+import { useAuthUser } from "../../hooks/useAuthUser";
+import show from "../../utils/toastUtils";
+import { WorkoutLog } from "../../types/workoutLogs";
+import ExerciseLogTableFlatList from "../../components/ExerciseLogTableFlatList";
+import ExerciseSetLogTable from "../../components/ExerciseSetLogTable";
 
 export default function WorkoutLogsScreen() {
       const { user } = useAuthUser();
