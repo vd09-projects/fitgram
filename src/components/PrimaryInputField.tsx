@@ -2,7 +2,6 @@ import React from 'react';
 import { TextInput } from 'react-native-paper';
 import { StyleProp, TextStyle, StyleSheet, ViewStyle, KeyboardType } from 'react-native';
 import { BORDER_RADIUS, COLORS, FONT_FAMILY, FONT_SIZES, SPACING } from '../constants/styles'; // adjust path if needed
-import type {TextInputProps} from 'react-native-paper';
 
 type keyboardTypePassword = 'password';
 
@@ -19,6 +18,8 @@ interface PrimaryInputFieldProps {
   backgroundColor?: string;
   placeholderTextColor?: string;
   labelColor?: string;
+  left?: React.ReactNode;
+  right?: React.ReactNode;
 }
 
 export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
@@ -34,6 +35,8 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
   placeholderTextColor = COLORS.textPrimaryPlaceholder,
   backgroundColor = COLORS.textSecondary,
   labelColor = COLORS.textPrimary,
+  left,
+  right,
 }) => {
   const [secureEntry, setSecureEntry] = React.useState(secureTextEntry);
 
@@ -48,18 +51,20 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
       keyboardType={secureTextEntry ? undefined : keyboardType}
       secureTextEntry={secureEntry}
       right={
-        secureTextEntry ? (
-          <TextInput.Icon
-            icon="eye"
-            onPress={() => setSecureEntry(prev => !prev)}
-          />
-        ) : undefined
+        right ? right :
+          secureTextEntry ? (
+            <TextInput.Icon
+              icon="eye"
+              onPress={() => setSecureEntry(prev => !prev)}
+            />
+          ) : undefined
       }
+      left={left}
 
       placeholder={placeholder + "..."}
       placeholderTextColor={placeholderTextColor}
 
-      style={[styles.container, container]}
+      style={[styles.container, container, left ? { paddingLeft: 0 } : {}]}
       outlineStyle={[styles.outline, outline]}
       contentStyle={[styles.inputBox, inputBox]}
 

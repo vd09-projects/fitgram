@@ -37,6 +37,7 @@
 | **Improve input box design for workout logging (field name at top)** | 🚫 | 1-2 days | Pending. |
 | **Implement full workout & exercise management features** | ✅ | 2-3 days | Done. |
 | **Show loading state while fetching data from DB** | 🚫 | 2-3 days | Pending. |
+| **Handle when action workout is going on then don't let new workout start** | 🚫 | 2-3 days | Pending. |
 
 ### 🔹 **Phase 4: Data Tracking & Visualization**
 | Task | Status | Timeline | Notes |
