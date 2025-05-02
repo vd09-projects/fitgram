@@ -13,7 +13,7 @@ import styles, { SPACING } from '../../constants/styles';
 import Toast from 'react-native-toast-message';
 import { AuthRoutes } from '../../constants/routes';
 import { PrimaryInputField } from '../../components/PrimaryInputField';
-import { validateCredentials } from '../../utils/validation'; // 👈 Import validation
+import { validateCredentials } from '../../utils/validation';
 import show from '../../utils/toastUtils';
 import { TextBase } from '../../components/TextBase';
 

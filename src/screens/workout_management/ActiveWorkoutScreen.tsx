@@ -11,6 +11,7 @@ import show from "../../utils/toastUtils";
 import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
 import { LayoutRoutes, WorkoutRoutes } from "../../constants/routes";
 import { useNavigation } from "@react-navigation/native";
+import { TextBase } from "../../components/TextBase";
 
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.LogWorkout>;
 type layoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof LayoutRoutes.LogWorkout>;
@@ -93,10 +94,10 @@ export default function ActiveWorkoutScreen() {
       {/* Buttons for ending/canceling workout */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity style={[styles.endButton, { backgroundColor: COLORS.cancelButton }]} onPress={cancelWorkout}>
-          <Text style={styles.buttonText}>Cancel Workout</Text>
+          <TextBase style={styles.buttonText}>Cancel Workout</TextBase>
         </TouchableOpacity>
         <TouchableOpacity style={styles.endButton} onPress={handleSaveWorkout}>
-          <Text style={styles.buttonText}>Save Workout</Text>
+          <TextBase style={styles.buttonText}>Save Workout</TextBase>
         </TouchableOpacity>
       </View>
     </ScrollableScreen>

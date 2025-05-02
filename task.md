@@ -30,7 +30,7 @@
 | **Create the Add Exercise page** | ✅ | 1-2 days | Done. |
 | **Implement exercise logging functionality** | ✅ | 1-2 days | Done. |
 | **Stop showing footer when writing input** | ✅ | 1-2 days | Done. |
-| **Add validations to input fields** | 🚫 | 2-3 days | when adding workout and save exercise have some king of validation |
+| **Add validations to input fields** | ⏳ | 2-3 days | when adding workout and save exercise have some king of validation |
 | **Develop the workout management page** | ✅ | 2-3 days | Done. |
 | **Rename workout management layout for better clarity** | ✅ | 1 day | Done. |
 | **Integrate exercise logging functionality within workout management** | ✅ | 2-3 days | Done. |

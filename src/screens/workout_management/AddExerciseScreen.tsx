@@ -1,210 +1,188 @@
 import React, { useState } from 'react';
 import {
-    Text,
-    TouchableOpacity,
-    StyleSheet
+  Text,
+  TouchableOpacity,
+  StyleSheet
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '../../constants/styles';
+import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from '../../constants/styles';
 import ScrollableScreen from '../../components/ScrollableScreen';
 import SearchableInputDropdown, { DropdownSelection } from '../../components/SearchableInputDropdown';
 import EditableList from '../../components/EditableList';
 import usePredefinedExercises from '../../hooks/usePredefinedExercises';
 import useWorkoutPlans from '../../hooks/useWorkoutPlans';
 import show from '../../utils/toastUtils';
-import { overrideWorkoutDetails, saveWorkoutDetails } from '../../services/db/userDB';
+import { overrideWorkoutDetails } from '../../services/db/userDB';
 import { useAuthUser } from '../../hooks/useAuthUser';
 import CollapsibleExerciseList from '../../components/CollapsibleExerciseList';
 import { Exercise, WorkoutPlan } from '../../types/workoutType';
+import { TextBase } from '../../components/TextBase';
+import { validateCustomFields, validateExerciseSelection, validateWorkoutSelection } from '../../utils/exerciseValidations';
 
 export default function AddExerciseScreen() {
-    const { user } = useAuthUser();
+  const { user } = useAuthUser();
 
-    const [selectedExercise, setSelectedExercise] = useState<DropdownSelection<Exercise> | undefined>(undefined);
-    const [selectedWorkout, setSelectedWorkout] = useState<DropdownSelection<WorkoutPlan> | undefined>(undefined);
-    const [customFields, setCustomFields] = useState<string[]>([]);
-    const [workoutDetailsUpdated, setWorkoutDetailsUpdated] = useState<boolean>(false);
+  const [selectedExercise, setSelectedExercise] = useState<DropdownSelection<Exercise> | undefined>(undefined);
+  const [selectedWorkout, setSelectedWorkout] = useState<DropdownSelection<WorkoutPlan> | undefined>(undefined);
+  const [customFields, setCustomFields] = useState<string[]>([]);
+  const [workoutDetailsUpdated, setWorkoutDetailsUpdated] = useState<boolean>(false);
 
-    const [reload, setReload] = useState<boolean>(false);
+  const [reload, setReload] = useState<boolean>(false);
 
-    const predefinedExercises = usePredefinedExercises();
-    const workoutPlans = useWorkoutPlans(reload);
+  const predefinedExercises = usePredefinedExercises();
+  const workoutPlans = useWorkoutPlans(reload);
 
-    const handleReload = () => setReload((prev) => !prev);
+  const handleReload = () => setReload((prev) => !prev);
 
-    const handleSelectExercise = (exercise: DropdownSelection<Exercise>) => {
-        if (exercise.isCustom) {
-            exercise.value = {
-                id: exercise.label.replace(/\s+/g, '_'),
-                name: exercise.label,
-                fields: []
-            };
-        }
-        setWorkoutDetailsUpdated(true);
-        setCustomFields(exercise.value?.fields || []);
-        setSelectedExercise(exercise);
+  const handleSelectExercise = (exercise: DropdownSelection<Exercise>) => {
+    if (exercise.isCustom) {
+      exercise.value = {
+        id: exercise.label.replace(/\s+/g, '_'),
+        name: exercise.label,
+        fields: []
+      };
+    }
+    setWorkoutDetailsUpdated(true);
+    setCustomFields(exercise.value?.fields || []);
+    setSelectedExercise(exercise);
+  };
+
+  const handleSelectWorkout = (workout: DropdownSelection<WorkoutPlan>) => {
+    if (workout.isCustom) {
+      workout.value = {
+        id: workout.label.replace(/\s+/g, '_'),
+        name: workout.label,
+        exercises: []
+      };
+    }
+    setCustomFields([]);
+    setSelectedExercise(undefined);
+    setSelectedWorkout(workout);
+  };
+
+  const handleSubmit = () => {
+    if (!selectedWorkout?.value) {
+      return show.alert("Workout Invalid", "Please select a workout.");
+    }
+
+    const workoutError = validateWorkoutSelection(selectedWorkout);
+    if (workoutError) return show.alert("Workout Invalid", workoutError);
+
+    const wk = selectedWorkout.value;
+    const exerciseIds = new Set(wk.exercises.map(e => e.id));
+
+    if (selectedExercise) {
+      if (!selectedExercise.value) {
+        return show.alert("Exercise Invalid", "Please select an exercise.");
+      }
+
+      const exerciseError = validateExerciseSelection(selectedExercise, exerciseIds);
+      if (exerciseError) return show.alert("Exercise Invalid", exerciseError);
+
+      const fieldError = validateCustomFields(customFields);
+      if (fieldError) return show.alert("Fields Invalid", fieldError);
+
+      wk.exercises.push({
+        id: selectedExercise.value.id,
+        name: selectedExercise.label,
+        fields: customFields.map(f => f.trim()),
+      });
+    }
+
+    const saveWorkout = async () => {
+      await overrideWorkoutDetails(user?.uid || "", wk);
+      show.success("Workout Saved", `Workout "${selectedWorkout.label}" updated.`);
+      handleSelectWorkout(selectedWorkout);
+      handleReload();
+      setWorkoutDetailsUpdated(false);
     };
 
-    const handleSelectWorkout = (workout: DropdownSelection<WorkoutPlan>) => {
-        if (workout.isCustom) {
-            workout.value = {
-                id: workout.label.replace(/\s+/g, '_'),
-                name: workout.label,
-                exercises: []
-            };
-        }
-        setCustomFields([]);
-        setSelectedExercise(undefined);
-        setSelectedWorkout(workout);
-    };
 
-    const handleSubmit = () => {
-        if (!selectedWorkout || !selectedWorkout.value) {
-            show.alert('Workout Required', 'Please select a workout.');
-            return;
-        }
+    saveWorkout();
+  };
 
-        if (!selectedWorkout.label.trim()) {
-            show.alert('Workout Name Required', 'Please select or enter a workout name.');
-            return;
-        }
+  return (
+    <ScrollableScreen>
+      <TextBase style={styles.heading}>Manage Workout</TextBase>
 
-        var newWk = undefined
-        const exerciseIds = new Set();
-        if (selectedExercise) {
-            if (!selectedExercise.value) {
-                show.alert('Exercise Required', 'Please select or enter an exercise name.');
-                return;
+      {/* 🔹 Select Workout */}
+      <SearchableInputDropdown<WorkoutPlan>
+        data={workoutPlans.map((workout) => ({ label: workout.name, value: workout }))}
+        placeholder="Workout"
+        value={selectedWorkout}
+        onChange={handleSelectWorkout}
+        title={"Workout" + (selectedWorkout ? ` : ${selectedWorkout.label}` : '')}
+      />
+
+
+      {/* 🔹 Collapsible Exercise List Component */}
+      {selectedWorkout?.value?.exercises && selectedWorkout?.value?.exercises?.length > 0 && (
+        <CollapsibleExerciseList
+          exercises={selectedWorkout.value.exercises}
+          onUpdate={(index, updatedExercises) => {
+            if (!selectedWorkout?.value || !selectedWorkout.value?.exercises) return;
+            if (!updatedExercises) {
+              selectedWorkout.value.exercises.splice(index, 1);
+            } else {
+              selectedWorkout.value.exercises.splice(index, 1, updatedExercises);
             }
+            const newWorkout = { ...selectedWorkout } as DropdownSelection<WorkoutPlan>;
+            console.log('🔥 Updated Workout:', newWorkout);
+            setWorkoutDetailsUpdated(true);
+            setSelectedWorkout(newWorkout);
+          }}
+        />
+      )}
 
-            if (!selectedExercise.label.trim()) {
-                show.alert('Exercise Name Required', 'Please select or enter an exercise name.');
-                return;
-            }
+      {/* 🔹 Select Exercise */}
+      <SearchableInputDropdown<Exercise>
+        data={predefinedExercises.map((exercise) => ({ label: exercise.name, value: exercise }))}
+        placeholder="Exercise"
+        value={selectedExercise}
+        onChange={handleSelectExercise}
+        title={"Exercise" + (selectedExercise?.value ? ` : ${selectedExercise.label}` : '')}
+      />
 
-            if (customFields.length === 0) {
-                show.alert('Fields Required', 'Please enter at least one field.');
-                return;
-            }
+      {/* 🔹 Input Fields for Selected or Custom Exercise */}
+      {selectedExercise && (
+        <EditableList
+          title={"Select `" + selectedExercise.label + "` Fields"}
+          items={customFields}
+          onItemsChange={setCustomFields}
+        />
+      )}
 
-            if (customFields.some((field) => field.trim() === '')) {
-                show.alert('Invalid Field', 'Field cannot be empty.');
-                return;
-            }
-
-            newWk = {
-                id: selectedExercise.value.id,
-                name: selectedExercise.label,
-                fields: customFields
-            };
-            exerciseIds.add(newWk.id);
-        }
-
-        var wk = selectedWorkout.value
-        for (const ex of wk.exercises) {
-            if (exerciseIds.has(ex.id)) {
-                show.alert('Duplicate Exercise', ex.name + 'is duplicate exercises in the workout.');
-                return;
-            }
-            exerciseIds.add(ex.id);
-        }
-        if (newWk) {
-            wk.exercises.push(newWk);
-        }
-
-        const saveWorkout = async (lwkp: WorkoutPlan) => {
-            await overrideWorkoutDetails(user?.uid || "", lwkp);
-            show.success('Workout Details Saved', `Successfully saved: ${selectedWorkout.label}`);
-            handleSelectWorkout(selectedWorkout);
-            handleReload();
-            setWorkoutDetailsUpdated(false);
-        };
-
-        saveWorkout(wk);
-    };
-
-    return (
-        <ScrollableScreen>
-            <Text style={styles.heading}>Manage Workout</Text>
-
-            {/* 🔹 Select Workout */}
-            <SearchableInputDropdown<WorkoutPlan>
-                data={workoutPlans.map((workout) => ({ label: workout.name, value: workout }))}
-                placeholder="Workout"
-                value={selectedWorkout}
-                onChange={handleSelectWorkout}
-                title={"Workout" + (selectedWorkout ? ` : ${selectedWorkout.label}` : '')}
-            />
-
-
-            {/* 🔹 Collapsible Exercise List Component */}
-            {selectedWorkout?.value?.exercises && selectedWorkout?.value?.exercises?.length > 0 && (
-                <CollapsibleExerciseList
-                    exercises={selectedWorkout.value.exercises}
-                    onUpdate={(index, updatedExercises) => {
-                        if (!selectedWorkout?.value || !selectedWorkout.value?.exercises) return;
-                        if (!updatedExercises) {
-                            selectedWorkout.value.exercises.splice(index, 1);
-                        } else {
-                            selectedWorkout.value.exercises.splice(index, 1, updatedExercises);
-                        }
-                        const newWorkout = { ...selectedWorkout } as DropdownSelection<WorkoutPlan>;
-                        console.log('🔥 Updated Workout:', newWorkout);
-                        setWorkoutDetailsUpdated(true);
-                        setSelectedWorkout(newWorkout);
-                    }}
-                />
-            )}
-
-            {/* 🔹 Select Exercise */}
-            <SearchableInputDropdown<Exercise>
-                data={predefinedExercises.map((exercise) => ({ label: exercise.name, value: exercise }))}
-                placeholder="Exercise"
-                value={selectedExercise}
-                onChange={handleSelectExercise}
-                title={"Exercise" + (selectedExercise?.value ? ` : ${selectedExercise.label}` : '')}
-            />
-
-            {/* 🔹 Input Fields for Selected or Custom Exercise */}
-            {selectedExercise && (
-                <EditableList
-                    title={"Select `" + selectedExercise.label + "` Fields"}
-                    items={customFields}
-                    onItemsChange={setCustomFields}
-                />
-            )}
-
-            {/* 🔹 Submit Button */}
-            {workoutDetailsUpdated && (<TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
-                <Ionicons name="checkmark-circle-outline" size={24} color={COLORS.textSecondary} />
-                <Text style={styles.saveButtonText}>Save Exercise</Text>
-            </TouchableOpacity>)}
-        </ScrollableScreen>
-    );
+      {/* 🔹 Submit Button */}
+      {workoutDetailsUpdated && (<TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
+        <Ionicons name="checkmark-circle-outline" size={24} color={COLORS.textSecondary} />
+        <TextBase style={styles.saveButtonText}>Save Exercise</TextBase>
+      </TouchableOpacity>)}
+    </ScrollableScreen>
+  );
 }
 
 const styles = StyleSheet.create({
-    heading: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: COLORS.textPrimary,
-        textAlign: 'center',
-        marginBottom: 20,
-    },
-    saveButton: {
-        flexDirection: 'row',
-        backgroundColor: COLORS.button,
-        padding: 15,
-        borderRadius: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: 20,
-    },
-    saveButtonText: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: COLORS.primary,
-        marginLeft: 8,
-    },
+  heading: {
+    fontSize: FONT_SIZES.xLarge,
+    fontWeight: 'bold',
+    color: COLORS.textPrimary,
+    textAlign: 'center',
+    marginBottom: SPACING.xLarge,
+  },
+  saveButton: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.button,
+    padding: SPACING.xMedium,
+    borderRadius: BORDER_RADIUS,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: SPACING.xLarge,
+  },
+  saveButtonText: {
+    fontSize: FONT_SIZES.large,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+    marginLeft: 8,
+  },
 });
