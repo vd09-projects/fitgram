@@ -19,14 +19,14 @@
 | Task | Status | Timeline | Notes |
 |------|--------|----------|-------|
 | **Adding validation to login page input fields** | ✅ | 1-2 days | like email, name and passowrd; Done. |
-| **Show user name insted of email to home page** | ⏳ | 1-2 days | In hook try to fetch user details also |
+| **Show user name insted of email to home page** | ✅ | 1-2 days | In hook try to fetch user details also; Done. |
 | **Have color and design schema consistent every where till home and footer page** | 🚫 | 1-2 days | not yet started |
 
 ### 🔹 **Phase 3: Exercise Section**
 | Task | Status | Timeline | Notes |
 |------|--------|----------|-------|
 | **Design the exercise layout with three buttons** | ✅ | 2-3 days | Done. |
-| **Make three buttons style consistent** | 🚫 | 1-2 days | have a same design |
+| **Make three buttons style consistent** | ⏳ | 1-2 days | have a same design |
 | **Create the Add Exercise page** | ✅ | 1-2 days | Done. |
 | **Implement exercise logging functionality** | ✅ | 1-2 days | Done. |
 | **Stop showing footer when writing input** | ✅ | 1-2 days | Done. |
@@ -56,7 +56,7 @@
 ### 🔹 **Phase 6: UI/UX Consistency**
 | Task | Status | Timeline | Notes |
 |------|--------|----------|-------|
-| **Make dropdown use centlize colors scheme** | 🚫 | 2-3 days | righ now alot of data is hard coded we need to impove on this |
+| **Make dropdown use centlize colors scheme** | ⏳ | 2-3 days | righ now alot of data is hard coded we need to impove on this |
 | **add consistency in tabel right now they all have diffrent code** | 🚫 | 2-3 days | we have 2-3 type of tabel find similairty and have comon component |
 | **create outlined input componet to use for text input** | ✅ | 3-4 days | Done. |
 | **insted of simple input start using outline input every where** | 🚫 | 1-2 days | not yet started |
