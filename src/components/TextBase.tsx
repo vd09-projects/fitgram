@@ -21,6 +21,8 @@ export const TextBase: React.FC<TextBaseProps> = ({
                 ? FONT_FAMILY.bold.name
                 : FONT_FAMILY.regular.name;
 
+    const letterSpacing = flattenedStyle.letterSpacing || isBold ? 0.6 : 0.4;
+
     // Remove fontWeight if using custom fonts
     const { fontWeight, ...restStyle } = flattenedStyle;
 
@@ -29,6 +31,7 @@ export const TextBase: React.FC<TextBaseProps> = ({
             style={[
                 { fontFamily },
                 isDefaultFontFamilyRequired ? { fontWeight } : {},
+                { letterSpacing },
                 restStyle,
             ]}
             {...rest}

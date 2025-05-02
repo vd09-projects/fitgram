@@ -5,6 +5,7 @@ import { COLORS, footerStyles } from '../constants/styles';
 import { LayoutRoutes } from '../constants/routes';
 import { useKeyboardVisibility } from '../hooks/useKeyboardVisibility'; // Optimized hook
 import { useWorkoutStore } from '../stores/useWorkoutStore';
+import { TextBase } from './TextBase';
 
 interface FooterProps {
   activeTab: keyof typeof LayoutRoutes;
@@ -39,9 +40,9 @@ export default function Footer({ activeTab, onChangeTab }: FooterProps) {
               color={isActive ? COLORS.secondary : COLORS.textSecondary}
               style={{ marginBottom: 2 }}
             />
-            <Text style={[footerStyles.tabText, isActive && footerStyles.activeText]}>
+            <TextBase style={[footerStyles.tabText, isActive && footerStyles.activeText]}>
               {tab.label}
-            </Text>
+            </TextBase>
           </TouchableOpacity>
         );
       })}

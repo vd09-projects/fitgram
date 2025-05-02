@@ -3,6 +3,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ImageBackground } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, headerStyles } from '../constants/styles';
+import { TextBase } from './TextBase';
 
 interface GreetingProps {
   name: string;
@@ -16,10 +17,10 @@ export function Greeting({ name, message }: GreetingProps) {
       >
         <View style={styles.content}>
           <Ionicons name="barbell-outline" size={64} color={COLORS.textPrimary} />
-          <Text style={styles.greeting}>Hi</Text>
-          <Text style={styles.nameGreeting}>{name || 'Guest'}</Text>
-          <Text style={styles.welcome}>{message}</Text>
-          <Text style={[headerStyles.companyName, styles.appName]}>Fitgram</Text>
+          <TextBase style={styles.greeting}>Hi</TextBase>
+          <TextBase style={styles.nameGreeting}>{name || 'Guest'}</TextBase>
+          <TextBase style={styles.welcome}>{message}</TextBase>
+          <TextBase style={[headerStyles.companyName, styles.appName]}>Fitgram</TextBase>
         </View>
       </ImageBackground>
   );

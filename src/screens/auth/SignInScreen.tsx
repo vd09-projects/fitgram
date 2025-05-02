@@ -15,6 +15,7 @@ import Toast from 'react-native-toast-message';
 import { PrimaryInputField } from '../../components/PrimaryInputField';
 import { validateCredentials } from '../../utils/validation'; // 👈 imported here
 import show from '../../utils/toastUtils';
+import { TextBase } from '../../components/TextBase';
 
 type SignInScreenNavigationProp = ScreenNavigationProp<typeof AuthRoutes.SignIn>;
 
@@ -42,7 +43,7 @@ export default function SignInScreen() {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View style={styles.container}>
-        <Text style={styles.title}>Welcome Back</Text>
+        <TextBase style={styles.title}>Welcome Back</TextBase>
 
         <PrimaryInputField
           label="Email"
@@ -62,12 +63,12 @@ export default function SignInScreen() {
 
         <View style={{ marginTop: 16 }}>
           <TouchableOpacity style={styles.button} onPress={handleSignIn}>
-            <Text style={styles.buttonText}>Sign In</Text>
+            <TextBase style={styles.buttonText} isDefaultFontFamilyRequired>Sign In</TextBase>
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity onPress={() => navigation.navigate(AuthRoutes.SignUp)}>
-          <Text style={styles.switchText}>Don't have an account?</Text>
+          <TextBase style={styles.switchText} isDefaultFontFamilyRequired>Don't have an account?</TextBase>
         </TouchableOpacity>
       </View>
     </TouchableWithoutFeedback>

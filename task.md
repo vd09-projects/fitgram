@@ -26,7 +26,7 @@
 | Task | Status | Timeline | Notes |
 |------|--------|----------|-------|
 | **Design the exercise layout with three buttons** | ✅ | 2-3 days | Done. |
-| **Make three buttons style consistent** | ⏳ | 1-2 days | have a same design |
+| **Make three buttons style consistent** | ✅ | 1-2 days | have a same design; Done. |
 | **Create the Add Exercise page** | ✅ | 1-2 days | Done. |
 | **Implement exercise logging functionality** | ✅ | 1-2 days | Done. |
 | **Stop showing footer when writing input** | ✅ | 1-2 days | Done. |

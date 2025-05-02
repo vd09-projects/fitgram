@@ -8,6 +8,7 @@ import { headerStyles } from '../constants/styles';
 import Toast from 'react-native-toast-message';
 import { LayoutRoutes } from '../constants/routes';
 import show from '../utils/toastUtils';
+import { TextBase } from './TextBase';
 
 interface HeaderProps {
   onPressTab: (tab: keyof typeof LayoutRoutes) => void;
@@ -28,11 +29,11 @@ export default function Header({ onPressTab }: HeaderProps) {
   return (
     <View style={headerStyles.container}>
       <TouchableOpacity style={[headerStyles.tabButton]} onPress={() => onPressTab('Home')}>
-        <Text style={headerStyles.companyName}>Fitgram</Text>
+        <TextBase style={headerStyles.companyName} isDefaultFontFamilyRequired>Fitgram</TextBase>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={handleLogout}>
-        <Text style={headerStyles.text}>Logout</Text>
+        <TextBase style={[headerStyles.text]}>Logout</TextBase>
       </TouchableOpacity>
     </View>
   );

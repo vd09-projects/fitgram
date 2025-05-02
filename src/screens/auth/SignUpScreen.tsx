@@ -15,6 +15,7 @@ import { AuthRoutes } from '../../constants/routes';
 import { PrimaryInputField } from '../../components/PrimaryInputField';
 import { validateCredentials } from '../../utils/validation'; // 👈 Import validation
 import show from '../../utils/toastUtils';
+import { TextBase } from '../../components/TextBase';
 
 type SignUpScreenNavigationProp = ScreenNavigationProp<typeof AuthRoutes.SignUp>;
 
@@ -43,7 +44,7 @@ export default function SignUpScreen() {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View style={styles.container}>
-        <Text style={styles.title}>Create an Account</Text>
+        <TextBase style={styles.title}>Create an Account</TextBase>
 
         <PrimaryInputField
           label="Full Name"
@@ -70,12 +71,12 @@ export default function SignUpScreen() {
 
         <View style={{ marginTop: SPACING.large }}>
           <TouchableOpacity style={styles.button} onPress={handleSignUp}>
-            <Text style={styles.buttonText}>Sign Up</Text>
+            <TextBase style={styles.buttonText} isDefaultFontFamilyRequired>Sign Up</TextBase>
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity onPress={() => navigation.navigate(AuthRoutes.SignIn)}>
-          <Text style={styles.switchText}>Already have an account?</Text>
+          <TextBase style={styles.switchText} isDefaultFontFamilyRequired>Already have an account?</TextBase>
         </TouchableOpacity>
       </View>
     </TouchableWithoutFeedback>
