@@ -28,7 +28,7 @@ const CollapsibleExerciseItem = memo(
       collapsibleIconColor={COLORS.textPrimary}
       title={<TextBase style={styles.exerciseText}>{exercise.name}</TextBase>}
       rightElement={
-        <TouchableOpacity onPress={() => onUpdate(index, undefined)}>
+        <TouchableOpacity onPress={() => onUpdate(index, undefined)} style={{paddingRight: SPACING.xSmall}}>
           <Ionicons name="trash-outline" size={20} color={COLORS.cancelButton} />
         </TouchableOpacity>
       }

@@ -28,7 +28,7 @@ export default function CollapsibleSection({
   const toggleCollapse = () => {
     Animated.timing(rotation, {
       toValue: isCollapsed ? 1 : 0,
-      duration: 300,
+      duration: 250,
       useNativeDriver: true,
     }).start(() => setIsCollapsed((prev) => !prev));
   };
@@ -50,7 +50,7 @@ export default function CollapsibleSection({
         <View style={styles.titleContainer}>{title}</View>
         <View style={styles.rightIcons}>
           {rightElement}
-          <Animated.View style={{ transform: [{ rotate: rotateInterpolate }] }}>
+          <Animated.View style={{transform: [{ rotate: rotateInterpolate }], marginEnd: SPACING.small }}>
             <Ionicons name="chevron-down" size={20} color={collapsibleIconColor} />
           </Animated.View>
         </View>
