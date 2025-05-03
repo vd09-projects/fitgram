@@ -30,7 +30,7 @@
 | **Create the Add Exercise page** | ✅ | 1-2 days | Done. |
 | **Implement exercise logging functionality** | ✅ | 1-2 days | Done. |
 | **Stop showing footer when writing input** | ✅ | 1-2 days | Done. |
-| **Add validations to input fields** | ⏳ | 2-3 days | when adding workout and save exercise have some king of validation |
+| **Add validations to input fields for Add page** | ✅ | 2-3 days | when adding workout and save exercise have some kind of validation; Done |
 | **Develop the workout management page** | ✅ | 2-3 days | Done. |
 | **Rename workout management layout for better clarity** | ✅ | 1 day | Done. |
 | **Integrate exercise logging functionality within workout management** | ✅ | 2-3 days | Done. |
@@ -58,7 +58,7 @@
 | Task | Status | Timeline | Notes |
 |------|--------|----------|-------|
 | **Make dropdown use centlize colors scheme** | ✅ | 2-3 days | righ now alot of data is hard coded we need to impove on this; Done |
-| **Make editable list use centlize input and color scheme** | ⏳ | 1-2 days | righ now alot of data is hard coded we need to impove on this |
+| **Make editable list use centlize input and color scheme** | ✅ | 1-2 days | righ now alot of data is hard coded we need to impove on this; Done |
 | **Make Active Workout screen use centlize input and color scheme** | ⏳ | 1-2 days | righ now alot of data is hard coded we need to impove on this |
 | **add consistency in tabel right now they all have diffrent code** | 🚫 | 2-3 days | we have 2-3 type of tabel find similairty and have comon component |
 | **create outlined input componet to use for text input** | ✅ | 3-4 days | Done. |
