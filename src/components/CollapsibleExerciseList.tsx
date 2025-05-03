@@ -28,7 +28,7 @@ const CollapsibleExerciseItem = memo(
       collapsibleIconColor={COLORS.textPrimary}
       title={<TextBase style={styles.exerciseText}>{exercise.name}</TextBase>}
       rightElement={
-        <TouchableOpacity onPress={() => onUpdate(index, undefined)} style={{paddingRight: SPACING.xSmall}}>
+        <TouchableOpacity onPress={() => onUpdate(index, undefined)} style={{ paddingRight: SPACING.xSmall }}>
           <Ionicons name="trash-outline" size={20} color={COLORS.cancelButton} />
         </TouchableOpacity>
       }
@@ -60,7 +60,6 @@ const styles = StyleSheet.create({
   section: {
     borderRadius: BORDER_RADIUS,
     marginTop: SPACING.large,
-    marginBottom: SPACING.medium,
   },
   subHeading: {
     fontSize: FONT_SIZES.large,

@@ -18,7 +18,7 @@ import { useAuthUser } from '../../hooks/useAuthUser';
 import CollapsibleExerciseList from '../../components/CollapsibleExerciseList';
 import { Exercise, WorkoutPlan } from '../../types/workoutType';
 import { TextBase } from '../../components/TextBase';
-import { validateCustomFields, validateExerciseSelection, validateWorkoutSelection } from '../../utils/exerciseValidations';
+import { validateCustomFields, validateExerciseSelection, validateWorkoutAndExercises, validateWorkoutSelection } from '../../utils/exerciseValidations';
 
 export default function AddExerciseScreen() {
   const { user } = useAuthUser();
@@ -68,6 +68,9 @@ export default function AddExerciseScreen() {
 
     const workoutError = validateWorkoutSelection(selectedWorkout);
     if (workoutError) return show.alert("Workout Invalid", workoutError);
+
+    const deepExerciseError = validateWorkoutAndExercises(selectedWorkout.value);
+    if (deepExerciseError) return show.alert("Exercise Invalid", deepExerciseError);
 
     const wk = selectedWorkout.value;
     const exerciseIds = new Set(wk.exercises.map(e => e.id));
@@ -142,6 +145,7 @@ export default function AddExerciseScreen() {
         value={selectedExercise}
         onChange={handleSelectExercise}
         title={"Exercise" + (selectedExercise?.value ? ` : ${selectedExercise.label}` : '')}
+        conatinerStyle={{ marginBottom: SPACING.large }}
       />
 
       {/* 🔹 Input Fields for Selected or Custom Exercise */}

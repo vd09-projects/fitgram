@@ -11,7 +11,7 @@ const BasicColors = {
   button: "#4B5E79",
   buttonSecondary: "#5D6D7E",
   cancelButton: "#E74C3C", // A strong yet slightly muted red (less aggressive than pure red)
-  // cancelButton: '#D64545', // More vibrant than dull red but not neon
+  errorBackground: '#ffcccc', // More vibrant than dull red but not neon
 
   dropdown: "#DCE5F7",
   dropdownBright: "#5A3E62",
@@ -69,6 +69,15 @@ export const FONT_SIZES = {
   xLarge: 24,
 };
 
+export const BUTTON_SIZES = {
+  xSmall: 12,
+  small: 16,
+  xMedium: 24,
+  medium: 30,
+  large: 36,
+  xLarge: 40,
+};
+
 export const SPACING = {
   xSmall: 4,
   small: 8,
@@ -93,6 +102,7 @@ export const getShadow = (level: number) => ({
 
 export const SHADOW = getShadow(2);
 export const SHADOW_3 = getShadow(3);
+export const SHADOW_4 = getShadow(4);
 
 const styles = StyleSheet.create({
   container: {

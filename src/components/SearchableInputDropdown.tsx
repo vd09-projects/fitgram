@@ -7,7 +7,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
-import { BORDER_RADIUS, COLORS, FONT_FAMILY, FONT_SIZES, SHADOW, SHADOW_3, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, BUTTON_SIZES, COLORS, FONT_FAMILY, FONT_SIZES, SHADOW, SHADOW_3, SHADOW_4, SPACING } from '../constants/styles';
 import { TextBase } from './TextBase';
 import { emptyOutlineStyle, PrimaryInputField } from './PrimaryInputField';
 import { TextInput } from 'react-native-paper';
@@ -82,8 +82,10 @@ export default function SearchableInputDropdown<T>({
           container={styles.primaryInputContainer}
           outline={emptyOutlineStyle}
           right={<TextInput.Icon
-            icon="clipboard-plus-outline"
+            icon="text-box-check"
             onPress={handleAddCustomField}
+            color={COLORS.button}
+            size={BUTTON_SIZES.large}
           />}
         />
       ) : (
@@ -116,7 +118,7 @@ const styles = StyleSheet.create({
     padding: SPACING.large,
     backgroundColor: COLORS.primary,
     borderRadius: BORDER_RADIUS,
-    ...SHADOW_3,
+    ...SHADOW_4,
   },
   header: {
     flexDirection: 'row',

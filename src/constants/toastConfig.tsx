@@ -28,6 +28,9 @@ export const toastConfig = {
         borderLeftColor: '#D32F2F', // Error Red
         backgroundColor: "#B2B5E0", // Light Red Background
         borderRadius: 8,
+        paddingVertical: 10,
+        minHeight: undefined,
+        height: 'auto',
       }}
       contentContainerStyle={{ paddingHorizontal: 12 }}
       text1Style={{
@@ -39,6 +42,7 @@ export const toastConfig = {
         fontSize: 14,
         color: '#B71C1C', // Slightly darker red
       }}
+      text2NumberOfLines={0}
     />
   ),
   warning: (props: BaseToastProps) => (
@@ -48,6 +52,9 @@ export const toastConfig = {
         borderLeftColor: '#FFA000', // Warning Orange
         backgroundColor: "#B2B5E0",
         borderRadius: 8,
+        paddingVertical: 10,
+        minHeight: undefined,
+        height: 'auto',
       }}
       contentContainerStyle={{ paddingHorizontal: 12 }}
       text1Style={{
@@ -59,6 +66,7 @@ export const toastConfig = {
         fontSize: 14,
         color: '#BF360C', // Slightly darker orange
       }}
+      text2NumberOfLines={0}
     />
   ),
 };

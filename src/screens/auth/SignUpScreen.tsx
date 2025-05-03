@@ -50,6 +50,7 @@ export default function SignUpScreen() {
           label="Full Name"
           value={name}
           onChangeText={setName}
+          container={styles.authContainer}
           placeholder="Enter your Full Name"
         />
 

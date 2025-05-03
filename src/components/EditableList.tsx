@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../constants/styles';
+import { BORDER_RADIUS, BUTTON_SIZES, COLORS, FONT_SIZES, SHADOW, SPACING } from '../constants/styles';
 import { TextBase } from './TextBase';
+import { emptyOutlineStyle, PrimaryInputField } from './PrimaryInputField';
+import { TextInput as TextInput1 } from 'react-native-paper';
+import show from '../utils/toastUtils';
 
 interface EditableListProps {
   title: string;
   items: string[];
   onItemsChange: (updatedItems: string[]) => void;
-  showDeleteButton?: boolean; // Controls the visibility of delete buttons
   showInputField?: boolean; // Controls the visibility of the input area
 }
 
@@ -16,21 +18,25 @@ const EditableList: React.FC<EditableListProps> = ({
   title,
   items,
   onItemsChange,
-  showDeleteButton = true,
   showInputField = true
 }) => {
   const [newItem, setNewItem] = useState('');
-  const [duplicateError, setDuplicateError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleAddItem = () => {
     const trimmedItem = newItem.trim();
-    if (trimmedItem === '' || items.includes(trimmedItem)) {
-      setDuplicateError(true);
+    if (trimmedItem === '') {
+      setErrorMessage("*Fields cannot be empty");
+      return;
+    }
+
+    if (items.includes(trimmedItem)) {
+      setErrorMessage("*This item already exists!");
       return;
     }
     onItemsChange([...items, trimmedItem]);
     setNewItem('');
-    setDuplicateError(false);
+    setErrorMessage(null);
   };
 
   const handleRemoveItem = (index: number) => {
@@ -42,119 +48,101 @@ const EditableList: React.FC<EditableListProps> = ({
       <TextBase style={styles.title}>{title}</TextBase>
 
       {items.map((field, index) => {
-        const isDuplicate = duplicateError && field === newItem.trim();
+        const isDuplicate = errorMessage && field === newItem.trim();
 
         return (
-          <View key={index} style={[styles.itemContainer, isDuplicate && styles.duplicateItem]}>
-            {/* Editable Text Field */}
-            <TextInput
-              style={[styles.itemInput, isDuplicate && styles.duplicateItem]}
-              value={field}
-              onChangeText={(text) => {
-                const updatedFields = [...items];
-                updatedFields[index] = text;
-                onItemsChange(updatedFields);
-              }}
-            />
-
-            {/* Conditional Delete Button */}
-            {showDeleteButton && (
-              <TouchableOpacity
-                onPress={() => handleRemoveItem(index)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="close-circle" size={20} color="red" />
-              </TouchableOpacity>
-            )}
-          </View>
+          <PrimaryInputField
+            key={index}
+            label=''
+            value={field}
+            container={[styles.primaryItemContainer, isDuplicate && styles.duplicateItem]}
+            onChangeText={(text) => {
+              const updatedFields = [...items];
+              updatedFields[index] = text;
+              onItemsChange(updatedFields);
+            }}
+            right={<TextInput1.Icon
+              icon="close"
+              color={COLORS.cancelButton}
+              onPress={() => handleRemoveItem(index)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              size={20}
+            />}
+          />
         );
       })}
 
-      {/* Conditional Input for Adding New Items */}
       {showInputField && (
-        <View style={styles.addItemContainer}>
-          <TextInput
-            style={[styles.input, duplicateError ? styles.errorInput : {}]}
-            placeholder="Enter new item"
-            value={newItem}
-            onChangeText={(text) => {
-              setNewItem(text);
-              setDuplicateError(false);
-            }}
-          />
-          <TouchableOpacity style={styles.addButton} onPress={handleAddItem}>
-            <TextBase style={styles.addButtonText}>Add</TextBase>
-          </TouchableOpacity>
-        </View>
+        <PrimaryInputField
+          label=''
+          placeholder="Enter new field"
+          value={newItem}
+          onChangeText={(text) => {
+            setNewItem(text);
+            setErrorMessage(null);
+          }}
+
+          container={[styles.primaryInputContainer, errorMessage ? styles.errorInput : {}]}
+          outline={emptyOutlineStyle}
+
+          right={<TextInput1.Icon
+            icon="playlist-plus"
+            color={errorMessage ? COLORS.cancelButton : COLORS.button}
+            onPress={handleAddItem}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            size={BUTTON_SIZES.xLarge}
+          />}
+        />
       )}
 
-      {duplicateError && <TextBase style={styles.errorText}>*This item already exists!</TextBase>}
+      {errorMessage && <TextBase style={styles.errorText}>{errorMessage}</TextBase>}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 15,
+    marginBottom: SPACING.medium,
   },
   title: {
-    marginBottom: 10,
-    fontSize: 16,
+    marginBottom: SPACING.small,
+    fontSize: FONT_SIZES.medium,
     color: COLORS.textPrimary,
     fontWeight: 'bold',
   },
-  itemContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  primaryItemContainer: {
+    flex: 1,
     backgroundColor: COLORS.textSecondary,
-    padding: 4,
-    borderRadius: 8,
-    marginBottom: 10,
-    justifyContent: 'space-between',
+    borderRadius: BORDER_RADIUS,
+    paddingLeft: 0,
+    paddingBottom: 2,
+    height: 46,
+    marginBottom: SPACING.xSmall,
+    fontSize: FONT_SIZES.medium,
   },
-  itemInput: {
+  primaryInputContainer: {
     flex: 1,
-    backgroundColor: 'white',
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    fontSize: 16,
-  },
-  addItemContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  input: {
-    flex: 1,
-    backgroundColor: 'white',
-    padding: 10,
-    borderRadius: 6,
-    fontSize: 16,
+    paddingLeft: 0,
+    marginTop: SPACING.small,
+    height: 50,
+    paddingBottom: SPACING.xSmall,
+    marginBottom: SPACING.xSmall,
+    fontSize: FONT_SIZES.large,
+    backgroundColor: COLORS.textSecondary,
+    ...SHADOW,
   },
   errorInput: {
-    borderColor: 'red',
+    borderColor: COLORS.cancelButton,
     borderWidth: 1,
   },
-  addButton: {
-    marginLeft: 10,
-    backgroundColor: COLORS.button,
-    padding: 10,
-    borderRadius: 8,
-  },
-  addButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: 'white',
-    paddingHorizontal: 6,
-  },
   errorText: {
-    color: 'red',
-    fontSize: 14,
+    color: COLORS.cancelButton,
+    fontSize: FONT_SIZES.xMedium,
     fontWeight: 'bold',
-    marginTop: 5,
+    marginTop: SPACING.xSmall,
   },
   duplicateItem: {
-    backgroundColor: '#ffcccc',
+    backgroundColor: COLORS.errorBackground,
   },
 });
 

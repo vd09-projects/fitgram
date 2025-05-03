@@ -4,6 +4,7 @@ import { StyleProp, TextStyle, StyleSheet, ViewStyle, KeyboardType } from 'react
 import { BORDER_RADIUS, COLORS, FONT_FAMILY, FONT_SIZES, SPACING } from '../constants/styles'; // adjust path if needed
 
 interface PrimaryInputFieldProps {
+  mode?: 'flat' | 'outlined';
   label: string;
   value: string;
   onChangeText: (text: string) => void;
@@ -21,6 +22,7 @@ interface PrimaryInputFieldProps {
 }
 
 export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
+  mode = 'outlined',
   label,
   value,
   onChangeText,
@@ -40,7 +42,7 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
 
   return (
     <TextInput
-      mode='outlined'
+      mode={mode}
 
       label={label}
       value={value}
