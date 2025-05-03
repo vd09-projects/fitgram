@@ -5,15 +5,10 @@ import {
     StyleSheet,
     FlatList,
     ScrollView,
-    TouchableOpacity,
-    LayoutAnimation,
     Platform,
     UIManager,
 } from "react-native";
-import { ExerciseLog } from "../types/workoutLogs";
-import { Ionicons } from '@expo/vector-icons';
 import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "../constants/styles";
-import CollapsibleSection from "./CollapsibleSection";
 import { WorkoutLog, SetsString } from "../types/workoutLogs";
 import { Exercise } from "../types/workoutType";
 
