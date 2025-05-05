@@ -3,9 +3,11 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Animated } from "r
 import { useWorkoutStore } from "../stores/useWorkoutStore";
 import { Ionicons } from "@expo/vector-icons";
 import Table from "./Table";
-import { COLORS, SPACING } from "../constants/styles";
+import { BORDER_RADIUS, BUTTON_SIZES, COLORS, FONT_SIZES, SHADOW, SPACING } from "../constants/styles";
 import { LoggedExercise } from "../types/zustandWorkoutType";
 import CollapsibleSection from "./CollapsibleSection";
+import { TextBase } from "./TextBase";
+import { getClearIcon, PrimaryInputField } from "./PrimaryInputField";
 
 export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise }) {
   const { addSetToExercise } = useWorkoutStore();
@@ -22,37 +24,43 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
     setInputValues({});
   };
 
-  const toggleCollapse = () => {
-    Animated.timing(rotation, {
-      toValue: isCollapsed ? 1 : 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start(() => setIsCollapsed((prev) => !prev));
-  };
+  const onChangeValueForField = (field: string, text: string) => {
+    setInputValues((prev) => ({ ...prev, [field]: text }))
+  }
 
   return (
     <View style={styles.container}>
 
-      <CollapsibleSection title={<Text style={styles.toggleButtonText}>Log History</Text>}>
+      <CollapsibleSection
+        collapsibleStyle={styles.exerciseContainer}
+        collapsibleIconColor={COLORS.textPrimary}
+        title={<TextBase style={styles.toggleButtonText}>Log History</TextBase>}
+      >
         <Table key={exercise.id} headers={exercise.fields} data={exercise.sets.map((set) => set.fields)} />
       </CollapsibleSection>
 
       <View style={styles.inputContainer}>
         {exercise.fields.map((field, index) => (
-          <TextInput
+          <PrimaryInputField
             key={index}
-            style={styles.input}
+            label={inputValues[field] ? field : ""}
+
             placeholder={field}
-            placeholderTextColor="#888"
+            placeholderTextColor={COLORS.textPrimaryPlaceholder}
             value={inputValues[field] || ""}
-            onChangeText={(text) => setInputValues((prev) => ({ ...prev, [field]: text }))}
-            keyboardType="numeric"
+
+            onChangeText={(text) => onChangeValueForField(field, text)}
+            container={[styles.primaryInputContainer]}
+            right={getClearIcon(inputValues[field], (text) => onChangeValueForField(field, text))}
           />
         ))}
       </View>
 
       <TouchableOpacity style={styles.logButton} onPress={logSet} accessibilityLabel="Log Set">
-        <Text style={styles.logButtonText}>Save Set</Text>
+        <Ionicons name="barbell-outline" size={24} color={COLORS.textSecondary} style={{ marginRight: SPACING.small }} />
+        <TextBase style={styles.logButtonText}>Save Set</TextBase>
+        {/* <Ionicons name="barbell-outline" size={24} color={COLORS.textSecondary} style={{ marginLeft: SPACING.small }} /> */}
+        <Ionicons name="checkmark-done" size={20} color={COLORS.textSecondary} style={{ marginLeft: SPACING.small }} />
       </TouchableOpacity>
     </View>
   );
@@ -62,9 +70,41 @@ const styles = StyleSheet.create({
   container: { paddingVertical: 15, borderBottomWidth: 1, borderColor: "#ddd" },
   exerciseName: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
   toggleButton: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: COLORS.dropdownBright, borderRadius: 5, marginBottom: SPACING.medium, marginLeft: SPACING.xSmall, padding: SPACING.medium, },
-  toggleButtonText: { color: "#fff", fontWeight: "bold" },
+  toggleButtonText: {
+    color: COLORS.textPrimary,
+    fontWeight: "bold",
+  },
+  exerciseContainer: {
+    backgroundColor: COLORS.dropdown,
+    borderRadius: BORDER_RADIUS,
+    marginBottom: SPACING.medium,
+    padding: SPACING.large,
+    ...SHADOW,
+  },
   inputContainer: { marginBottom: SPACING.medium },
-  input: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 5, backgroundColor: COLORS.textSecondary, margin: SPACING.xSmall, padding: SPACING.medium },
-  logButton: { backgroundColor: COLORS.buttonSecondary, padding: 10, borderRadius: 5, alignItems: "center" },
-  logButtonText: { color: "#fff", fontWeight: "bold" },
+  logButton: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: COLORS.buttonSecondary,
+    padding: SPACING.large,
+    borderRadius: BORDER_RADIUS,
+    ...SHADOW,
+  },
+  logButtonText: {
+    color: COLORS.textSecondary,
+    fontWeight: "bold",
+    fontSize: FONT_SIZES.large,
+  },
+  primaryInputContainer: {
+    flex: 1,
+    backgroundColor: COLORS.textSecondary,
+    borderRadius: BORDER_RADIUS,
+    paddingLeft: 0,
+    paddingBottom: 2,
+    height: 46,
+    marginBottom: SPACING.xSmall,
+    fontSize: FONT_SIZES.medium,
+    // ...SHADOW,
+  },
 });

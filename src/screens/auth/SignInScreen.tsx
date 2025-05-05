@@ -16,6 +16,7 @@ import { PrimaryInputField } from '../../components/PrimaryInputField';
 import { validateCredentials } from '../../utils/validation';
 import show from '../../utils/toastUtils';
 import { TextBase } from '../../components/TextBase';
+import TestingCollapsibleTable from '../../components/collapsible_table/CollapsibleTable_delete_rough';
 
 type SignInScreenNavigationProp = ScreenNavigationProp<typeof AuthRoutes.SignIn>;
 
@@ -72,6 +73,9 @@ export default function SignInScreen() {
         <TouchableOpacity onPress={() => navigation.navigate(AuthRoutes.SignUp)}>
           <TextBase style={styles.switchText} isDefaultFontFamilyRequired>Don't have an account?</TextBase>
         </TouchableOpacity>
+
+      <TestingCollapsibleTable/>
+
       </View>
     </TouchableWithoutFeedback>
   );

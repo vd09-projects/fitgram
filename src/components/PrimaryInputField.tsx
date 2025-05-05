@@ -19,6 +19,7 @@ interface PrimaryInputFieldProps {
   labelColor?: string;
   left?: React.ReactNode;
   right?: React.ReactNode;
+  disabled?: boolean
 }
 
 export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
@@ -35,6 +36,7 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
   placeholderTextColor = COLORS.textPrimaryPlaceholder,
   backgroundColor = COLORS.textSecondary,
   labelColor = COLORS.textPrimary,
+  disabled = false,
   left,
   right,
 }) => {
@@ -47,6 +49,7 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
       label={label}
       value={value}
       onChangeText={onChangeText}
+      disabled={disabled}
 
       keyboardType={secureTextEntry ? undefined : keyboardType}
       secureTextEntry={secureEntry}
@@ -120,3 +123,12 @@ export const emptyOutlineStyle = {
   borderWidth: 0,
   borderColor: COLORS.transparent,
 }
+
+export const getClearIcon = (
+  value: string | undefined,
+  onChangeText: (text: string) => void
+) => {
+  return value && value.length > 0 ? (
+    <TextInput.Icon icon="close" onPress={() => onChangeText('')} />
+  ) : undefined;
+};

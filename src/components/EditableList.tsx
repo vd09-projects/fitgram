@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BORDER_RADIUS, BUTTON_SIZES, COLORS, FONT_SIZES, SHADOW, SPACING } from '../constants/styles';
 import { TextBase } from './TextBase';
 import { emptyOutlineStyle, PrimaryInputField } from './PrimaryInputField';
-import { TextInput as TextInput1 } from 'react-native-paper';
+import { TextInput } from 'react-native-paper';
 import show from '../utils/toastUtils';
 
 interface EditableListProps {
@@ -61,7 +61,7 @@ const EditableList: React.FC<EditableListProps> = ({
               updatedFields[index] = text;
               onItemsChange(updatedFields);
             }}
-            right={<TextInput1.Icon
+            right={<TextInput.Icon
               icon="close"
               color={COLORS.cancelButton}
               onPress={() => handleRemoveItem(index)}
@@ -85,7 +85,7 @@ const EditableList: React.FC<EditableListProps> = ({
           container={[styles.primaryInputContainer, errorMessage ? styles.errorInput : {}]}
           outline={emptyOutlineStyle}
 
-          right={<TextInput1.Icon
+          right={<TextInput.Icon
             icon="playlist-plus"
             color={errorMessage ? COLORS.cancelButton : COLORS.button}
             onPress={handleAddItem}

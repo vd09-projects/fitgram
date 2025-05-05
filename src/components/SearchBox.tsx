@@ -1,6 +1,6 @@
 import React from "react";
 import { View } from "react-native";
-import { PrimaryInputField } from "./PrimaryInputField";
+import { getClearIcon, PrimaryInputField } from "./PrimaryInputField";
 import { TextInput } from 'react-native-paper';
 import { SPACING } from "../constants/styles";
 
@@ -20,11 +20,7 @@ const SearchBox: React.FC<SearchBoxProps> = ({ value, onChangeText, label, place
         onChangeText={onChangeText}
         placeholder={placeholder}
         left={<TextInput.Icon icon="feature-search-outline" />}
-        right={value.length > 0 ?
-          <TextInput.Icon
-            icon="close"
-            onPress={() => onChangeText("")}
-          /> : undefined}
+        right={getClearIcon(value, onChangeText)}
         container={{ width: '100%' }}
       />
     </View>

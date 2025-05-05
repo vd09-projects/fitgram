@@ -1,7 +1,18 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, Switch, StyleSheet, Modal, TouchableWithoutFeedback, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Switch,
+  StyleSheet,
+  Modal,
+  TouchableWithoutFeedback,
+  ScrollView,
+} from "react-native";
 import { COLORS, SPACING, BORDER_RADIUS, SHADOW, FONT_SIZES } from "../constants/styles";
 import { Ionicons } from "@expo/vector-icons";
+import { TextBase } from "./TextBase";
+import CompactTextSwitch from "./CompactTextSwitch";
 
 interface TableControlsProps {
   headers: string[];
@@ -12,6 +23,8 @@ interface TableControlsProps {
   setInverted: (value: boolean) => void;
 }
 
+const MAX_DISPLAY_LENGTH = 20;
+
 const TableControls: React.FC<TableControlsProps> = ({
   headers,
   selectedFields,
@@ -20,92 +33,96 @@ const TableControls: React.FC<TableControlsProps> = ({
   isInverted,
   setInverted,
 }) => {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isModalVisible, setModalVisible] = useState(false);
 
+  const toggleModal = () => setModalVisible((prev) => !prev);
 
-  const truncateText = (text: string, maxLength: number) => {
-    return text.length > maxLength ? text.substring(0, maxLength) + "..." : text;
-  };
+  const handleSelectAll = () => onSelectFields(headers);
+  const handleUnselectAll = () => onSelectFields([]);
+
+  const truncatedFieldText = selectedFields.length > 0
+    ? selectedFields.join(", ").slice(0, MAX_DISPLAY_LENGTH) + (selectedFields.join(", ").length > MAX_DISPLAY_LENGTH ? "..." : "")
+    : "Select Columns";
+
+  const renderFieldCheckboxes = () =>
+    headers.map((header) => (
+      <TouchableOpacity
+        key={header}
+        style={styles.checkboxContainer}
+        onPress={() => toggleFieldSelection(header)}
+      >
+        <View style={[styles.checkbox, selectedFields.includes(header) && styles.checkboxSelected]} />
+        <TextBase style={styles.checkboxLabel}>{header}</TextBase>
+      </TouchableOpacity>
+    ));
+
+  const renderModalContent = () => (
+    <TouchableWithoutFeedback onPress={() => { }}>
+      <View style={styles.modalContainer}>
+        <TextBase style={styles.modalTitle}>Select Columns</TextBase>
+
+        <View style={styles.selectionButtonsContainer}>
+          <TouchableOpacity style={styles.selectionButton} onPress={handleSelectAll}>
+            <TextBase style={styles.selectionButtonText}>Select All</TextBase>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.selectionButton} onPress={handleUnselectAll}>
+            <TextBase style={styles.selectionButtonText}>Unselect All</TextBase>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          style={styles.checkboxScrollView}
+          nestedScrollEnabled
+          showsVerticalScrollIndicator={false}
+        >
+          {renderFieldCheckboxes()}
+        </ScrollView>
+      </View>
+    </TouchableWithoutFeedback>
+  );
 
   return (
-    <View style={styles.controlContainer}>
-      {/* Control Panel - Single Row */}
-      {/* Button to open modal */}
-      <TouchableOpacity style={styles.modalButton} onPress={() => setIsDropdownOpen(true)}>
+    <View style={styles.container}>
+      {/* Column Picker Button */}
+      <TouchableOpacity style={styles.modalButton} onPress={toggleModal}>
         <View style={styles.buttonContent}>
-          <Text style={styles.buttonText} numberOfLines={1} ellipsizeMode="tail">
-            {selectedFields.length > 0 ? truncateText(selectedFields.join(", "), 20) : "Select Columns"}
-          </Text>
-          <Ionicons name="chevron-down" size={20} style={styles.dropdownArrow} color="#fff" />
+          <TextBase style={styles.buttonText} numberOfLines={1}>
+            {truncatedFieldText}
+          </TextBase>
+          <Ionicons name="chevron-down" size={20} color="#fff" style={styles.dropdownArrow} />
         </View>
       </TouchableOpacity>
 
-      {/* Toggle Table Format */}
-      <View style={styles.switchContainer}>
-        <Switch
-          value={isInverted}
-          onValueChange={setInverted}
-          trackColor={{ false: COLORS.secondary, true: COLORS.tertiary }}
-          thumbColor={COLORS.textSecondary}
-          style={{ transform: [{ scaleX: 1.1 }] }}
-        />
-        <Text style={[styles.switchLabel, { opacity: isInverted ? 1 : 0.5 }]}>Inverted</Text>
-      </View>
+      {/* Inverted Toggle */}
+      <CompactTextSwitch
+        value={isInverted}
+        onToggle={setInverted}
+        labels={["Std", "Flip"]}
+        width={50}
+        height={24}
+        containerStyle={{ marginLeft: SPACING.small }}
+      />
 
-
-      {isDropdownOpen && (
-        <Modal visible={isDropdownOpen} animationType="slide" transparent={true}>
-          <TouchableWithoutFeedback onPress={() => setIsDropdownOpen(false)}>
-            <View style={styles.modalOverlay}>
-              <TouchableWithoutFeedback onPress={() => { }}>
-                <View style={styles.modalContainer}>
-                  <Text style={styles.modalTitle}>Select Columns</Text>
-
-                  {/* ✅ Buttons for Select All / Unselect All */}
-                  <View style={styles.selectionButtonsContainer}>
-                    <TouchableOpacity style={styles.selectionButton} onPress={() => onSelectFields(headers)}>
-                      <Text style={styles.selectionButtonText}>Select All</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.selectionButton} onPress={() => onSelectFields([])}>
-                      <Text style={styles.selectionButtonText}>Unselect All</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* ✅ Scrollable View Inside Modal (Without Scrollbar) */}
-                  <ScrollView
-                    style={{ maxHeight: 300, width: "100%" }}
-                    nestedScrollEnabled={true}
-                    showsVerticalScrollIndicator={false}  // 🔥 Hides scrollbar
-                  >
-                    {headers.map((header, index) => (
-                      <TouchableOpacity key={index} style={styles.checkboxContainer} onPress={() => toggleFieldSelection(header)}>
-                        <View style={[styles.checkbox, selectedFields.includes(header) && styles.checkboxSelected]} />
-                        <Text style={styles.checkboxLabel}>{header}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              </TouchableWithoutFeedback>
-            </View>
-          </TouchableWithoutFeedback>
-        </Modal>
-      )}
+      {/* Modal for Column Selection */}
+      <Modal visible={isModalVisible} animationType="slide" transparent>
+        <TouchableWithoutFeedback onPress={toggleModal}>
+          <View style={styles.modalOverlay}>{renderModalContent()}</View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  controlContainer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: SPACING.medium },
-  switchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingLeft: 8,
+  container: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: SPACING.medium,
   },
-  switchLabel: {
-    fontSize: 10,
-    color: COLORS.textPrimary,
-    fontWeight: 'bold',
+  checkboxScrollView: {
+    maxHeight: 300,
+    width: "100%",
   },
   modalButton: {
     flexDirection: "row",
