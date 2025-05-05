@@ -31,20 +31,23 @@ export function TableHeader<T>({
   colWidths,
   onTextLayout,
   styles,
+  collapsibleIconRequired = false,
 }: {
   visibleColumns: Column<T>[];
   colWidths: Record<string, number>;
   onTextLayout: (key: string) => (e: LayoutChangeEvent) => void;
   styles: CollapsibleTableStyles;
+  collapsibleIconRequired?: boolean;
 }) {
   return (
     <View style={[styles.row, styles.header]}>
-      <View style={styles.iconCell} />
-      {visibleColumns.map((col) => (
+      {collapsibleIconRequired && <View style={[styles.iconCell, styles.headerCellSpliter]} />}
+      {visibleColumns.map((col, index) => (
         <View
           key={String(col.key)}
           style={[
             styles.cell,
+            index != visibleColumns.length - 1 && styles.headerCellSpliter,
             { width: colWidths[String(col.key)] ?? undefined },
             { alignItems: getAlignment(col.align) },
           ]}
@@ -66,6 +69,7 @@ export function TableRow<T>({
   visibleColumns,
   colWidths,
   styles,
+  collapsibleIconRequired = false,
 }: {
   item: T;
   index: number;
@@ -74,13 +78,16 @@ export function TableRow<T>({
   visibleColumns: Column<T>[];
   colWidths: Record<string, number>;
   styles: CollapsibleTableStyles;
+  collapsibleIconRequired?: boolean;
 }) {
   return (
     <TouchableOpacity onPress={() => toggle(index)}>
       <View style={[styles.row]}>
-        <View style={styles.iconCell}>
-          <AntDesign name={isOpen ? 'right' : 'down'} size={16} />
-        </View>
+        {collapsibleIconRequired &&
+          <View style={styles.iconCell}>
+            <AntDesign name={isOpen ? 'right' : 'down'} size={16} />
+          </View>}
+
         {visibleColumns.map((col) => (
           <View
             key={String(col.key)}
@@ -91,7 +98,7 @@ export function TableRow<T>({
             ]}
           >
             <TextBase numberOfLines={2} ellipsizeMode="tail" style={styles.rowText}>
-            {/* <TextBase numberOfLines={1} ellipsizeMode="tail"> */}
+              {/* <TextBase numberOfLines={1} ellipsizeMode="tail"> */}
               {String(item[col.key])}
             </TextBase>
           </View>

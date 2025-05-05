@@ -1,6 +1,12 @@
-import { COLORS } from './../../constants/styles';
-import { StyleSheet, ViewStyle, TextStyle } from 'react-native';
-import { BORDER_RADIUS, BUTTON_SIZES, FONT_SIZES, SHADOW, SPACING } from '../../constants/styles';
+import { COLORS } from "./../../constants/styles";
+import { StyleSheet, ViewStyle, TextStyle } from "react-native";
+import {
+  BORDER_RADIUS,
+  BUTTON_SIZES,
+  FONT_SIZES,
+  SHADOW,
+  SPACING,
+} from "../../constants/styles";
 
 export type CollapsibleTableStyles = {
   outerScroll: ViewStyle;
@@ -32,11 +38,11 @@ export const defaultStyles = StyleSheet.create<CollapsibleTableStyles>({
     borderWidth: 1,
     borderColor: COLORS.tableBorder,
     borderRadius: BORDER_RADIUS,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: SPACING.medium,
   },
   header: {
@@ -54,33 +60,32 @@ export const defaultStyles = StyleSheet.create<CollapsibleTableStyles>({
   },
   iconCell: {
     width: BUTTON_SIZES.medium,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   cell: {
     paddingHorizontal: SPACING.small,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   headerText: {
-    fontWeight: 'bold',
+    fontWeight: "bold",
     fontSize: FONT_SIZES.medium,
     color: COLORS.tableHeaderText,
   },
   headerCellSpliter: {
     borderRightColor: COLORS.tableBorder,
     borderRightWidth: 1,
-    paddingHorizontal: SPACING.small,
   },
   collapseBox: {
     paddingHorizontal: SPACING.small,
     paddingBottom: SPACING.small,
   },
   kvGrid: {
-    flexDirection: 'column',
+    flexDirection: "column",
   },
   kvRow: {
-    flexDirection: 'row',
-    width: '100%',
+    flexDirection: "row",
+    width: "100%",
     paddingVertical: SPACING.xSmall,
     paddingHorizontal: SPACING.small,
   },

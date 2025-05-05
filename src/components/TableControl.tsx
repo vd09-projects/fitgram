@@ -19,8 +19,8 @@ interface TableControlsProps {
   selectedFields: string[];
   onSelectFields: (fields: string[]) => void;
   toggleFieldSelection: (field: string) => void;
-  isInverted: boolean;
-  setInverted: (value: boolean) => void;
+  isInverted?: boolean;
+  setInverted?: (value: boolean) => void;
 }
 
 const MAX_DISPLAY_LENGTH = 20;
@@ -30,7 +30,7 @@ const TableControls: React.FC<TableControlsProps> = ({
   selectedFields,
   onSelectFields,
   toggleFieldSelection,
-  isInverted,
+  isInverted = false,
   setInverted,
 }) => {
   const [isModalVisible, setModalVisible] = useState(false);
@@ -40,9 +40,7 @@ const TableControls: React.FC<TableControlsProps> = ({
   const handleSelectAll = () => onSelectFields(headers);
   const handleUnselectAll = () => onSelectFields([]);
 
-  const truncatedFieldText = selectedFields.length > 0
-    ? selectedFields.join(", ").slice(0, MAX_DISPLAY_LENGTH) + (selectedFields.join(", ").length > MAX_DISPLAY_LENGTH ? "..." : "")
-    : "Select Columns";
+  const truncatedFieldText = selectedFields.join(", ")
 
   const renderFieldCheckboxes = () =>
     headers.map((header) => (
@@ -86,22 +84,23 @@ const TableControls: React.FC<TableControlsProps> = ({
       {/* Column Picker Button */}
       <TouchableOpacity style={styles.modalButton} onPress={toggleModal}>
         <View style={styles.buttonContent}>
-          <TextBase style={styles.buttonText} numberOfLines={1}>
-            {truncatedFieldText}
-          </TextBase>
-          <Ionicons name="chevron-down" size={20} color="#fff" style={styles.dropdownArrow} />
+          {selectedFields.length === 0 ?
+            <TextBase style={[styles.buttonText, { color: COLORS.cancelButton }]} numberOfLines={1}>*No field selected</TextBase>
+            :
+            <TextBase style={styles.buttonText} numberOfLines={1}>{truncatedFieldText}</TextBase>}
+          <Ionicons name="chevron-down" size={20} color={COLORS.textPrimary} style={styles.dropdownArrow} />
         </View>
       </TouchableOpacity>
 
       {/* Inverted Toggle */}
-      <CompactTextSwitch
+      {setInverted && <CompactTextSwitch
         value={isInverted}
         onToggle={setInverted}
         labels={["Std", "Flip"]}
         width={50}
         height={24}
         containerStyle={{ marginLeft: SPACING.small }}
-      />
+      />}
 
       {/* Modal for Column Selection */}
       <Modal visible={isModalVisible} animationType="slide" transparent>

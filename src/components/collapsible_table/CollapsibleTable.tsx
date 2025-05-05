@@ -7,9 +7,11 @@ import {
   UIManager,
   LayoutAnimation,
   TouchableOpacity,
+  Text,
 } from 'react-native';
 import { TableHeader, TableRow, CollapsibleContent, Column } from './CollapsibleTableParts';
 import { CollapsibleTableStyles, defaultStyles } from './CollapsibleTableStyles';
+import { SPACING } from '../../constants/styles';
 
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -39,6 +41,8 @@ export function CollapsibleTable<T extends Record<string, any>>({
     (col) => !visibleColumns.some((vc) => vc.key === col.key)
   );
 
+  if (visibleColumns.length === 0) return (<></>)
+
   const updateWidth = (key: string, width: number) => {
     setColWidths((prev) => {
       const prevWidth = prev[key] || 0;
@@ -48,7 +52,7 @@ export function CollapsibleTable<T extends Record<string, any>>({
 
   const onTextLayout = (key: string) => (event: LayoutChangeEvent) => {
     const { width } = event.nativeEvent.layout;
-    updateWidth(key, width + 16);
+    updateWidth(key, width + SPACING.xLarge);
   };
 
   const toggleCollapse = (index: number) => {
@@ -60,6 +64,10 @@ export function CollapsibleTable<T extends Record<string, any>>({
     });
   };
 
+  const hasColumnMismatch = columns.length !== visibleColumns.length ||
+    !columns.every((col) => visibleColumns.some((vc) => vc.key === col.key));
+  const collapsibleIconRequired = !(!hasColumnMismatch && renderCollapse == undefined);
+
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator style={styles.outerScroll}>
       <View style={styles.container}>
@@ -68,6 +76,7 @@ export function CollapsibleTable<T extends Record<string, any>>({
           colWidths={colWidths}
           onTextLayout={onTextLayout}
           styles={styles}
+          collapsibleIconRequired={collapsibleIconRequired}
         />
 
         {data.map((item, index) => (
@@ -83,8 +92,9 @@ export function CollapsibleTable<T extends Record<string, any>>({
               visibleColumns={visibleColumns}
               colWidths={colWidths}
               styles={styles}
+              collapsibleIconRequired={collapsibleIconRequired}
             />
-            {openIndices.has(index) && (
+            {collapsibleIconRequired && openIndices.has(index) && (
               <CollapsibleContent
                 item={item}
                 hiddenColumns={hiddenColumns}
