@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
   },
   noDataText: {
     fontSize: FONT_SIZES.large,
-    color: COLORS.textSecondary,
+    color: COLORS.textPrimary,
     fontWeight: "bold",
   },
 });

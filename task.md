@@ -20,7 +20,7 @@
 |------|--------|----------|-------|
 | **Adding validation to login page input fields** | ✅ | 1-2 days | like email, name and passowrd; Done. |
 | **Show user name insted of email to home page** | ✅ | 1-2 days | In hook try to fetch user details also; Done. |
-| **Have color and design schema consistent every where till home and footer page** | 🚫 | 1-2 days | not yet started |
+| **Have color and design schema consistent every where till home and footer page** | ✅ | 1-2 days | Done |
 
 ### 🔹 **Phase 3: Exercise Section**
 | Task | Status | Timeline | Notes |
@@ -34,10 +34,11 @@
 | **Develop the workout management page** | ✅ | 2-3 days | Done. |
 | **Rename workout management layout for better clarity** | ✅ | 1 day | Done. |
 | **Integrate exercise logging functionality within workout management** | ✅ | 2-3 days | Done. |
-| **Improve input box design for workout logging (field name at top)** | 🚫 | 1-2 days | Pending. |
+| **Improve input box design for workout logging (field name at top)** | ✅ | 1-2 days | Done. |
 | **Implement full workout & exercise management features** | ✅ | 2-3 days | Done. |
 | **Show loading state while fetching data from DB** | 🚫 | 2-3 days | Pending. |
-| **Handle when action workout is going on then don't let new workout start** | 🚫 | 2-3 days | Pending. |
+| **Handle when action workout is going on then don't let new workout start** | ✅ | 2-3 days | Done. |
+| **Show loading state while fetching data from DB** | 🚫 | 2-3 days | Pending. |
 
 ### 🔹 **Phase 4: Data Tracking & Visualization**
 | Task | Status | Timeline | Notes |
@@ -59,7 +60,9 @@
 |------|--------|----------|-------|
 | **Make dropdown use centlize colors scheme** | ✅ | 2-3 days | righ now alot of data is hard coded we need to impove on this; Done |
 | **Make editable list use centlize input and color scheme** | ✅ | 1-2 days | righ now alot of data is hard coded we need to impove on this; Done |
-| **Make Active Workout screen use centlize input and color scheme** | ⏳ | 1-2 days | righ now alot of data is hard coded we need to impove on this |
+| **Make Active Workout screen use centlize input and color scheme** | ✅ | 1-2 days | righ now alot of data is hard coded we need to impove on this; Done |
+| **Add validation in Active Workout logging** | 🚫 | 1-2 days | Pending |
+| **Make Exercise History screen use centlize input and color scheme** | ⏳ | 1-2 days | righ now alot of data is hard coded we need to impove on this; Done |
 | **add consistency in tabel right now they all have diffrent code** | 🚫 | 2-3 days | we have 2-3 type of tabel find similairty and have comon component |
 | **create outlined input componet to use for text input** | ✅ | 3-4 days | Done. |
 | **insted of simple input start using outline input every where** | 🚫 | 1-2 days | not yet started |

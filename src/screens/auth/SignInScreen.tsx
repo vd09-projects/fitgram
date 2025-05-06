@@ -74,7 +74,7 @@ export default function SignInScreen() {
           <TextBase style={styles.switchText} isDefaultFontFamilyRequired>Don't have an account?</TextBase>
         </TouchableOpacity>
 
-      <TestingCollapsibleTable/>
+      {/* <TestingCollapsibleTable/> */}
 
       </View>
     </TouchableWithoutFeedback>

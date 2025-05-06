@@ -5,7 +5,8 @@ import {
   FlatList,
   TouchableOpacity,
   ScrollView,
-  StyleSheet
+  StyleSheet,
+  Alert
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import useWorkoutPlans from "../../hooks/useWorkoutPlans";
@@ -14,22 +15,23 @@ import { BORDER_RADIUS, COLORS, FONT_SIZES, SHADOW, SHADOW_3, SPACING } from "..
 import ScrollableScreen from "../../components/ScrollableScreen";
 import SearchBox from "../../components/SearchBox";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
-import { useSyncWorkout } from "../../hooks/useSyncWorkout";
 import show from "../../utils/toastUtils";
 import { WorkoutRoutes } from "../../constants/routes";
 import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
 import { useNavigation } from "@react-navigation/native";
 import { TextBase } from "../../components/TextBase";
+import AlertBase from "../../components/AlertBase";
 
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.StartWorkout>;
 
 export default function StartWorkoutScreen() {
   const navigation = useNavigation<workoutScreenNavigationProp>();
 
-  const { startWorkout, activeWorkout } = useWorkoutStore();
-  const { syncWorkout } = useSyncWorkout();
+  const [showAlert, setShowAlert] = useState(true);
+  const { startWorkout, cancelWorkout, activeWorkout } = useWorkoutStore();
+
   useEffect(() => {
-    syncWorkout(); // Try syncing any offline data before starting a new workout
+    setShowAlert(activeWorkout !== null);
   }, []);
 
   const workoutPlans = useWorkoutPlans(true);
@@ -57,12 +59,11 @@ export default function StartWorkoutScreen() {
   const handleStartWorkout = () => {
     if (selectedWorkout) {
       if (activeWorkout) {
-        show.alert("Active Workout", "Finish your current workout before starting a new one.");
+        show.alert("Workout In Progress", "Please complete or discard your current workout before starting a new one.");
         return;
       }
       startWorkout(selectedWorkout);
-      console.log(`Starting workout: ${selectedWorkout.name}`);
-      show.info(`Starting workout: ${selectedWorkout.name}`);
+      show.info("Starting workout", `${selectedWorkout.name}`);
       navigation.navigate(WorkoutRoutes.LogWorkout)
     }
   };
@@ -77,6 +78,29 @@ export default function StartWorkoutScreen() {
         </View>
       }
     >
+      <AlertBase
+        visible={showAlert}
+        title="Workout In Progress"
+        message="Please complete or discard your current workout before starting a new one."
+        buttons={[
+          {
+            text: 'Cancel Workout',
+            onPress: () => {
+              setShowAlert(false);
+              cancelWorkout();
+            },
+            style: { backgroundColor: COLORS.cancelButton },
+          },
+          {
+            text: 'Go to Active Workout',
+            onPress: () => {
+              setShowAlert(false)
+              navigation.navigate(WorkoutRoutes.LogWorkout);
+            },
+          }
+        ]}
+      />
+
       {/* 🔍 Search Box Component */}
       <SearchBox
         value={searchQuery}

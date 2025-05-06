@@ -1,5 +1,5 @@
 import { FontFamily } from "./../../node_modules/lightningcss/node/ast.d";
-import { StyleSheet } from "react-native";
+import { Alert, StyleSheet } from "react-native";
 
 // Common Values
 const BasicColors = {
@@ -45,6 +45,13 @@ const BasicColors = {
 
   collapsed: "#708090",
   collapsedBold: "#556B6F",
+
+  popupBackground: "#FFFFFF",
+  popupTitleText: "#5A3E62",
+  popupText: "#4B5E79",
+  popupButton: "#C5ADC5",
+  popupButtonText: "#FFFFFF",
+  popupBorder: "#B2B5E0",
 };
 
 export const COLORS = BasicColors;
@@ -91,6 +98,7 @@ export const SPACING = {
 };
 
 export const BORDER_RADIUS = 8;
+export const LARGE_BORDER_RADIUS = 16;
 
 export const getShadow = (level: number) => ({
   shadowColor: COLORS.shadow,

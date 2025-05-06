@@ -27,7 +27,6 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
 
   return (
     <View style={styles.container}>
-
       <ActiveExerciseLogHistory key={exercise.id} exercise={exercise} />
 
       <View style={styles.inputContainer}>
