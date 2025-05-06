@@ -43,7 +43,8 @@ const BasicColors = {
   tableHeaderText: "#FFFFFF", // Readable, slightly desaturated dark blue
   tableSelectedFilter: "#B2B5E0", // Matches secondary for highlighted filters
 
-  collapsed: "#708090",
+  collapsed: "#DCE5F7",
+  collapsedTitleText: "#5A3E62",
   collapsedBold: "#556B6F",
 
   popupBackground: "#FFFFFF",

@@ -38,7 +38,6 @@
 | **Implement full workout & exercise management features** | ✅ | 2-3 days | Done. |
 | **Show loading state while fetching data from DB** | 🚫 | 2-3 days | Pending. |
 | **Handle when action workout is going on then don't let new workout start** | ✅ | 2-3 days | Done. |
-| **Show loading state while fetching data from DB** | 🚫 | 2-3 days | Pending. |
 
 ### 🔹 **Phase 4: Data Tracking & Visualization**
 | Task | Status | Timeline | Notes |
@@ -61,7 +60,7 @@
 | **Make dropdown use centlize colors scheme** | ✅ | 2-3 days | righ now alot of data is hard coded we need to impove on this; Done |
 | **Make editable list use centlize input and color scheme** | ✅ | 1-2 days | righ now alot of data is hard coded we need to impove on this; Done |
 | **Make Active Workout screen use centlize input and color scheme** | ✅ | 1-2 days | righ now alot of data is hard coded we need to impove on this; Done |
-| **Add validation in Active Workout logging** | 🚫 | 1-2 days | Pending |
+| **Add validation in Active Workout logging** | ⏳ | 1-2 days | Pending |
 | **Make Exercise History screen use centlize input and color scheme** | ⏳ | 1-2 days | righ now alot of data is hard coded we need to impove on this; Done |
 | **add consistency in tabel right now they all have diffrent code** | 🚫 | 2-3 days | we have 2-3 type of tabel find similairty and have comon component |
 | **create outlined input componet to use for text input** | ✅ | 3-4 days | Done. |

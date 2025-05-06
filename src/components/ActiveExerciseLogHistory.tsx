@@ -75,14 +75,14 @@ export default function ActiveExerciseLogHistory({
 
 const styles = StyleSheet.create({
   exerciseContainer: {
-    backgroundColor: COLORS.dropdown,
+    backgroundColor: COLORS.collapsed,
     borderRadius: BORDER_RADIUS,
     marginBottom: SPACING.medium,
     padding: SPACING.large,
     ...SHADOW,
   },
   toggleButtonText: {
-    color: COLORS.textPrimary,
+    color: COLORS.collapsedTitleText,
     fontWeight: "bold",
   },
   noDataContainer: {
