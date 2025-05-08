@@ -1,152 +1,102 @@
-import React, { useState } from "react";
+import React from "react";
 import {
-    View,
-    Text,
-    StyleSheet,
-    FlatList,
-    ScrollView,
-    Platform,
-    UIManager,
+  StyleSheet,
+  Platform,
+  UIManager,
 } from "react-native";
 import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "../constants/styles";
-import { WorkoutLog, SetsString } from "../types/workoutLogs";
+import { WorkoutLog, SetsString, SetLog } from "../types/workoutLogs";
 import { Exercise } from "../types/workoutType";
+import { Column } from "./collapsible_table/CollapsibleTableParts";
+import CollapsibleSection from "./CollapsibleSection";
+import { TextBase } from "./TextBase";
+import { CollapsibleTable } from "./collapsible_table/CollapsibleTable";
 
 type Props = {
-    workoutLog: WorkoutLog[];
-    selectedSetNumber: string | undefined;
-    selectedExercise: Exercise | undefined;
+  workoutLog: WorkoutLog[];
+  visibleHeaders?: string[];
+  selectedSetNumber: string | undefined;
+  selectedExercise: Exercise | undefined;
 };
 
 // Enable layout animation on Android
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
+  UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 export default function ExerciseSetLogTable({
-    workoutLog,
-    selectedSetNumber,
-    selectedExercise,
+  workoutLog,
+  visibleHeaders = [],
+  selectedSetNumber,
+  selectedExercise,
 }: Props) {
-    if (!workoutLog || workoutLog.length === 0) return null;
-    if (!selectedExercise) return null;
-    if (!selectedSetNumber) return null;
+  if (!workoutLog || workoutLog.length === 0) return null;
+  if (!selectedExercise) return null;
+  if (!selectedSetNumber) return null;
 
-    const allFieldKeys = Array.from(
-        new Set(
-            workoutLog.flatMap((log) => {
-                const selectedExerciseDetails = log.exercises
-                    .find((exercise) => exercise.exerciseId === selectedExercise.id);
-                return selectedExerciseDetails?.sets
-                    .flatMap((set) => Object.keys(set.fields ?? {})) ?? [];
-            })
-        )
+  const allFieldKeys = Array.from(
+    new Set(
+      workoutLog.flatMap((log) => {
+        const selectedExerciseDetails = log.exercises
+          .find((exercise) => exercise.exerciseId === selectedExercise.id);
+        var fieldKeys = selectedExerciseDetails?.sets
+          .flatMap((set) => Object.keys(set.fields ?? {})) ?? [];
+        return ["Date", ...fieldKeys];
+      })
     )
-        .filter((key) => key !== "Sets");
+  );
+  // .filter((key) => key !== "Sets");
+  const visibleHeadersArray = [...visibleHeaders, "Date"];
 
-    const exerciseDetails = workoutLog.flatMap((log) => {
-        return log.exercises
-            .filter((exercise) => exercise.exerciseId === selectedExercise.id);
+  const exerciseDetails = workoutLog.flatMap((log) => {
+    return log.exercises
+      .filter((exercise) => exercise.exerciseId === selectedExercise.id);
+  });
+  const setDetails = exerciseDetails.flatMap((exerciseDetail) => {
+    const set = exerciseDetail.sets
+      .filter((set) => set.fields[SetsString] === selectedSetNumber);
+    return set.map((set) => {
+      const fields = { ...set.fields };
+      fields['Date'] = new Date(exerciseDetail.timestamp).toLocaleDateString() + " " + new Date(exerciseDetail.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return fields;
     });
+  });
 
-    return (
-        <View>
-            <ScrollView horizontal>
-                <View>
-                    <View style={[styles.row, styles.tableHeader]}>
-                        <Text style={[styles.cell, styles.headerCell]}>Dates</Text>
-                        <FlatList
-                            data={allFieldKeys}
-                            horizontal
-                            keyExtractor={(item) => item}
-                            renderItem={({ item, index }) => (
-                                <Text style={[styles.cell, styles.headerCell]}>
-                                    {item}
-                                </Text>
-                            )}
-                            scrollEnabled={false}
-                        />
-                    </View>
+  // const data = log.sets.map((set) => set.fields);
+  const columns: Column<SetLog['fields']>[] = allFieldKeys.map((header) => ({
+    key: header,
+    label: header.charAt(0).toUpperCase() + header.slice(1),
+    align: "center",
+    style: header === "Date" ? { width: 100 } : undefined,
+  }));
+  const visibleColumns: Column<SetLog['fields']>[] = columns.filter((column) =>
+    visibleHeadersArray.includes(column.key as string)
+  );
 
-                    <FlatList
-                        data={exerciseDetails}
-                        renderItem={({ item: exerciseDetail, index }) => {
-                            const selectedSetDetails = exerciseDetail.sets.find((set) => set.fields[SetsString] === selectedSetNumber);
-                            console.log(index)
-                            return <View style={[styles.row, index % 2 === 0 ? styles.alternateRowEven : styles.alternateRowOdd]}>
-                                <Text style={[styles.cell, styles.fieldCell]}>
-                                    {new Date(exerciseDetail.timestamp).toLocaleDateString()} {new Date(exerciseDetail.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </Text>
-
-                                <FlatList
-                                    data={allFieldKeys}
-                                    renderItem={({ item: fieldName, index }) => {
-                                        const fieldValue = selectedSetDetails ? selectedSetDetails.fields[fieldName] : undefined;
-                                        return (
-                                            <Text style={styles.cell}>
-                                                {String(fieldValue ?? "-")}
-                                            </Text>
-                                        );
-                                    }}
-                                    horizontal
-                                /></View>
-                        }}
-                        scrollEnabled={false}
-                    />
-                </View>
-            </ScrollView>
-        </View>
-    );
+  return (
+    <CollapsibleSection
+      title={<TextBase style={styles.dateText}>Set nu. {selectedSetNumber} - {selectedExercise.name}</TextBase>}
+      defaultCollapsed={false}
+      collapsibleStyle={styles.container}
+    >
+      <CollapsibleTable<SetLog['fields']>
+        data={setDetails}
+        columns={columns}
+        visibleColumns={visibleColumns}
+      />
+    </CollapsibleSection>
+  );
 }
 
 const styles = StyleSheet.create({
-    // container: {
-    //     backgroundColor: COLORS.collapsed,
-    //     padding: SPACING.small,
-    //     borderRadius: BORDER_RADIUS,
-    //     marginBottom: SPACING.medium,
-    // },
-    // headerTouchable: {
-    //     marginBottom: SPACING.small,
-    // },
-    // dateText: {
-    //     fontSize: FONT_SIZES.medium,
-    //     fontWeight: "400",
-    //     color: COLORS.textSecondary,
-    // },
-    row: {
-        flexDirection: "row",
-        borderBottomWidth: 1,
-        borderColor: COLORS.tableBorder,
-        paddingVertical: 6,
-    },
-    cell: {
-        width: 80,
-        textAlign: "center",
-        fontSize: FONT_SIZES.small,
-        color: COLORS.tableText,
-        marginLeft: SPACING.xSmall,
-    },
-    headerCell: {
-        fontWeight: "bold",
-        color: COLORS.tableHeaderText,
-        fontSize: FONT_SIZES.xMedium,
-        paddingVertical: 6,
-    },
-    fieldCell: {
-        fontWeight: "600",
-        textAlign: "left",
-    },
-    tableHeader: {
-        backgroundColor: COLORS.tableHeader,
-        borderTopLeftRadius: BORDER_RADIUS,
-        borderTopRightRadius: BORDER_RADIUS,
-    },
-    headerRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-    },
-    alternateRowEven: { backgroundColor: COLORS.tableRowEven },
-    alternateRowOdd: { backgroundColor: COLORS.tableRowOdd },
+  container: {
+    backgroundColor: COLORS.collapsed,
+    padding: SPACING.small,
+    borderRadius: BORDER_RADIUS,
+    marginBottom: SPACING.medium,
+  },
+  dateText: {
+    fontSize: FONT_SIZES.medium,
+    color: COLORS.collapsedTitleText,
+  }
 });

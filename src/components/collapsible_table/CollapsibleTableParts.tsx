@@ -1,9 +1,9 @@
 import React from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   LayoutChangeEvent,
+  ViewStyle,
 } from 'react-native';
 import { AntDesign } from '@expo/vector-icons';
 import { CollapsibleTableStyles } from './CollapsibleTableStyles';
@@ -13,6 +13,7 @@ export type Column<T> = {
   key: keyof T;
   label: string;
   align?: 'left' | 'center' | 'right';
+  style?: ViewStyle;
 };
 
 function getAlignment(align?: string) {
@@ -50,6 +51,7 @@ export function TableHeader<T>({
             index != visibleColumns.length - 1 && styles.headerCellSpliter,
             { width: colWidths[String(col.key)] ?? undefined },
             { alignItems: getAlignment(col.align) },
+            col.style,
           ]}
         >
           <TextBase style={styles.headerText} onLayout={onTextLayout(String(col.key))}>
@@ -95,10 +97,11 @@ export function TableRow<T>({
               styles.cell,
               { width: colWidths[String(col.key)] ?? undefined },
               { alignItems: getAlignment(col.align) },
+              col.style,
             ]}
           >
-            <TextBase numberOfLines={2} ellipsizeMode="tail" style={styles.rowText}>
-              {/* <TextBase numberOfLines={1} ellipsizeMode="tail"> */}
+            {/* <TextBase numberOfLines={2} ellipsizeMode="tail" style={styles.rowText}> */}
+            <TextBase ellipsizeMode="tail">
               {String(item[col.key])}
             </TextBase>
           </View>

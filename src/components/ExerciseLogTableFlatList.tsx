@@ -1,10 +1,6 @@
 import React, { useState } from "react";
 import {
-  View,
-  Text,
   StyleSheet,
-  FlatList,
-  ScrollView,
   Platform,
   UIManager,
 } from "react-native";

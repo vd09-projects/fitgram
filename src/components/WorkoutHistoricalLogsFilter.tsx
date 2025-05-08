@@ -1,20 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from "react-native";
-import ScrollableScreen from "../../components/ScrollableScreen";
-import SearchableInputDropdown, { DropdownSelection } from "../../components/SearchableInputDropdown";
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "../../constants/styles";
-import useWorkoutPlans from "../../hooks/useWorkoutPlans";
-import { Exercise, WorkoutPlan } from "../../types/workoutType";
-import { getWorkoutLogs } from "../../services/db/userDB";
-import { useAuthUser } from "../../hooks/useAuthUser";
-import show from "../../utils/toastUtils";
-import { WorkoutLog } from "../../types/workoutLogs";
-import ExerciseLogTableFlatList from "../../components/ExerciseLogTableFlatList";
-import ExerciseSetLogTable from "../../components/ExerciseSetLogTable";
-import { TextBase } from "../../components/TextBase";
-import TableControls from "../../components/TableControl";
+import { useAuthUser } from "../hooks/useAuthUser";
+import useWorkoutPlans from "../hooks/useWorkoutPlans";
+import SearchableInputDropdown, { DropdownSelection } from "./SearchableInputDropdown";
+import { Exercise, WorkoutPlan } from "../types/workoutType";
+import show from "../utils/toastUtils";
+import { getWorkoutLogs } from "../services/db/userDB";
+import { TextBase } from "./TextBase";
+import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "../constants/styles";
 
-export default function WorkoutLogsScreen() {
+
+export default function WorkoutHistoricalLogsFilterScreen() {
   const { user } = useAuthUser();
   const workoutPlans = useWorkoutPlans(true);
 
@@ -38,40 +34,40 @@ export default function WorkoutLogsScreen() {
   const [selectedExercises, setSelectedExercises] = useState<DropdownSelection<Exercise> | undefined>(convertedExercises ? convertedExercises[0] : undefined);
 
   const [loadingLogs, setLoadingLogs] = useState(false);
-  const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[] | null>(null);
+  // const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[] | null>(null);
 
-  const setNumberAllLabel = "All";
-  const convertedSetNumber = useMemo(() => {
-    const result = [{
-      label: setNumberAllLabel,
-      value: setNumberAllLabel,
-      isCustom: false,
-    }];
-    if (!workoutLogs || !selectedExercises) return result;
+  // const setNumberAllLabel = "All";
+  // const convertedSetNumber = useMemo(() => {
+  //   const result = [{
+  //     label: setNumberAllLabel,
+  //     value: setNumberAllLabel,
+  //     isCustom: false,
+  //   }];
+  //   if (!workoutLogs || !selectedExercises) return result;
 
-    const seen = new Set();
-    for (const log of workoutLogs) {
-      const selectedExerciseLog = log.exercises.find(
-        (exercise) => exercise.exerciseId === selectedExercises.value?.id
-      );
+  //   const seen = new Set();
+  //   for (const log of workoutLogs) {
+  //     const selectedExerciseLog = log.exercises.find(
+  //       (exercise) => exercise.exerciseId === selectedExercises.value?.id
+  //     );
 
-      if (!selectedExerciseLog) continue;
+  //     if (!selectedExerciseLog) continue;
 
-      for (const set of selectedExerciseLog.sets) {
-        const setValue = set.fields["Sets"];
-        if (!seen.has(setValue)) {
-          seen.add(setValue);
-          result.push({
-            label: setValue,
-            value: setValue,
-            isCustom: false,
-          });
-        }
-      }
-    }
-    return result;
-  }, [workoutLogs, selectedExercises]);
-  const [selectedSetNumber, setSelectedSetNumber] = useState<DropdownSelection<string> | undefined>(convertedSetNumber[0]);
+  //     for (const set of selectedExerciseLog.sets) {
+  //       const setValue = set.fields["Sets"];
+  //       if (!seen.has(setValue)) {
+  //         seen.add(setValue);
+  //         result.push({
+  //           label: setValue,
+  //           value: setValue,
+  //           isCustom: false,
+  //         });
+  //       }
+  //     }
+  //   }
+  //   return result;
+  // }, [workoutLogs, selectedExercises]);
+  // const [selectedSetNumber, setSelectedSetNumber] = useState<DropdownSelection<string> | undefined>(convertedSetNumber[0]);
 
   useEffect(() => {
     if (convertedWorkoutPlans.length > 0 && !selectedWorkout) {
@@ -84,25 +80,25 @@ export default function WorkoutLogsScreen() {
     }
   }, [selectedWorkout]);
 
-  const extractFieldKeys = (logs: WorkoutLog[] | null): string[] => {
-    return Array.from(new Set(
-      logs?.flatMap((log) =>
-        log.exercises
-          .find((exercise) => exercise.exerciseId === selectedExercises?.value?.id)
-          ?.sets.flatMap((set) => Object.keys(set.fields ?? {})) ?? []
-      ) || []
-    ));
-  };
-  var allFieldKeys: string[] = extractFieldKeys(workoutLogs);
-  const [visibleHeaders, setVisibleHeaders] = useState<string[]>(allFieldKeys);
+  // const extractFieldKeys = (logs: WorkoutLog[] | null): string[] => {
+  //   return Array.from(new Set(
+  //     logs?.flatMap((log) =>
+  //       log.exercises
+  //         .find((exercise) => exercise.exerciseId === selectedExercises?.value?.id)
+  //         ?.sets.flatMap((set) => Object.keys(set.fields ?? {})) ?? []
+  //     ) || []
+  //   ));
+  // };
+  // var allFieldKeys: string[] = extractFieldKeys(workoutLogs);
+  // const [visibleHeaders, setVisibleHeaders] = useState<string[]>(allFieldKeys);
 
-  const toggleHeader = (header: string) => {
-    setVisibleHeaders((prev) =>
-      prev.includes(header)
-        ? prev.filter((h) => h !== header)
-        : [...prev, header]
-    );
-  };
+  // const toggleHeader = (header: string) => {
+  //   setVisibleHeaders((prev) =>
+  //     prev.includes(header)
+  //       ? prev.filter((h) => h !== header)
+  //       : [...prev, header]
+  //   );
+  // };
 
   const fetchLogs = async () => {
     if (!selectedWorkout?.value || !selectedExercises?.value) {
@@ -126,11 +122,11 @@ export default function WorkoutLogsScreen() {
         }
       );
       console.log("Fetched logs:", logs);
-      setWorkoutLogs(logs);
+      // setWorkoutLogs(logs);
 
-      setVisibleHeaders(extractFieldKeys(logs));
+      // setVisibleHeaders(extractFieldKeys(logs));
     } catch (error) {
-      setWorkoutLogs(null);
+      // setWorkoutLogs(null);
       console.error("Error fetching logs:", error);
       show.alert("Error fetching logs", "Please try again.");
     } finally {
@@ -140,8 +136,7 @@ export default function WorkoutLogsScreen() {
 
 
   return (
-    <ScrollableScreen title={<TextBase style={styles.title}>Workout Logs</TextBase>}>
-
+    <>
       {/* 🔽 Filters */}
       <View style={styles.filtersContainer}>
         <SearchableInputDropdown<WorkoutPlan>
@@ -162,7 +157,7 @@ export default function WorkoutLogsScreen() {
           title="Exercises"
           allowCustomInput={false}
         />
-        {workoutLogs && workoutLogs.length > 0 &&
+        {/* {workoutLogs && workoutLogs.length > 0 &&
           <SearchableInputDropdown<string>
             placeholder="Sets"
             data={convertedSetNumber ?? []}
@@ -171,7 +166,7 @@ export default function WorkoutLogsScreen() {
             title="Sets"
             allowCustomInput={false}
           />
-        }
+        } */}
       </View>
 
       {/* 🔘 Show Data Button */}
@@ -182,7 +177,7 @@ export default function WorkoutLogsScreen() {
       </TouchableOpacity>
 
       {/* 🔽 Workout Logs */}
-      {workoutLogs && selectedExercises &&
+      {/* {workoutLogs && selectedExercises &&
         <View>
           {workoutLogs.length === 0 && (
             <TextBase style={styles.noLogsTitle}>
@@ -224,9 +219,9 @@ export default function WorkoutLogsScreen() {
               })}
           </>)}
         </View>
-      }
+      } */}
 
-    </ScrollableScreen>
+    </>
   );
 }
 
