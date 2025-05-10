@@ -29,7 +29,7 @@ export default function WorkoutHistoricalLogsFilter({
   isVisible = true,
 }: WorkoutHistoricalLogsFilterProps) {
   const { user } = useAuthUser();
-  const workoutPlans = useWorkoutPlans(true);
+  const { workoutPlans, loadingWorkoutPlans } = useWorkoutPlans(true);
 
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[] | null>(null);
 
@@ -189,6 +189,7 @@ export default function WorkoutHistoricalLogsFilter({
           onChange={setSelectedWorkout}
           title="Workout Plan"
           allowCustomInput={false}
+          isDataLoading={loadingWorkoutPlans}
         />
 
         {/* Multi-select Exercise Dropdown (to be implemented later) */}
@@ -199,6 +200,7 @@ export default function WorkoutHistoricalLogsFilter({
           onChange={setSelectedExercises}
           title="Exercises"
           allowCustomInput={false}
+          isDataLoading={loadingWorkoutPlans}
         />
 
         {workoutLogs && workoutLogs.length > 0 && <View style={styles.filtersContainer}>

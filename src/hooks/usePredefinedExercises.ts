@@ -4,21 +4,25 @@ import { getAllPredefinedExercises } from '../services/db/exercises';
 import { Exercise } from '../types/workoutType';
 
 export default function usePredefinedExercises() {
-    const [predefinedExercises, setPredefinedExercises] = useState<Exercise[]>([]);
+  const [predefinedExercises, setPredefinedExercises] = useState<Exercise[]>([]);
+  const [loadingPredefinedExercises, setLoadingPredefinedExercises] = useState<boolean>(true);
 
-    useEffect(() => {
-        const fetchExercises = async () => {
-            try {
-                const exercises = await getAllPredefinedExercises();
-                setPredefinedExercises(exercises);
-            } catch (error) {
-                console.error('Error fetching exercises:', error);
-                Alert.alert('Error', 'Could not fetch exercises.');
-            }
-        };
+  useEffect(() => {
+    const fetchExercises = async () => {
+      setLoadingPredefinedExercises(true);
+      try {
+        const exercises = await getAllPredefinedExercises();
+        setPredefinedExercises(exercises);
+      } catch (error) {
+        console.error('Error fetching exercises:', error);
+        Alert.alert('Error', 'Could not fetch exercises.');
+      } finally {
+        setLoadingPredefinedExercises(false);
+      }
+    };
 
-        fetchExercises();
-    }, []);
+    fetchExercises();
+  }, []);
 
-    return predefinedExercises;
+  return { predefinedExercises, loadingPredefinedExercises };
 }

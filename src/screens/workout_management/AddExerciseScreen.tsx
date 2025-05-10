@@ -30,8 +30,8 @@ export default function AddExerciseScreen() {
 
   const [reload, setReload] = useState<boolean>(false);
 
-  const predefinedExercises = usePredefinedExercises();
-  const workoutPlans = useWorkoutPlans(reload);
+  const { predefinedExercises, loadingPredefinedExercises } = usePredefinedExercises();
+  const { workoutPlans, loadingWorkoutPlans } = useWorkoutPlans(reload);
 
   const handleReload = () => setReload((prev) => !prev);
 
@@ -116,6 +116,7 @@ export default function AddExerciseScreen() {
         value={selectedWorkout}
         onChange={handleSelectWorkout}
         title={"Workout" + (selectedWorkout ? ` : ${selectedWorkout.label}` : '')}
+        isDataLoading={loadingWorkoutPlans}
       />
 
 
@@ -146,6 +147,7 @@ export default function AddExerciseScreen() {
         onChange={handleSelectExercise}
         title={"Exercise" + (selectedExercise?.value ? ` : ${selectedExercise.label}` : '')}
         conatinerStyle={{ marginBottom: SPACING.large }}
+        isDataLoading={loadingPredefinedExercises}
       />
 
       {/* 🔹 Input Fields for Selected or Custom Exercise */}

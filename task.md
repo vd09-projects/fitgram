@@ -60,8 +60,8 @@
 | **Make dropdown use centlize colors scheme** | ✅ | 2-3 days | righ now alot of data is hard coded we need to impove on this; Done |
 | **Make editable list use centlize input and color scheme** | ✅ | 1-2 days | righ now alot of data is hard coded we need to impove on this; Done |
 | **Make Active Workout screen use centlize input and color scheme** | ✅ | 1-2 days | righ now alot of data is hard coded we need to impove on this; Done |
-| **Add validation in Active Workout logging** | ⏳ | 1-2 days | Pending |
-| **Make Exercise History screen use centlize input and color scheme** | ⏳ | 1-2 days | righ now alot of data is hard coded we need to impove on this; Done |
+| **Add validation in Active Workout logging** | ✅ | 1-2 days | Done |
+| **Make Exercise History screen use centlize input and color scheme** | ✅ | 1-2 days | righ now alot of data is hard coded we need to impove on this; Done |
 | **add consistency in tabel right now they all have diffrent code** | 🚫 | 2-3 days | we have 2-3 type of tabel find similairty and have comon component |
 | **create outlined input componet to use for text input** | ✅ | 3-4 days | Done. |
 | **insted of simple input start using outline input every where** | 🚫 | 1-2 days | not yet started |

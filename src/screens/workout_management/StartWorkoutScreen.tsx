@@ -21,6 +21,7 @@ import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
 import { useNavigation } from "@react-navigation/native";
 import { TextBase } from "../../components/TextBase";
 import AlertBase from "../../components/AlertBase";
+import LoadingData from "../../components/LoadingData";
 
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.StartWorkout>;
 
@@ -34,7 +35,7 @@ export default function StartWorkoutScreen() {
     setShowAlert(activeWorkout !== null);
   }, []);
 
-  const workoutPlans = useWorkoutPlans(true);
+  const { workoutPlans, loadingWorkoutPlans } = useWorkoutPlans(true);
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutPlan | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -110,31 +111,39 @@ export default function StartWorkoutScreen() {
       />
 
       {/* 🏋️ Workout Grid Selection */}
-      <FlatList
-        data={filteredWorkouts}
-        key={selectedWorkout ? "horizontal" : "grid"}
-        keyExtractor={(item) => item.id}
-        horizontal={!!selectedWorkout}
-        scrollEnabled={!!selectedWorkout}
-        showsHorizontalScrollIndicator={!!selectedWorkout}
-        numColumns={selectedWorkout ? undefined : 2}
-        columnWrapperStyle={!selectedWorkout ? styles.gridRow : undefined}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[
-              styles.workoutCard,
-              selectedWorkout?.id === item.id && styles.selectedWorkout,
-              selectedWorkout && { marginVertical: SPACING.small }
-            ]}
-            onPress={() => toggleWorkoutSelection(item)}
-          >
-            <TextBase style={styles.workoutTitle}>{item.name}</TextBase>
-          </TouchableOpacity>
-        )}
-        ListEmptyComponent={
-          <TextBase style={styles.noResultsText}>No workouts found</TextBase>
-        }
-      />
+      {loadingWorkoutPlans ? (
+        <LoadingData
+          containerStyle={styles.loadingConatiner}
+          textStyle={{ fontSize: FONT_SIZES.large, color: COLORS.textPrimary }}
+          dotStyle={{ fontSize: FONT_SIZES.xLarge, color: COLORS.textPrimary }}
+        />
+      ) :
+        <FlatList
+          data={filteredWorkouts}
+          key={selectedWorkout ? "horizontal" : "grid"}
+          keyExtractor={(item) => item.id}
+          horizontal={!!selectedWorkout}
+          scrollEnabled={!!selectedWorkout}
+          showsHorizontalScrollIndicator={!!selectedWorkout}
+          numColumns={selectedWorkout ? undefined : 2}
+          columnWrapperStyle={!selectedWorkout ? styles.gridRow : undefined}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[
+                styles.workoutCard,
+                selectedWorkout?.id === item.id && styles.selectedWorkout,
+                selectedWorkout && { marginVertical: SPACING.small }
+              ]}
+              onPress={() => toggleWorkoutSelection(item)}
+            >
+              <TextBase style={styles.workoutTitle}>{item.name}</TextBase>
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={
+            <TextBase style={styles.noResultsText}>No workouts found</TextBase>
+          }
+        />
+      }
 
       {/* ▶️ Floating Start Workout Button */}
       {selectedWorkout && (
@@ -160,6 +169,7 @@ export default function StartWorkoutScreen() {
 }
 
 const styles = StyleSheet.create({
+  loadingConatiner: { flex: 1, justifyContent: "center", alignItems: "center" },
   noResultsText: {
     justifyContent: 'center',
     textAlign: "center",

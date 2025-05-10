@@ -11,6 +11,7 @@ import { BORDER_RADIUS, BUTTON_SIZES, COLORS, FONT_FAMILY, FONT_SIZES, SHADOW, S
 import { TextBase } from './TextBase';
 import { emptyOutlineStyle, PrimaryInputField } from './PrimaryInputField';
 import { TextInput } from 'react-native-paper';
+import LoadingData from './LoadingData';
 
 export interface DropdownItem<T> {
   label: string;
@@ -29,8 +30,9 @@ interface SearchableInputDropdownProps<T> {
   value: DropdownSelection<T> | undefined;
   onChange: (data: DropdownSelection<T>) => void;
   title?: string;
-  allowCustomInput?: boolean; // NEW PROP: Enables/Disables custom input (default: true)
+  allowCustomInput?: boolean;
   conatinerStyle?: StyleProp<ViewStyle>;
+  isDataLoading?: boolean;
 }
 
 export default function SearchableInputDropdown<T>({
@@ -39,8 +41,9 @@ export default function SearchableInputDropdown<T>({
   value,
   onChange,
   title = 'Select Field',
-  allowCustomInput = true, // Default to true
+  allowCustomInput = true,
   conatinerStyle,
+  isDataLoading = false,
 }: SearchableInputDropdownProps<T>) {
   const [isNewMode, setIsNewMode] = useState(false);
   const [customValue, setCustomValue] = useState(value?.label || '');
@@ -73,42 +76,48 @@ export default function SearchableInputDropdown<T>({
         )}
       </View>
 
-      {allowCustomInput && isNewMode ? (
-        <PrimaryInputField
-          label=''
-          value={customValue}
-          onChangeText={setCustomValue}
-          placeholder={"Enter " + placeholder}
-          container={styles.primaryInputContainer}
-          outline={emptyOutlineStyle}
-          right={<TextInput.Icon
-            icon="text-box-check"
-            onPress={handleAddCustomField}
-            color={COLORS.button}
-            size={BUTTON_SIZES.large}
-          />}
-        />
-      ) : (
-        <Dropdown
-          style={styles.dropdown}
-          containerStyle={styles.dropdownContainer}
-          itemContainerStyle={styles.itemContainer}
-          placeholderStyle={styles.placeholderStyle}
-          selectedTextStyle={styles.selectedTextStyle}
-          inputSearchStyle={styles.inputSearchStyle}
-          itemTextStyle={styles.selectedTextStyle}
-          data={data}
-          search
-          maxHeight={300}
-          labelField="label"
-          valueField="value"
-          placeholder={"Choose " + placeholder}
-          searchPlaceholder="Search..."
-          value={value}
-          onChange={handleSelectField}
-        />
-      )}
+      {isDataLoading ? (
+        <View style={styles.loadingContainer}>
+          <LoadingData />
+        </View>
+      ) :
+        allowCustomInput && isNewMode ? (
+          <PrimaryInputField
+            label=''
+            value={customValue}
+            onChangeText={setCustomValue}
+            placeholder={"Enter " + placeholder}
+            container={styles.primaryInputContainer}
+            outline={emptyOutlineStyle}
+            right={<TextInput.Icon
+              icon="text-box-check"
+              onPress={handleAddCustomField}
+              color={COLORS.button}
+              size={BUTTON_SIZES.large}
+            />}
+          />
+        ) : (
+          <Dropdown
+            style={styles.dropdown}
+            containerStyle={styles.dropdownContainer}
+            itemContainerStyle={styles.itemContainer}
+            placeholderStyle={styles.placeholderStyle}
+            selectedTextStyle={styles.selectedTextStyle}
+            inputSearchStyle={styles.inputSearchStyle}
+            itemTextStyle={styles.selectedTextStyle}
+            data={data}
+            search
+            maxHeight={300}
+            labelField="label"
+            valueField="value"
+            placeholder={"Choose " + placeholder}
+            searchPlaceholder="Search..."
+            value={value}
+            onChange={handleSelectField}
+          />
+        )}
     </View>
+
   );
 }
 
@@ -195,5 +204,18 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.large,
     borderWidth: 0,
     ...SHADOW,
+  },
+  loadingContainer: {
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.dropdown,
+    borderRadius: BORDER_RADIUS,
+    ...SHADOW,
+  },
+  loadingText: {
+    color: COLORS.textPrimaryPlaceholder,
+    fontSize: FONT_SIZES.medium,
+    fontFamily: FONT_FAMILY.regular.name,
   },
 });
