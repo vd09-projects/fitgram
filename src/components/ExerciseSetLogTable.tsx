@@ -16,7 +16,6 @@ type Props = {
   workoutLog: WorkoutLog[];
   visibleHeaders?: string[];
   selectedSetNumber: string | undefined;
-  selectedExercise: Exercise | undefined;
 };
 
 // Enable layout animation on Android
@@ -24,34 +23,30 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
+const extractFieldKeys = (logs: WorkoutLog[] | null, defaultKeys?: string[]): string[] => {
+  var keys = Array.from(new Set(
+    logs?.flatMap((log) =>
+      log.exercises
+        .flatMap((exercise) =>
+          exercise.sets.flatMap((set) => Object.keys(set.fields ?? {}))
+        ) ?? []
+    ) || []
+  ));
+  return defaultKeys ? [...defaultKeys, ...keys] : keys;
+};
+
 export default function ExerciseSetLogTable({
   workoutLog,
   visibleHeaders = [],
   selectedSetNumber,
-  selectedExercise,
 }: Props) {
   if (!workoutLog || workoutLog.length === 0) return null;
-  if (!selectedExercise) return null;
   if (!selectedSetNumber) return null;
 
-  const allFieldKeys = Array.from(
-    new Set(
-      workoutLog.flatMap((log) => {
-        const selectedExerciseDetails = log.exercises
-          .find((exercise) => exercise.exerciseId === selectedExercise.id);
-        var fieldKeys = selectedExerciseDetails?.sets
-          .flatMap((set) => Object.keys(set.fields ?? {})) ?? [];
-        return ["Date", ...fieldKeys];
-      })
-    )
-  );
-  // .filter((key) => key !== "Sets");
-  const visibleHeadersArray = [...visibleHeaders, "Date"];
+  const allFieldKeys = extractFieldKeys(workoutLog, ["Date"]);
+  const visibleHeadersArray = ["Date", ...visibleHeaders];
 
-  const exerciseDetails = workoutLog.flatMap((log) => {
-    return log.exercises
-      .filter((exercise) => exercise.exerciseId === selectedExercise.id);
-  });
+  const exerciseDetails = workoutLog.flatMap((log) => { return log.exercises; });
   const setDetails = exerciseDetails.flatMap((exerciseDetail) => {
     const set = exerciseDetail.sets
       .filter((set) => set.fields[SetsString] === selectedSetNumber);
@@ -75,7 +70,7 @@ export default function ExerciseSetLogTable({
 
   return (
     <CollapsibleSection
-      title={<TextBase style={styles.dateText}>Set nu. {selectedSetNumber} - {selectedExercise.name}</TextBase>}
+      title={<TextBase style={styles.dateText}>Set nu. {selectedSetNumber}</TextBase>}
       defaultCollapsed={false}
       collapsibleStyle={styles.container}
     >

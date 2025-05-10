@@ -8,9 +8,17 @@ import show from "../utils/toastUtils";
 import { getWorkoutLogs } from "../services/db/userDB";
 import { TextBase } from "./TextBase";
 import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "../constants/styles";
+import { WorkoutLog } from "../types/workoutLogs";
 
+type WorkoutHistoricalLogsFilterProps = {
+  setWorkoutLogs: (logs: WorkoutLog[] | null) => void;
+  isVisible?: boolean;
+};
 
-export default function WorkoutHistoricalLogsFilterScreen() {
+export default function WorkoutHistoricalLogsFilter({
+  setWorkoutLogs,
+  isVisible = true,
+}: WorkoutHistoricalLogsFilterProps) {
   const { user } = useAuthUser();
   const workoutPlans = useWorkoutPlans(true);
 
@@ -34,40 +42,6 @@ export default function WorkoutHistoricalLogsFilterScreen() {
   const [selectedExercises, setSelectedExercises] = useState<DropdownSelection<Exercise> | undefined>(convertedExercises ? convertedExercises[0] : undefined);
 
   const [loadingLogs, setLoadingLogs] = useState(false);
-  // const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[] | null>(null);
-
-  // const setNumberAllLabel = "All";
-  // const convertedSetNumber = useMemo(() => {
-  //   const result = [{
-  //     label: setNumberAllLabel,
-  //     value: setNumberAllLabel,
-  //     isCustom: false,
-  //   }];
-  //   if (!workoutLogs || !selectedExercises) return result;
-
-  //   const seen = new Set();
-  //   for (const log of workoutLogs) {
-  //     const selectedExerciseLog = log.exercises.find(
-  //       (exercise) => exercise.exerciseId === selectedExercises.value?.id
-  //     );
-
-  //     if (!selectedExerciseLog) continue;
-
-  //     for (const set of selectedExerciseLog.sets) {
-  //       const setValue = set.fields["Sets"];
-  //       if (!seen.has(setValue)) {
-  //         seen.add(setValue);
-  //         result.push({
-  //           label: setValue,
-  //           value: setValue,
-  //           isCustom: false,
-  //         });
-  //       }
-  //     }
-  //   }
-  //   return result;
-  // }, [workoutLogs, selectedExercises]);
-  // const [selectedSetNumber, setSelectedSetNumber] = useState<DropdownSelection<string> | undefined>(convertedSetNumber[0]);
 
   useEffect(() => {
     if (convertedWorkoutPlans.length > 0 && !selectedWorkout) {
@@ -79,26 +53,6 @@ export default function WorkoutHistoricalLogsFilterScreen() {
       setSelectedExercises(convertedExercises[0]);
     }
   }, [selectedWorkout]);
-
-  // const extractFieldKeys = (logs: WorkoutLog[] | null): string[] => {
-  //   return Array.from(new Set(
-  //     logs?.flatMap((log) =>
-  //       log.exercises
-  //         .find((exercise) => exercise.exerciseId === selectedExercises?.value?.id)
-  //         ?.sets.flatMap((set) => Object.keys(set.fields ?? {})) ?? []
-  //     ) || []
-  //   ));
-  // };
-  // var allFieldKeys: string[] = extractFieldKeys(workoutLogs);
-  // const [visibleHeaders, setVisibleHeaders] = useState<string[]>(allFieldKeys);
-
-  // const toggleHeader = (header: string) => {
-  //   setVisibleHeaders((prev) =>
-  //     prev.includes(header)
-  //       ? prev.filter((h) => h !== header)
-  //       : [...prev, header]
-  //   );
-  // };
 
   const fetchLogs = async () => {
     if (!selectedWorkout?.value || !selectedExercises?.value) {
@@ -121,12 +75,10 @@ export default function WorkoutHistoricalLogsFilterScreen() {
           limit: 10,
         }
       );
-      console.log("Fetched logs:", logs);
-      // setWorkoutLogs(logs);
-
-      // setVisibleHeaders(extractFieldKeys(logs));
+      console.log("Fetched logs:", logs.length, logs);
+      setWorkoutLogs(logs);
     } catch (error) {
-      // setWorkoutLogs(null);
+      setWorkoutLogs(null);
       console.error("Error fetching logs:", error);
       show.alert("Error fetching logs", "Please try again.");
     } finally {
@@ -135,6 +87,7 @@ export default function WorkoutHistoricalLogsFilterScreen() {
   };
 
 
+  if (!isVisible) return <></>;
   return (
     <>
       {/* 🔽 Filters */}
@@ -157,16 +110,6 @@ export default function WorkoutHistoricalLogsFilterScreen() {
           title="Exercises"
           allowCustomInput={false}
         />
-        {/* {workoutLogs && workoutLogs.length > 0 &&
-          <SearchableInputDropdown<string>
-            placeholder="Sets"
-            data={convertedSetNumber ?? []}
-            value={selectedSetNumber}
-            onChange={setSelectedSetNumber}
-            title="Sets"
-            allowCustomInput={false}
-          />
-        } */}
       </View>
 
       {/* 🔘 Show Data Button */}
@@ -175,64 +118,11 @@ export default function WorkoutHistoricalLogsFilterScreen() {
           {loadingLogs ? "Loading..." : "Show Data"}
         </TextBase>
       </TouchableOpacity>
-
-      {/* 🔽 Workout Logs */}
-      {/* {workoutLogs && selectedExercises &&
-        <View>
-          {workoutLogs.length === 0 && (
-            <TextBase style={styles.noLogsTitle}>
-              No logs found for <TextBase style={{ fontWeight: "bold" }}>{selectedExercises.label}</TextBase>
-            </TextBase>
-          )}
-
-          {workoutLogs.length !== 0 && (<>
-            <TableControls
-              selectedFields={visibleHeaders}
-              onSelectFields={setVisibleHeaders}
-              headers={allFieldKeys}
-              toggleFieldSelection={toggleHeader}
-            />
-
-            {selectedSetNumber?.value !== setNumberAllLabel ?
-              <ExerciseSetLogTable
-                workoutLog={workoutLogs}
-                selectedSetNumber={selectedSetNumber?.value}
-                selectedExercise={selectedExercises.value}
-                visibleHeaders={visibleHeaders}
-              />
-              :
-              workoutLogs.map((log, logIndex) => {
-                const selectedExerciseLog = log.exercises.find(
-                  (exercise) => exercise.exerciseId === selectedExercises.value?.id
-                );
-
-                if (!selectedExerciseLog) return null;
-
-                return (
-                  <ExerciseLogTableFlatList
-                    key={logIndex}
-                    log={selectedExerciseLog}
-                    visibleHeaders={visibleHeaders}
-                    enableVerticalScroll={false}
-                  />
-                );
-              })}
-          </>)}
-        </View>
-      } */}
-
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: FONT_SIZES.xLarge,
-    fontWeight: "bold",
-    color: COLORS.textPrimary,
-    textAlign: "center",
-    marginBottom: SPACING.medium,
-  },
   filtersContainer: {
     marginBottom: SPACING.medium,
   },
@@ -247,53 +137,5 @@ const styles = StyleSheet.create({
   toggleText: {
     fontSize: FONT_SIZES.medium,
     color: COLORS.textSecondary,
-  },
-  noLogsTitle: {
-    fontSize: FONT_SIZES.large,
-    color: COLORS.textPrimary,
-    textAlign: "center",
-    marginTop: SPACING.medium,
-  },
-  logCard: {
-    // backgroundColor: COLORS.tertiary,
-    // padding: SPACING.medium,
-    borderRadius: 10,
-    // marginBottom: SPACING.medium,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  logTitle: {
-    fontSize: FONT_SIZES.large,
-    fontWeight: "bold",
-    color: COLORS.textSecondary,
-  },
-  logSubtitle: {
-    fontSize: FONT_SIZES.small,
-    color: COLORS.textSecondary,
-    marginTop: 4,
-  },
-  pagination: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: SPACING.medium,
-  },
-  pageButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: COLORS.button,
-    borderRadius: 6,
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  pageButtonText: {
-    color: COLORS.primary,
-    fontWeight: "bold",
-  },
-  pageText: {
-    color: COLORS.textPrimary,
-    fontSize: FONT_SIZES.medium,
   },
 });

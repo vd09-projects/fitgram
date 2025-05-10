@@ -16,8 +16,6 @@ import {
   setDoc,
   updateDoc,
   limit as limitFn,
-  startAfter,
-  startAt,
 } from "firebase/firestore";
 
 export const getAllWorkoutPlans = async (
@@ -155,7 +153,7 @@ export const saveActiveWorkoutLog = async (
   try {
     const dateNow = Date.now();
     const logId = `log_${workout.id}_${dateNow}`.replace(/\s+/g, "_");
-    
+
     // Paths
     const workoutRefPath = `users/${userId}/workout_logs/${workout.id}`;
     const logRefPath = `${workoutRefPath}/logs/${logId}`;
@@ -163,10 +161,14 @@ export const saveActiveWorkoutLog = async (
 
     // 1️⃣ Save the workout document (if not exists)
     const workoutRef = doc(db, workoutRefPath);
-    await setDoc(workoutRef, {
-      workoutId: workout.id,
-      createdAt: dateNow,
-    }, { merge: true }); // merge avoids overwriting existing data
+    await setDoc(
+      workoutRef,
+      {
+        workoutId: workout.id,
+        createdAt: dateNow,
+      },
+      { merge: true }
+    ); // merge avoids overwriting existing data
 
     // 2️⃣ Save the log document
     const logRef = doc(db, logRefPath);
@@ -275,6 +277,111 @@ type GetWorkoutLogsOptions = {
 };
 
 export async function getWorkoutLogs(
+  userId: string,
+  workoutId: string,
+  options: GetWorkoutLogsOptions = {}
+): Promise<WorkoutLog[]> {
+  const { page = 1, limit = 5, exerciseId, setId } = options;
+
+  const logsPath = `users/${userId}/workout_logs/${workoutId}/logs`;
+  const logsRef = collection(db, logsPath);
+
+  const logsQuery = query(
+    logsRef,
+    orderBy("timestamp", "desc"),
+    limitFn(page * limit)
+  );
+
+  try {
+    const logSnapshots = await getDocs(logsQuery);
+    const logDocs = logSnapshots.docs;
+
+    const logPromises = logDocs.map((logDoc) =>
+      fetchExerciseLogs(
+        logDoc.id,
+        logsPath,
+        userId,
+        workoutId,
+        exerciseId,
+        setId
+      )
+    );
+
+    const logs = await Promise.all(logPromises);
+    return logs.filter(Boolean) as WorkoutLog[];
+  } catch (error) {
+    console.error("❌ Error fetching workout logs:", error);
+    return [];
+  }
+}
+
+// 🔄 Helper: Fetch logs for a single logId
+async function fetchExerciseLogs(
+  logId: string,
+  logsPath: string,
+  userId: string,
+  workoutId: string,
+  exerciseId?: string,
+  setId?: number
+): Promise<WorkoutLog | null> {
+  if (exerciseId) {
+    const exerciseRef = doc(db, `${logsPath}/${logId}/exercises/${exerciseId}`);
+    const exerciseSnap = await getDoc(exerciseRef);
+
+    if (!exerciseSnap.exists()) return null;
+
+    const data = exerciseSnap.data();
+    const sets = filterSets(data.sets, setId);
+
+    return {
+      id: logId,
+      workoutId,
+      userId,
+      exercises: [
+        {
+          exerciseId: data.exerciseId,
+          exerciseName: data.exerciseName,
+          timestamp: data.timestamp,
+          sets,
+        },
+      ],
+    };
+  } else {
+    const exercisesRef = collection(db, `${logsPath}/${logId}/exercises`);
+    const exercisesSnap = await getDocs(exercisesRef);
+
+    if (exercisesSnap.empty) return null;
+
+    const exercises: ExerciseLog[] = exercisesSnap.docs.map((doc) => {
+      const data = doc.data();
+      const sets = filterSets(data.sets, setId);
+
+      return {
+        exerciseId: data.exerciseId,
+        exerciseName: data.exerciseName,
+        timestamp: data.timestamp,
+        sets,
+      };
+    });
+
+    return {
+      id: logId,
+      workoutId,
+      userId,
+      exercises,
+    };
+  }
+}
+
+// 🎯 Helper: Filter sets by setId if provided
+function filterSets(sets: SetLog[] = [], setId?: number): SetLog[] {
+  if (typeof setId === "number") {
+    return sets.filter((set) => set.id === setId);
+  }
+  return sets;
+}
+
+export async function getWorkoutLogs1(
   userId: string,
   workoutId: string,
   options: GetWorkoutLogsOptions = {}

@@ -2,42 +2,16 @@ import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from "react-native";
 import ScrollableScreen from "../../components/ScrollableScreen";
 import SearchableInputDropdown, { DropdownSelection } from "../../components/SearchableInputDropdown";
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "../../constants/styles";
-import useWorkoutPlans from "../../hooks/useWorkoutPlans";
-import { Exercise, WorkoutPlan } from "../../types/workoutType";
-import { getWorkoutLogs } from "../../services/db/userDB";
-import { useAuthUser } from "../../hooks/useAuthUser";
-import show from "../../utils/toastUtils";
+import { BORDER_RADIUS, BUTTON_SIZES, COLORS, FONT_SIZES, SPACING } from "../../constants/styles";
 import { WorkoutLog } from "../../types/workoutLogs";
 import ExerciseLogTableFlatList from "../../components/ExerciseLogTableFlatList";
 import ExerciseSetLogTable from "../../components/ExerciseSetLogTable";
 import { TextBase } from "../../components/TextBase";
 import TableControls from "../../components/TableControl";
+import WorkoutHistoricalLogsFilter from "../../components/WorkoutHistoricalLogsFilter";
+import { Ionicons } from '@expo/vector-icons';
 
 export default function WorkoutLogsScreen() {
-  const { user } = useAuthUser();
-  const workoutPlans = useWorkoutPlans(true);
-
-  const convertedWorkoutPlans = useMemo(() =>
-    workoutPlans.map((plan) => ({
-      label: plan.name,
-      value: plan,
-      isCustom: false,
-    })),
-    [workoutPlans]
-  );
-  const [selectedWorkout, setSelectedWorkout] = useState<DropdownSelection<WorkoutPlan> | undefined>(convertedWorkoutPlans[0]);
-
-  const convertedExercises = useMemo(() => {
-    return selectedWorkout?.value?.exercises.map((exercise) => ({
-      label: exercise.name,
-      value: exercise,
-      isCustom: false,
-    })) || [];
-  }, [selectedWorkout]);
-  const [selectedExercises, setSelectedExercises] = useState<DropdownSelection<Exercise> | undefined>(convertedExercises ? convertedExercises[0] : undefined);
-
-  const [loadingLogs, setLoadingLogs] = useState(false);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[] | null>(null);
 
   const setNumberAllLabel = "All";
@@ -47,54 +21,43 @@ export default function WorkoutLogsScreen() {
       value: setNumberAllLabel,
       isCustom: false,
     }];
-    if (!workoutLogs || !selectedExercises) return result;
+    if (!workoutLogs) return result;
 
     const seen = new Set();
-    for (const log of workoutLogs) {
-      const selectedExerciseLog = log.exercises.find(
-        (exercise) => exercise.exerciseId === selectedExercises.value?.id
-      );
-
-      if (!selectedExerciseLog) continue;
-
-      for (const set of selectedExerciseLog.sets) {
-        const setValue = set.fields["Sets"];
-        if (!seen.has(setValue)) {
-          seen.add(setValue);
-          result.push({
-            label: setValue,
-            value: setValue,
-            isCustom: false,
-          });
-        }
-      }
-    }
+    workoutLogs.forEach((log) => {
+      log.exercises.forEach((exercise) => {
+        exercise.sets.forEach((set) => {
+          const setValue = set.fields["Sets"];
+          if (!seen.has(setValue)) {
+            seen.add(setValue);
+            result.push({
+              label: setValue,
+              value: setValue,
+              isCustom: false,
+            });
+          }
+        });
+      });
+    });
     return result;
-  }, [workoutLogs, selectedExercises]);
+  }, [workoutLogs]);
   const [selectedSetNumber, setSelectedSetNumber] = useState<DropdownSelection<string> | undefined>(convertedSetNumber[0]);
-
-  useEffect(() => {
-    if (convertedWorkoutPlans.length > 0 && !selectedWorkout) {
-      setSelectedWorkout(convertedWorkoutPlans[0]);
-    }
-  });
-  useEffect(() => {
-    if (convertedExercises && convertedExercises.length > 0) {
-      setSelectedExercises(convertedExercises[0]);
-    }
-  }, [selectedWorkout]);
 
   const extractFieldKeys = (logs: WorkoutLog[] | null): string[] => {
     return Array.from(new Set(
       logs?.flatMap((log) =>
         log.exercises
-          .find((exercise) => exercise.exerciseId === selectedExercises?.value?.id)
-          ?.sets.flatMap((set) => Object.keys(set.fields ?? {})) ?? []
+          .flatMap((exercise) =>
+            exercise.sets.flatMap((set) => Object.keys(set.fields ?? {}))
+          ) ?? []
       ) || []
     ));
   };
   var allFieldKeys: string[] = extractFieldKeys(workoutLogs);
   const [visibleHeaders, setVisibleHeaders] = useState<string[]>(allFieldKeys);
+  useEffect(() => {
+    setVisibleHeaders(extractFieldKeys(workoutLogs));
+  }, [workoutLogs]);
 
   const toggleHeader = (header: string) => {
     setVisibleHeaders((prev) =>
@@ -104,89 +67,39 @@ export default function WorkoutLogsScreen() {
     );
   };
 
-  const fetchLogs = async () => {
-    if (!selectedWorkout?.value || !selectedExercises?.value) {
-      show.warn("Please select a workout and an exercise");
-      return;
-    }
-    if (!user) {
-      show.alert("User is not Logined in");
-      return;
-    }
-
-    setLoadingLogs(true);
-    try {
-      const logs = await getWorkoutLogs(
-        user?.uid,
-        selectedWorkout.value.id,
-        {
-          exerciseId: selectedExercises.value.id,
-          page: 1,
-          limit: 10,
-        }
-      );
-      console.log("Fetched logs:", logs);
-      setWorkoutLogs(logs);
-
-      setVisibleHeaders(extractFieldKeys(logs));
-    } catch (error) {
-      setWorkoutLogs(null);
-      console.error("Error fetching logs:", error);
-      show.alert("Error fetching logs", "Please try again.");
-    } finally {
-      setLoadingLogs(false);
-    }
-  };
-
+  const [isFilterTabEnabled, setIsFilterTabEnabled] = useState<boolean>(true);
+  const toggleFilterTab = () => { setIsFilterTabEnabled((prev) => !prev) };
 
   return (
-    <ScrollableScreen title={<TextBase style={styles.title}>Workout Logs</TextBase>}>
+    <ScrollableScreen
+      title={<View style={styles.titleContainer}>
+        <TextBase style={styles.title}>Workout Logs</TextBase>
+        {workoutLogs && workoutLogs.length > 0 && <TouchableOpacity style={styles.filterIcon} onPress={toggleFilterTab}>
+          <Ionicons name="filter" size={BUTTON_SIZES.medium} color={COLORS.textPrimary} />
+        </TouchableOpacity>}
+      </View>}
+    >
 
-      {/* 🔽 Filters */}
-      <View style={styles.filtersContainer}>
-        <SearchableInputDropdown<WorkoutPlan>
-          placeholder="Select Workout"
-          data={convertedWorkoutPlans}
-          value={selectedWorkout}
-          onChange={setSelectedWorkout}
-          title="Workout Plan"
+      <WorkoutHistoricalLogsFilter setWorkoutLogs={setWorkoutLogs} isVisible={isFilterTabEnabled} />
+      {workoutLogs && workoutLogs.length > 0 && <View style={styles.filtersContainer}>
+        <SearchableInputDropdown<string>
+          placeholder="Sets"
+          data={convertedSetNumber ?? []}
+          value={selectedSetNumber}
+          onChange={setSelectedSetNumber}
+          title="Sets"
           allowCustomInput={false}
         />
-
-        {/* Multi-select Exercise Dropdown (to be implemented later) */}
-        <SearchableInputDropdown<Exercise>
-          placeholder="Select Exercises"
-          data={convertedExercises ?? []}
-          value={selectedExercises}
-          onChange={setSelectedExercises}
-          title="Exercises"
-          allowCustomInput={false}
-        />
-        {workoutLogs && workoutLogs.length > 0 &&
-          <SearchableInputDropdown<string>
-            placeholder="Sets"
-            data={convertedSetNumber ?? []}
-            value={selectedSetNumber}
-            onChange={setSelectedSetNumber}
-            title="Sets"
-            allowCustomInput={false}
-          />
-        }
       </View>
-
-      {/* 🔘 Show Data Button */}
-      <TouchableOpacity style={styles.toggleButton} onPress={fetchLogs}>
-        <TextBase style={styles.toggleText}>
-          {loadingLogs ? "Loading..." : "Show Data"}
-        </TextBase>
-      </TouchableOpacity>
+      }
 
       {/* 🔽 Workout Logs */}
-      {workoutLogs && selectedExercises &&
+      {workoutLogs &&
         <View>
           {workoutLogs.length === 0 && (
             <TextBase style={styles.noLogsTitle}>
-              No logs found for <TextBase style={{ fontWeight: "bold" }}>{selectedExercises.label}</TextBase>
+              No logs found
+              {/* for <TextBase style={{ fontWeight: "bold" }}>{selectedExercises.label}</TextBase> */}
             </TextBase>
           )}
 
@@ -202,26 +115,18 @@ export default function WorkoutLogsScreen() {
               <ExerciseSetLogTable
                 workoutLog={workoutLogs}
                 selectedSetNumber={selectedSetNumber?.value}
-                selectedExercise={selectedExercises.value}
                 visibleHeaders={visibleHeaders}
               />
               :
-              workoutLogs.map((log, logIndex) => {
-                const selectedExerciseLog = log.exercises.find(
-                  (exercise) => exercise.exerciseId === selectedExercises.value?.id
-                );
-
-                if (!selectedExerciseLog) return null;
-
-                return (
+              workoutLogs.flatMap((log, logIndex) =>
+                log.exercises.map((exercise, exerciseIndex) => (
                   <ExerciseLogTableFlatList
-                    key={logIndex}
-                    log={selectedExerciseLog}
+                    key={logIndex + "_" + exerciseIndex}
+                    log={exercise}
                     visibleHeaders={visibleHeaders}
                     enableVerticalScroll={false}
                   />
-                );
-              })}
+                )))}
           </>)}
         </View>
       }
@@ -231,6 +136,7 @@ export default function WorkoutLogsScreen() {
 }
 
 const styles = StyleSheet.create({
+  titleContainer: { width: '100%', alignItems: 'center', position: 'relative' },
   title: {
     fontSize: FONT_SIZES.xLarge,
     fontWeight: "bold",
@@ -238,20 +144,16 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: SPACING.medium,
   },
+  filterIcon: {
+    position: 'absolute',
+    right: 0,
+    top: '30%',
+    transform: [{ translateY: -12 }],
+    color: COLORS.textPrimary,
+  },
+
   filtersContainer: {
     marginBottom: SPACING.medium,
-  },
-  toggleButton: {
-    backgroundColor: COLORS.button,
-    padding: SPACING.medium,
-    borderRadius: BORDER_RADIUS,
-    alignItems: "center",
-    marginVertical: SPACING.medium,
-    flexGrow: 1,
-  },
-  toggleText: {
-    fontSize: FONT_SIZES.medium,
-    color: COLORS.textSecondary,
   },
   noLogsTitle: {
     fontSize: FONT_SIZES.large,
@@ -259,25 +161,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: SPACING.medium,
   },
-  logCard: {
-    // backgroundColor: COLORS.tertiary,
-    // padding: SPACING.medium,
-    borderRadius: 10,
-    // marginBottom: SPACING.medium,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  logTitle: {
-    fontSize: FONT_SIZES.large,
-    fontWeight: "bold",
-    color: COLORS.textSecondary,
-  },
-  logSubtitle: {
-    fontSize: FONT_SIZES.small,
-    color: COLORS.textSecondary,
-    marginTop: 4,
-  },
+
   pagination: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -289,9 +173,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: COLORS.button,
     borderRadius: 6,
-  },
-  disabledButton: {
-    opacity: 0.5,
   },
   pageButtonText: {
     color: COLORS.primary,
