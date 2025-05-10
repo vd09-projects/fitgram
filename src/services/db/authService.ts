@@ -13,6 +13,12 @@ export const signUpUser = async (name: string, email: string, password: string) 
   const user = userCredential.user;
   const userRef = doc(db, 'users', user.uid);
 
+  await setDoc(userRef, {
+    uid: user.uid,
+    verified: true,
+    createdAt: new Date(),
+  });
+
   // Store user info
   await setDoc(doc(userRef, 'info', 'data'), {
     name: name,

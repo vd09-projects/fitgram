@@ -154,8 +154,9 @@ export const saveActiveWorkoutLog = async (
   }
 
   try {
+    const dateStartTime = workout.startTime;
     const dateNow = Date.now();
-    const logId = `log_${workout.id}_${dateNow}`.replace(/\s+/g, "_");
+    const logId = `log_${workout.id}_${dateStartTime}`.replace(/\s+/g, "_");
 
     // Paths
     const workoutRefPath = `users/${userId}/workout_logs/${workout.id}`;
@@ -168,7 +169,8 @@ export const saveActiveWorkoutLog = async (
       workoutRef,
       {
         workoutId: workout.id,
-        createdAt: dateNow,
+        createdAt: dateStartTime,
+        updatedAt: dateNow,
       },
       { merge: true }
     ); // merge avoids overwriting existing data
@@ -177,7 +179,7 @@ export const saveActiveWorkoutLog = async (
     const logRef = doc(db, logRefPath);
     await setDoc(logRef, {
       logId,
-      timestamp: dateNow,
+      timestamp: dateStartTime,
     });
 
     // 3️⃣ Save each exercise document
@@ -187,7 +189,7 @@ export const saveActiveWorkoutLog = async (
       const exerciseData = {
         exerciseId: exercise.id,
         exerciseName: exercise.name,
-        timestamp: dateNow,
+        timestamp: dateStartTime,
         sets: exercise.sets,
       };
 
