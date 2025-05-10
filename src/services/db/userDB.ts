@@ -16,6 +16,9 @@ import {
   setDoc,
   updateDoc,
   limit as limitFn,
+  QueryDocumentSnapshot,
+  DocumentData,
+  startAfter,
 } from "firebase/firestore";
 
 export const getAllWorkoutPlans = async (
@@ -312,6 +315,42 @@ export async function getWorkoutLogs(
   } catch (error) {
     console.error("❌ Error fetching workout logs:", error);
     return [];
+  }
+}
+
+export async function getWorkoutLogsPaginated(
+  userId: string,
+  workoutId: string,
+  options: GetWorkoutLogsOptions = {},
+  lastVisibleDoc?: QueryDocumentSnapshot<DocumentData>
+): Promise<{ logs: WorkoutLog[]; lastDoc: QueryDocumentSnapshot<DocumentData> | null }> {
+  const { limit = 10, exerciseId, setId } = options;
+
+  const logsPath = `users/${userId}/workout_logs/${workoutId}/logs`;
+  const logsRef = collection(db, logsPath);
+
+  let logsQuery = query(logsRef, orderBy("timestamp", "desc"), limitFn(limit));
+
+  if (lastVisibleDoc) {
+    logsQuery = query(logsQuery, startAfter(lastVisibleDoc));
+  }
+
+  try {
+    const logSnapshots = await getDocs(logsQuery);
+    const logDocs = logSnapshots.docs;
+
+    const logPromises = logDocs.map((logDoc) =>
+      fetchExerciseLogs(logDoc.id, logsPath, userId, workoutId, exerciseId, setId)
+    );
+
+    const logs = await Promise.all(logPromises);
+    return {
+      logs: logs.filter(Boolean) as WorkoutLog[],
+      lastDoc: logDocs[logDocs.length - 1] || null,
+    };
+  } catch (error) {
+    console.error("❌ Error fetching workout logs:", error);
+    return { logs: [], lastDoc: null };
   }
 }
 
