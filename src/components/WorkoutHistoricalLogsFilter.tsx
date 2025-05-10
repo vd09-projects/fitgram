@@ -10,17 +10,28 @@ import { TextBase } from "./TextBase";
 import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "../constants/styles";
 import { WorkoutLog } from "../types/workoutLogs";
 
+export type WorkoutHistoricalDisplayLog = {
+  displayType: "SetData" | "ExerciseData";
+  WorkoutName: string;
+  ExerciseName: string;
+  SetNumber?: string;
+  displayData: WorkoutLog[] | null;
+};
+
 type WorkoutHistoricalLogsFilterProps = {
-  setWorkoutLogs: (logs: WorkoutLog[] | null) => void;
+  setWorkoutLogs1?: (logs: WorkoutLog[] | null) => void;
+  setDisplayLog: (logs: WorkoutHistoricalDisplayLog | null) => void;
   isVisible?: boolean;
 };
 
 export default function WorkoutHistoricalLogsFilter({
-  setWorkoutLogs,
+  setDisplayLog,
   isVisible = true,
 }: WorkoutHistoricalLogsFilterProps) {
   const { user } = useAuthUser();
   const workoutPlans = useWorkoutPlans(true);
+
+  const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[] | null>(null);
 
   const convertedWorkoutPlans = useMemo(() =>
     workoutPlans.map((plan) => ({
@@ -41,7 +52,37 @@ export default function WorkoutHistoricalLogsFilter({
   }, [selectedWorkout]);
   const [selectedExercises, setSelectedExercises] = useState<DropdownSelection<Exercise> | undefined>(convertedExercises ? convertedExercises[0] : undefined);
 
+  const setNumberAllLabel = "All";
+  const convertedSetNumber = useMemo(() => {
+    const result = [{
+      label: setNumberAllLabel,
+      value: setNumberAllLabel,
+      isCustom: false,
+    }];
+    if (!workoutLogs) return result;
+
+    const seen = new Set();
+    workoutLogs.forEach((log) => {
+      log.exercises.forEach((exercise) => {
+        exercise.sets.forEach((set) => {
+          const setValue = set.fields["Sets"];
+          if (!seen.has(setValue)) {
+            seen.add(setValue);
+            result.push({
+              label: setValue,
+              value: setValue,
+              isCustom: false,
+            });
+          }
+        });
+      });
+    });
+    return result;
+  }, [workoutLogs]);
+  const [selectedSetNumber, setSelectedSetNumber] = useState<DropdownSelection<string> | undefined>(convertedSetNumber[0]);
+
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [FetchNewData, setFetchNewData] = useState(false);
 
   useEffect(() => {
     if (convertedWorkoutPlans.length > 0 && !selectedWorkout) {
@@ -53,6 +94,9 @@ export default function WorkoutHistoricalLogsFilter({
       setSelectedExercises(convertedExercises[0]);
     }
   }, [selectedWorkout]);
+  useEffect(() => {
+    setFetchNewData(true);
+  }, [selectedExercises]);
 
   const fetchLogs = async () => {
     if (!selectedWorkout?.value || !selectedExercises?.value) {
@@ -64,26 +108,72 @@ export default function WorkoutHistoricalLogsFilter({
       return;
     }
 
-    setLoadingLogs(true);
-    try {
-      const logs = await getWorkoutLogs(
-        user?.uid,
-        selectedWorkout.value.id,
-        {
-          exerciseId: selectedExercises.value.id,
-          page: 1,
-          limit: 10,
-        }
-      );
-      console.log("Fetched logs:", logs.length, logs);
-      setWorkoutLogs(logs);
-    } catch (error) {
-      setWorkoutLogs(null);
-      console.error("Error fetching logs:", error);
-      show.alert("Error fetching logs", "Please try again.");
-    } finally {
-      setLoadingLogs(false);
+    let workoutLogsForDisplay = workoutLogs;
+    if (FetchNewData) {
+      setLoadingLogs(true);
+      try {
+        const logs = await getWorkoutLogs(
+          user?.uid,
+          selectedWorkout.value.id,
+          {
+            exerciseId: selectedExercises.value.id,
+            page: 1,
+            limit: 10,
+          }
+        );
+        console.log("Fetched logs:", logs.length, logs);
+        setWorkoutLogs(logs);
+        workoutLogsForDisplay = logs;
+      } catch (error) {
+        setWorkoutLogs(null);
+        console.error("Error fetching logs:", error);
+        show.alert("Error fetching logs", "Please try again.");
+      } finally {
+        setLoadingLogs(false);
+      }
     }
+
+    applyFiltersAndSetLogs(workoutLogsForDisplay);
+  };
+
+  const applyFiltersAndSetLogs = (workoutLogsForDisplay: WorkoutLog[] | null) => {
+    if (!workoutLogsForDisplay) return;
+    if (!selectedWorkout?.value || !selectedExercises?.value) {
+      show.warn("Please select a workout and an exercise");
+      return;
+    }
+
+    let filteredLogs = workoutLogsForDisplay;
+    let isExerciseDisplayType = true;
+
+    if (selectedSetNumber && selectedSetNumber.value !== setNumberAllLabel) {
+      filteredLogs = filteredLogs
+        .map((log) => ({
+          ...log,
+          exercises: log.exercises.map((exercise) => ({
+            ...exercise,
+            sets: exercise.sets.filter(
+              (set) =>
+                String(set.fields?.["Sets"]).trim() ===
+                String(selectedSetNumber.value).trim()
+            ),
+          })),
+        }))
+        .filter((log) =>
+          log.exercises.some((exercise) => exercise.sets.length > 0)
+        );
+      isExerciseDisplayType = false;
+    }
+
+    const displayLog: WorkoutHistoricalDisplayLog = {
+      displayType: isExerciseDisplayType ? "ExerciseData" : "SetData",
+      WorkoutName: selectedWorkout.value.name,
+      ExerciseName: selectedExercises.value.name,
+      SetNumber: selectedSetNumber?.value,
+      displayData: filteredLogs,
+    };
+
+    setDisplayLog(displayLog);
   };
 
 
@@ -110,6 +200,18 @@ export default function WorkoutHistoricalLogsFilter({
           title="Exercises"
           allowCustomInput={false}
         />
+
+        {workoutLogs && workoutLogs.length > 0 && <View style={styles.filtersContainer}>
+          <SearchableInputDropdown<string>
+            placeholder="Sets"
+            data={convertedSetNumber ?? []}
+            value={selectedSetNumber}
+            onChange={setSelectedSetNumber}
+            title="Sets"
+            allowCustomInput={false}
+          />
+        </View>
+        }
       </View>
 
       {/* 🔘 Show Data Button */}

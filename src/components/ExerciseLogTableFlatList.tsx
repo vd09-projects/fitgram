@@ -27,6 +27,7 @@ export default function ExerciseLogTableFlatList({
   visibleHeaders = [],
   enableVerticalScroll = false,
 }: Props) {
+  console.log("VDJI ExerciseLogTableFlatList", log);
   if (!log || !log.sets || log.sets.length === 0) return null;
 
   const allFieldKeys = Array.from(

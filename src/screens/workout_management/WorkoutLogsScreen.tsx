@@ -8,40 +8,13 @@ import ExerciseLogTableFlatList from "../../components/ExerciseLogTableFlatList"
 import ExerciseSetLogTable from "../../components/ExerciseSetLogTable";
 import { TextBase } from "../../components/TextBase";
 import TableControls from "../../components/TableControl";
-import WorkoutHistoricalLogsFilter from "../../components/WorkoutHistoricalLogsFilter";
+import WorkoutHistoricalLogsFilter, { WorkoutHistoricalDisplayLog } from "../../components/WorkoutHistoricalLogsFilter";
 import { Ionicons } from '@expo/vector-icons';
 
 export default function WorkoutLogsScreen() {
-  const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[] | null>(null);
-
-  const setNumberAllLabel = "All";
-  const convertedSetNumber = useMemo(() => {
-    const result = [{
-      label: setNumberAllLabel,
-      value: setNumberAllLabel,
-      isCustom: false,
-    }];
-    if (!workoutLogs) return result;
-
-    const seen = new Set();
-    workoutLogs.forEach((log) => {
-      log.exercises.forEach((exercise) => {
-        exercise.sets.forEach((set) => {
-          const setValue = set.fields["Sets"];
-          if (!seen.has(setValue)) {
-            seen.add(setValue);
-            result.push({
-              label: setValue,
-              value: setValue,
-              isCustom: false,
-            });
-          }
-        });
-      });
-    });
-    return result;
-  }, [workoutLogs]);
-  const [selectedSetNumber, setSelectedSetNumber] = useState<DropdownSelection<string> | undefined>(convertedSetNumber[0]);
+  // const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[] | null>(null);
+  const [displayLog, setDisplayLog] = useState<WorkoutHistoricalDisplayLog | null>(null);
+  const workoutLogs = displayLog?.displayData || null;
 
   const extractFieldKeys = (logs: WorkoutLog[] | null): string[] => {
     return Array.from(new Set(
@@ -59,12 +32,22 @@ export default function WorkoutLogsScreen() {
     setVisibleHeaders(extractFieldKeys(workoutLogs));
   }, [workoutLogs]);
 
+  // const toggleHeader = (header: string) => {
+  //   setVisibleHeaders((prev) =>
+  //     prev.includes(header)
+  //       ? prev.filter((h) => h !== header)
+  //       : [...prev, header]
+  //   );
+  // };
   const toggleHeader = (header: string) => {
-    setVisibleHeaders((prev) =>
-      prev.includes(header)
-        ? prev.filter((h) => h !== header)
-        : [...prev, header]
-    );
+    setVisibleHeaders((prev) => {
+      if (prev.includes(header)) {
+        return prev.filter((h) => h !== header);
+      } else {
+        const newHeaders = [...prev, header];
+        return allFieldKeys.filter((h) => newHeaders.includes(h));
+      }
+    });
   };
 
   const [isFilterTabEnabled, setIsFilterTabEnabled] = useState<boolean>(true);
@@ -80,26 +63,14 @@ export default function WorkoutLogsScreen() {
       </View>}
     >
 
-      <WorkoutHistoricalLogsFilter setWorkoutLogs={setWorkoutLogs} isVisible={isFilterTabEnabled} />
-      {workoutLogs && workoutLogs.length > 0 && <View style={styles.filtersContainer}>
-        <SearchableInputDropdown<string>
-          placeholder="Sets"
-          data={convertedSetNumber ?? []}
-          value={selectedSetNumber}
-          onChange={setSelectedSetNumber}
-          title="Sets"
-          allowCustomInput={false}
-        />
-      </View>
-      }
+      <WorkoutHistoricalLogsFilter isVisible={isFilterTabEnabled} setDisplayLog={setDisplayLog}/>
 
       {/* 🔽 Workout Logs */}
-      {workoutLogs &&
+      {displayLog && workoutLogs &&
         <View>
           {workoutLogs.length === 0 && (
             <TextBase style={styles.noLogsTitle}>
-              No logs found
-              {/* for <TextBase style={{ fontWeight: "bold" }}>{selectedExercises.label}</TextBase> */}
+              No logs found for <TextBase style={{ fontWeight: "bold" }}>{displayLog.ExerciseName}</TextBase>
             </TextBase>
           )}
 
@@ -111,10 +82,9 @@ export default function WorkoutLogsScreen() {
               toggleFieldSelection={toggleHeader}
             />
 
-            {selectedSetNumber?.value !== setNumberAllLabel ?
+            {displayLog.displayType === "SetData" ?
               <ExerciseSetLogTable
-                workoutLog={workoutLogs}
-                selectedSetNumber={selectedSetNumber?.value}
+              displayLog={displayLog}
                 visibleHeaders={visibleHeaders}
               />
               :
