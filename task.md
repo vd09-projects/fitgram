@@ -66,10 +66,16 @@
 | **create outlined input componet to use for text input** | ✅ | 3-4 days | Done. |
 | **insted of simple input start using outline input every where** | ⏳ | 1-2 days | not yet started |
 
-### 🔹 **Phase 7: Data Access**
+### 🔹 **Phase 7: Data Access Rules**
 | Task | Status | Timeline | Notes |
 |------|--------|----------|-------|
 | **Allow user to access only their own data** | ✅ | 1-2 days | Done |
+| **Use environment-specific Firebase projects** | 🚫 | 1 day | Ensures separation of dev, staging, and prod environments |
+| **Restrict Firebase API key in Google Cloud Console** | 🚫 | 1 day | Limited to specific platform bundles (iOS/Android/Web) |
+| **Secure Firebase rules using `auth.uid == userId`** | 🚫 | 1–2 days | Prevents unauthorized access to other users’ data |
+| **Enable Firebase App Check for all supported services** | 🚫 | 1–2 days | Ensures only real app instances access Firebase |
+| **Avoid using Admin SDK or service account keys in client app** | 🚫 | Immediate| Admin credentials must never be exposed in the frontend |
+| **Never include Firebase Admin SDK or service keys in client apps** | 🚫 | Ongoing | This is a non-negotiable rule to prevent full project compromise |
 
 ### 🔹 **Phase 8: Social Media & Extras**
 | Task | Status | Timeline | Notes |
