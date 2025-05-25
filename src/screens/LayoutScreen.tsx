@@ -22,16 +22,11 @@ export default function LayoutScreen() {
     <View style={layoutStyles.container}>
       {/* 🔹 Header Always Present */}
       <Header onPressTab={(tab) => {
-          setActiveTab(tab);
-          navigation.navigate(tab);
-        }} />
+        setActiveTab(tab);
+        navigation.navigate(tab);
+      }} />
 
-       {/* 🔥 Force remounting AnimatedScreen using key={activeTab} */}
-       {/* <View style={layoutStyles.content}>
-        <AnimatedScreen key={activeTab} animationType="fade">
-        <LayoutNavigator />
-        </AnimatedScreen>
-      </View> */}
+      {/* 🔥 Force remounting AnimatedScreen using key={activeTab} */}
       <View style={layoutStyles.content}>
         <AnimatedScreen animationType="fade">
           <LayoutNavigator />

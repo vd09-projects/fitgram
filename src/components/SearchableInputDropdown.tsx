@@ -67,7 +67,7 @@ export default function SearchableInputDropdown<T>({
             <Switch
               value={isNewMode}
               onValueChange={setIsNewMode}
-              trackColor={{ false: COLORS.tertiary, true: COLORS.secondary }}
+              trackColor={{ false: COLORS.switchFalse, true: COLORS.switchTrue }}
               thumbColor={COLORS.textSecondary}
               style={{ transform: [{ scaleX: 1.1 }] }}
             />
@@ -89,6 +89,7 @@ export default function SearchableInputDropdown<T>({
             placeholder={"Enter " + placeholder}
             container={styles.primaryInputContainer}
             outline={emptyOutlineStyle}
+            // inputBox={{ color: COLORS.inputSecondaryText }}
             right={<TextInput.Icon
               icon="text-box-check"
               onPress={handleAddCustomField}
@@ -167,14 +168,15 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS,
   },
   itemContainer: {
-    backgroundColor: COLORS.tertiary,
+    backgroundColor: COLORS.dropdownItemBackground,
     borderColor: COLORS.border,
     borderRadius: BORDER_RADIUS,
+    marginHorizontal: SPACING.xSmall,
     margin: 1,
   },
   placeholderStyle: {
     fontSize: FONT_SIZES.large,
-    color: COLORS.textPrimaryPlaceholder,
+    color: COLORS.inputPrimaryPlaceholder,
     fontFamily: FONT_FAMILY.regular.name,
     padding: SPACING.xSmall,
   },
@@ -187,8 +189,9 @@ const styles = StyleSheet.create({
   inputSearchStyle: {
     fontSize: FONT_SIZES.large,
     color: COLORS.textPrimary,
-    backgroundColor: COLORS.textSecondary,
+    backgroundColor: COLORS.inputPrimaryBackground,
     borderRadius: BORDER_RADIUS,
+    borderColor: COLORS.border,
     fontFamily: FONT_FAMILY.regular.name,
   },
   primaryInputContainer: {

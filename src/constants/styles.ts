@@ -111,46 +111,6 @@ const styles = StyleSheet.create({
 
 export default styles;
 
-export const headerStyles = StyleSheet.create({
-  container: {
-    backgroundColor: COLORS.secondary,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: SPACING.large,
-    paddingTop: SPACING.xxxLarge,
-    paddingBottom: SPACING.xSmall,
-  },
-  text: {
-    color: COLORS.textSecondary,
-    fontWeight: "bold",
-    fontSize: FONT_SIZES.medium,
-    marginRight: SPACING.small,
-    paddingTop: SPACING.small,
-  },
-  companyName: {
-    fontSize: FONT_SIZES.xLarge,
-    color: COLORS.textSecondary,
-    fontFamily: "cursive",
-    fontStyle: "italic",
-    fontWeight: "bold",
-    letterSpacing: 1.4,
-    ...SHADOW,
-  },
-  tabButton: {
-    padding: SPACING.small,
-  },
-  rightControls: {
-    marginRight: SPACING.small,
-    paddingTop: SPACING.small,
-  },
-  rightIcon: {
-    color: COLORS.textSecondary,
-    fontWeight: "bold",
-    fontSize: BUTTON_SIZES.medium,
-  },
-});
-
 export const layoutStyles = StyleSheet.create({
   container: {
     flex: 1,
@@ -160,34 +120,5 @@ export const layoutStyles = StyleSheet.create({
     flex: 1,
     margin: SPACING.xSmall,
     marginBottom: 0,
-  },
-});
-
-export const footerStyles = StyleSheet.create({
-  tabButton: {
-    padding: SPACING.small,
-    alignItems: "center",
-    justifyContent: "center",
-    flex: 1,
-  },
-  container: {
-    height: 60,
-    backgroundColor: COLORS.secondary,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-  },
-  tabText: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZES.small,
-    marginTop: 2,
-  },
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: COLORS.tertiary,
-  },
-  activeText: {
-    color: COLORS.tertiary,
-    fontWeight: "bold",
   },
 });

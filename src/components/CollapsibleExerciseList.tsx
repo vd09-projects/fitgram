@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.medium,
   },
   exerciseContainer: {
-    backgroundColor: COLORS.dropdown,
+    backgroundColor: COLORS.collapsed,
     borderRadius: BORDER_RADIUS,
     marginBottom: SPACING.medium,
     padding: SPACING.small,
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
   exerciseText: {
     fontSize: FONT_SIZES.medium,
     fontWeight: 'bold',
-    color: COLORS.textPrimary,
+    color: COLORS.collapsedTitleText,
     paddingVertical: SPACING.small,
     paddingHorizontal: SPACING.small,
   },

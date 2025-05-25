@@ -1,7 +1,7 @@
 import React from 'react';
 import { TextInput } from 'react-native-paper';
 import { StyleProp, TextStyle, StyleSheet, ViewStyle, KeyboardType } from 'react-native';
-import { BORDER_RADIUS, COLORS, FONT_FAMILY, FONT_SIZES, SPACING } from '../constants/styles'; // adjust path if needed
+import { BORDER_RADIUS, COLORS, FONT_FAMILY, FONT_SIZES, SHADOW_4, SPACING } from '../constants/styles'; // adjust path if needed
 
 interface PrimaryInputFieldProps {
   mode?: 'flat' | 'outlined';
@@ -14,7 +14,6 @@ interface PrimaryInputFieldProps {
   container?: StyleProp<TextStyle>;
   outline?: StyleProp<ViewStyle>;
   inputBox?: StyleProp<TextStyle>;
-  backgroundColor?: string;
   placeholderTextColor?: string;
   labelColor?: string;
   left?: React.ReactNode;
@@ -33,8 +32,7 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
   outline,
   inputBox,
   placeholder = '',
-  placeholderTextColor = COLORS.textPrimaryPlaceholder,
-  backgroundColor = COLORS.textSecondary,
+  placeholderTextColor = COLORS.inputPrimaryPlaceholder,
   labelColor = COLORS.textPrimary,
   disabled = false,
   left,
@@ -77,7 +75,6 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
         colors: {
           primary: labelColor,
           onSurfaceVariant: labelColor,
-          background: backgroundColor,
         },
         fonts: {
           bodyLarge: {
@@ -98,24 +95,24 @@ const styles = StyleSheet.create({
     paddingLeft: SPACING.small,
     marginBottom: SPACING.small,
     borderWidth: 1,
-    borderColor: COLORS.transparent,
+    borderColor: COLORS.inputPrimaryBackground,
     borderRadius: BORDER_RADIUS,
     fontSize: SPACING.xLarge,
     lineHeight: SPACING.xxxLarge,
   },
   outline: {
     borderWidth: 2,
-    borderColor: COLORS.border,
+    borderColor: COLORS.inputBorder,
     borderRadius: BORDER_RADIUS,
   },
   inputBox: {
     padding: SPACING.small,
-    color: COLORS.textPrimary,
+    color: COLORS.inputPrimaryText,
     fontWeight: 'normal',
   },
   inputLabel: {
     fontWeight: 'bold',
-    color: COLORS.textPrimary,
+    color: COLORS.inputPrimaryText,
   },
 });
 

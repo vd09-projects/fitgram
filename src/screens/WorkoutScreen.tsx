@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useAuthUser } from '../hooks/useAuthUser';
 import { Ionicons } from '@expo/vector-icons';
-import { BORDER_RADIUS, COLORS, FONT_FAMILY, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, COLORS, SPACING } from '../constants/styles';
 import { WorkoutScreenNavigationProp } from '../navigation/WorkoutNavigator';
 import { WorkoutRoutes } from '../constants/routes';
 import { useNavigation } from '@react-navigation/native';
@@ -70,7 +70,7 @@ export default function WorkoutScreen() {
               <Ionicons
                 name={option.icon as keyof typeof Ionicons.glyphMap}
                 size={SPACING.xxxLarge}
-                color={COLORS.primary}
+                color={COLORS.cardHeader}
                 style={styles.icon}
               />
               <View style={styles.buttonTextContainer}>
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
   },
   content: {
-    width: '85%',
+    width: '90%',
     alignItems: 'center',
     paddingTop: SPACING.xxxxLarge,
   },
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
   },
   buttonPrimary: {
     flexDirection: 'row',
-    backgroundColor: COLORS.secondary,
+    backgroundColor: COLORS.cardBackground,
     padding: SPACING.large,
     borderRadius: BORDER_RADIUS,
     marginBottom: SPACING.large,
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   buttonTextPrimary: {
     fontSize: SPACING.xLarge,
     fontWeight: 'bold',
-    color: COLORS.primary,
+    color: COLORS.cardHeader,
     paddingBottom: SPACING.xSmall,
   },
 });

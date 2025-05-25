@@ -5,13 +5,12 @@ import { BORDER_RADIUS, BUTTON_SIZES, COLORS, FONT_SIZES, SHADOW, SPACING } from
 import { TextBase } from './TextBase';
 import { emptyOutlineStyle, PrimaryInputField } from './PrimaryInputField';
 import { TextInput } from 'react-native-paper';
-import show from '../utils/toastUtils';
 
 interface EditableListProps {
   title: string;
   items: string[];
   onItemsChange: (updatedItems: string[]) => void;
-  showInputField?: boolean; // Controls the visibility of the input area
+  showInputField?: boolean;
 }
 
 const EditableList: React.FC<EditableListProps> = ({
@@ -56,6 +55,7 @@ const EditableList: React.FC<EditableListProps> = ({
             label=''
             value={field}
             container={[styles.primaryItemContainer, isDuplicate && styles.duplicateItem]}
+            inputBox={{ color: COLORS.inputSecondaryText }}
             onChangeText={(text) => {
               const updatedFields = [...items];
               updatedFields[index] = text;
@@ -77,13 +77,14 @@ const EditableList: React.FC<EditableListProps> = ({
           label=''
           placeholder="Enter new field"
           value={newItem}
+          inputBox={{ color: COLORS.inputSecondaryText }}
           onChangeText={(text) => {
             setNewItem(text);
             setErrorMessage(null);
           }}
 
           container={[styles.primaryInputContainer, errorMessage ? styles.errorInput : {}]}
-          outline={emptyOutlineStyle}
+          // outline={emptyOutlineStyle}
 
           right={<TextInput.Icon
             icon="playlist-plus"
@@ -112,7 +113,7 @@ const styles = StyleSheet.create({
   },
   primaryItemContainer: {
     flex: 1,
-    backgroundColor: COLORS.textSecondary,
+    backgroundColor: COLORS.inputSecondaryBackground,
     borderRadius: BORDER_RADIUS,
     paddingLeft: 0,
     paddingBottom: 2,
@@ -128,7 +129,7 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.xSmall,
     marginBottom: SPACING.xSmall,
     fontSize: FONT_SIZES.large,
-    backgroundColor: COLORS.textSecondary,
+    backgroundColor: COLORS.inputSecondaryBackground,
     ...SHADOW,
   },
   errorInput: {

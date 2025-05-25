@@ -1,14 +1,9 @@
 // src/components/Header.tsx
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { useAuthUser } from '../hooks/useAuthUser';
-import { signOut } from 'firebase/auth';
-import { auth } from '../services/firebase';
-import { headerStyles } from '../constants/styles';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { BUTTON_SIZES, COLORS, FONT_SIZES, SHADOW, SHADOW_4, SPACING } from '../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
-import Toast from 'react-native-toast-message';
 import { LayoutRoutes } from '../constants/routes';
-import show from '../utils/toastUtils';
 import { TextBase } from './TextBase';
 
 interface HeaderProps {
@@ -16,26 +11,12 @@ interface HeaderProps {
 }
 
 export default function Header({ onPressTab }: HeaderProps) {
-  const { user } = useAuthUser();
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      show.success('Logout Successful', 'You have been logged out.');
-    } catch (error: any) {
-      show.alert('Logout Failed', error.message || 'Something went wrong.');
-    }
-  };
-
   return (
     <View style={headerStyles.container}>
       <TouchableOpacity style={[headerStyles.tabButton]} onPress={() => onPressTab(LayoutRoutes.Home)}>
         <TextBase style={headerStyles.companyName} isDefaultFontFamilyRequired>Fitgram</TextBase>
       </TouchableOpacity>
 
-      {/* <TouchableOpacity onPress={handleLogout}>
-        <TextBase style={[headerStyles.text]}>Logout</TextBase>
-      </TouchableOpacity> */}
       <View style={headerStyles.rightControls}>
         <TouchableOpacity onPress={() => onPressTab(LayoutRoutes.Profile)}>
           <Ionicons name="menu" style={headerStyles.rightIcon} />
@@ -44,3 +25,44 @@ export default function Header({ onPressTab }: HeaderProps) {
     </View>
   );
 }
+
+const headerStyles = StyleSheet.create({
+  container: {
+    backgroundColor: COLORS.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: SPACING.large,
+    paddingTop: SPACING.xxxLarge,
+    paddingBottom: SPACING.xSmall,
+    ...SHADOW_4,
+  },
+  text: {
+    color: COLORS.textSecondary,
+    fontWeight: "bold",
+    fontSize: FONT_SIZES.medium,
+    marginRight: SPACING.small,
+    paddingTop: SPACING.small,
+  },
+  companyName: {
+    fontSize: FONT_SIZES.xLarge,
+    color: COLORS.textSecondary,
+    fontFamily: "cursive",
+    fontStyle: "italic",
+    fontWeight: "bold",
+    letterSpacing: 1.4,
+    ...SHADOW,
+  },
+  tabButton: {
+    padding: SPACING.small,
+  },
+  rightControls: {
+    marginRight: SPACING.small,
+    paddingTop: SPACING.small,
+  },
+  rightIcon: {
+    color: COLORS.textSecondary,
+    fontWeight: "bold",
+    fontSize: BUTTON_SIZES.medium,
+  },
+});

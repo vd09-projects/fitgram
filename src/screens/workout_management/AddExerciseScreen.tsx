@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from '../../constants/styles';
+import { BORDER_RADIUS, COLORS, FONT_SIZES, SHADOW, SPACING } from '../../constants/styles';
 import ScrollableScreen from '../../components/ScrollableScreen';
 import SearchableInputDropdown, { DropdownSelection } from '../../components/SearchableInputDropdown';
 import EditableList from '../../components/EditableList';
@@ -132,7 +132,7 @@ export default function AddExerciseScreen() {
               selectedWorkout.value.exercises.splice(index, 1, updatedExercises);
             }
             const newWorkout = { ...selectedWorkout } as DropdownSelection<WorkoutPlan>;
-            console.log('🔥 Updated Workout:', newWorkout);
+            // console.log('🔥 Updated Workout:', newWorkout);
             setWorkoutDetailsUpdated(true);
             setSelectedWorkout(newWorkout);
           }}
@@ -161,7 +161,7 @@ export default function AddExerciseScreen() {
 
       {/* 🔹 Submit Button */}
       {workoutDetailsUpdated && (<TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
-        <Ionicons name="checkmark-circle-outline" size={24} color={COLORS.textSecondary} />
+        <Ionicons name="checkmark-circle-outline" size={24} color={COLORS.buttonText} />
         <TextBase style={styles.saveButtonText}>Save Exercise</TextBase>
       </TouchableOpacity>)}
     </ScrollableScreen>
@@ -183,12 +183,14 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS,
     alignItems: 'center',
     justifyContent: 'center',
+    marginVertical: SPACING.xSmall,
     marginTop: SPACING.xLarge,
+    // ...SHADOW,
   },
   saveButtonText: {
     fontSize: FONT_SIZES.large,
     fontWeight: 'bold',
-    color: COLORS.primary,
+    color: COLORS.buttonText,
     marginLeft: 8,
   },
 });
