@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   },
   workoutCard: {
     flex: 1,
-    backgroundColor: COLORS.tertiary,
+    backgroundColor: COLORS.cardBackground,
     padding: 20,
     borderRadius: BORDER_RADIUS,
     alignItems: "center",
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   workoutTitle: {
     fontSize: FONT_SIZES.large,
     fontWeight: "bold",
-    color: COLORS.textPrimary,
+    color: COLORS.textSecondary,
     textAlign: "center",
   },
   exerciseList: {
@@ -216,20 +216,20 @@ const styles = StyleSheet.create({
   exerciseCard: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 10,
-    backgroundColor: COLORS.textPrimary,
+    padding: SPACING.medium,
+    backgroundColor: COLORS.secondary,
     borderRadius: BORDER_RADIUS,
-    marginBottom: 10,
+    marginBottom: SPACING.small,
   },
   exerciseText: {
     fontSize: FONT_SIZES.medium,
     fontWeight: "bold",
-    marginLeft: 10,
-    color: COLORS.textSecondary,
+    marginLeft: SPACING.small,
+    color: COLORS.textPrimary,
   },
   startWorkoutButton: {
     marginTop: SPACING.large,
-    paddingVertical: 15,
+    paddingVertical: SPACING.large,
     borderRadius: BORDER_RADIUS,
     backgroundColor: COLORS.button,
     alignItems: "center",
@@ -237,6 +237,6 @@ const styles = StyleSheet.create({
   startWorkoutText: {
     fontSize: FONT_SIZES.large,
     fontWeight: "bold",
-    color: "white",
+    color: COLORS.textSecondary,
   },
 });

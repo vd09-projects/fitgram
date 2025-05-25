@@ -2,7 +2,7 @@ import React from "react";
 import { View } from "react-native";
 import { getClearIcon, PrimaryInputField } from "./PrimaryInputField";
 import { TextInput } from 'react-native-paper';
-import { SPACING } from "../constants/styles";
+import { COLORS, SPACING } from "../constants/styles";
 
 interface SearchBoxProps {
   label: string;
@@ -19,7 +19,7 @@ const SearchBox: React.FC<SearchBoxProps> = ({ value, onChangeText, label, place
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        left={<TextInput.Icon icon="feature-search-outline" />}
+        left={<TextInput.Icon icon="feature-search-outline" color={COLORS.primary} />}
         right={getClearIcon(value, onChangeText)}
         container={{ width: '100%' }}
       />

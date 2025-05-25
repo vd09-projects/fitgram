@@ -1,8 +1,8 @@
 // Common Values
 export const BasicColors = {
   primary: "#3C3F5C",
-  secondary: "#5A3E62",
-  tertiary: "#B2B5E0",
+  secondary: "#DCE5F7",
+  tertiary: "rgb(145, 85, 150)",
 
   transparent: "transparent",
 
