@@ -37,7 +37,7 @@ export default function Footer({ activeTab, onChangeTab }: FooterProps) {
             <Ionicons
               name={tab.icon}
               size={22}
-              color={isActive ? COLORS.secondary : COLORS.textSecondary}
+              color={isActive ? COLORS.tertiary : COLORS.textSecondary}
               style={{ marginBottom: 2 }}
             />
             <TextBase style={[footerStyles.tabText, isActive && footerStyles.activeText]}>

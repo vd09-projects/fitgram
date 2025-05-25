@@ -67,7 +67,7 @@ export default function SearchableInputDropdown<T>({
             <Switch
               value={isNewMode}
               onValueChange={setIsNewMode}
-              trackColor={{ false: COLORS.secondary, true: COLORS.tertiary }}
+              trackColor={{ false: COLORS.tertiary, true: COLORS.secondary }}
               thumbColor={COLORS.textSecondary}
               style={{ transform: [{ scaleX: 1.1 }] }}
             />
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS,
   },
   itemContainer: {
-    backgroundColor: COLORS.secondary,
+    backgroundColor: COLORS.tertiary,
     borderColor: COLORS.border,
     borderRadius: BORDER_RADIUS,
     margin: 1,

@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   },
   workoutCard: {
     flex: 1,
-    backgroundColor: COLORS.secondary,
+    backgroundColor: COLORS.tertiary,
     padding: 20,
     borderRadius: BORDER_RADIUS,
     alignItems: "center",

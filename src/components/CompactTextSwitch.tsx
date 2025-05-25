@@ -51,8 +51,8 @@ const SideTextSwitch: React.FC<SideTextSwitchProps> = ({
   }, [value]);
 
   // Background and text color logic
-  const backgroundColor = value ? COLORS.tertiary : COLORS.secondary;
-  const textColor = backgroundColor === COLORS.tertiary ? COLORS.textSecondary : COLORS.textPrimary;
+  const backgroundColor = value ? COLORS.secondary : COLORS.tertiary;
+  const textColor = backgroundColor === COLORS.secondary ? COLORS.textSecondary : COLORS.textPrimary;
 
 
   return (

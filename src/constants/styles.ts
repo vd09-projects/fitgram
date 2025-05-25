@@ -113,7 +113,7 @@ export default styles;
 
 export const headerStyles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.tertiary,
+    backgroundColor: COLORS.secondary,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -172,7 +172,7 @@ export const footerStyles = StyleSheet.create({
   },
   container: {
     height: 60,
-    backgroundColor: COLORS.tertiary,
+    backgroundColor: COLORS.secondary,
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
@@ -184,10 +184,10 @@ export const footerStyles = StyleSheet.create({
   },
   activeTab: {
     borderBottomWidth: 2,
-    borderBottomColor: COLORS.secondary,
+    borderBottomColor: COLORS.tertiary,
   },
   activeText: {
-    color: COLORS.secondary,
+    color: COLORS.tertiary,
     fontWeight: "bold",
   },
 });

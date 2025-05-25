@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
   },
   buttonPrimary: {
     flexDirection: 'row',
-    backgroundColor: COLORS.tertiary,
+    backgroundColor: COLORS.secondary,
     padding: SPACING.large,
     borderRadius: BORDER_RADIUS,
     marginBottom: SPACING.large,
