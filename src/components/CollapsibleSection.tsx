@@ -6,8 +6,10 @@ import { BORDER_RADIUS, COLORS, SPACING } from '../constants/styles';
 type CollapsibleSectionProps = {
   title: ReactNode;
   children: ReactNode;
+  nonCollapsible?: boolean;
   defaultCollapsed?: boolean;
   collapsibleStyle?: StyleProp<ViewStyle>;
+  contentStyle?: StyleProp<ViewStyle>;
   collapsibleIconColor?: string;
   dividerLineColor?: string;
   rightElement?: ReactNode;
@@ -16,15 +18,17 @@ type CollapsibleSectionProps = {
 export default function CollapsibleSection({
   title,
   children,
-  defaultCollapsed,
+  nonCollapsible = false,
+  defaultCollapsed = true,
   collapsibleStyle,
+  contentStyle,
   collapsibleIconColor = COLORS.textSecondary,
   dividerLineColor = COLORS.textSecondary,
   rightElement,
 }: CollapsibleSectionProps) {
-  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed ?? true);
-  const rotation = useRef(new Animated.Value(0)).current;
-
+  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+  const rotation = useRef(new Animated.Value(defaultCollapsed ? 0 : 1)).current;
+  
   const toggleCollapse = () => {
     Animated.timing(rotation, {
       toValue: isCollapsed ? 1 : 0,
@@ -46,18 +50,19 @@ export default function CollapsibleSection({
         activeOpacity={0.8}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         accessibilityLabel="Toggle Section"
+        disabled={nonCollapsible}
       >
         <View style={styles.titleContainer}>{title}</View>
-        <View style={styles.rightIcons}>
+        {!nonCollapsible && <View style={styles.rightIcons}>
           {rightElement}
-          <Animated.View style={{transform: [{ rotate: rotateInterpolate }], marginEnd: SPACING.small }}>
+          <Animated.View style={{ transform: [{ rotate: rotateInterpolate }], marginEnd: SPACING.small }}>
             <Ionicons name="chevron-down" size={20} color={collapsibleIconColor} />
           </Animated.View>
-        </View>
+        </View>}
       </TouchableOpacity>
 
-      {!isCollapsed && <View style={[styles.dividerLine, {backgroundColor: dividerLineColor}]} />}
-      {!isCollapsed && <View style={styles.content}>{children}</View>}
+      {!isCollapsed && <View style={[styles.dividerLine, { backgroundColor: dividerLineColor }]} />}
+      {!isCollapsed && <View style={[styles.content, contentStyle]}>{children}</View>}
     </View>
   );
 }

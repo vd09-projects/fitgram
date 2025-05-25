@@ -7,6 +7,7 @@ export const LayoutRoutes = {
     Feed: "Feed",
     Workout: "Workout",
     Home: "Home",
+    Profile: "Profile",
     LogWorkout: "LogWorkout",
 } as const;
 

@@ -5,6 +5,7 @@ import { useAuthUser } from '../hooks/useAuthUser';
 import { signOut } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { headerStyles } from '../constants/styles';
+import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { LayoutRoutes } from '../constants/routes';
 import show from '../utils/toastUtils';
@@ -28,13 +29,18 @@ export default function Header({ onPressTab }: HeaderProps) {
 
   return (
     <View style={headerStyles.container}>
-      <TouchableOpacity style={[headerStyles.tabButton]} onPress={() => onPressTab('Home')}>
+      <TouchableOpacity style={[headerStyles.tabButton]} onPress={() => onPressTab(LayoutRoutes.Home)}>
         <TextBase style={headerStyles.companyName} isDefaultFontFamilyRequired>Fitgram</TextBase>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={handleLogout}>
+      {/* <TouchableOpacity onPress={handleLogout}>
         <TextBase style={[headerStyles.text]}>Logout</TextBase>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
+      <View style={headerStyles.rightControls}>
+        <TouchableOpacity onPress={() => onPressTab(LayoutRoutes.Profile)}>
+          <Ionicons name="menu" style={headerStyles.rightIcon} />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }

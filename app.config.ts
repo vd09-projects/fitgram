@@ -12,6 +12,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   name: NAME,
   slug: SLUG,
   version: VERSION,
+  android: {
+    package: "com.vd09.fitgram",
+    versionCode: 1,
+  },
   extra: {
     ...config.extra,
     API_KEY: process.env.FS_DB_API_KEY,

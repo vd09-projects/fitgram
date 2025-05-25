@@ -5,11 +5,13 @@ import { LayoutRoutes } from '../constants/routes';
 import HomeScreen from '../screens/HomeScreen';
 import WorkoutNavigator from './WorkoutNavigator';  // ✅ Import WorkoutNavigator
 import ActiveWorkoutScreen from '../screens/workout_management/ActiveWorkoutScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 
 export type LayoutStackParamList = {
   Feed: undefined;
   Workout: undefined;
   Home: undefined;
+  Profile: undefined;
   LogWorkout: undefined;
 };
 
@@ -35,6 +37,11 @@ export default function LayoutNavigator() {
       <Stack.Screen
         name={LayoutRoutes.Home}
         component={HomeScreen}
+        options={{ headerShown: false }} />
+
+      <Stack.Screen
+        name={LayoutRoutes.Profile}
+        component={ProfileScreen}
         options={{ headerShown: false }} />
 
       <Stack.Screen

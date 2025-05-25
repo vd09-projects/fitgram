@@ -14,7 +14,9 @@
     "ios": {
       "supportsTablet": true
     },
-    "assets": ["./assets/fonts/"],
+    "assets": [
+      "./assets/fonts/"
+    ],
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -24,6 +26,11 @@
     "userInterfaceStyle": "automatic",
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "5dab9b63-5d99-4727-bcaf-83dcb6f9e7b3"
+      }
     }
   }
 }

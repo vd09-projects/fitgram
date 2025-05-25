@@ -11,7 +11,7 @@ const BasicColors = {
   button: "#4B5E79",
   buttonSecondary: "#5D6D7E",
   cancelButton: "#E74C3C", // A strong yet slightly muted red (less aggressive than pure red)
-  errorBackground: '#ffcccc', // More vibrant than dull red but not neon
+  errorBackground: "#ffcccc", // More vibrant than dull red but not neon
 
   dropdown: "#DCE5F7",
   dropdownBright: "#5A3E62",
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     ...SHADOW,
   },
-  authContainer: { width: '85%' },
+  authContainer: { width: "85%" },
   buttonText: {
     color: COLORS.textSecondary,
     fontSize: FONT_SIZES.large,
@@ -192,6 +192,15 @@ export const headerStyles = StyleSheet.create({
   },
   tabButton: {
     padding: SPACING.small,
+  },
+  rightControls: {
+    marginRight: SPACING.small,
+    paddingTop: SPACING.small,
+  },
+  rightIcon: {
+    color: COLORS.textSecondary,
+    fontWeight: "bold",
+    fontSize: BUTTON_SIZES.medium,
   },
 });
 
