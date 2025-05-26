@@ -85,7 +85,7 @@ const TableControls: React.FC<TableControlsProps> = ({
       <TouchableOpacity style={styles.modalButton} onPress={toggleModal}>
         <View style={styles.buttonContent}>
           {selectedFields.length === 0 ?
-            <TextBase style={[styles.buttonText, { color: COLORS.cancelButton }]} numberOfLines={1}>*No field selected</TextBase>
+            <TextBase style={[styles.buttonText, { color: COLORS.dropdownInputPlaceholder }]} numberOfLines={1}>*No field selected</TextBase>
             :
             <TextBase style={styles.buttonText} numberOfLines={1}>{truncatedFieldText}</TextBase>}
           <Ionicons name="chevron-down" size={20} color={COLORS.textPrimary} style={styles.dropdownArrow} />
@@ -128,18 +128,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     padding: SPACING.medium,
-    backgroundColor: COLORS.textSecondary,
+    backgroundColor: COLORS.dropdown,
     borderRadius: BORDER_RADIUS,
     flex: 1,
     ...SHADOW
   },
   buttonText: {
-    color: COLORS.textPrimary,
+    color: COLORS.dropdownInputText,
     fontSize: FONT_SIZES.medium,
     flexShrink: 1,  // Allows text to shrink if too long
   },
   dropdownArrow: {
-    color: COLORS.textPrimary,
+    color: COLORS.dropdownInputText,
     fontSize: FONT_SIZES.medium,
     marginLeft: 8,
   },
@@ -150,8 +150,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
-  modalContainer: { width: "80%", backgroundColor: "#fff", padding: 20, borderRadius: BORDER_RADIUS, alignItems: "center" },
-  modalTitle: { fontSize: FONT_SIZES.large, fontWeight: "bold", marginBottom: 10 },
+  modalContainer: { width: "80%", backgroundColor: COLORS.collapsed, padding: 20, borderRadius: BORDER_RADIUS, alignItems: "center" },
+  modalTitle: { fontSize: FONT_SIZES.large, fontWeight: "bold", marginBottom: 10, color: COLORS.textPrimary },
   checkboxContainer: { flexDirection: "row", alignItems: "center", paddingVertical: 5 },
   checkbox: { width: 20, height: 20, borderWidth: 2, borderColor: COLORS.textPrimary, marginRight: 10 },
   checkboxSelected: { backgroundColor: COLORS.primary },
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   selectionButtonText: {
-    color: "#fff",
+    color: COLORS.textSecondary,
     fontSize: FONT_SIZES.medium,
     fontWeight: "bold",
   },

@@ -4,7 +4,7 @@ import { useWorkoutStore } from "../../stores/useWorkoutStore";
 import ExerciseLogger from "../../components/ExerciseLogger";
 import SearchableInputDropdown, { DropdownSelection, DropdownItem } from "../../components/SearchableInputDropdown";
 import ScrollableScreen from "../../components/ScrollableScreen";
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "../../constants/styles";
+import { BORDER_RADIUS, COLORS, FONT_SIZES, SHADOW_4, SPACING } from "../../constants/styles";
 import { LoggedExercise } from "../../types/zustandWorkoutType";
 import { useAuthUser } from "../../hooks/useAuthUser";
 import show from "../../utils/toastUtils";
@@ -108,11 +108,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  title: { fontSize: FONT_SIZES.xLarge, fontWeight: "bold", marginBottom: 10, color: COLORS.textPrimary },
+  title: {
+    fontSize: FONT_SIZES.xLarge,
+    fontWeight: "bold",
+    color: COLORS.textPrimary
+  },
   buttonContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 20,
+    marginTop: SPACING.large,
   },
   endButton: {
     backgroundColor: COLORS.button,
@@ -122,9 +126,10 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS,
     flex: 1,
     marginHorizontal: 5,
+    ...SHADOW_4,
   },
   buttonText: {
-    color: "white",
+    color: COLORS.buttonText,
     fontWeight: "bold",
     fontSize: 16,
   },

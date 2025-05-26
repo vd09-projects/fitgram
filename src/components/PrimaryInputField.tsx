@@ -110,10 +110,6 @@ const styles = StyleSheet.create({
     color: COLORS.inputPrimaryText,
     fontWeight: 'normal',
   },
-  inputLabel: {
-    fontWeight: 'bold',
-    color: COLORS.inputPrimaryText,
-  },
 });
 
 export const emptyOutlineStyle = {

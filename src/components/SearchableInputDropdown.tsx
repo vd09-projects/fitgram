@@ -89,7 +89,8 @@ export default function SearchableInputDropdown<T>({
             placeholder={"Enter " + placeholder}
             container={styles.primaryInputContainer}
             outline={emptyOutlineStyle}
-            // inputBox={{ color: COLORS.inputSecondaryText }}
+            inputBox={{ color: COLORS.dropdownInputText }}
+            placeholderTextColor={COLORS.dropdownInputPlaceholder}
             right={<TextInput.Icon
               icon="text-box-check"
               onPress={handleAddCustomField}
@@ -105,7 +106,7 @@ export default function SearchableInputDropdown<T>({
             placeholderStyle={styles.placeholderStyle}
             selectedTextStyle={styles.selectedTextStyle}
             inputSearchStyle={styles.inputSearchStyle}
-            itemTextStyle={styles.selectedTextStyle}
+            itemTextStyle={styles.itemTextStyle}
             data={data}
             search
             maxHeight={300}
@@ -176,19 +177,25 @@ const styles = StyleSheet.create({
   },
   placeholderStyle: {
     fontSize: FONT_SIZES.large,
-    color: COLORS.inputPrimaryPlaceholder,
+    color: COLORS.dropdownInputPlaceholder,
+    fontFamily: FONT_FAMILY.regular.name,
+    padding: SPACING.xSmall,
+  },
+  itemTextStyle: {
+    fontSize: FONT_SIZES.large,
+    color: COLORS.textPrimary,
     fontFamily: FONT_FAMILY.regular.name,
     padding: SPACING.xSmall,
   },
   selectedTextStyle: {
     fontSize: FONT_SIZES.large,
-    color: COLORS.textPrimary,
+    color: COLORS.dropdownInputText,
     fontFamily: FONT_FAMILY.regular.name,
     padding: SPACING.xSmall,
   },
   inputSearchStyle: {
     fontSize: FONT_SIZES.large,
-    color: COLORS.textPrimary,
+    color: COLORS.dropdownInputText,
     backgroundColor: COLORS.inputPrimaryBackground,
     borderRadius: BORDER_RADIUS,
     borderColor: COLORS.border,
@@ -217,7 +224,7 @@ const styles = StyleSheet.create({
     ...SHADOW,
   },
   loadingText: {
-    color: COLORS.textPrimaryPlaceholder,
+    color: COLORS.dropdownInputPlaceholder,
     fontSize: FONT_SIZES.medium,
     fontFamily: FONT_FAMILY.regular.name,
   },

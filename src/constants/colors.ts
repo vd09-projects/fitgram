@@ -1,13 +1,14 @@
 // Common Values
 export const BasicColors = {
   primary: "#3C3F5C",
-  secondary: "#DCE5F7",
+  secondary: "#E7EBE9",
+  // secondary: "#E7EBE9",
   tertiary: "rgb(145, 85, 150)",
 
   transparent: "transparent",
 
   button: "#5B6590",
-  buttonSecondary: "#5D6D7E",
+  buttonSecondary: "#B5A3CF",
   buttonText: "#EADDF0",
   cancelButton: "#973740", // A strong yet slightly muted red (less aggressive than pure red)
   errorBackground: "#ffcccc", // More vibrant than dull red but not neon
@@ -15,16 +16,16 @@ export const BasicColors = {
   dropdown: "#DCE5F7",
   dropdownBright: "#5A3E62",
   dropdownItemBackground: "#5B6590",
+  dropdownInputPlaceholder: "#B5A3CF",
+  dropdownInputText: "#5A3E62",
 
   cardBackground: "#B5A3CF",
   cardHeader: "#3C3F5C",
 
-  inputPrimaryText: '#B5A3CF',
+  inputPrimaryText: '#5A3E62',
   inputPrimaryBackground: 'transparent',
   inputPrimaryPlaceholder: "#B5A3CF",
-  inputSecondaryText: '#5A3E62',
   inputSecondaryBackground: '#EADDF0',
-  inputSecondaryPlaceholder: "#B5A3CF",
   inputBorder: "#B5A3CF",
 
   switchTrue: "#82976B",
@@ -46,9 +47,9 @@ export const BasicColors = {
   warning: "#FFA500", // Orange for warnings
 
   // Table UI Elements
-  tableHeader: "rgb(145, 85, 150)", // Darker tone for headers for strong contrast
-  tableRowEven: "#DCE5F7",
-  tableRowOdd: "#F3EDF7", // Slightly lighter shade for differentiation
+  tableHeader: "#B5A3CF", // Darker tone for headers for strong contrast
+  tableRowEven: "#E5EFF1",
+  tableRowOdd: "#F2F7F8", // Slightly lighter shade for differentiation || CCE0E5
   tableBorder: "#B2B5E0", // Consistent with general border color
   tableText: "#4B5E79", // Readable, slightly desaturated dark blue
   tableHeaderText: "#FFFFFF", // Readable, slightly desaturated dark blue

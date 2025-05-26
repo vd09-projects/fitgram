@@ -55,7 +55,6 @@ const EditableList: React.FC<EditableListProps> = ({
             label=''
             value={field}
             container={[styles.primaryItemContainer, isDuplicate && styles.duplicateItem]}
-            inputBox={{ color: COLORS.inputSecondaryText }}
             onChangeText={(text) => {
               const updatedFields = [...items];
               updatedFields[index] = text;
@@ -77,7 +76,6 @@ const EditableList: React.FC<EditableListProps> = ({
           label=''
           placeholder="Enter new field"
           value={newItem}
-          inputBox={{ color: COLORS.inputSecondaryText }}
           onChangeText={(text) => {
             setNewItem(text);
             setErrorMessage(null);

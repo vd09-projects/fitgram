@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, TouchableOpacity, StyleSheet, Animated } from "react-native";
+import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { useWorkoutStore } from "../stores/useWorkoutStore";
 import { Ionicons } from "@expo/vector-icons";
 import { BORDER_RADIUS, COLORS, FONT_SIZES, SHADOW, SPACING } from "../constants/styles";
@@ -36,7 +36,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
             label={inputValues[field] ? field : ""}
 
             placeholder={field}
-            placeholderTextColor={COLORS.textPrimaryPlaceholder}
+            // placeholderTextColor={COLORS.inputPrimaryBackground}
             value={inputValues[field] || ""}
 
             onChangeText={(text) => onChangeValueForField(field, text)}
@@ -56,7 +56,11 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
 }
 
 const styles = StyleSheet.create({
-  container: { paddingVertical: 15, borderBottomWidth: 1, borderColor: "#ddd" },
+  container: {
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderColor: "#ddd"
+  },
   inputContainer: { marginBottom: SPACING.medium },
   logButton: {
     flexDirection: "row",
@@ -68,17 +72,16 @@ const styles = StyleSheet.create({
     ...SHADOW,
   },
   logButtonText: {
-    color: COLORS.textSecondary,
+    color: COLORS.buttonText,
     fontWeight: "bold",
     fontSize: FONT_SIZES.large,
   },
   primaryInputContainer: {
     flex: 1,
-    backgroundColor: COLORS.textSecondary,
     borderRadius: BORDER_RADIUS,
     paddingLeft: 0,
     paddingBottom: 2,
-    height: 46,
+    height: 48,
     marginBottom: SPACING.xSmall,
     fontSize: FONT_SIZES.medium,
     // ...SHADOW,
