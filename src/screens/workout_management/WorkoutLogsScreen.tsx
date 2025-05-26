@@ -112,7 +112,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: COLORS.textPrimary,
     textAlign: "center",
-    marginBottom: SPACING.medium,
   },
   filterIcon: {
     position: 'absolute',
