@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: FONT_SIZES.large, fontWeight: "bold", marginBottom: 10, color: COLORS.textPrimary },
   checkboxContainer: { flexDirection: "row", alignItems: "center", paddingVertical: 5 },
   checkbox: { width: 20, height: 20, borderWidth: 2, borderColor: COLORS.textPrimary, marginRight: 10 },
-  checkboxSelected: { backgroundColor: COLORS.primary },
+  checkboxSelected: { backgroundColor: COLORS.textPrimary },
   checkboxLabel: { fontSize: FONT_SIZES.medium, color: COLORS.textPrimary },
   selectionButtonsContainer: {
     flexDirection: "row",

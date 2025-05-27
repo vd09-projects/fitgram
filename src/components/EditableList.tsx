@@ -55,6 +55,9 @@ const EditableList: React.FC<EditableListProps> = ({
             label=''
             value={field}
             container={[styles.primaryItemContainer, isDuplicate && styles.duplicateItem]}
+            placeholderTextColor={COLORS.inputSecondaryPlaceholder}
+            inputBox={{ color: COLORS.inputSecondaryText }}
+
             onChangeText={(text) => {
               const updatedFields = [...items];
               updatedFields[index] = text;
@@ -62,7 +65,7 @@ const EditableList: React.FC<EditableListProps> = ({
             }}
             right={<TextInput.Icon
               icon="close"
-              color={COLORS.cancelButton}
+              color={COLORS.inputPrimaryText}
               onPress={() => handleRemoveItem(index)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               size={20}
@@ -82,6 +85,8 @@ const EditableList: React.FC<EditableListProps> = ({
           }}
 
           container={[styles.primaryInputContainer, errorMessage ? styles.errorInput : {}]}
+          placeholderTextColor={COLORS.inputSecondaryPlaceholder}
+          inputBox={{ color: COLORS.inputSecondaryText }}
           // outline={emptyOutlineStyle}
 
           right={<TextInput.Icon

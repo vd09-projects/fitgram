@@ -57,6 +57,7 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
             <TextInput.Icon
               icon="eye"
               onPress={() => setSecureEntry(prev => !prev)}
+              color={COLORS.inputBorder}
             />
           ) : undefined
       }
@@ -74,6 +75,8 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
         isV3: true,
         colors: {
           primary: labelColor,
+          background: COLORS.primary,
+          // background: "#000000",
           onSurfaceVariant: labelColor,
         },
         fonts: {
@@ -91,11 +94,12 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
+    backgroundColor: COLORS.inputPrimaryBackground,
     paddingBottom: SPACING.xSmall,
     paddingLeft: SPACING.small,
     marginBottom: SPACING.small,
     borderWidth: 1,
-    borderColor: COLORS.inputPrimaryBackground,
+    borderColor: COLORS.transparent,
     borderRadius: BORDER_RADIUS,
     fontSize: SPACING.xLarge,
     lineHeight: SPACING.xxxLarge,

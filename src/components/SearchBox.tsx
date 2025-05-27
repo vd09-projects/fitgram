@@ -19,7 +19,7 @@ const SearchBox: React.FC<SearchBoxProps> = ({ value, onChangeText, label, place
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        left={<TextInput.Icon icon="feature-search-outline" color={COLORS.primary} />}
+        left={<TextInput.Icon icon="feature-search-outline" color={COLORS.inputBorder} />}
         right={getClearIcon(value, onChangeText)}
         container={{ width: '100%' }}
       />

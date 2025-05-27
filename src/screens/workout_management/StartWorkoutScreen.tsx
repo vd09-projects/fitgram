@@ -194,8 +194,8 @@ const styles = StyleSheet.create({
     ...SHADOW,
   },
   selectedWorkout: {
-    borderColor: COLORS.button,
-    borderWidth: 2,
+    borderColor: COLORS.border,
+    borderWidth: SPACING.xSmall,
     ...SHADOW_3,
   },
   workoutTitle: {

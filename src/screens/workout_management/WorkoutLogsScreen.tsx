@@ -58,7 +58,7 @@ export default function WorkoutLogsScreen() {
       title={<View style={styles.titleContainer}>
         <TextBase style={styles.title}>Workout Logs</TextBase>
         {workoutLogs && workoutLogs.length > 0 && <TouchableOpacity style={styles.filterIcon} onPress={toggleFilterTab}>
-          <Ionicons name="filter" size={BUTTON_SIZES.medium} color={COLORS.textPrimary} />
+          <Ionicons name="filter" size={BUTTON_SIZES.medium} color={isFilterTabEnabled ? COLORS.textSecondary : COLORS.textPrimary} />
         </TouchableOpacity>}
       </View>}
     >
@@ -120,7 +120,6 @@ const styles = StyleSheet.create({
     transform: [{ translateY: -12 }],
     color: COLORS.textPrimary,
   },
-
   filtersContainer: {
     marginBottom: SPACING.medium,
   },
