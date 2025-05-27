@@ -17,8 +17,9 @@ const showToast = (type: ToastType, titleOrMessage: string, message?: string): v
     type,
     text1: message ? titleOrMessage : getDefaultTitle(type),
     text2: message || titleOrMessage,
-    position: 'top',
-    visibilityTime: 3000,
+    position: 'bottom',
+    // visibilityTime: 2000,
+    visibilityTime: 10000,
     autoHide: true,
   });
 };

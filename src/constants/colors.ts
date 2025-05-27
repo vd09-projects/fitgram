@@ -1,9 +1,11 @@
+export const TostWarnColor = "#D8863B";
+export const TostSucessColor = "#62977D";
+
 // Common Values
 export const BasicColors = {
   primary: "#1A1D1A",
   secondary: "#47494B",
-  // secondary: "#E7EBE9",
-  tertiary: "rgb(145, 85, 150)",
+  tertiary: "#6D7973",
 
   transparent: "transparent",
 
@@ -68,8 +70,7 @@ export const BasicColors = {
 export const HinataHyugaColors = {
   primary: "#3C3F5C",
   secondary: "#E7EBE9",
-  // secondary: "#E7EBE9",
-  tertiary: "rgb(145, 85, 150)",
+  tertiary: "#C38DB6",
 
   transparent: "transparent",
 
