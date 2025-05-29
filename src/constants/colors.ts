@@ -1,8 +1,12 @@
+import { useState } from "react";
+
 export const TostWarnColor = "#D8863B";
 export const TostSucessColor = "#62977D";
 
 // Common Values
-export const BasicColors = {
+export const LDeathNoteColors = {
+  name: "L: Death Note",
+
   primary: "#1A1D1A",
   secondary: "#47494B",
   tertiary: "#6D7973",
@@ -68,6 +72,8 @@ export const BasicColors = {
 };
 
 export const HinataHyugaColors = {
+  name: "Hinata: Naruto",
+
   primary: "#3C3F5C",
   secondary: "#E7EBE9",
   tertiary: "#C38DB6",
@@ -131,3 +137,12 @@ export const HinataHyugaColors = {
   popupButtonText: "#FFFFFF",
   popupBorder: "#B2B5E0",
 };
+
+export const DefaultColorSchema = LDeathNoteColors.name;
+
+export const AllColorSchemas: Record<string, typeof LDeathNoteColors> = {
+  [LDeathNoteColors.name]: LDeathNoteColors,
+  [HinataHyugaColors.name]: HinataHyugaColors,
+};
+
+export type ColorSchemaName = keyof typeof AllColorSchemas;

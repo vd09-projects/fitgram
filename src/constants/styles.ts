@@ -1,9 +1,10 @@
-import { FontFamily } from "./../../node_modules/lightningcss/node/ast.d";
-import { Alert, StyleSheet } from "react-native";
-import { BasicColors, HinataHyugaColors } from "./colors";
+import { StyleSheet } from "react-native";
+import { AllColorSchemas, ColorSchemaName, DefaultColorSchema } from "./colors";
 
-export const COLORS = BasicColors;
-// export const COLORS = HinataHyugaColors;
+export let COLORS = AllColorSchemas[DefaultColorSchema];
+export const updateColors = (name: ColorSchemaName) => {
+  COLORS = AllColorSchemas[name];
+};
 
 export const FONT_FAMILY = {
   regular: {

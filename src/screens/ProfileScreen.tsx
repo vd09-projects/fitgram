@@ -10,6 +10,8 @@ import ScrollableScreen from '../components/ScrollableScreen';
 import { TextBase } from '../components/TextBase';
 import { CollapsibleContent } from '../components/collapsible_table/CollapsibleTableParts';
 import CollapsibleSection from '../components/CollapsibleSection';
+import { AllColorSchemas } from '../constants/colors';
+import { ColorSchemaSelector } from '../components/ColorSchemaSelector';
 
 export default function ProfileScreen() {
   const { user, userInfo } = useAuthUser();
@@ -28,7 +30,7 @@ export default function ProfileScreen() {
       style={styles.container}
     >
       <CollapsibleSection
-        collapsibleStyle={styles.sectionTitle}
+        collapsibleStyle={styles.collapsibleStyle}
         collapsibleIconColor={COLORS.textPrimary}
         title={<TextBase style={styles.sectionTitle}>👤 Profile</TextBase>}
         defaultCollapsed={false}
@@ -42,16 +44,17 @@ export default function ProfileScreen() {
       </CollapsibleSection>
 
       <CollapsibleSection
-        collapsibleStyle={styles.sectionTitle}
+        collapsibleStyle={styles.collapsibleStyle}
         collapsibleIconColor={COLORS.textPrimary}
         title={<TextBase style={styles.sectionTitle}>🎨 Appearance</TextBase>}
-        defaultCollapsed={false}
+        defaultCollapsed={true}
         dividerLineColor={COLORS.transparent}
+        titleContainerStyle={{ marginBottom: SPACING.medium }}
+        dividerLineStyle={{ marginTop: 0, marginBottom: 0 }}
       >
-        <TouchableOpacity style={styles.button}>
-          <TextBase style={styles.buttonText}>Choose Color Scheme</TextBase>
-        </TouchableOpacity>
+        <ColorSchemaSelector />
       </CollapsibleSection>
+
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <TextBase style={styles.logoutButtonText}>Logout</TextBase>
       </TouchableOpacity>
@@ -62,10 +65,13 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: SPACING.large, backgroundColor: COLORS.primary },
+  collapsibleStyle: {
+    backgroundColor: COLORS.collapsed,
+    borderRadius: BORDER_RADIUS,
+    marginTop: SPACING.small
+  },
   sectionTitle: { fontSize: FONT_SIZES.xLarge, color: COLORS.textPrimary, fontWeight: 'bold', marginTop: SPACING.small },
   userInfo: { color: COLORS.textSecondary, fontSize: FONT_SIZES.large, fontWeight: 'bold', marginBottom: SPACING.small },
-  button: { backgroundColor: COLORS.button, padding: SPACING.large, borderRadius: BORDER_RADIUS, marginTop: SPACING.large },
-  buttonText: { color: 'white', fontSize: 16 },
   logoutButton: { backgroundColor: COLORS.button, padding: SPACING.large, borderRadius: BORDER_RADIUS, marginTop: SPACING.large },
   logoutButtonText: { color: COLORS.textSecondary, fontWeight: 'bold', fontSize: FONT_SIZES.large, textAlign: 'center' },
 });

@@ -10,6 +10,8 @@ type CollapsibleSectionProps = {
   defaultCollapsed?: boolean;
   collapsibleStyle?: StyleProp<ViewStyle>;
   contentStyle?: StyleProp<ViewStyle>;
+  titleContainerStyle?: StyleProp<ViewStyle>;
+  dividerLineStyle?: StyleProp<ViewStyle>;
   collapsibleIconColor?: string;
   dividerLineColor?: string;
   rightElement?: ReactNode;
@@ -22,6 +24,8 @@ export default function CollapsibleSection({
   defaultCollapsed = true,
   collapsibleStyle,
   contentStyle,
+  titleContainerStyle,
+  dividerLineStyle,
   collapsibleIconColor = COLORS.textSecondary,
   dividerLineColor = COLORS.textSecondary,
   rightElement,
@@ -45,7 +49,7 @@ export default function CollapsibleSection({
   return (
     <View style={collapsibleStyle}>
       <TouchableOpacity
-        style={styles.toggleButton}
+        style={[styles.toggleButton, titleContainerStyle]}
         onPress={toggleCollapse}
         activeOpacity={0.8}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -61,7 +65,7 @@ export default function CollapsibleSection({
         </View>}
       </TouchableOpacity>
 
-      {!isCollapsed && <View style={[styles.dividerLine, { backgroundColor: dividerLineColor }]} />}
+      {!isCollapsed && <View style={[styles.dividerLine, { backgroundColor: dividerLineColor }, dividerLineStyle]} />}
       {!isCollapsed && <View style={[styles.content, contentStyle]}>{children}</View>}
     </View>
   );
