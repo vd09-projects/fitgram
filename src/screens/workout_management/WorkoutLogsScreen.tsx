@@ -10,8 +10,12 @@ import { TextBase } from "../../components/TextBase";
 import TableControls from "../../components/TableControl";
 import WorkoutHistoricalLogsFilter, { WorkoutHistoricalDisplayLog } from "../../components/WorkoutHistoricalLogsFilter";
 import { Ionicons } from '@expo/vector-icons';
+import { ReturnTypeUseThemeTokens } from '../../components/ThemeContext';
+import { useThemeStyles } from '../../utils/useThemeStyles';
 
 export default function WorkoutLogsScreen() {
+  const { styles, t } = useThemeStyles(createStyles);
+
   // const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[] | null>(null);
   const [displayLog, setDisplayLog] = useState<WorkoutHistoricalDisplayLog | null>(null);
   const workoutLogs = displayLog?.displayData || null;
@@ -58,12 +62,12 @@ export default function WorkoutLogsScreen() {
       title={<View style={styles.titleContainer}>
         <TextBase style={styles.title}>Workout Logs</TextBase>
         {workoutLogs && workoutLogs.length > 0 && <TouchableOpacity style={styles.filterIcon} onPress={toggleFilterTab}>
-          <Ionicons name="filter" size={BUTTON_SIZES.medium} color={isFilterTabEnabled ? COLORS.textSecondary : COLORS.textPrimary} />
+          <Ionicons name="filter" size={BUTTON_SIZES.medium} color={isFilterTabEnabled ? COLORS.textSecondary : t.colors.textPrimary} />
         </TouchableOpacity>}
       </View>}
     >
 
-      <WorkoutHistoricalLogsFilter isVisible={isFilterTabEnabled} setDisplayLog={setDisplayLog}/>
+      <WorkoutHistoricalLogsFilter isVisible={isFilterTabEnabled} setDisplayLog={setDisplayLog} />
 
       {/* 🔽 Workout Logs */}
       {displayLog && workoutLogs &&
@@ -84,7 +88,7 @@ export default function WorkoutLogsScreen() {
 
             {displayLog.displayType === "SetData" ?
               <ExerciseSetLogTable
-              displayLog={displayLog}
+                displayLog={displayLog}
                 visibleHeaders={visibleHeaders}
               />
               :
@@ -105,12 +109,12 @@ export default function WorkoutLogsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   titleContainer: { width: '100%', alignItems: 'center', position: 'relative' },
   title: {
     fontSize: FONT_SIZES.xLarge,
     fontWeight: "bold",
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
     textAlign: "center",
   },
   filterIcon: {
@@ -118,14 +122,14 @@ const styles = StyleSheet.create({
     right: 0,
     top: '30%',
     transform: [{ translateY: -12 }],
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
   },
   filtersContainer: {
     marginBottom: SPACING.medium,
   },
   noLogsTitle: {
     fontSize: FONT_SIZES.large,
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
     textAlign: "center",
     marginTop: SPACING.medium,
   },
@@ -139,15 +143,15 @@ const styles = StyleSheet.create({
   pageButton: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: COLORS.button,
+    backgroundColor: t.colors.button,
     borderRadius: 6,
   },
   pageButtonText: {
-    color: COLORS.primary,
+    color: t.colors.primary,
     fontWeight: "bold",
   },
   pageText: {
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
     fontSize: FONT_SIZES.medium,
   },
 });

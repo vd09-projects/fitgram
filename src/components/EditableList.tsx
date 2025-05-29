@@ -5,6 +5,8 @@ import { BORDER_RADIUS, BUTTON_SIZES, COLORS, FONT_SIZES, SHADOW, SPACING } from
 import { TextBase } from './TextBase';
 import { emptyOutlineStyle, PrimaryInputField } from './PrimaryInputField';
 import { TextInput } from 'react-native-paper';
+import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
 
 interface EditableListProps {
   title: string;
@@ -19,6 +21,7 @@ const EditableList: React.FC<EditableListProps> = ({
   onItemsChange,
   showInputField = true
 }) => {
+  const { styles, t } = useThemeStyles(createStyles);
   const [newItem, setNewItem] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -56,7 +59,7 @@ const EditableList: React.FC<EditableListProps> = ({
             value={field}
             container={[styles.primaryItemContainer, isDuplicate && styles.duplicateItem]}
             placeholderTextColor={COLORS.inputSecondaryPlaceholder}
-            inputBox={{ color: COLORS.inputSecondaryText }}
+            inputBox={{ color: t.colors.inputSecondaryText }}
 
             onChangeText={(text) => {
               const updatedFields = [...items];
@@ -86,12 +89,12 @@ const EditableList: React.FC<EditableListProps> = ({
 
           container={[styles.primaryInputContainer, errorMessage ? styles.errorInput : {}]}
           placeholderTextColor={COLORS.inputSecondaryPlaceholder}
-          inputBox={{ color: COLORS.inputSecondaryText }}
+          inputBox={{ color: t.colors.inputSecondaryText }}
           // outline={emptyOutlineStyle}
 
           right={<TextInput.Icon
             icon="playlist-plus"
-            color={errorMessage ? COLORS.cancelButton : COLORS.button}
+            color={errorMessage ? COLORS.cancelButton : t.colors.button}
             onPress={handleAddItem}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             size={BUTTON_SIZES.xLarge}
@@ -104,19 +107,19 @@ const EditableList: React.FC<EditableListProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
     marginBottom: SPACING.medium,
   },
   title: {
     marginBottom: SPACING.small,
     fontSize: FONT_SIZES.medium,
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
     fontWeight: 'bold',
   },
   primaryItemContainer: {
     flex: 1,
-    backgroundColor: COLORS.inputSecondaryBackground,
+    backgroundColor: t.colors.inputSecondaryBackground,
     borderRadius: BORDER_RADIUS,
     paddingLeft: 0,
     paddingBottom: 2,
@@ -132,21 +135,21 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.xSmall,
     marginBottom: SPACING.xSmall,
     fontSize: FONT_SIZES.large,
-    backgroundColor: COLORS.inputSecondaryBackground,
+    backgroundColor: t.colors.inputSecondaryBackground,
     ...SHADOW,
   },
   errorInput: {
-    borderColor: COLORS.cancelButton,
+    borderColor: t.colors.cancelButton,
     borderWidth: 1,
   },
   errorText: {
-    color: COLORS.cancelButton,
+    color: t.colors.cancelButton,
     fontSize: FONT_SIZES.xMedium,
     fontWeight: 'bold',
     marginTop: SPACING.xSmall,
   },
   duplicateItem: {
-    backgroundColor: COLORS.errorBackground,
+    backgroundColor: t.colors.errorBackground,
   },
 });
 

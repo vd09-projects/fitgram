@@ -19,8 +19,11 @@ import CollapsibleExerciseList from '../../components/CollapsibleExerciseList';
 import { Exercise, WorkoutPlan } from '../../types/workoutType';
 import { TextBase } from '../../components/TextBase';
 import { validateCustomFields, validateExerciseSelection, validateWorkoutAndExercises, validateWorkoutSelection } from '../../utils/exerciseValidations';
+import { ReturnTypeUseThemeTokens } from '../../components/ThemeContext';
+import { useThemeStyles } from '../../utils/useThemeStyles';
 
 export default function AddExerciseScreen() {
+  const { styles } = useThemeStyles(createStyles);
   const { user } = useAuthUser();
 
   const [selectedExercise, setSelectedExercise] = useState<DropdownSelection<Exercise> | undefined>(undefined);
@@ -168,17 +171,17 @@ export default function AddExerciseScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   heading: {
     fontSize: FONT_SIZES.xLarge,
     fontWeight: 'bold',
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
     textAlign: 'center',
     marginBottom: SPACING.xLarge,
   },
   saveButton: {
     flexDirection: 'row',
-    backgroundColor: COLORS.button,
+    backgroundColor: t.colors.button,
     padding: SPACING.xMedium,
     borderRadius: BORDER_RADIUS,
     alignItems: 'center',
@@ -190,7 +193,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: FONT_SIZES.large,
     fontWeight: 'bold',
-    color: COLORS.buttonText,
+    color: t.colors.buttonText,
     marginLeft: 8,
   },
 });

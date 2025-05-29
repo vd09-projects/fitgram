@@ -6,6 +6,8 @@ import { LayoutRoutes } from '../constants/routes';
 import { useKeyboardVisibility } from '../hooks/useKeyboardVisibility'; // Optimized hook
 import { useWorkoutStore } from '../stores/useWorkoutStore';
 import { TextBase } from './TextBase';
+import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
 
 interface FooterProps {
   activeTab: keyof typeof LayoutRoutes;
@@ -13,6 +15,7 @@ interface FooterProps {
 }
 
 export default function Footer({ activeTab, onChangeTab }: FooterProps) {
+  const { styles, t } = useThemeStyles(createStyles);
   const isKeyboardVisible = useKeyboardVisibility(); // No effect needed, just works
   const { activeWorkout } = useWorkoutStore();
 
@@ -25,22 +28,22 @@ export default function Footer({ activeTab, onChangeTab }: FooterProps) {
   ];
 
   return (
-    <View style={footerStyles.container}>
+    <View style={styles.container}>
       {tabs.map((tab) => {
         const isActive = activeTab === tab.key;
         return (
           <TouchableOpacity
             key={tab.key}
-            style={[footerStyles.tabButton, isActive && footerStyles.activeTab]}
+            style={[styles.tabButton, isActive && styles.activeTab]}
             onPress={() => onChangeTab(tab.key)}
           >
             <Ionicons
               name={tab.icon}
               size={22}
-              color={isActive ? COLORS.tertiary : COLORS.textSecondary}
+              color={isActive ? COLORS.tertiary : t.colors.textSecondary}
               style={{ marginBottom: 2 }}
             />
-            <TextBase style={[footerStyles.tabText, isActive && footerStyles.activeText]}>
+            <TextBase style={[styles.tabText, isActive && styles.activeText]}>
               {tab.label}
             </TextBase>
           </TouchableOpacity>
@@ -50,7 +53,7 @@ export default function Footer({ activeTab, onChangeTab }: FooterProps) {
   );
 }
 
-const footerStyles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   tabButton: {
     padding: SPACING.small,
     alignItems: "center",
@@ -60,24 +63,24 @@ const footerStyles = StyleSheet.create({
   container: {
     paddingTop: SPACING.large,
     height: 60,
-    backgroundColor: COLORS.primary,
+    backgroundColor: t.colors.primary,
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
-    borderTopColor: COLORS.border,
+    borderTopColor: t.colors.border,
     borderTopWidth: 1,
   },
   tabText: {
-    color: COLORS.textSecondary,
+    color: t.colors.textSecondary,
     fontSize: FONT_SIZES.small,
     marginTop: 2,
   },
   activeTab: {
     borderBottomWidth: 2,
-    borderBottomColor: COLORS.tertiary,
+    borderBottomColor: t.colors.tertiary,
   },
   activeText: {
-    color: COLORS.tertiary,
+    color: t.colors.tertiary,
     fontWeight: "bold",
   },
 });

@@ -2,6 +2,8 @@ import React from 'react';
 import { TextInput } from 'react-native-paper';
 import { StyleProp, TextStyle, StyleSheet, ViewStyle, KeyboardType } from 'react-native';
 import { BORDER_RADIUS, COLORS, FONT_FAMILY, FONT_SIZES, SHADOW_4, SPACING } from '../constants/styles'; // adjust path if needed
+import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
 
 interface PrimaryInputFieldProps {
   mode?: 'flat' | 'outlined';
@@ -38,6 +40,7 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
   left,
   right,
 }) => {
+  const { styles, t } = useThemeStyles(createStyles);
   const [secureEntry, setSecureEntry] = React.useState(secureTextEntry);
 
   return (
@@ -75,7 +78,7 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
         isV3: true,
         colors: {
           primary: labelColor,
-          background: COLORS.primary,
+          background: t.colors.primary,
           // background: "#000000",
           onSurfaceVariant: labelColor,
         },
@@ -91,27 +94,27 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
     width: '100%',
-    backgroundColor: COLORS.inputPrimaryBackground,
+    backgroundColor: t.colors.inputPrimaryBackground,
     paddingBottom: SPACING.xSmall,
     paddingLeft: SPACING.small,
     marginBottom: SPACING.small,
     borderWidth: 1,
-    borderColor: COLORS.transparent,
+    borderColor: t.colors.transparent,
     borderRadius: BORDER_RADIUS,
     fontSize: SPACING.xLarge,
     lineHeight: SPACING.xxxLarge,
   },
   outline: {
     borderWidth: 2,
-    borderColor: COLORS.inputBorder,
+    borderColor: t.colors.inputBorder,
     borderRadius: BORDER_RADIUS,
   },
   inputBox: {
     padding: SPACING.small,
-    color: COLORS.inputPrimaryText,
+    color: t.colors.inputPrimaryText,
     fontWeight: 'normal',
   },
 });

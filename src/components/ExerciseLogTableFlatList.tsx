@@ -10,6 +10,8 @@ import CollapsibleSection from "./CollapsibleSection";
 import { TextBase } from "./TextBase";
 import { Column } from "./collapsible_table/CollapsibleTableParts";
 import { CollapsibleTable } from "./collapsible_table/CollapsibleTable";
+import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
 
 type Props = {
   log: ExerciseLog;
@@ -27,6 +29,7 @@ export default function ExerciseLogTableFlatList({
   visibleHeaders = [],
   enableVerticalScroll = false,
 }: Props) {
+  const { styles } = useThemeStyles(createStyles);
   if (!log || !log.sets || log.sets.length === 0) return null;
 
   const allFieldKeys = Array.from(
@@ -61,15 +64,15 @@ export default function ExerciseLogTableFlatList({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
-    backgroundColor: COLORS.collapsed,
+    backgroundColor: t.colors.collapsed,
     padding: SPACING.small,
     borderRadius: BORDER_RADIUS,
     marginBottom: SPACING.medium,
   },
   dateText: {
     fontSize: FONT_SIZES.medium,
-    color: COLORS.collapsedTitleText,
+    color: t.colors.collapsedTitleText,
   },
 });

@@ -7,7 +7,7 @@ export const toastConfig = {
     <BaseToast
       {...props}
       style={{
-        backgroundColor: COLORS.cardBackground,
+        backgroundColor: t.colors.cardBackground,
         borderLeftColor: TostSucessColor,
         borderRadius: 8,
       }}
@@ -15,12 +15,12 @@ export const toastConfig = {
       text1Style={{
         fontSize: FONT_SIZES.large,
         fontFamily: FONT_FAMILY.bold.name,
-        color: COLORS.cardHeader,
+        color: t.colors.cardHeader,
       }}
       text2Style={{
         fontSize: FONT_SIZES.xMedium,
         fontFamily: FONT_FAMILY.regular.name,
-        color: COLORS.textSecondary,
+        color: t.colors.textSecondary,
       }}
     />
   ),
@@ -28,8 +28,8 @@ export const toastConfig = {
     <ErrorToast
       {...props}
       style={{
-        borderLeftColor: COLORS.cancelButton,
-        backgroundColor: COLORS.cardBackground,
+        borderLeftColor: t.colors.cancelButton,
+        backgroundColor: t.colors.cardBackground,
         borderRadius: 8,
         paddingVertical: 10,
         minHeight: undefined,
@@ -39,12 +39,12 @@ export const toastConfig = {
       text1Style={{
         fontSize: FONT_SIZES.large,
         fontFamily: FONT_FAMILY.bold.name,
-        color: COLORS.cardHeader,
+        color: t.colors.cardHeader,
       }}
       text2Style={{
         fontSize: FONT_SIZES.xMedium,
         fontFamily: FONT_FAMILY.regular.name,
-        color: COLORS.textSecondary,
+        color: t.colors.textSecondary,
       }}
       text2NumberOfLines={0}
     />
@@ -54,7 +54,7 @@ export const toastConfig = {
       {...props}
       style={{
         borderLeftColor: TostWarnColor,
-        backgroundColor: COLORS.cardBackground,
+        backgroundColor: t.colors.cardBackground,
         borderRadius: 8,
         paddingVertical: 10,
         minHeight: undefined,
@@ -64,12 +64,12 @@ export const toastConfig = {
       text1Style={{
         fontSize: FONT_SIZES.large,
         fontFamily: FONT_FAMILY.bold.name,
-        color: COLORS.cardHeader,
+        color: t.colors.cardHeader,
       }}
       text2Style={{
         fontSize: FONT_SIZES.xMedium,
         fontFamily: FONT_FAMILY.regular.name,
-        color: COLORS.textSecondary,
+        color: t.colors.textSecondary,
       }}
       text2NumberOfLines={0}
     />
@@ -78,8 +78,8 @@ export const toastConfig = {
     <BaseToast
       {...props}
       style={{
-        borderLeftColor: COLORS.tertiary,
-        backgroundColor: COLORS.cardBackground,
+        borderLeftColor: t.colors.tertiary,
+        backgroundColor: t.colors.cardBackground,
         borderRadius: 8,
         paddingVertical: 10,
         minHeight: undefined,
@@ -89,12 +89,12 @@ export const toastConfig = {
       text1Style={{
         fontSize: FONT_SIZES.large,
         fontFamily: FONT_FAMILY.bold.name,
-        color: COLORS.cardHeader,
+        color: t.colors.cardHeader,
       }}
       text2Style={{
         fontSize: FONT_SIZES.xMedium,
         fontFamily: FONT_FAMILY.regular.name,
-        color: COLORS.textSecondary,
+        color: t.colors.textSecondary,
       }}
       text2NumberOfLines={0}
     />

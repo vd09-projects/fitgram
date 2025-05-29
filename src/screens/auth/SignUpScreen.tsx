@@ -9,17 +9,19 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { ScreenNavigationProp } from '../../navigation/AuthNavigator';
 import { signUpUser } from '../../services/db/authService';
-import styles, { SPACING } from '../../constants/styles';
+import { createStyles, SPACING } from '../../constants/styles';
 import Toast from 'react-native-toast-message';
 import { AuthRoutes } from '../../constants/routes';
 import { PrimaryInputField } from '../../components/PrimaryInputField';
 import { validateCredentials } from '../../utils/validation';
 import show from '../../utils/toastUtils';
 import { TextBase } from '../../components/TextBase';
+import { useThemeStyles } from '../../utils/useThemeStyles';
 
 type SignUpScreenNavigationProp = ScreenNavigationProp<typeof AuthRoutes.SignUp>;
 
 export default function SignUpScreen() {
+  const { styles } = useThemeStyles(createStyles);
   const navigation = useNavigation<SignUpScreenNavigationProp>();
 
   const [name, setName] = useState('');

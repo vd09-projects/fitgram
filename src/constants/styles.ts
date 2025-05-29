@@ -1,8 +1,9 @@
 import { StyleSheet } from "react-native";
-import { AllColorSchemas, ColorSchemaName, DefaultColorSchema } from "./colors";
+import { AllColorSchemas, ColorSchemaKeyType, DefaultColorSchema } from "./colors";
+import { ReturnTypeUseThemeTokens } from "../components/ThemeContext";
 
 export let COLORS = AllColorSchemas[DefaultColorSchema];
-export const updateColors = (name: ColorSchemaName) => {
+export const updateColors = (name: ColorSchemaKeyType) => {
   COLORS = AllColorSchemas[name];
 };
 
@@ -62,34 +63,34 @@ export const SHADOW = getShadow(2);
 export const SHADOW_3 = getShadow(3);
 export const SHADOW_4 = getShadow(4);
 
-const styles = StyleSheet.create({
+export const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: COLORS.primary,
+    backgroundColor: t.colors.primary,
   },
   title: {
     fontSize: FONT_SIZES.xLarge,
     fontWeight: "bold",
     marginBottom: SPACING.xLarge,
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
   },
   input: {
     width: "80%",
     padding: SPACING.small,
     marginBottom: SPACING.small,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: t.colors.border,
     borderRadius: BORDER_RADIUS,
-    backgroundColor: COLORS.textSecondary,
+    backgroundColor: t.colors.textSecondary,
   },
   link: {
-    color: COLORS.link,
+    color: t.colors.link,
     marginTop: SPACING.small,
   },
   button: {
-    backgroundColor: COLORS.button,
+    backgroundColor: t.colors.button,
     paddingVertical: SPACING.medium,
     paddingHorizontal: SPACING.large,
     borderRadius: BORDER_RADIUS,
@@ -98,29 +99,15 @@ const styles = StyleSheet.create({
   },
   authContainer: { width: "85%" },
   buttonText: {
-    color: COLORS.textSecondary,
+    color: t.colors.textSecondary,
     fontSize: FONT_SIZES.large,
     fontWeight: "bold",
   },
   switchText: {
     marginVertical: SPACING.medium,
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
     textAlign: "center",
     textDecorationLine: "underline",
     fontStyle: "italic",
-  },
-});
-
-export default styles;
-
-export const layoutStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.primary,
-  },
-  content: {
-    flex: 1,
-    margin: SPACING.xSmall,
-    marginBottom: 0,
   },
 });

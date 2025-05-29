@@ -10,6 +10,8 @@ import {
   TextStyle,
 } from "react-native";
 import { COLORS, FONT_FAMILY, FONT_SIZES, SPACING } from "../constants/styles";
+import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
 
 interface SideTextSwitchProps {
   value: boolean;
@@ -34,6 +36,7 @@ const SideTextSwitch: React.FC<SideTextSwitchProps> = ({
   containerStyle,
   textStyle,
 }) => {
+  const { styles, t } = useThemeStyles(createStyles);
   const thumbSize = height - PADDING * 2;
   const translateDistance = width - thumbSize - PADDING * 2;
 
@@ -51,8 +54,8 @@ const SideTextSwitch: React.FC<SideTextSwitchProps> = ({
   }, [value]);
 
   // Background and text color logic
-  const backgroundColor = value ? COLORS.secondary : COLORS.tertiary;
-  const textColor = backgroundColor === COLORS.secondary ? COLORS.textSecondary : COLORS.textPrimary;
+  const backgroundColor = value ? COLORS.secondary : t.colors.tertiary;
+  const textColor = backgroundColor === COLORS.secondary ? COLORS.textSecondary : t.colors.textPrimary;
 
 
   return (
@@ -100,14 +103,14 @@ const SideTextSwitch: React.FC<SideTextSwitchProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
     position: "relative",
     justifyContent: "center",
     overflow: "hidden",
   },
   thumb: {
-    backgroundColor: COLORS.textSecondary,
+    backgroundColor: t.colors.textSecondary,
     position: "absolute",
     top: PADDING,
     left: PADDING,

@@ -145,4 +145,5 @@ export const AllColorSchemas: Record<string, typeof LDeathNoteColors> = {
   [HinataHyugaColors.name]: HinataHyugaColors,
 };
 
-export type ColorSchemaName = keyof typeof AllColorSchemas;
+export type ColorSchemaKeyType = keyof typeof AllColorSchemas;
+export type ColorSchemaValueType = (typeof AllColorSchemas)[keyof typeof AllColorSchemas];

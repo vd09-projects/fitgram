@@ -12,8 +12,11 @@ import { CollapsibleContent } from '../components/collapsible_table/CollapsibleT
 import CollapsibleSection from '../components/CollapsibleSection';
 import { AllColorSchemas } from '../constants/colors';
 import { ColorSchemaSelector } from '../components/ColorSchemaSelector';
+import { ReturnTypeUseThemeTokens } from '../components/ThemeContext';
+import { useThemeStyles } from '../utils/useThemeStyles';
 
 export default function ProfileScreen() {
+  const { styles } = useThemeStyles(createStyles);
   const { user, userInfo } = useAuthUser();
 
   const handleLogout = async () => {
@@ -63,15 +66,15 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: SPACING.large, backgroundColor: COLORS.primary },
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
+  container: { flex: 1, padding: SPACING.large, backgroundColor: t.colors.primary },
   collapsibleStyle: {
-    backgroundColor: COLORS.collapsed,
+    backgroundColor: t.colors.collapsed,
     borderRadius: BORDER_RADIUS,
     marginTop: SPACING.small
   },
-  sectionTitle: { fontSize: FONT_SIZES.xLarge, color: COLORS.textPrimary, fontWeight: 'bold', marginTop: SPACING.small },
-  userInfo: { color: COLORS.textSecondary, fontSize: FONT_SIZES.large, fontWeight: 'bold', marginBottom: SPACING.small },
-  logoutButton: { backgroundColor: COLORS.button, padding: SPACING.large, borderRadius: BORDER_RADIUS, marginTop: SPACING.large },
-  logoutButtonText: { color: COLORS.textSecondary, fontWeight: 'bold', fontSize: FONT_SIZES.large, textAlign: 'center' },
+  sectionTitle: { fontSize: FONT_SIZES.xLarge, color: t.colors.textPrimary, fontWeight: 'bold', marginTop: SPACING.small },
+  userInfo: { color: t.colors.textSecondary, fontSize: FONT_SIZES.large, fontWeight: 'bold', marginBottom: SPACING.small },
+  logoutButton: { backgroundColor: t.colors.button, padding: SPACING.large, borderRadius: BORDER_RADIUS, marginTop: SPACING.large },
+  logoutButtonText: { color: t.colors.textSecondary, fontWeight: 'bold', fontSize: FONT_SIZES.large, textAlign: 'center' },
 });

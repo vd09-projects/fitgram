@@ -2,6 +2,8 @@ import React, { useRef, useState, ReactNode } from 'react';
 import { TouchableOpacity, View, StyleSheet, Animated, StyleProp, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BORDER_RADIUS, COLORS, SPACING } from '../constants/styles';
+import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
 
 type CollapsibleSectionProps = {
   title: ReactNode;
@@ -30,6 +32,7 @@ export default function CollapsibleSection({
   dividerLineColor = COLORS.textSecondary,
   rightElement,
 }: CollapsibleSectionProps) {
+  const { styles } = useThemeStyles(createStyles);
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
   const rotation = useRef(new Animated.Value(defaultCollapsed ? 0 : 1)).current;
   
@@ -71,7 +74,7 @@ export default function CollapsibleSection({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   toggleButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -88,7 +91,7 @@ const styles = StyleSheet.create({
   },
   dividerLine: {
     height: 1,
-    backgroundColor: COLORS.textSecondary,
+    backgroundColor: t.colors.textSecondary,
     marginTop: SPACING.small,
     marginBottom: SPACING.medium,
   },

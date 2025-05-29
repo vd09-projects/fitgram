@@ -6,8 +6,11 @@ import {
 import { useAuthUser } from '../hooks/useAuthUser';
 import { COLORS } from '../constants/styles';
 import { Greeting } from '../components/Greeting';
+import { ReturnTypeUseThemeTokens } from '../components/ThemeContext';
+import { useThemeStyles } from '../utils/useThemeStyles';
 
 export default function HomeScreen() {
+  const { styles } = useThemeStyles(createStyles);
   const { userInfo } = useAuthUser();
 
   return (
@@ -20,11 +23,11 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'flex-start',
     alignItems: 'center',
-    backgroundColor: COLORS.primary,
+    backgroundColor: t.colors.primary,
   }
 });

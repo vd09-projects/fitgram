@@ -7,6 +7,7 @@ import {
   SHADOW,
   SPACING,
 } from "../../constants/styles";
+import { ReturnTypeUseThemeTokens } from "../ThemeContext";
 
 export type CollapsibleTableStyles = {
   outerScroll: ViewStyle;
@@ -29,14 +30,14 @@ export type CollapsibleTableStyles = {
   oddRowColor: ViewStyle;
 };
 
-export const defaultStyles = StyleSheet.create<CollapsibleTableStyles>({
+export const defaultCreateStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create<CollapsibleTableStyles>({
   outerScroll: {
     flexGrow: 0,
     ...SHADOW,
   },
   container: {
     borderWidth: 1,
-    borderColor: COLORS.tableBorder,
+    borderColor: t.colors.tableBorder,
     borderRadius: BORDER_RADIUS,
     overflow: "hidden",
   },
@@ -46,17 +47,17 @@ export const defaultStyles = StyleSheet.create<CollapsibleTableStyles>({
     paddingVertical: SPACING.medium,
   },
   header: {
-    backgroundColor: COLORS.tableHeader,
+    backgroundColor: t.colors.tableHeader,
     paddingVertical: SPACING.xMedium,
   },
   rowContainer: {
-    backgroundColor: COLORS.tableRowEven,
+    backgroundColor: t.colors.tableRowEven,
     borderBottomWidth: 1,
-    borderColor: COLORS.tableBorder,
+    borderColor: t.colors.tableBorder,
   },
   rowText: {
     fontSize: FONT_SIZES.xMedium,
-    color: COLORS.tableText,
+    color: t.colors.tableText,
   },
   iconCell: {
     width: BUTTON_SIZES.medium,
@@ -70,10 +71,10 @@ export const defaultStyles = StyleSheet.create<CollapsibleTableStyles>({
   headerText: {
     fontWeight: "bold",
     fontSize: FONT_SIZES.medium,
-    color: COLORS.tableHeaderText,
+    color: t.colors.tableHeaderText,
   },
   headerCellSpliter: {
-    borderRightColor: COLORS.tableBorder,
+    borderRightColor: t.colors.tableBorder,
     borderRightWidth: 1,
   },
   collapseBox: {
@@ -91,21 +92,21 @@ export const defaultStyles = StyleSheet.create<CollapsibleTableStyles>({
   },
   kvKey: {
     fontSize: FONT_SIZES.xMedium,
-    color: COLORS.tableText,
+    color: t.colors.tableText,
   },
   kvValue: {
-    color: COLORS.tableText,
+    color: t.colors.tableText,
   },
   customCollapse: {
     borderTopWidth: 1,
-    borderColor: COLORS.textSecondary,
+    borderColor: t.colors.textSecondary,
     marginTop: SPACING.small,
     paddingTop: SPACING.small,
   },
   evenRowColor: {
-    backgroundColor: COLORS.tableRowEven,
+    backgroundColor: t.colors.tableRowEven,
   },
   oddRowColor: {
-    backgroundColor: COLORS.tableRowOdd,
+    backgroundColor: t.colors.tableRowOdd,
   },
 });

@@ -12,6 +12,8 @@ import { TextBase } from './TextBase';
 import { emptyOutlineStyle, PrimaryInputField } from './PrimaryInputField';
 import { TextInput } from 'react-native-paper';
 import LoadingData from './LoadingData';
+import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
 
 export interface DropdownItem<T> {
   label: string;
@@ -45,6 +47,7 @@ export default function SearchableInputDropdown<T>({
   conatinerStyle,
   isDataLoading = false,
 }: SearchableInputDropdownProps<T>) {
+  const { styles, t } = useThemeStyles(createStyles);
   const [isNewMode, setIsNewMode] = useState(false);
   const [customValue, setCustomValue] = useState(value?.label || '');
 
@@ -67,7 +70,7 @@ export default function SearchableInputDropdown<T>({
             <Switch
               value={isNewMode}
               onValueChange={setIsNewMode}
-              trackColor={{ false: COLORS.switchFalse, true: COLORS.switchTrue }}
+              trackColor={{ false: t.colors.switchFalse, true: t.colors.switchTrue }}
               thumbColor={COLORS.textSecondary}
               style={{ transform: [{ scaleX: 1.1 }] }}
             />
@@ -89,7 +92,7 @@ export default function SearchableInputDropdown<T>({
             placeholder={"Enter " + placeholder}
             container={styles.primaryInputContainer}
             outline={emptyOutlineStyle}
-            inputBox={{ color: COLORS.dropdownInputText }}
+            inputBox={{ color: t.colors.dropdownInputText }}
             placeholderTextColor={COLORS.dropdownInputPlaceholder}
             right={<TextInput.Icon
               icon="text-box-check"
@@ -123,11 +126,11 @@ export default function SearchableInputDropdown<T>({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
     marginTop: SPACING.medium,
     padding: SPACING.large,
-    backgroundColor: COLORS.primary,
+    backgroundColor: t.colors.primary,
     borderRadius: BORDER_RADIUS,
     ...SHADOW_4,
   },
@@ -141,7 +144,7 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: FONT_SIZES.large,
     fontWeight: 'bold',
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
     flexShrink: 1,
   },
   switchContainer: {
@@ -152,53 +155,53 @@ const styles = StyleSheet.create({
   },
   switchLabel: {
     fontSize: FONT_SIZES.small,
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
     fontWeight: 'bold',
   },
   dropdown: {
     height: 48,
-    backgroundColor: COLORS.dropdown,
-    borderColor: COLORS.border,
+    backgroundColor: t.colors.dropdown,
+    borderColor: t.colors.border,
     borderRadius: BORDER_RADIUS,
     paddingHorizontal: SPACING.medium,
     ...SHADOW,
   },
   dropdownContainer: {
-    backgroundColor: COLORS.dropdown,
-    borderColor: COLORS.border,
+    backgroundColor: t.colors.dropdown,
+    borderColor: t.colors.border,
     borderRadius: BORDER_RADIUS,
   },
   itemContainer: {
-    backgroundColor: COLORS.dropdownItemBackground,
-    borderColor: COLORS.border,
+    backgroundColor: t.colors.dropdownItemBackground,
+    borderColor: t.colors.border,
     borderRadius: BORDER_RADIUS,
     marginHorizontal: SPACING.xSmall,
     margin: 1,
   },
   placeholderStyle: {
     fontSize: FONT_SIZES.large,
-    color: COLORS.dropdownInputPlaceholder,
+    color: t.colors.dropdownInputPlaceholder,
     fontFamily: FONT_FAMILY.regular.name,
     padding: SPACING.xSmall,
   },
   itemTextStyle: {
     fontSize: FONT_SIZES.large,
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
     fontFamily: FONT_FAMILY.regular.name,
     padding: SPACING.xSmall,
   },
   selectedTextStyle: {
     fontSize: FONT_SIZES.large,
-    color: COLORS.dropdownInputText,
+    color: t.colors.dropdownInputText,
     fontFamily: FONT_FAMILY.regular.name,
     padding: SPACING.xSmall,
   },
   inputSearchStyle: {
     fontSize: FONT_SIZES.large,
-    color: COLORS.dropdownInputText,
-    backgroundColor: COLORS.inputPrimaryBackground,
+    color: t.colors.dropdownInputText,
+    backgroundColor: t.colors.inputPrimaryBackground,
     borderRadius: BORDER_RADIUS,
-    borderColor: COLORS.border,
+    borderColor: t.colors.border,
     fontFamily: FONT_FAMILY.regular.name,
   },
   primaryInputContainer: {
@@ -207,7 +210,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS,
     paddingLeft: 0,
     paddingBottom: 2,
-    backgroundColor: COLORS.dropdown,
+    backgroundColor: t.colors.dropdown,
     height: 46,
     marginBottom: 0,
     // fontSize: FONT_SIZES.medium,
@@ -219,12 +222,12 @@ const styles = StyleSheet.create({
     height: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.dropdown,
+    backgroundColor: t.colors.dropdown,
     borderRadius: BORDER_RADIUS,
     ...SHADOW,
   },
   loadingText: {
-    color: COLORS.dropdownInputPlaceholder,
+    color: t.colors.dropdownInputPlaceholder,
     fontSize: FONT_SIZES.medium,
     fontFamily: FONT_FAMILY.regular.name,
   },

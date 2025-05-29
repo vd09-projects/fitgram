@@ -23,8 +23,8 @@ export default function WorkoutNavigator() {
         <Stack.Navigator
             initialRouteName={WorkoutRoutes.WorkoutHome}
             screenOptions={{
-                headerStyle: { backgroundColor: COLORS.primary },
-                headerTintColor: COLORS.textSecondary,
+                headerStyle: { backgroundColor: t.colors.primary },
+                headerTintColor: t.colors.textSecondary,
                 headerTitleStyle: { fontSize: 18, fontWeight: 'bold' }
             }}
         >

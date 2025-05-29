@@ -6,6 +6,7 @@ import { toastConfig } from './src/constants/toastConfig';
 import { useEffect, useState } from 'react';
 import { FONT_FAMILY } from './src/constants/styles';
 import { useColorSchemaStore } from './src/stores/colorSchemaStore';
+import { ThemeProvider } from './src/components/ThemeContext';
 
 export default function App() {
   const [fontLoaded, setFontLoaded] = useState(false);
@@ -25,9 +26,9 @@ export default function App() {
   if (!isLoaded) return null;
 
   return (
-    <>
+    <ThemeProvider>
       <AppNavigator />
       <Toast config={toastConfig} />
-    </>
+    </ThemeProvider>
   );
 }

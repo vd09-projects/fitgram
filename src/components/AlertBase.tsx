@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { BORDER_RADIUS, COLORS, FONT_SIZES, LARGE_BORDER_RADIUS, SHADOW, SHADOW_3, SPACING } from '../constants/styles';
 import { TextBase } from './TextBase';
+import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
 
 export interface AlertBaseButton {
   text: string;
@@ -41,6 +43,7 @@ const AlertBase: React.FC<AlertBaseProps> = ({
   titleStyle,
   messageStyle,
 }) => {
+  const { styles } = useThemeStyles(createStyles);
   return (
     <Modal
       visible={visible}
@@ -77,7 +80,7 @@ const AlertBase: React.FC<AlertBaseProps> = ({
 
 export default AlertBase;
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -86,7 +89,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xxxLarge,
   },
   container: {
-    backgroundColor: COLORS.popupBackground,
+    backgroundColor: t.colors.popupBackground,
     borderRadius: LARGE_BORDER_RADIUS,
     padding: SPACING.large,
     width: '100%',
@@ -95,13 +98,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FONT_SIZES.large,
     fontWeight: 'bold',
-    color: COLORS.popupTitleText,
+    color: t.colors.popupTitleText,
     marginBottom: SPACING.medium,
     textAlign: 'center',
   },
   message: {
     fontSize: FONT_SIZES.medium,
-    color: COLORS.popupText,
+    color: t.colors.popupText,
     textAlign: 'center',
     marginBottom: SPACING.xLarge,
   },
@@ -117,11 +120,11 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.medium,
     paddingHorizontal: SPACING.medium,
     borderRadius: BORDER_RADIUS,
-    backgroundColor: COLORS.popupButton,
+    backgroundColor: t.colors.popupButton,
     ...SHADOW,
   },
   buttonText: {
-    color: COLORS.popupButtonText,
+    color: t.colors.popupButtonText,
     fontWeight: 'bold',
     fontSize: FONT_SIZES.medium,
     textAlign: 'center',

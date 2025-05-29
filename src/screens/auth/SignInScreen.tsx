@@ -4,12 +4,12 @@ import {
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  Keyboard
+  Keyboard,
+  StyleSheet
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { ScreenNavigationProp } from '../../navigation/AuthNavigator';
 import { signInUser } from '../../services/db/authService';
-import styles from '../../constants/styles';
 import { AuthRoutes } from '../../constants/routes';
 import Toast from 'react-native-toast-message';
 import { PrimaryInputField } from '../../components/PrimaryInputField';
@@ -17,10 +17,14 @@ import { validateCredentials } from '../../utils/validation';
 import show from '../../utils/toastUtils';
 import { TextBase } from '../../components/TextBase';
 import TestingCollapsibleTable from '../../components/collapsible_table/CollapsibleTable_delete_rough';
+import { BORDER_RADIUS, COLORS, FONT_SIZES, SHADOW, SPACING } from '../../constants/styles';
+import { ReturnTypeUseThemeTokens } from '../../components/ThemeContext';
+import { useThemeStyles } from '../../utils/useThemeStyles';
 
 type SignInScreenNavigationProp = ScreenNavigationProp<typeof AuthRoutes.SignIn>;
 
 export default function SignInScreen() {
+  const { styles } = useThemeStyles(createStyles);
   const navigation = useNavigation<SignInScreenNavigationProp>();
 
   const [email, setEmail] = useState('');
@@ -74,9 +78,58 @@ export default function SignInScreen() {
           <TextBase style={styles.switchText} isDefaultFontFamilyRequired>Don't have an account?</TextBase>
         </TouchableOpacity>
 
-      {/* <TestingCollapsibleTable/> */}
+        {/* <TestingCollapsibleTable/> */}
 
       </View>
     </TouchableWithoutFeedback>
   );
 }
+
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: t.colors.primary,
+  },
+  title: {
+    fontSize: FONT_SIZES.xLarge,
+    fontWeight: "bold",
+    marginBottom: SPACING.xLarge,
+    color: t.colors.textPrimary,
+  },
+  input: {
+    width: "80%",
+    padding: SPACING.small,
+    marginBottom: SPACING.small,
+    borderWidth: 1,
+    borderColor: t.colors.border,
+    borderRadius: BORDER_RADIUS,
+    backgroundColor: t.colors.textSecondary,
+  },
+  link: {
+    color: t.colors.link,
+    marginTop: SPACING.small,
+  },
+  button: {
+    backgroundColor: t.colors.button,
+    paddingVertical: SPACING.medium,
+    paddingHorizontal: SPACING.large,
+    borderRadius: BORDER_RADIUS,
+    alignItems: "center",
+    ...SHADOW,
+  },
+  authContainer: { width: "85%" },
+  buttonText: {
+    color: t.colors.textSecondary,
+    fontSize: FONT_SIZES.large,
+    fontWeight: "bold",
+  },
+  switchText: {
+    marginVertical: SPACING.medium,
+    color: t.colors.textPrimary,
+    textAlign: "center",
+    textDecorationLine: "underline",
+    fontStyle: "italic",
+  },
+});

@@ -6,6 +6,8 @@ import EditableList from './EditableList';
 import { Exercise } from '../types/workoutType';
 import { TextBase } from './TextBase';
 import CollapsibleSection from './CollapsibleSection'; // ✅ make sure this is the reusable component you already created
+import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
 
 interface CollapsibleExerciseListProps {
   exercises: Exercise[];
@@ -21,7 +23,10 @@ const CollapsibleExerciseItem = memo(
     exercise: Exercise;
     index: number;
     onUpdate: (index: number, updatedExercise?: Exercise) => void;
-  }) => (
+  }) => {
+  const { styles } = useThemeStyles(createStyles);
+
+    return (
     <CollapsibleSection
       defaultCollapsed={true}
       collapsibleStyle={styles.exerciseContainer}
@@ -42,10 +47,11 @@ const CollapsibleExerciseItem = memo(
         }}
       />
     </CollapsibleSection>
-  )
+  )}
 );
 
 const CollapsibleExerciseList: React.FC<CollapsibleExerciseListProps> = memo(({ exercises, onUpdate }) => {
+  const { styles } = useThemeStyles(createStyles);
   return (
     <View style={styles.section}>
       <TextBase style={styles.subHeading}>Existing Exercises</TextBase>
@@ -56,7 +62,7 @@ const CollapsibleExerciseList: React.FC<CollapsibleExerciseListProps> = memo(({ 
   );
 });
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   section: {
     borderRadius: BORDER_RADIUS,
     marginTop: SPACING.large,
@@ -64,11 +70,11 @@ const styles = StyleSheet.create({
   subHeading: {
     fontSize: FONT_SIZES.large,
     fontWeight: 'bold',
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
     marginBottom: SPACING.medium,
   },
   exerciseContainer: {
-    backgroundColor: COLORS.collapsed,
+    backgroundColor: t.colors.collapsed,
     borderRadius: BORDER_RADIUS,
     marginBottom: SPACING.medium,
     padding: SPACING.small,
@@ -76,7 +82,7 @@ const styles = StyleSheet.create({
   exerciseText: {
     fontSize: FONT_SIZES.medium,
     fontWeight: 'bold',
-    color: COLORS.collapsedTitleText,
+    color: t.colors.collapsedTitleText,
     paddingVertical: SPACING.small,
     paddingHorizontal: SPACING.small,
   },

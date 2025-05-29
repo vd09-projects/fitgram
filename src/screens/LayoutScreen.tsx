@@ -6,8 +6,10 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import LayoutNavigator, { LayoutScreenNavigationProp } from '../navigation/LayoutNavigator';
 import { LayoutRoutes } from '../constants/routes';
-import { layoutStyles } from '../constants/styles';
+import { COLORS, SPACING } from '../constants/styles';
 import AnimatedScreen from '../components/AnimatedText';
+import { ReturnTypeUseThemeTokens } from '../components/ThemeContext';
+import { useThemeStyles } from '../utils/useThemeStyles';
 
 const Stack = createStackNavigator();
 
@@ -15,11 +17,12 @@ type SignInScreenNavigationProp = LayoutScreenNavigationProp<typeof LayoutRoutes
 
 
 export default function LayoutScreen() {
+  const { styles } = useThemeStyles(createStyles);
   const [activeTab, setActiveTab] = useState<keyof typeof LayoutRoutes>('Home');
   const navigation = useNavigation<SignInScreenNavigationProp>();
 
   return (
-    <View style={layoutStyles.container}>
+    <View style={styles.container}>
       {/* 🔹 Header Always Present */}
       <Header onPressTab={(tab) => {
         setActiveTab(tab);
@@ -27,7 +30,7 @@ export default function LayoutScreen() {
       }} />
 
       {/* 🔥 Force remounting AnimatedScreen using key={activeTab} */}
-      <View style={layoutStyles.content}>
+      <View style={styles.content}>
         <AnimatedScreen animationType="fade">
           <LayoutNavigator />
         </AnimatedScreen>
@@ -47,3 +50,15 @@ export default function LayoutScreen() {
     </View>
   );
 }
+
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: t.colors.primary,
+  },
+  content: {
+    flex: 1,
+    margin: SPACING.xSmall,
+    marginBottom: 0,
+  },
+});

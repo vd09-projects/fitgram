@@ -9,6 +9,8 @@ import {
   ViewStyle,
 } from 'react-native';
 import { COLORS, FONT_SIZES, FONT_FAMILY, SPACING } from '../constants/styles';
+import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
 
 const MAX_DOTS = 3;
 const DOT_ANIMATION_DURATION = 1000;
@@ -29,6 +31,7 @@ const LoadingData: React.FC<LoadingDataProps> = ({
   dotStyle,
   totalDots = MAX_DOTS,
 }) => {
+  const { styles } = useThemeStyles(createStyles);
   const scales = useRef<Animated.Value[]>([]).current;
 
   if (scales.length === 0) {
@@ -96,7 +99,7 @@ const LoadingData: React.FC<LoadingDataProps> = ({
 
 export default LoadingData;
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
     height: 48,
     justifyContent: 'center',
@@ -106,7 +109,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: FONT_SIZES.medium,
     fontFamily: FONT_FAMILY.regular.name,
-    color: COLORS.textPrimaryPlaceholder,
+    color: t.colors.textPrimaryPlaceholder,
   },
   dotRow: {
     flexDirection: 'row',
@@ -115,7 +118,7 @@ const styles = StyleSheet.create({
   dot: {
     fontSize: FONT_SIZES.large,
     fontFamily: FONT_FAMILY.regular.name,
-    color: COLORS.textPrimaryPlaceholder,
+    color: t.colors.textPrimaryPlaceholder,
     marginHorizontal: 1,
     fontWeight: 'bold',
   },

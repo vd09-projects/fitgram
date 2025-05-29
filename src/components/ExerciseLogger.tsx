@@ -7,8 +7,11 @@ import { LoggedExercise } from "../types/zustandWorkoutType";
 import { TextBase } from "./TextBase";
 import { getClearIcon, PrimaryInputField } from "./PrimaryInputField";
 import ActiveExerciseLogHistory from "./ActiveExerciseLogHistory";
+import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
 
 export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise }) {
+  const { styles } = useThemeStyles(createStyles);
   const { addSetToExercise } = useWorkoutStore();
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
 
@@ -55,7 +58,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
     paddingVertical: 15,
     borderBottomWidth: 1,
@@ -66,13 +69,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: COLORS.buttonSecondary,
+    backgroundColor: t.colors.buttonSecondary,
     padding: SPACING.large,
     borderRadius: BORDER_RADIUS,
     ...SHADOW,
   },
   logButtonText: {
-    color: COLORS.buttonText,
+    color: t.colors.buttonText,
     fontWeight: "bold",
     fontSize: FONT_SIZES.large,
   },

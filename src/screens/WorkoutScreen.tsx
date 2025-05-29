@@ -13,6 +13,8 @@ import { WorkoutScreenNavigationProp } from '../navigation/WorkoutNavigator';
 import { WorkoutRoutes } from '../constants/routes';
 import { useNavigation } from '@react-navigation/native';
 import { TextBase } from '../components/TextBase';
+import { ReturnTypeUseThemeTokens } from '../components/ThemeContext';
+import { useThemeStyles } from '../utils/useThemeStyles';
 
 const workoutOptions = [
   {
@@ -48,6 +50,8 @@ const workoutOptions = [
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.WorkoutHome>;
 
 export default function WorkoutScreen() {
+  const { styles } = useThemeStyles(createStyles);
+
   const { user } = useAuthUser();
   const navigation = useNavigation<workoutScreenNavigationProp>();
 
@@ -89,11 +93,11 @@ export default function WorkoutScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
-    backgroundColor: COLORS.primary,
+    backgroundColor: t.colors.primary,
   },
   content: {
     width: '90%',
@@ -106,7 +110,7 @@ const styles = StyleSheet.create({
   },
   buttonPrimary: {
     flexDirection: 'row',
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: t.colors.cardBackground,
     padding: SPACING.large,
     borderRadius: BORDER_RADIUS,
     marginBottom: SPACING.large,
@@ -121,12 +125,12 @@ const styles = StyleSheet.create({
   },
   buttonSubText: {
     fontSize: SPACING.xMedium,
-    color: COLORS.textSecondary,
+    color: t.colors.textSecondary,
   },
   buttonTextPrimary: {
     fontSize: SPACING.xLarge,
     fontWeight: 'bold',
-    color: COLORS.cardHeader,
+    color: t.colors.cardHeader,
     paddingBottom: SPACING.xSmall,
   },
 });

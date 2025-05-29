@@ -10,8 +10,9 @@ import {
   Text,
 } from 'react-native';
 import { TableHeader, TableRow, CollapsibleContent, Column } from './CollapsibleTableParts';
-import { CollapsibleTableStyles, defaultStyles } from './CollapsibleTableStyles';
+import { CollapsibleTableStyles, defaultCreateStyles } from './CollapsibleTableStyles';
 import { SPACING } from '../../constants/styles';
+import { useThemeStyles } from '../../utils/useThemeStyles';
 
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -35,6 +36,7 @@ export function CollapsibleTable<T extends Record<string, any>>({
   const [openIndices, setOpenIndices] = useState<Set<number>>(new Set());
   const [colWidths, setColWidths] = useState<{ [key: string]: number }>({});
 
+  const { styles: defaultStyles } = useThemeStyles(defaultCreateStyles);
   const styles = { ...defaultStyles, ...customStyles };
 
   const hiddenColumns = columns.filter(

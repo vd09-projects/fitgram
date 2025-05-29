@@ -22,10 +22,13 @@ import { useNavigation } from "@react-navigation/native";
 import { TextBase } from "../../components/TextBase";
 import AlertBase from "../../components/AlertBase";
 import LoadingData from "../../components/LoadingData";
+import { ReturnTypeUseThemeTokens } from '../../components/ThemeContext';
+import { useThemeStyles } from '../../utils/useThemeStyles';
 
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.StartWorkout>;
 
 export default function StartWorkoutScreen() {
+  const { styles, t } = useThemeStyles(createStyles);
   const navigation = useNavigation<workoutScreenNavigationProp>();
 
   const [showAlert, setShowAlert] = useState(true);
@@ -74,7 +77,7 @@ export default function StartWorkoutScreen() {
       title={
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <MaterialCommunityIcons name="arm-flex-outline" size={24} color={COLORS.textPrimary} style={{ marginRight: 5 }} />
-          <TextBase style={{ fontSize: 22, fontWeight: 'bold', color: COLORS.textPrimary }}>Start Workout</TextBase>
+          <TextBase style={{ fontSize: 22, fontWeight: 'bold', color: t.colors.textPrimary }}>Start Workout</TextBase>
           <MaterialCommunityIcons name="arm-flex-outline" size={24} color={COLORS.textPrimary} style={{ marginLeft: 5, transform: [{ scaleX: -1 }] }} />
         </View>
       }
@@ -90,7 +93,7 @@ export default function StartWorkoutScreen() {
               setShowAlert(false);
               cancelWorkout();
             },
-            style: { backgroundColor: COLORS.cancelButton },
+            style: { backgroundColor: t.colors.cancelButton },
           },
           {
             text: 'Go to Active Workout',
@@ -114,8 +117,8 @@ export default function StartWorkoutScreen() {
       {loadingWorkoutPlans ? (
         <LoadingData
           containerStyle={styles.loadingConatiner}
-          textStyle={{ fontSize: FONT_SIZES.large, color: COLORS.textPrimary }}
-          dotStyle={{ fontSize: FONT_SIZES.xLarge, color: COLORS.textPrimary }}
+          textStyle={{ fontSize: FONT_SIZES.large, color: t.colors.textPrimary }}
+          dotStyle={{ fontSize: FONT_SIZES.xLarge, color: t.colors.textPrimary }}
         />
       ) :
         <FlatList
@@ -168,13 +171,13 @@ export default function StartWorkoutScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   loadingConatiner: { flex: 1, justifyContent: "center", alignItems: "center" },
   noResultsText: {
     justifyContent: 'center',
     textAlign: "center",
     fontSize: FONT_SIZES.large,
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
     marginVertical: SPACING.small,
     fontWeight: "bold",
     paddingLeft: SPACING.small,
@@ -185,7 +188,7 @@ const styles = StyleSheet.create({
   },
   workoutCard: {
     flex: 1,
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: t.colors.cardBackground,
     padding: 20,
     borderRadius: BORDER_RADIUS,
     alignItems: "center",
@@ -194,14 +197,14 @@ const styles = StyleSheet.create({
     ...SHADOW,
   },
   selectedWorkout: {
-    borderColor: COLORS.border,
+    borderColor: t.colors.border,
     borderWidth: SPACING.xSmall,
     ...SHADOW_3,
   },
   workoutTitle: {
     fontSize: FONT_SIZES.large,
     fontWeight: "bold",
-    color: COLORS.textSecondary,
+    color: t.colors.textSecondary,
     textAlign: "center",
   },
   exerciseList: {
@@ -210,14 +213,14 @@ const styles = StyleSheet.create({
   exerciseHeader: {
     fontSize: FONT_SIZES.large,
     fontWeight: "bold",
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
     marginBottom: 10,
   },
   exerciseCard: {
     flexDirection: "row",
     alignItems: "center",
     padding: SPACING.medium,
-    backgroundColor: COLORS.secondary,
+    backgroundColor: t.colors.secondary,
     borderRadius: BORDER_RADIUS,
     marginBottom: SPACING.small,
   },
@@ -225,18 +228,18 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.medium,
     fontWeight: "bold",
     marginLeft: SPACING.small,
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
   },
   startWorkoutButton: {
     marginTop: SPACING.large,
     paddingVertical: SPACING.large,
     borderRadius: BORDER_RADIUS,
-    backgroundColor: COLORS.button,
+    backgroundColor: t.colors.button,
     alignItems: "center",
   },
   startWorkoutText: {
     fontSize: FONT_SIZES.large,
     fontWeight: "bold",
-    color: COLORS.textSecondary,
+    color: t.colors.textSecondary,
   },
 });

@@ -2,6 +2,8 @@ import React, { ReactNode } from 'react';
 import { ScrollView, View, StyleSheet, KeyboardAvoidingView, Platform, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/styles';
+import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
 
 interface ScrollableScreenProps {
   children: ReactNode;
@@ -10,6 +12,7 @@ interface ScrollableScreenProps {
 }
 
 const ScrollableScreen: React.FC<ScrollableScreenProps> = ({ children, style, title }) => {
+  const { styles } = useThemeStyles(createStyles);
   return (
     <SafeAreaView style={[styles.safeArea, style]}>
       {/* Fixed Title Section (Accepts JSX) */}
@@ -35,19 +38,19 @@ const ScrollableScreen: React.FC<ScrollableScreenProps> = ({ children, style, ti
 
 export default ScrollableScreen;
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.primary,
+    backgroundColor: t.colors.primary,
   },
   titleContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
     paddingHorizontal: 20,
-    backgroundColor: COLORS.primary,
+    backgroundColor: t.colors.primary,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: t.colors.border,
   },
   flex: {
     flex: 1,
@@ -60,7 +63,7 @@ const styles = StyleSheet.create({
   },
   innerContainer: {
     flex: 1,
-    backgroundColor: COLORS.primary,
+    backgroundColor: t.colors.primary,
     padding: 16,
   },
 });

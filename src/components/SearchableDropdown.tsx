@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
+import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
 
 export interface DropdownItem {
     label: string;
@@ -22,6 +24,7 @@ export default function SearchableDropdown({
     onChange,
     dropdownStyle,
 }: SearchableDropdownProps) {
+  const { styles } = useThemeStyles(createStyles);
     return (
         <View style={[styles.container, dropdownStyle]}>
             <Dropdown
@@ -63,7 +66,7 @@ export default function SearchableDropdown({
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     container: {
         marginTop: 8,
         marginBottom: 16,
