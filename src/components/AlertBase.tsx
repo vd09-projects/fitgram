@@ -10,7 +10,7 @@ import {
   ViewStyle,
   Platform,
 } from 'react-native';
-import { BORDER_RADIUS, FONT_SIZES, LARGE_BORDER_RADIUS, SHADOW, SHADOW_3, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, FONT_SIZES, LARGE_BORDER_RADIUS, SPACING } from '../constants/styles';
 import { TextBase } from './TextBase';
 import { ReturnTypeUseThemeTokens } from "./ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
@@ -93,7 +93,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     borderRadius: LARGE_BORDER_RADIUS,
     padding: SPACING.large,
     width: '100%',
-    ...SHADOW_3,
+    ...t.shadows.shadowMedium,
   },
   title: {
     fontSize: FONT_SIZES.large,
@@ -121,7 +121,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     paddingHorizontal: SPACING.medium,
     borderRadius: BORDER_RADIUS,
     backgroundColor: t.colors.popupButton,
-    ...SHADOW,
+    ...t.shadows.shadowSmall,
   },
   buttonText: {
     color: t.colors.popupButtonText,

@@ -48,7 +48,7 @@ export const LDeathNoteColors = {
   border: "#436671",
 
   // buttonBackground: '#A084CF',
-  shadow: "#436671",
+  shadowSmall: "#436671",
 
   // Table UI Elements
   tableHeader: "#435C5D", // Darker tone for headers for strong contrast
@@ -115,7 +115,7 @@ export const HinataHyugaColors = {
   border: "#B2B5E0",
 
   // buttonBackground: '#A084CF',
-  shadow: "#E7EBE9",
+  shadowSmall: "#E7EBE9",
 
   // Table UI Elements
   tableHeader: "#B5A3CF", // Darker tone for headers for strong contrast

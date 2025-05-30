@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, ScrollView, StyleSheet } from "react-native";
-import { FONT_SIZES, SPACING, BORDER_RADIUS, SHADOW } from "../constants/styles";
+import { FONT_SIZES, SPACING, BORDER_RADIUS } from "../constants/styles";
 import { ReturnTypeUseThemeTokens } from "./ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
@@ -72,7 +72,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     borderRadius: BORDER_RADIUS,
     alignItems: "center",
     marginBottom: SPACING.medium,
-    ...SHADOW,
+    ...t.shadows.shadowSmall,
   },
   toggleButtonText: {
     color: t.colors.textPrimary,

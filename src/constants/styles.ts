@@ -59,10 +59,6 @@ export const getShadow = (level: number, shadowColor: string) => ({
   elevation: level * 2,
 });
 
-export const SHADOW = getShadow(2, COLORS.shadow);
-export const SHADOW_3 = getShadow(3, COLORS.shadow);
-export const SHADOW_4 = getShadow(4, COLORS.shadow);
-
 export const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
     flex: 1,
@@ -95,7 +91,7 @@ export const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     paddingHorizontal: SPACING.large,
     borderRadius: BORDER_RADIUS,
     alignItems: "center",
-    ...SHADOW,
+    ...t.shadows.shadowSmall,
   },
   authContainer: { width: "85%" },
   buttonText: {

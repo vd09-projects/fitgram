@@ -4,7 +4,6 @@ import {
   BORDER_RADIUS,
   BUTTON_SIZES,
   FONT_SIZES,
-  SHADOW,
   SPACING,
 } from "../../constants/styles";
 import { ReturnTypeUseThemeTokens } from "../ThemeContext";
@@ -33,7 +32,7 @@ export type CollapsibleTableStyles = {
 export const defaultCreateStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create<CollapsibleTableStyles>({
   outerScroll: {
     flexGrow: 0,
-    ...SHADOW,
+    ...t.shadows.shadowSmall,
   },
   container: {
     borderWidth: 1,

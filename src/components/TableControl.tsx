@@ -9,7 +9,7 @@ import {
   TouchableWithoutFeedback,
   ScrollView,
 } from "react-native";
-import { SPACING, BORDER_RADIUS, SHADOW, FONT_SIZES } from "../constants/styles";
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from "../constants/styles";
 import { Ionicons } from "@expo/vector-icons";
 import { TextBase } from "./TextBase";
 import CompactTextSwitch from "./CompactTextSwitch";
@@ -134,7 +134,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     backgroundColor: t.colors.dropdown,
     borderRadius: BORDER_RADIUS,
     flex: 1,
-    ...SHADOW
+    ...t.shadows.shadowSmall
   },
   buttonText: {
     color: t.colors.dropdownInputText,

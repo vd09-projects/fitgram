@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { BORDER_RADIUS, BUTTON_SIZES, FONT_SIZES, SHADOW, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, BUTTON_SIZES, FONT_SIZES, SPACING } from '../constants/styles';
 import { TextBase } from './TextBase';
 import { emptyOutlineStyle, PrimaryInputField } from './PrimaryInputField';
 import { TextInput } from 'react-native-paper';
@@ -136,7 +136,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     marginBottom: SPACING.xSmall,
     fontSize: FONT_SIZES.large,
     backgroundColor: t.colors.inputSecondaryBackground,
-    ...SHADOW,
+    ...t.shadows.shadowSmall,
   },
   errorInput: {
     borderColor: t.colors.cancelButton,

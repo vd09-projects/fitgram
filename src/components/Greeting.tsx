@@ -2,7 +2,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ImageBackground } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { FONT_SIZES, SHADOW, SPACING } from '../constants/styles';
+import { FONT_SIZES, SPACING } from '../constants/styles';
 import { TextBase } from './TextBase';
 import { ReturnTypeUseThemeTokens } from "./ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
@@ -58,6 +58,6 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     fontStyle: "italic",
     fontWeight: "bold",
     letterSpacing: 1.4,
-    ...SHADOW,
+    ...t.shadows.shadowSmall,
   },
 });

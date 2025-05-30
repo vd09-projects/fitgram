@@ -7,7 +7,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
-import { BORDER_RADIUS, BUTTON_SIZES, FONT_FAMILY, FONT_SIZES, SHADOW, SHADOW_3, SHADOW_4, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, BUTTON_SIZES, FONT_FAMILY, FONT_SIZES, SPACING } from '../constants/styles';
 import { TextBase } from './TextBase';
 import { emptyOutlineStyle, PrimaryInputField } from './PrimaryInputField';
 import { TextInput } from 'react-native-paper';
@@ -132,7 +132,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     padding: SPACING.large,
     backgroundColor: t.colors.primary,
     borderRadius: BORDER_RADIUS,
-    ...SHADOW_4,
+    ...t.shadows.shadowLarge,
   },
   header: {
     flexDirection: 'row',
@@ -164,7 +164,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     borderColor: t.colors.border,
     borderRadius: BORDER_RADIUS,
     paddingHorizontal: SPACING.medium,
-    ...SHADOW,
+    ...t.shadows.shadowSmall,
   },
   dropdownContainer: {
     backgroundColor: t.colors.dropdown,
@@ -216,7 +216,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     // fontSize: FONT_SIZES.medium,
     fontSize: FONT_SIZES.large,
     borderWidth: 0,
-    ...SHADOW,
+    ...t.shadows.shadowSmall,
   },
   loadingContainer: {
     height: 48,
@@ -224,7 +224,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     alignItems: 'center',
     backgroundColor: t.colors.dropdown,
     borderRadius: BORDER_RADIUS,
-    ...SHADOW,
+    ...t.shadows.shadowSmall,
   },
   loadingText: {
     color: t.colors.dropdownInputPlaceholder,

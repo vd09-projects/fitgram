@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { BORDER_RADIUS, FONT_SIZES, SHADOW, SPACING } from '../../constants/styles';
+import { BORDER_RADIUS, FONT_SIZES, SPACING } from '../../constants/styles';
 import ScrollableScreen from '../../components/ScrollableScreen';
 import SearchableInputDropdown, { DropdownSelection } from '../../components/SearchableInputDropdown';
 import EditableList from '../../components/EditableList';
@@ -188,7 +188,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     justifyContent: 'center',
     marginVertical: SPACING.xSmall,
     marginTop: SPACING.xLarge,
-    // ...SHADOW,
+    // ...t.shadows.shadowSmall,
   },
   saveButtonText: {
     fontSize: FONT_SIZES.large,

@@ -17,7 +17,7 @@ import { validateCredentials } from '../../utils/validation';
 import show from '../../utils/toastUtils';
 import { TextBase } from '../../components/TextBase';
 import TestingCollapsibleTable from '../../components/collapsible_table/CollapsibleTable_delete_rough';
-import { BORDER_RADIUS, FONT_SIZES, SHADOW, SPACING } from '../../constants/styles';
+import { BORDER_RADIUS, FONT_SIZES, SPACING } from '../../constants/styles';
 import { ReturnTypeUseThemeTokens } from '../../components/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
 
@@ -117,7 +117,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     paddingHorizontal: SPACING.large,
     borderRadius: BORDER_RADIUS,
     alignItems: "center",
-    ...SHADOW,
+    ...t.shadows.shadowSmall,
   },
   authContainer: { width: "85%" },
   buttonText: {

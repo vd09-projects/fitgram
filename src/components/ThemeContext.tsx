@@ -1,10 +1,25 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import { AllColorSchemas, ColorSchemaValueType } from '../constants/colors';
 import { useColorSchemaStore } from '../stores/colorSchemaStore';
-import { FONT_SIZES } from '../constants/styles';
+import { FONT_SIZES, getShadow } from '../constants/styles';
+
+type ShadowStyle = {
+  shadowColor: string;
+  shadowOffset: { width: number; height: number };
+  shadowOpacity: number;
+  shadowRadius: number;
+  elevation: number;
+};
+
+type ShadowsType = {
+  shadowSmall: ShadowStyle;
+  shadowMedium: ShadowStyle;
+  shadowLarge: ShadowStyle;
+};
 
 const ThemeContext = createContext<null | {
   colors: ColorSchemaValueType;
+  shadows: ShadowsType;
   // fonts: typeof FONT_SIZES;
 }>(null);
 
@@ -12,10 +27,18 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const current = useColorSchemaStore((s) => s.currentColorSchema);
 
   const value = useMemo(
-    () => ({
-      colors: AllColorSchemas[current],
-      fonts: FONT_SIZES,
-    }),
+    () => {
+      const cs = AllColorSchemas[current];
+      return {
+        colors: cs,
+        fonts: FONT_SIZES,
+        shadows: {
+          shadowSmall: getShadow(2, cs.shadowSmall),
+          shadowMedium: getShadow(3, cs.shadowSmall),
+          shadowLarge: getShadow(5, cs.shadowSmall),
+        },
+      }
+    },
     [current]
   );
 

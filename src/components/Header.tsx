@@ -1,7 +1,7 @@
 // src/components/Header.tsx
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { BUTTON_SIZES, FONT_SIZES, SHADOW, SHADOW_4, SPACING } from '../constants/styles';
+import { BUTTON_SIZES, FONT_SIZES, SPACING } from '../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
 import { LayoutRoutes } from '../constants/routes';
 import { TextBase } from './TextBase';
@@ -39,7 +39,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     paddingHorizontal: SPACING.large,
     paddingTop: SPACING.xxxLarge,
     paddingBottom: SPACING.xSmall,
-    ...SHADOW_4,
+    ...t.shadows.shadowLarge,
   },
   text: {
     color: t.colors.textSecondary,
@@ -55,7 +55,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     fontStyle: "italic",
     fontWeight: "bold",
     letterSpacing: 1.4,
-    ...SHADOW,
+    ...t.shadows.shadowSmall,
   },
   tabButton: {
     padding: SPACING.small,

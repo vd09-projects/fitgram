@@ -4,7 +4,7 @@ import { TextBase } from "./TextBase";
 import CollapsibleSection from "./CollapsibleSection";
 import TableControls from "./TableControl";
 import { CollapsibleTable } from "./collapsible_table/CollapsibleTable";
-import { SPACING, BORDER_RADIUS, SHADOW, FONT_SIZES, LARGE_BORDER_RADIUS } from "../constants/styles";
+import { SPACING, BORDER_RADIUS, FONT_SIZES, LARGE_BORDER_RADIUS } from "../constants/styles";
 import { LoggedExercise } from "../types/zustandWorkoutType";
 import { Column } from "./collapsible_table/CollapsibleTableParts";
 import { ReturnTypeUseThemeTokens } from "./ThemeContext";
@@ -82,7 +82,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     borderRadius: BORDER_RADIUS,
     marginBottom: SPACING.medium,
     padding: SPACING.large,
-    ...SHADOW,
+    ...t.shadows.shadowSmall,
   },
   toggleButtonText: {
     color: t.colors.collapsedTitleText,

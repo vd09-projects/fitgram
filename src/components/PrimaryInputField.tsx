@@ -1,7 +1,7 @@
 import React from 'react';
 import { TextInput } from 'react-native-paper';
 import { StyleProp, TextStyle, StyleSheet, ViewStyle, KeyboardType } from 'react-native';
-import { BORDER_RADIUS, COLORS, FONT_FAMILY, FONT_SIZES, SHADOW_4, SPACING } from '../constants/styles'; // adjust path if needed
+import { BORDER_RADIUS, COLORS, FONT_FAMILY, FONT_SIZES, SPACING } from '../constants/styles'; // adjust path if needed
 import { ReturnTypeUseThemeTokens, useThemeTokens } from "./ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 

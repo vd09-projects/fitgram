@@ -11,7 +11,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import useWorkoutPlans from "../../hooks/useWorkoutPlans";
 import { WorkoutPlan } from "../../types/workoutType";
-import { BORDER_RADIUS, FONT_SIZES, SHADOW, SHADOW_3, SPACING } from "../../constants/styles";
+import { BORDER_RADIUS, FONT_SIZES, SPACING } from "../../constants/styles";
 import ScrollableScreen from "../../components/ScrollableScreen";
 import SearchBox from "../../components/SearchBox";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
@@ -194,12 +194,12 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginHorizontal: 5,
-    ...SHADOW,
+    ...t.shadows.shadowSmall,
   },
   selectedWorkout: {
     borderColor: t.colors.border,
     borderWidth: SPACING.xSmall,
-    ...SHADOW_3,
+    ...t.shadows.shadowMedium,
   },
   workoutTitle: {
     fontSize: FONT_SIZES.large,
