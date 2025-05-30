@@ -8,7 +8,7 @@ import {
   TextStyle,
   ViewStyle,
 } from 'react-native';
-import { COLORS, FONT_SIZES, FONT_FAMILY, SPACING } from '../constants/styles';
+import { FONT_SIZES, FONT_FAMILY, SPACING } from '../constants/styles';
 import { ReturnTypeUseThemeTokens } from "./ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
@@ -31,7 +31,7 @@ const LoadingData: React.FC<LoadingDataProps> = ({
   dotStyle,
   totalDots = MAX_DOTS,
 }) => {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
   const scales = useRef<Animated.Value[]>([]).current;
 
   if (scales.length === 0) {

@@ -9,7 +9,7 @@ import {
   TouchableWithoutFeedback,
   ScrollView,
 } from "react-native";
-import { COLORS, SPACING, BORDER_RADIUS, SHADOW, FONT_SIZES } from "../constants/styles";
+import { SPACING, BORDER_RADIUS, SHADOW, FONT_SIZES } from "../constants/styles";
 import { Ionicons } from "@expo/vector-icons";
 import { TextBase } from "./TextBase";
 import CompactTextSwitch from "./CompactTextSwitch";
@@ -91,7 +91,7 @@ const TableControls: React.FC<TableControlsProps> = ({
             <TextBase style={[styles.buttonText, { color: t.colors.dropdownInputPlaceholder }]} numberOfLines={1}>*No field selected</TextBase>
             :
             <TextBase style={styles.buttonText} numberOfLines={1}>{truncatedFieldText}</TextBase>}
-          <Ionicons name="chevron-down" size={20} color={COLORS.textPrimary} style={styles.dropdownArrow} />
+          <Ionicons name="chevron-down" size={20} color={t.colors.textPrimary} style={styles.dropdownArrow} />
         </View>
       </TouchableOpacity>
 

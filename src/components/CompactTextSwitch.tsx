@@ -9,7 +9,7 @@ import {
   ViewStyle,
   TextStyle,
 } from "react-native";
-import { COLORS, FONT_FAMILY, FONT_SIZES, SPACING } from "../constants/styles";
+import { FONT_FAMILY, FONT_SIZES, SPACING } from "../constants/styles";
 import { ReturnTypeUseThemeTokens } from "./ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
@@ -54,8 +54,8 @@ const SideTextSwitch: React.FC<SideTextSwitchProps> = ({
   }, [value]);
 
   // Background and text color logic
-  const backgroundColor = value ? COLORS.secondary : t.colors.tertiary;
-  const textColor = backgroundColor === COLORS.secondary ? COLORS.textSecondary : t.colors.textPrimary;
+  const backgroundColor = value ? t.colors.secondary : t.colors.tertiary;
+  const textColor = backgroundColor === t.colors.secondary ? t.colors.textSecondary : t.colors.textPrimary;
 
 
   return (

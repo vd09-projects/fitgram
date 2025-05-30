@@ -9,7 +9,7 @@ interface AnimatedScreenProps {
 }
 
 const AnimatedScreen: React.FC<AnimatedScreenProps> = ({ children, animationType = 'fade' }) => {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
   const animatedValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {

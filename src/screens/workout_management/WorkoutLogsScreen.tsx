@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from "react-native";
 import ScrollableScreen from "../../components/ScrollableScreen";
 import SearchableInputDropdown, { DropdownSelection } from "../../components/SearchableInputDropdown";
-import { BORDER_RADIUS, BUTTON_SIZES, COLORS, FONT_SIZES, SPACING } from "../../constants/styles";
+import { BORDER_RADIUS, BUTTON_SIZES, FONT_SIZES, SPACING } from "../../constants/styles";
 import { WorkoutLog } from "../../types/workoutLogs";
 import ExerciseLogTableFlatList from "../../components/ExerciseLogTableFlatList";
 import ExerciseSetLogTable from "../../components/ExerciseSetLogTable";
@@ -62,7 +62,7 @@ export default function WorkoutLogsScreen() {
       title={<View style={styles.titleContainer}>
         <TextBase style={styles.title}>Workout Logs</TextBase>
         {workoutLogs && workoutLogs.length > 0 && <TouchableOpacity style={styles.filterIcon} onPress={toggleFilterTab}>
-          <Ionicons name="filter" size={BUTTON_SIZES.medium} color={isFilterTabEnabled ? COLORS.textSecondary : t.colors.textPrimary} />
+          <Ionicons name="filter" size={BUTTON_SIZES.medium} color={isFilterTabEnabled ? t.colors.textSecondary : t.colors.textPrimary} />
         </TouchableOpacity>}
       </View>}
     >

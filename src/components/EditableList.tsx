@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { BORDER_RADIUS, BUTTON_SIZES, COLORS, FONT_SIZES, SHADOW, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, BUTTON_SIZES, FONT_SIZES, SHADOW, SPACING } from '../constants/styles';
 import { TextBase } from './TextBase';
 import { emptyOutlineStyle, PrimaryInputField } from './PrimaryInputField';
 import { TextInput } from 'react-native-paper';
@@ -58,7 +58,7 @@ const EditableList: React.FC<EditableListProps> = ({
             label=''
             value={field}
             container={[styles.primaryItemContainer, isDuplicate && styles.duplicateItem]}
-            placeholderTextColor={COLORS.inputSecondaryPlaceholder}
+            placeholderTextColor={t.colors.inputSecondaryPlaceholder}
             inputBox={{ color: t.colors.inputSecondaryText }}
 
             onChangeText={(text) => {
@@ -68,7 +68,7 @@ const EditableList: React.FC<EditableListProps> = ({
             }}
             right={<TextInput.Icon
               icon="close"
-              color={COLORS.inputPrimaryText}
+              color={t.colors.inputPrimaryText}
               onPress={() => handleRemoveItem(index)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               size={20}
@@ -88,13 +88,13 @@ const EditableList: React.FC<EditableListProps> = ({
           }}
 
           container={[styles.primaryInputContainer, errorMessage ? styles.errorInput : {}]}
-          placeholderTextColor={COLORS.inputSecondaryPlaceholder}
+          placeholderTextColor={t.colors.inputSecondaryPlaceholder}
           inputBox={{ color: t.colors.inputSecondaryText }}
           // outline={emptyOutlineStyle}
 
           right={<TextInput.Icon
             icon="playlist-plus"
-            color={errorMessage ? COLORS.cancelButton : t.colors.button}
+            color={errorMessage ? t.colors.cancelButton : t.colors.button}
             onPress={handleAddItem}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             size={BUTTON_SIZES.xLarge}

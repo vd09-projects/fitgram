@@ -10,7 +10,7 @@ import {
   ViewStyle,
   Platform,
 } from 'react-native';
-import { BORDER_RADIUS, COLORS, FONT_SIZES, LARGE_BORDER_RADIUS, SHADOW, SHADOW_3, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, FONT_SIZES, LARGE_BORDER_RADIUS, SHADOW, SHADOW_3, SPACING } from '../constants/styles';
 import { TextBase } from './TextBase';
 import { ReturnTypeUseThemeTokens } from "./ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
@@ -43,7 +43,7 @@ const AlertBase: React.FC<AlertBaseProps> = ({
   titleStyle,
   messageStyle,
 }) => {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
   return (
     <Modal
       visible={visible}

@@ -3,20 +3,20 @@ import { TouchableOpacity, StyleSheet } from 'react-native';
 import { TextBase } from './TextBase';
 import CollapsibleSection from './CollapsibleSection';
 import { AllColorSchemas } from '../constants/colors';
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, FONT_SIZES, SPACING } from '../constants/styles';
 import { useColorSchemaStore } from '../stores/colorSchemaStore';
 import { ReturnTypeUseThemeTokens } from "./ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
 export const ColorSchemaSelector: React.FC = () => {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
   const currentColorSchema = useColorSchemaStore((s) => s.currentColorSchema);
   const setCurrentColorSchema = useColorSchemaStore((s) => s.setCurrentColorSchema);
 
   return (
     <CollapsibleSection
       collapsibleStyle={styles.colorSchemas}
-      collapsibleIconColor={COLORS.textSecondary}
+      collapsibleIconColor={t.colors.textSecondary}
       title={<TextBase style={styles.colorSchemaTitle}>Choose Color Scheme</TextBase>}
       defaultCollapsed={true}
       dividerLineStyle={{ marginBottom: 0 }}

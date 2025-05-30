@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SHADOW, SPACING } from '../../constants/styles';
+import { BORDER_RADIUS, FONT_SIZES, SHADOW, SPACING } from '../../constants/styles';
 import ScrollableScreen from '../../components/ScrollableScreen';
 import SearchableInputDropdown, { DropdownSelection } from '../../components/SearchableInputDropdown';
 import EditableList from '../../components/EditableList';
@@ -23,7 +23,7 @@ import { ReturnTypeUseThemeTokens } from '../../components/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
 
 export default function AddExerciseScreen() {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
   const { user } = useAuthUser();
 
   const [selectedExercise, setSelectedExercise] = useState<DropdownSelection<Exercise> | undefined>(undefined);
@@ -164,7 +164,7 @@ export default function AddExerciseScreen() {
 
       {/* 🔹 Submit Button */}
       {workoutDetailsUpdated && (<TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
-        <Ionicons name="checkmark-circle-outline" size={24} color={COLORS.buttonText} />
+        <Ionicons name="checkmark-circle-outline" size={24} color={t.colors.buttonText} />
         <TextBase style={styles.saveButtonText}>Save Exercise</TextBase>
       </TouchableOpacity>)}
     </ScrollableScreen>

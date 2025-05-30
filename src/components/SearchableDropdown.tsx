@@ -24,7 +24,7 @@ export default function SearchableDropdown({
     onChange,
     dropdownStyle,
 }: SearchableDropdownProps) {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
     return (
         <View style={[styles.container, dropdownStyle]}>
             <Dropdown

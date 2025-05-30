@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useAuthUser } from '../hooks/useAuthUser';
 import { Ionicons } from '@expo/vector-icons';
-import { BORDER_RADIUS, COLORS, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, SPACING } from '../constants/styles';
 import { WorkoutScreenNavigationProp } from '../navigation/WorkoutNavigator';
 import { WorkoutRoutes } from '../constants/routes';
 import { useNavigation } from '@react-navigation/native';
@@ -50,7 +50,7 @@ const workoutOptions = [
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.WorkoutHome>;
 
 export default function WorkoutScreen() {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
 
   const { user } = useAuthUser();
   const navigation = useNavigation<workoutScreenNavigationProp>();
@@ -74,7 +74,7 @@ export default function WorkoutScreen() {
               <Ionicons
                 name={option.icon as keyof typeof Ionicons.glyphMap}
                 size={SPACING.xxxLarge}
-                color={COLORS.cardHeader}
+                color={t.colors.cardHeader}
                 style={styles.icon}
               />
               <View style={styles.buttonTextContainer}>

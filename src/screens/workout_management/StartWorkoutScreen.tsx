@@ -11,7 +11,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import useWorkoutPlans from "../../hooks/useWorkoutPlans";
 import { WorkoutPlan } from "../../types/workoutType";
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SHADOW, SHADOW_3, SPACING } from "../../constants/styles";
+import { BORDER_RADIUS, FONT_SIZES, SHADOW, SHADOW_3, SPACING } from "../../constants/styles";
 import ScrollableScreen from "../../components/ScrollableScreen";
 import SearchBox from "../../components/SearchBox";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
@@ -76,9 +76,9 @@ export default function StartWorkoutScreen() {
     <ScrollableScreen
       title={
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <MaterialCommunityIcons name="arm-flex-outline" size={24} color={COLORS.textPrimary} style={{ marginRight: 5 }} />
+          <MaterialCommunityIcons name="arm-flex-outline" size={24} color={t.colors.textPrimary} style={{ marginRight: 5 }} />
           <TextBase style={{ fontSize: 22, fontWeight: 'bold', color: t.colors.textPrimary }}>Start Workout</TextBase>
-          <MaterialCommunityIcons name="arm-flex-outline" size={24} color={COLORS.textPrimary} style={{ marginLeft: 5, transform: [{ scaleX: -1 }] }} />
+          <MaterialCommunityIcons name="arm-flex-outline" size={24} color={t.colors.textPrimary} style={{ marginLeft: 5, transform: [{ scaleX: -1 }] }} />
         </View>
       }
     >
@@ -161,7 +161,7 @@ export default function StartWorkoutScreen() {
           <TextBase style={styles.exerciseHeader}>Exercises in {selectedWorkout.name}</TextBase>
           {selectedWorkout.exercises.map((exercise) => (
             <View key={exercise.id} style={styles.exerciseCard}>
-              <Ionicons name="barbell-outline" size={20} color={COLORS.primary} />
+              <Ionicons name="barbell-outline" size={20} color={t.colors.primary} />
               <TextBase style={styles.exerciseText}>{exercise.name}</TextBase>
             </View>
           ))}

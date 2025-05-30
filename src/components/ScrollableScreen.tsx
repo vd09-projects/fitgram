@@ -12,7 +12,7 @@ interface ScrollableScreenProps {
 }
 
 const ScrollableScreen: React.FC<ScrollableScreenProps> = ({ children, style, title }) => {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
   return (
     <SafeAreaView style={[styles.safeArea, style]}>
       {/* Fixed Title Section (Accepts JSX) */}

@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, FONT_SIZES, SPACING } from '../constants/styles';
 import EditableList from './EditableList';
 import { Exercise } from '../types/workoutType';
 import { TextBase } from './TextBase';
@@ -24,17 +24,17 @@ const CollapsibleExerciseItem = memo(
     index: number;
     onUpdate: (index: number, updatedExercise?: Exercise) => void;
   }) => {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
 
     return (
     <CollapsibleSection
       defaultCollapsed={true}
       collapsibleStyle={styles.exerciseContainer}
-      collapsibleIconColor={COLORS.textPrimary}
+      collapsibleIconColor={t.colors.textPrimary}
       title={<TextBase style={styles.exerciseText}>{exercise.name}</TextBase>}
       rightElement={
         <TouchableOpacity onPress={() => onUpdate(index, undefined)} style={{ paddingRight: SPACING.xSmall }}>
-          <Ionicons name="trash-outline" size={20} color={COLORS.cancelButton} />
+          <Ionicons name="trash-outline" size={20} color={t.colors.cancelButton} />
         </TouchableOpacity>
       }
     >
@@ -51,7 +51,7 @@ const CollapsibleExerciseItem = memo(
 );
 
 const CollapsibleExerciseList: React.FC<CollapsibleExerciseListProps> = memo(({ exercises, onUpdate }) => {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
   return (
     <View style={styles.section}>
       <TextBase style={styles.subHeading}>Existing Exercises</TextBase>

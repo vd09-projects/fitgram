@@ -1,10 +1,12 @@
 import { BaseToast, BaseToastProps, ErrorToast } from "react-native-toast-message";
-import { COLORS, FONT_FAMILY, FONT_SIZES } from "./styles";
+import { FONT_FAMILY, FONT_SIZES } from "./styles";
 import { TostSucessColor, TostWarnColor } from "./colors";
+import { useThemeTokens } from "../components/ThemeContext";
 
 export const toastConfig = {
-  success: (props: BaseToastProps) => (
-    <BaseToast
+  success: (props: BaseToastProps) => {
+    const t = useThemeTokens();
+    return <BaseToast
       {...props}
       style={{
         backgroundColor: t.colors.cardBackground,
@@ -23,8 +25,9 @@ export const toastConfig = {
         color: t.colors.textSecondary,
       }}
     />
-  ),
-  error: (props: BaseToastProps) => (
+  },
+  error: (props: BaseToastProps) => {
+    const t = useThemeTokens();
     <ErrorToast
       {...props}
       style={{
@@ -48,8 +51,10 @@ export const toastConfig = {
       }}
       text2NumberOfLines={0}
     />
-  ),
-  warning: (props: BaseToastProps) => (
+  },
+  warning: (props: BaseToastProps) => {
+    const t = useThemeTokens();
+
     <BaseToast
       {...props}
       style={{
@@ -73,8 +78,9 @@ export const toastConfig = {
       }}
       text2NumberOfLines={0}
     />
-  ),
-  info: (props: BaseToastProps) => (
+  },
+  info: (props: BaseToastProps) => {
+    const t = useThemeTokens();
     <BaseToast
       {...props}
       style={{
@@ -98,5 +104,5 @@ export const toastConfig = {
       }}
       text2NumberOfLines={0}
     />
-  ),
+  },
 };

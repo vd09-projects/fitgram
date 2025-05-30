@@ -17,14 +17,14 @@ import { validateCredentials } from '../../utils/validation';
 import show from '../../utils/toastUtils';
 import { TextBase } from '../../components/TextBase';
 import TestingCollapsibleTable from '../../components/collapsible_table/CollapsibleTable_delete_rough';
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SHADOW, SPACING } from '../../constants/styles';
+import { BORDER_RADIUS, FONT_SIZES, SHADOW, SPACING } from '../../constants/styles';
 import { ReturnTypeUseThemeTokens } from '../../components/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
 
 type SignInScreenNavigationProp = ScreenNavigationProp<typeof AuthRoutes.SignIn>;
 
 export default function SignInScreen() {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
   const navigation = useNavigation<SignInScreenNavigationProp>();
 
   const [email, setEmail] = useState('');

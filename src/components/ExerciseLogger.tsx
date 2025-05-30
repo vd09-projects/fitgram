@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { useWorkoutStore } from "../stores/useWorkoutStore";
 import { Ionicons } from "@expo/vector-icons";
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SHADOW, SPACING } from "../constants/styles";
+import { BORDER_RADIUS, FONT_SIZES, SHADOW, SPACING } from "../constants/styles";
 import { LoggedExercise } from "../types/zustandWorkoutType";
 import { TextBase } from "./TextBase";
 import { getClearIcon, PrimaryInputField } from "./PrimaryInputField";
@@ -11,7 +11,7 @@ import { ReturnTypeUseThemeTokens } from "./ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
 export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise }) {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
   const { addSetToExercise } = useWorkoutStore();
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
 
@@ -39,7 +39,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
             label={inputValues[field] ? field : ""}
 
             placeholder={field}
-            // placeholderTextColor={COLORS.inputPrimaryBackground}
+            // placeholderTextColor={t.colors.inputPrimaryBackground}
             value={inputValues[field] || ""}
 
             onChangeText={(text) => onChangeValueForField(field, text)}
@@ -50,9 +50,9 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
       </View>
 
       <TouchableOpacity style={styles.logButton} onPress={logSet} accessibilityLabel="Log Set">
-        <Ionicons name="barbell-outline" size={24} color={COLORS.textSecondary} style={{ marginRight: SPACING.small }} />
+        <Ionicons name="barbell-outline" size={24} color={t.colors.textSecondary} style={{ marginRight: SPACING.small }} />
         <TextBase style={styles.logButtonText}>Save Set</TextBase>
-        <Ionicons name="checkmark-done" size={20} color={COLORS.textSecondary} style={{ marginLeft: SPACING.small }} />
+        <Ionicons name="checkmark-done" size={20} color={t.colors.textSecondary} style={{ marginLeft: SPACING.small }} />
       </TouchableOpacity>
     </View>
   );

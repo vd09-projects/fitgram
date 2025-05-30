@@ -4,7 +4,7 @@ import {
   Platform,
   UIManager,
 } from "react-native";
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "../constants/styles";
+import { BORDER_RADIUS, FONT_SIZES, SPACING } from "../constants/styles";
 import { WorkoutLog, SetsString, SetLog } from "../types/workoutLogs";
 import { Column } from "./collapsible_table/CollapsibleTableParts";
 import CollapsibleSection from "./CollapsibleSection";
@@ -25,7 +25,7 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 const extractFieldKeys = (logs: WorkoutLog[] | null, defaultKeys?: string[]): string[] => {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
   var keys = Array.from(new Set(
     logs?.flatMap((log) =>
       log.exercises
@@ -41,7 +41,7 @@ export default function ExerciseSetLogTable({
   displayLog,
   visibleHeaders = [],
 }: Props) {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
   const workoutLog = displayLog?.displayData || null;
   if (!workoutLog || workoutLog.length === 0) return null;
 

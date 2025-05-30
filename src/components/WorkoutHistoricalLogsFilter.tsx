@@ -7,7 +7,7 @@ import { Exercise, WorkoutPlan } from "../types/workoutType";
 import show from "../utils/toastUtils";
 import { getWorkoutLogs } from "../services/db/userDB";
 import { TextBase } from "./TextBase";
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "../constants/styles";
+import { BORDER_RADIUS, FONT_SIZES, SPACING } from "../constants/styles";
 import { WorkoutLog } from "../types/workoutLogs";
 import { ReturnTypeUseThemeTokens } from "./ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
@@ -30,7 +30,7 @@ export default function WorkoutHistoricalLogsFilter({
   setDisplayLog,
   isVisible = true,
 }: WorkoutHistoricalLogsFilterProps) {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
   const { user } = useAuthUser();
   const { workoutPlans, loadingWorkoutPlans } = useWorkoutPlans(true);
 

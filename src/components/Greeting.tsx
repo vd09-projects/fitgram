@@ -2,7 +2,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ImageBackground } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, FONT_SIZES, SHADOW, SPACING } from '../constants/styles';
+import { FONT_SIZES, SHADOW, SPACING } from '../constants/styles';
 import { TextBase } from './TextBase';
 import { ReturnTypeUseThemeTokens } from "./ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
@@ -13,13 +13,13 @@ interface GreetingProps {
 }
 
 export function Greeting({ name, message }: GreetingProps) {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
   return (
     <ImageBackground
       source={{ uri: 'https://source.unsplash.com/featured/?gym,fitness' }}
     >
       <View style={styles.content}>
-        <Ionicons name="barbell-outline" size={64} color={COLORS.textPrimary} />
+        <Ionicons name="barbell-outline" size={64} color={t.colors.textPrimary} />
         <TextBase style={styles.greeting}>Hi, {name || 'Guest'}</TextBase>
         <TextBase style={styles.welcome}>{message}</TextBase>
         <TextBase style={[styles.companyName, styles.appName]}>Fitgram</TextBase>

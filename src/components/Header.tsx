@@ -1,7 +1,7 @@
 // src/components/Header.tsx
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { BUTTON_SIZES, COLORS, FONT_SIZES, SHADOW, SHADOW_4, SPACING } from '../constants/styles';
+import { BUTTON_SIZES, FONT_SIZES, SHADOW, SHADOW_4, SPACING } from '../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
 import { LayoutRoutes } from '../constants/routes';
 import { TextBase } from './TextBase';
@@ -13,7 +13,7 @@ interface HeaderProps {
 }
 
 export default function Header({ onPressTab }: HeaderProps) {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
 
   return (
     <View style={styles.container}>

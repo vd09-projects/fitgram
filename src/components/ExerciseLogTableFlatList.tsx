@@ -5,7 +5,7 @@ import {
   UIManager,
 } from "react-native";
 import { ExerciseLog, SetLog } from "../types/workoutLogs";
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "../constants/styles";
+import { BORDER_RADIUS, FONT_SIZES, SPACING } from "../constants/styles";
 import CollapsibleSection from "./CollapsibleSection";
 import { TextBase } from "./TextBase";
 import { Column } from "./collapsible_table/CollapsibleTableParts";
@@ -29,7 +29,7 @@ export default function ExerciseLogTableFlatList({
   visibleHeaders = [],
   enableVerticalScroll = false,
 }: Props) {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
   if (!log || !log.sets || log.sets.length === 0) return null;
 
   const allFieldKeys = Array.from(

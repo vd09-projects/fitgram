@@ -7,7 +7,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
-import { BORDER_RADIUS, BUTTON_SIZES, COLORS, FONT_FAMILY, FONT_SIZES, SHADOW, SHADOW_3, SHADOW_4, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, BUTTON_SIZES, FONT_FAMILY, FONT_SIZES, SHADOW, SHADOW_3, SHADOW_4, SPACING } from '../constants/styles';
 import { TextBase } from './TextBase';
 import { emptyOutlineStyle, PrimaryInputField } from './PrimaryInputField';
 import { TextInput } from 'react-native-paper';
@@ -71,7 +71,7 @@ export default function SearchableInputDropdown<T>({
               value={isNewMode}
               onValueChange={setIsNewMode}
               trackColor={{ false: t.colors.switchFalse, true: t.colors.switchTrue }}
-              thumbColor={COLORS.textSecondary}
+              thumbColor={t.colors.textSecondary}
               style={{ transform: [{ scaleX: 1.1 }] }}
             />
             <TextBase style={[styles.switchLabel, { opacity: isNewMode ? 1 : 0.5 }]}>New</TextBase>
@@ -93,11 +93,11 @@ export default function SearchableInputDropdown<T>({
             container={styles.primaryInputContainer}
             outline={emptyOutlineStyle}
             inputBox={{ color: t.colors.dropdownInputText }}
-            placeholderTextColor={COLORS.dropdownInputPlaceholder}
+            placeholderTextColor={t.colors.dropdownInputPlaceholder}
             right={<TextInput.Icon
               icon="text-box-check"
               onPress={handleAddCustomField}
-              color={COLORS.button}
+              color={t.colors.button}
               size={BUTTON_SIZES.large}
             />}
           />

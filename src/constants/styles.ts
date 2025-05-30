@@ -51,17 +51,17 @@ export const SPACING = {
 export const BORDER_RADIUS = 8;
 export const LARGE_BORDER_RADIUS = 16;
 
-export const getShadow = (level: number) => ({
-  shadowColor: COLORS.shadow,
+export const getShadow = (level: number, shadowColor: string) => ({
+  shadowColor: shadowColor,
   shadowOffset: { width: 0, height: level },
   shadowOpacity: level * 0.1,
   shadowRadius: level * 2,
   elevation: level * 2,
 });
 
-export const SHADOW = getShadow(2);
-export const SHADOW_3 = getShadow(3);
-export const SHADOW_4 = getShadow(4);
+export const SHADOW = getShadow(2, COLORS.shadow);
+export const SHADOW_3 = getShadow(3, COLORS.shadow);
+export const SHADOW_4 = getShadow(4, COLORS.shadow);
 
 export const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {

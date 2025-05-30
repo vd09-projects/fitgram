@@ -10,7 +10,7 @@ import { ReturnTypeUseThemeTokens } from '../components/ThemeContext';
 import { useThemeStyles } from '../utils/useThemeStyles';
 
 export default function HomeScreen() {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
   const { userInfo } = useAuthUser();
 
   return (

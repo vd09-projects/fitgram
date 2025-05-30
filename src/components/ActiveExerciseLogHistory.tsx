@@ -4,7 +4,7 @@ import { TextBase } from "./TextBase";
 import CollapsibleSection from "./CollapsibleSection";
 import TableControls from "./TableControl";
 import { CollapsibleTable } from "./collapsible_table/CollapsibleTable";
-import { COLORS, SPACING, BORDER_RADIUS, SHADOW, FONT_SIZES, LARGE_BORDER_RADIUS } from "../constants/styles";
+import { SPACING, BORDER_RADIUS, SHADOW, FONT_SIZES, LARGE_BORDER_RADIUS } from "../constants/styles";
 import { LoggedExercise } from "../types/zustandWorkoutType";
 import { Column } from "./collapsible_table/CollapsibleTableParts";
 import { ReturnTypeUseThemeTokens } from "./ThemeContext";
@@ -17,7 +17,7 @@ interface ActiveExerciseLogHistoryProps {
 export default function ActiveExerciseLogHistory({
   exercise,
 }: ActiveExerciseLogHistoryProps) {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
   const [visibleHeaders, setVisibleHeaders] = useState<string[]>(exercise.fields);
 
   const toggleHeader = (header: string) => {
@@ -51,7 +51,7 @@ export default function ActiveExerciseLogHistory({
   return (
     <CollapsibleSection
       collapsibleStyle={styles.exerciseContainer}
-      collapsibleIconColor={COLORS.textPrimary}
+      collapsibleIconColor={t.colors.textPrimary}
       title={<TextBase style={styles.toggleButtonText}>Log History</TextBase>}
     >
       <View style={{ flex: 1, padding: SPACING.small }}>

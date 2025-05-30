@@ -2,7 +2,7 @@ import React from 'react';
 import { TextInput } from 'react-native-paper';
 import { StyleProp, TextStyle, StyleSheet, ViewStyle, KeyboardType } from 'react-native';
 import { BORDER_RADIUS, COLORS, FONT_FAMILY, FONT_SIZES, SHADOW_4, SPACING } from '../constants/styles'; // adjust path if needed
-import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { ReturnTypeUseThemeTokens, useThemeTokens } from "./ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
 interface PrimaryInputFieldProps {
@@ -34,13 +34,15 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
   outline,
   inputBox,
   placeholder = '',
-  placeholderTextColor = COLORS.inputPrimaryPlaceholder,
-  labelColor = COLORS.textPrimary,
+  placeholderTextColor,
+  labelColor,
   disabled = false,
   left,
   right,
 }) => {
   const { styles, t } = useThemeStyles(createStyles);
+  labelColor = labelColor || t.colors.textPrimary;
+  placeholderTextColor = placeholderTextColor || t.colors.inputPrimaryPlaceholder;
   const [secureEntry, setSecureEntry] = React.useState(secureTextEntry);
 
   return (
@@ -60,7 +62,7 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
             <TextInput.Icon
               icon="eye"
               onPress={() => setSecureEntry(prev => !prev)}
-              color={COLORS.inputBorder}
+              color={t.colors.inputBorder}
             />
           ) : undefined
       }

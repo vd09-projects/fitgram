@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, ScrollView, StyleSheet } from "react-native";
-import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS, SHADOW } from "../constants/styles";
+import { FONT_SIZES, SPACING, BORDER_RADIUS, SHADOW } from "../constants/styles";
 import { ReturnTypeUseThemeTokens } from "./ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
@@ -12,7 +12,7 @@ interface TableProps {
 const COLUMN_WIDTH = 90;
 
 const InvertedTable: React.FC<TableProps> = ({ headers, data }) => {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
   const [isInverted, setIsInverted] = useState(false);
 
   // Transform data for inverted table format

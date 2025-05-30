@@ -21,7 +21,7 @@ import { useThemeStyles } from '../../utils/useThemeStyles';
 type SignUpScreenNavigationProp = ScreenNavigationProp<typeof AuthRoutes.SignUp>;
 
 export default function SignUpScreen() {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
   const navigation = useNavigation<SignUpScreenNavigationProp>();
 
   const [name, setName] = useState('');

@@ -4,7 +4,7 @@ import { useWorkoutStore } from "../../stores/useWorkoutStore";
 import ExerciseLogger from "../../components/ExerciseLogger";
 import SearchableInputDropdown, { DropdownSelection, DropdownItem } from "../../components/SearchableInputDropdown";
 import ScrollableScreen from "../../components/ScrollableScreen";
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SHADOW_4, SPACING } from "../../constants/styles";
+import { BORDER_RADIUS, FONT_SIZES, SHADOW_4, SPACING } from "../../constants/styles";
 import { LoggedExercise } from "../../types/zustandWorkoutType";
 import { useAuthUser } from "../../hooks/useAuthUser";
 import show from "../../utils/toastUtils";

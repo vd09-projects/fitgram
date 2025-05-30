@@ -5,7 +5,7 @@ import { useAuthUser } from '../hooks/useAuthUser';
 import { signOut } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import show from '../utils/toastUtils';
-import { BORDER_RADIUS, COLORS, FONT_FAMILY, FONT_SIZES, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, FONT_FAMILY, FONT_SIZES, SPACING } from '../constants/styles';
 import ScrollableScreen from '../components/ScrollableScreen';
 import { TextBase } from '../components/TextBase';
 import { CollapsibleContent } from '../components/collapsible_table/CollapsibleTableParts';
@@ -16,7 +16,7 @@ import { ReturnTypeUseThemeTokens } from '../components/ThemeContext';
 import { useThemeStyles } from '../utils/useThemeStyles';
 
 export default function ProfileScreen() {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
   const { user, userInfo } = useAuthUser();
 
   const handleLogout = async () => {
@@ -34,10 +34,10 @@ export default function ProfileScreen() {
     >
       <CollapsibleSection
         collapsibleStyle={styles.collapsibleStyle}
-        collapsibleIconColor={COLORS.textPrimary}
+        collapsibleIconColor={t.colors.textPrimary}
         title={<TextBase style={styles.sectionTitle}>👤 Profile</TextBase>}
         defaultCollapsed={false}
-        dividerLineColor={COLORS.transparent}
+        dividerLineColor={t.colors.transparent}
         nonCollapsible={true}
         contentStyle={{ paddingLeft: SPACING.small }}
       >
@@ -48,10 +48,10 @@ export default function ProfileScreen() {
 
       <CollapsibleSection
         collapsibleStyle={styles.collapsibleStyle}
-        collapsibleIconColor={COLORS.textPrimary}
+        collapsibleIconColor={t.colors.textPrimary}
         title={<TextBase style={styles.sectionTitle}>🎨 Appearance</TextBase>}
         defaultCollapsed={true}
-        dividerLineColor={COLORS.transparent}
+        dividerLineColor={t.colors.transparent}
         titleContainerStyle={{ marginBottom: SPACING.medium }}
         dividerLineStyle={{ marginTop: 0, marginBottom: 0 }}
       >

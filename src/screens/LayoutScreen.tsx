@@ -6,7 +6,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import LayoutNavigator, { LayoutScreenNavigationProp } from '../navigation/LayoutNavigator';
 import { LayoutRoutes } from '../constants/routes';
-import { COLORS, SPACING } from '../constants/styles';
+import { SPACING } from '../constants/styles';
 import AnimatedScreen from '../components/AnimatedText';
 import { ReturnTypeUseThemeTokens } from '../components/ThemeContext';
 import { useThemeStyles } from '../utils/useThemeStyles';
@@ -17,7 +17,7 @@ type SignInScreenNavigationProp = LayoutScreenNavigationProp<typeof LayoutRoutes
 
 
 export default function LayoutScreen() {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
   const [activeTab, setActiveTab] = useState<keyof typeof LayoutRoutes>('Home');
   const navigation = useNavigation<SignInScreenNavigationProp>();
 
