@@ -73,8 +73,8 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     borderRadius: BORDER_RADIUS,
     marginTop: SPACING.small
   },
-  sectionTitle: { fontSize: FONT_SIZES.xLarge, color: t.colors.textPrimary, fontWeight: 'bold', marginTop: SPACING.small },
-  userInfo: { color: t.colors.textSecondary, fontSize: FONT_SIZES.large, fontWeight: 'bold', marginBottom: SPACING.small },
+  sectionTitle: { fontSize: FONT_SIZES.xLarge, color: t.colors.collapsedTitleText, fontWeight: 'bold', marginTop: SPACING.small },
+  userInfo: { color: t.colors.textPrimary, fontSize: FONT_SIZES.large, marginBottom: SPACING.small },
   logoutButton: { backgroundColor: t.colors.button, padding: SPACING.large, borderRadius: BORDER_RADIUS, marginTop: SPACING.large },
-  logoutButtonText: { color: t.colors.textSecondary, fontWeight: 'bold', fontSize: FONT_SIZES.large, textAlign: 'center' },
+  logoutButtonText: { color: t.colors.textPrimary, fontWeight: 'bold', fontSize: FONT_SIZES.large, textAlign: 'center' },
 });

@@ -45,6 +45,7 @@ export const ColorSchemaSelector: React.FC = () => {
 
 const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   colorSchemas: {
+    marginTop: SPACING.xSmall,
     backgroundColor: t.colors.collapsed,
     borderRadius: BORDER_RADIUS,
     borderBottomWidth: 1,
@@ -53,7 +54,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   },
   colorSchemaTitle: {
     fontSize: FONT_SIZES.medium,
-    color: t.colors.textSecondary,
+    color: t.colors.collapsedTitleText,
   },
   button: {
     backgroundColor: t.colors.button,
