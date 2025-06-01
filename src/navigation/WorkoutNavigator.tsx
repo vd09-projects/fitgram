@@ -1,7 +1,6 @@
 import React from 'react';
 import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack';
 import WorkoutScreen from '../screens/WorkoutScreen';
-import { COLORS } from '../constants/styles';
 import { WorkoutRoutes } from '../constants/routes';
 import StartWorkoutScreen from '../screens/workout_management/StartWorkoutScreen';
 import ActiveWorkoutScreen from '../screens/workout_management/ActiveWorkoutScreen';

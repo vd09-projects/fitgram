@@ -2,6 +2,7 @@ import { useState } from "react";
 
 export const TostWarnColor = "#D8863B";
 export const TostSucessColor = "#62977D";
+export const TransparentColor = "transparent";
 
 // Common Values
 export const LDeathNoteColors = {

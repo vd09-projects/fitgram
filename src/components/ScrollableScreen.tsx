@@ -1,7 +1,6 @@
 import React, { ReactNode } from 'react';
 import { ScrollView, View, StyleSheet, KeyboardAvoidingView, Platform, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS } from '../constants/styles';
 import { ReturnTypeUseThemeTokens } from "./ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 

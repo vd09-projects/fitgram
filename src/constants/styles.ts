@@ -1,11 +1,5 @@
 import { StyleSheet } from "react-native";
-import { AllColorSchemas, ColorSchemaKeyType, DefaultColorSchema } from "./colors";
 import { ReturnTypeUseThemeTokens } from "../components/ThemeContext";
-
-export let COLORS = AllColorSchemas[DefaultColorSchema];
-export const updateColors = (name: ColorSchemaKeyType) => {
-  COLORS = AllColorSchemas[name];
-};
 
 export const FONT_FAMILY = {
   regular: {

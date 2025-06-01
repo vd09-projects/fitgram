@@ -1,9 +1,10 @@
 import React from 'react';
 import { TextInput } from 'react-native-paper';
 import { StyleProp, TextStyle, StyleSheet, ViewStyle, KeyboardType } from 'react-native';
-import { BORDER_RADIUS, COLORS, FONT_FAMILY, FONT_SIZES, SPACING } from '../constants/styles'; // adjust path if needed
+import { BORDER_RADIUS, FONT_FAMILY, FONT_SIZES, SPACING } from '../constants/styles'; // adjust path if needed
 import { ReturnTypeUseThemeTokens, useThemeTokens } from "./ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
+import { TransparentColor } from '../constants/colors';
 
 interface PrimaryInputFieldProps {
   mode?: 'flat' | 'outlined';
@@ -123,7 +124,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
 
 export const emptyOutlineStyle = {
   borderWidth: 0,
-  borderColor: COLORS.transparent,
+  borderColor: TransparentColor,
 }
 
 export const getClearIcon = (

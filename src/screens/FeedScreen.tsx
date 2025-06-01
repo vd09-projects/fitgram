@@ -4,7 +4,6 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useAuthUser } from '../hooks/useAuthUser';
-import { COLORS } from '../constants/styles';
 import { Greeting } from '../components/Greeting';
 import { ReturnTypeUseThemeTokens } from '../components/ThemeContext';
 import { useThemeStyles } from '../utils/useThemeStyles';

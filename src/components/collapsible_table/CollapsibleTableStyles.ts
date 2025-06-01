@@ -1,4 +1,3 @@
-import { COLORS } from "./../../constants/styles";
 import { StyleSheet, ViewStyle, TextStyle } from "react-native";
 import {
   BORDER_RADIUS,
