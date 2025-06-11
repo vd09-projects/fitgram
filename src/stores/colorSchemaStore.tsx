@@ -1,13 +1,12 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AllColorSchemas, ColorSchemaName, DefaultColorSchema } from '../constants/colors';
+import { AllColorSchemas, ColorSchemaKeyType, DefaultColorSchema } from '../constants/colors';
 import show from '../utils/toastUtils';
-import { updateColors } from '../constants/styles';
 
 interface ColorSchemaStore {
-  currentColorSchema: ColorSchemaName;
+  currentColorSchema: ColorSchemaKeyType;
   isLoaded: boolean;
-  setCurrentColorSchema: (name: ColorSchemaName) => Promise<void>;
+  setCurrentColorSchema: (name: ColorSchemaKeyType) => Promise<void>;
   loadFromStorage: () => Promise<void>;
 }
 
@@ -22,7 +21,7 @@ export const useColorSchemaStore = create<ColorSchemaStore>((set, get) => ({
     try {
       const stored = await AsyncStorage.getItem(COLOR_SCHEMA_KEY);
       if (stored && stored in AllColorSchemas) {
-        set({ currentColorSchema: stored as ColorSchemaName, isLoaded: true });
+        set({ currentColorSchema: stored as ColorSchemaKeyType, isLoaded: true });
       } else {
         set({ isLoaded: true }); // fallback to default schema
       }
@@ -30,7 +29,6 @@ export const useColorSchemaStore = create<ColorSchemaStore>((set, get) => ({
       show.alert('Error loading theme', 'Failed to load color schema from storage.');
       set({ isLoaded: true }); // fail gracefully
     }
-    updateColors(get().currentColorSchema)
   },
 
   // Update in-memory and persist to disk
@@ -41,6 +39,5 @@ export const useColorSchemaStore = create<ColorSchemaStore>((set, get) => ({
     } catch (error) {
       show.alert('Error saving theme', 'Failed to save color schema to storage.');
     }
-    updateColors(get().currentColorSchema)
   },
 }));
