@@ -7,14 +7,31 @@ import { LayoutRoutes } from '../constants/routes';
 import { TextBase } from './TextBase';
 import { ReturnTypeUseThemeTokens } from "./ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
+import { useNavigationState } from '@react-navigation/native';
 
 interface HeaderProps {
   onPressTab: (tab: keyof typeof LayoutRoutes) => void;
 }
 
 export default function Header({ onPressTab }: HeaderProps) {
-  const { styles, t } = useThemeStyles(createStyles);
+  const navigationState = useNavigationState((state) => state);
 
+  const shouldShowHeader = (() => {
+    const currentRoute = navigationState?.routes[navigationState.index];
+    const routesToHideHeader: string[] = [LayoutRoutes.Workout, LayoutRoutes.LogWorkout];
+    if (!currentRoute || !routesToHideHeader.includes(currentRoute.name)) return true;
+
+    const nestedWorkoutRoute = currentRoute.state?.routes?.[currentRoute.state.index];
+    if (!nestedWorkoutRoute) return true;
+    return nestedWorkoutRoute?.name === 'WorkoutHome';
+  })();
+
+  if (!shouldShowHeader) {
+    return null;
+  }
+
+  const { styles, t } = useThemeStyles(createStyles);
+  
   return (
     <View style={styles.container}>
       <TouchableOpacity style={[styles.tabButton]} onPress={() => onPressTab(LayoutRoutes.Home)}>

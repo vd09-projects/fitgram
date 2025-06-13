@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Keyboard, StatusBar } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useNavigationState } from '@react-navigation/native';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import LayoutNavigator, { LayoutScreenNavigationProp } from '../navigation/LayoutNavigator';
@@ -27,7 +27,7 @@ export default function LayoutScreen() {
         backgroundColor={t.colors.primary}
         barStyle="light-content"
       />
-      
+
       {/* 🔹 Header Always Present */}
       <Header onPressTab={(tab) => {
         setActiveTab(tab);

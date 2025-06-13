@@ -109,8 +109,8 @@ export default function AddExerciseScreen() {
   };
 
   return (
-    <ScrollableScreen>
-      <TextBase style={styles.heading}>Manage Workout</TextBase>
+    <ScrollableScreen
+      title={<TextBase style={styles.heading}>Manage Workout</TextBase>}>
 
       {/* 🔹 Select Workout */}
       <SearchableInputDropdown<WorkoutPlan>
@@ -177,7 +177,6 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     fontWeight: 'bold',
     color: t.colors.textPrimary,
     textAlign: 'center',
-    marginBottom: SPACING.xLarge,
   },
   saveButton: {
     flexDirection: 'row',
