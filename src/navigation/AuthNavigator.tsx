@@ -15,7 +15,9 @@ const Stack = createStackNavigator<AuthStackParamList>();
 
 export default function AuthNavigator() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      id={undefined}
+    >
       <Stack.Screen
         name={AuthRoutes.SignIn}
         component={SignInScreen}

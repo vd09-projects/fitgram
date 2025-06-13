@@ -37,7 +37,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: SPACING.large,
-    paddingTop: SPACING.xxxLarge,
+    // paddingTop: SPACING.small,
     paddingBottom: SPACING.xSmall,
     ...t.shadows.shadowLarge,
   },

@@ -20,6 +20,7 @@ const Stack = createStackNavigator<LayoutStackParamList>();
 export default function LayoutNavigator() {
   return (
     <Stack.Navigator
+      id={undefined}
       initialRouteName={LayoutRoutes.Home}
       screenOptions={{ headerShown: false }}
     >

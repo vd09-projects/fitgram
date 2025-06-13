@@ -22,6 +22,7 @@ export default function WorkoutNavigator() {
   const t = useThemeTokens();
   return (
     <Stack.Navigator
+      id={undefined}
       initialRouteName={WorkoutRoutes.WorkoutHome}
       screenOptions={{
         headerStyle: { backgroundColor: t.colors.primary },
