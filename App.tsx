@@ -1,3 +1,4 @@
+// App.tsx
 import { StyleSheet, Text, View } from 'react-native';
 import * as Font from 'expo-font';
 import AppNavigator from './src/navigation/AppNavigator';
@@ -7,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { FONT_FAMILY } from './src/constants/styles';
 import { useColorSchemaStore } from './src/stores/colorSchemaStore';
 import { ThemeProvider } from './src/components/ThemeContext';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export default function App() {
   const [fontLoaded, setFontLoaded] = useState(false);
@@ -26,9 +28,11 @@ export default function App() {
   if (!isLoaded) return null;
 
   return (
-    <ThemeProvider>
-      <AppNavigator />
-      <Toast config={toastConfig} />
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <AppNavigator />
+        <Toast config={toastConfig} />
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

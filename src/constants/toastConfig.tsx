@@ -28,7 +28,7 @@ export const toastConfig = {
   },
   error: (props: BaseToastProps) => {
     const t = useThemeTokens();
-    <ErrorToast
+    return <ErrorToast
       {...props}
       style={{
         borderLeftColor: t.colors.cancelButton,
@@ -55,7 +55,7 @@ export const toastConfig = {
   warning: (props: BaseToastProps) => {
     const t = useThemeTokens();
 
-    <BaseToast
+    return <BaseToast
       {...props}
       style={{
         borderLeftColor: TostWarnColor,
@@ -81,7 +81,7 @@ export const toastConfig = {
   },
   info: (props: BaseToastProps) => {
     const t = useThemeTokens();
-    <BaseToast
+    return <BaseToast
       {...props}
       style={{
         borderLeftColor: t.colors.tertiary,

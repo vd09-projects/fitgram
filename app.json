@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "fitgram",
+    "name": "Fitgram",
     "slug": "fitgram",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -12,7 +12,8 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vd09.fitgram"
     },
     "assets": [
       "./assets/fonts/"
