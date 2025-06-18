@@ -18,10 +18,16 @@ import { TextBase } from '../../components/TextBase';
 import { useThemeStyles } from '../../utils/useThemeStyles';
 import LoadingData from '../../components/LoadingData';
 import { ReturnTypeUseThemeTokens } from '../../components/ThemeContext';
+import { TourStep } from '../../components/TourStep';
+import { useTour } from '../../components/TourGuideProvider';
+import { ManualTourStep } from '../../components/ManualTourStep';
+import { useManualTourStep } from '../../hooks/useManualTourStep';
 
 type SignUpScreenNavigationProp = ScreenNavigationProp<typeof AuthRoutes.SignUp>;
 
 export default function SignUpScreen() {
+  const { startTour } = useTour();
+  
   const { styles, t } = useThemeStyles(createStyles);
   const navigation = useNavigation<SignUpScreenNavigationProp>();
 
@@ -47,12 +53,16 @@ export default function SignUpScreen() {
       setIsLoading(false);
     }
   };
-
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View style={styles.container}>
+      <TourStep order={3} title="Welcome" description="This is your first step11!">
         <TextBase style={styles.title}>Create an Account</TextBase>
+        </TourStep>
 
+      <TourStep order={2} title="Welcome" description="This is your first step!" 
+      stylePropName='container'
+      >
         <PrimaryInputField
           label="Full Name"
           value={name}
@@ -60,6 +70,7 @@ export default function SignUpScreen() {
           container={styles.authContainer}
           placeholder="Enter your Full Name"
         />
+      </TourStep>
 
         <PrimaryInputField
           label="Email"
@@ -91,13 +102,27 @@ export default function SignUpScreen() {
                   totalDots={3}
                 />
               ) : (
+      <TourStep order={0} title="Welcome" description="This is your first step!">
                 <TextBase style={styles.buttonText} isDefaultFontFamilyRequired>
                   Sign Up
                 </TextBase>
+        </TourStep>
               )}
             </View>
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity onPress={startTour}>
+          <TextBase style={styles.switchText} isDefaultFontFamilyRequired>
+            Vivo
+          </TextBase>
+        </TouchableOpacity>
+
+      <TourStep order={1} title="Welcome" description="This is your first step cdjjdkndck This is your first step cdjjdkndck This is your first step cdjjdkndck!">
+          <TextBase style={styles.switchText} isDefaultFontFamilyRequired>
+            coder
+          </TextBase>
+      </TourStep>
 
         <TouchableOpacity onPress={() => navigation.navigate(AuthRoutes.SignIn)}>
           <TextBase style={styles.switchText} isDefaultFontFamilyRequired>

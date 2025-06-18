@@ -9,6 +9,8 @@ import { FONT_FAMILY } from './src/constants/styles';
 import { useColorSchemaStore } from './src/stores/colorSchemaStore';
 import { ThemeProvider } from './src/components/ThemeContext';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { TourGuideProvider } from './src/components/TourGuideProvider';
+import { TooltipOverlay } from './src/components/TourStepOverlay';
 
 export default function App() {
   const [fontLoaded, setFontLoaded] = useState(false);
@@ -30,8 +32,11 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>
-        <AppNavigator />
-        <Toast config={toastConfig} />
+        <TourGuideProvider>
+          <AppNavigator />
+          <Toast config={toastConfig} />
+          <TooltipOverlay />
+        </TourGuideProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );

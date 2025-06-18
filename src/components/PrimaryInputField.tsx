@@ -1,6 +1,6 @@
 import React from 'react';
 import { TextInput } from 'react-native-paper';
-import { StyleProp, TextStyle, StyleSheet, ViewStyle, KeyboardType } from 'react-native';
+import { StyleProp, TextStyle, StyleSheet, ViewStyle, KeyboardType, TextInput as RNTextInput } from 'react-native';
 import { BORDER_RADIUS, FONT_FAMILY, FONT_SIZES, SPACING } from '../constants/styles'; // adjust path if needed
 import { ReturnTypeUseThemeTokens, useThemeTokens } from "./ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
@@ -24,7 +24,7 @@ interface PrimaryInputFieldProps {
   disabled?: boolean
 }
 
-export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
+export const PrimaryInputField = React.forwardRef<RNTextInput, PrimaryInputFieldProps>(({
   mode = 'outlined',
   label,
   value,
@@ -40,7 +40,7 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
   disabled = false,
   left,
   right,
-}) => {
+}, ref) => {
   const { styles, t } = useThemeStyles(createStyles);
   labelColor = labelColor || t.colors.textPrimary;
   placeholderTextColor = placeholderTextColor || t.colors.inputPrimaryPlaceholder;
@@ -49,6 +49,7 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
   return (
     <TextInput
       mode={mode}
+      ref={ref}
 
       label={label}
       value={value}
@@ -95,7 +96,7 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
       }}
     />
   );
-};
+});
 
 const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
