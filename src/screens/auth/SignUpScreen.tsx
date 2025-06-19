@@ -20,8 +20,6 @@ import LoadingData from '../../components/LoadingData';
 import { ReturnTypeUseThemeTokens } from '../../components/ThemeContext';
 import { TourStep } from '../../components/TourStep';
 import { useTour } from '../../components/TourGuideProvider';
-import { ManualTourStep } from '../../components/ManualTourStep';
-import { useManualTourStep } from '../../hooks/useManualTourStep';
 
 type SignUpScreenNavigationProp = ScreenNavigationProp<typeof AuthRoutes.SignUp>;
 
@@ -56,7 +54,7 @@ export default function SignUpScreen() {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View style={styles.container}>
-      <TourStep order={3} title="Welcome" description="This is your first step11!">
+      <TourStep order={3} title="Welcome" description="This is your first step11!" positionType='above'>
         <TextBase style={styles.title}>Create an Account</TextBase>
         </TourStep>
 

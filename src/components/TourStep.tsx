@@ -6,7 +6,7 @@ import React, {
   ReactElement,
 } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useTour } from './TourGuideProvider';
+import { PositionType, useTour } from './TourGuideProvider';
 
 type Props = {
   children: React.ReactNode;
@@ -14,6 +14,7 @@ type Props = {
   title: string;
   description: string;
   stylePropName?: string;
+  positionType?: PositionType;
 };
 
 export const TourStep: React.FC<Props> = ({
@@ -22,13 +23,16 @@ export const TourStep: React.FC<Props> = ({
   title,
   description,
   stylePropName = 'style',
+  positionType = 'below', // ✅ default
 }) => {
-  const measureRef = useRef<any>(null); // 👈 Used only for measuring position
+  const measureRef = useRef<any>(null);
   const { registerStep, currentStep, steps, isTourActive } = useTour();
+
+  const belowPositionType = positionType === 'below';
 
   useEffect(() => {
     if (measureRef.current) {
-      registerStep({ order, ref: measureRef, title, description });
+      registerStep({ order, ref: measureRef, title, description, positionType });
     }
   }, []);
 
@@ -45,16 +49,18 @@ export const TourStep: React.FC<Props> = ({
 
     return (
       <>
+        {!belowPositionType && <View ref={measureRef} collapsable={false} style={styles.measureAnchor} />}
         {cloneElement(children as ReactElement<any>, propsToInject)}
-        <View ref={measureRef} collapsable={false} style={styles.measureAnchor} />
+        {belowPositionType && <View ref={measureRef} collapsable={false} style={styles.measureAnchor} />}
       </>
     );
   }
 
   return (
     <>
+      {!belowPositionType && <View ref={measureRef} collapsable={false} style={styles.measureAnchor} />}
       {children}
-      <View ref={measureRef} collapsable={false} style={styles.measureAnchor} />
+      {belowPositionType && <View ref={measureRef} collapsable={false} style={styles.measureAnchor} />}
     </>
   );
 };

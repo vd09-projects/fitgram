@@ -1,10 +1,13 @@
 import React, { createContext, useContext, useState } from 'react';
 
+export type PositionType = 'above' | 'below';
+
 type Step = {
   order: number;
   ref: React.RefObject<any>;
   title: string;
   description: string;
+  positionType?: PositionType;
   position?: {
     x: number;
     y: number;
@@ -17,6 +20,7 @@ type TourGuideContextType = {
   registerStep: (step: Step) => void;
   startTour: () => void;
   nextStep: () => void;
+  previousStep: () => void;
   currentStep: number;
   isTourActive: boolean;
   steps: Step[];
@@ -52,9 +56,15 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+    const previousStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep((prev) => prev - 1);
+    }
+  };
+
   return (
     <TourGuideContext.Provider
-      value={{ registerStep, startTour, nextStep, currentStep, isTourActive, steps }}
+      value={{ registerStep, startTour, nextStep, previousStep, currentStep, isTourActive, steps }}
     >
       {children}
     </TourGuideContext.Provider>
