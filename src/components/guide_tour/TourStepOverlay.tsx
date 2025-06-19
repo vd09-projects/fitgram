@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Modal,
   View,
   Text,
   Dimensions,
@@ -22,6 +21,7 @@ export const TooltipOverlay = () => {
 
   useEffect(() => {
     if (!isTourActive) return;
+
     const step = steps[currentStep];
     const view = step?.ref?.current;
 
@@ -39,53 +39,75 @@ export const TooltipOverlay = () => {
 
   if (!isTourActive || !tooltipPosition) return null;
 
+  const { x, y, width, height } = tooltipPosition;
   const screen = Dimensions.get('window');
   const step = steps[currentStep];
   const totalSteps = steps.length;
-  const tooltipX = Math.min(tooltipPosition.x, screen.width - TOOLTIP_WIDTH);
+
+  const tooltipX = Math.min(x, screen.width - TOOLTIP_WIDTH);
   const userPositionType = step?.positionType ?? 'below';
 
   const tooltipY =
     userPositionType === 'above'
-      ? Math.max(tooltipPosition.y - 140, 12)
-      : tooltipPosition.y + tooltipPosition.height + 12;
+      ? Math.max(y - 140, 12)
+      : y + height + 12;
 
   return (
-    <Modal transparent animationType="fade">
-      <View style={styles.overlay}>
-        <View style={[styles.tooltip, { top: tooltipY, left: tooltipX }]}>
-          <View style={styles.titleRow}>
-            <Text style={styles.title}>{step.title}</Text>
-            <Text style={styles.stepIndicator}>
-              {currentStep + 1}/{totalSteps}
-            </Text>
-          </View>
-          <Text style={styles.desc}>{step.description}</Text>
+    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+      {/* Blockers */}
+      <View
+        style={[styles.blocker, { top: 0, left: 0, right: 0, height: y }]}
+        pointerEvents="auto"
+      />
+      <View
+        style={[styles.blocker, { top: y + height, left: 0, right: 0, bottom: 0 }]}
+        pointerEvents="auto"
+      />
+      <View
+        style={[styles.blocker, { top: y, left: 0, width: x, height }]}
+        pointerEvents="auto"
+      />
+      <View
+        style={[styles.blocker, { top: y, left: x + width, right: 0, height }]}
+        pointerEvents="auto"
+      />
 
-          <View style={styles.buttonRow}>
-            <View style={styles.buttonWrapper}>
-              <Button
-                title="Previous"
-                onPress={previousStep}
-                disabled={currentStep === 0}
-              />
-            </View>
-            <View style={styles.buttonWrapper}>
-              <Button
-                title={currentStep === totalSteps - 1 ? 'Finish' : 'Next'}
-                onPress={nextStep}
-              />
-            </View>
+      {/* Tooltip box */}
+      <View
+        style={[styles.tooltip, { top: tooltipY, left: tooltipX }]}
+        pointerEvents="auto"
+      >
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>{step.title}</Text>
+          <Text style={styles.stepIndicator}>
+            {currentStep + 1}/{totalSteps}
+          </Text>
+        </View>
+        <Text style={styles.desc}>{step.description}</Text>
+
+        <View style={styles.buttonRow}>
+          <View style={styles.buttonWrapper}>
+            <Button
+              title="Previous"
+              onPress={previousStep}
+              disabled={currentStep === 0}
+            />
+          </View>
+          <View style={styles.buttonWrapper}>
+            <Button
+              title={currentStep === totalSteps - 1 ? 'Finish' : 'Next'}
+              onPress={nextStep}
+            />
           </View>
         </View>
       </View>
-    </Modal>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
+  blocker: {
+    position: 'absolute',
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   tooltip: {
