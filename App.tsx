@@ -9,8 +9,8 @@ import { FONT_FAMILY } from './src/constants/styles';
 import { useColorSchemaStore } from './src/stores/colorSchemaStore';
 import { ThemeProvider } from './src/components/ThemeContext';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { TourGuideProvider } from './src/components/TourGuideProvider';
-import { TooltipOverlay } from './src/components/TourStepOverlay';
+import { TourGuideProvider } from './src/components/guide_tour/TourGuideProvider';
+import { TooltipOverlay } from './src/components/guide_tour/TourStepOverlay';
 
 export default function App() {
   const [fontLoaded, setFontLoaded] = useState(false);

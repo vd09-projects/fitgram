@@ -18,8 +18,8 @@ import { TextBase } from '../../components/TextBase';
 import { useThemeStyles } from '../../utils/useThemeStyles';
 import LoadingData from '../../components/LoadingData';
 import { ReturnTypeUseThemeTokens } from '../../components/ThemeContext';
-import { TourStep } from '../../components/TourStep';
-import { useTour } from '../../components/TourGuideProvider';
+import { TourStep } from '../../components/guide_tour/TourStep';
+import { useTour } from '../../components/guide_tour/TourGuideProvider';
 
 type SignUpScreenNavigationProp = ScreenNavigationProp<typeof AuthRoutes.SignUp>;
 
