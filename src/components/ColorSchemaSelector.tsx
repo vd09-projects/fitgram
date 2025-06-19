@@ -57,7 +57,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     color: t.colors.collapsedTitleText,
   },
   button: {
-    backgroundColor: t.colors.button,
+    backgroundColor: t.colors.buttonSecondary,
     padding: SPACING.small,
     borderRadius: 8,
     marginTop: SPACING.small,

@@ -15,7 +15,7 @@ export const LDeathNoteColors = {
   transparent: "transparent",
 
   button: "#436671",
-  buttonSecondary: "#AFBBBC",
+  buttonSecondary: "#7A9196",
   buttonText: "#E1E9E8",
   cancelButton: "#973740", // A strong yet slightly muted red (less aggressive than pure red)
   errorBackground: "#ffcccc", // More vibrant than dull red but not neon

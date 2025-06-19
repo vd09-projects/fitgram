@@ -14,8 +14,11 @@ import { AllColorSchemas } from '../constants/colors';
 import { ColorSchemaSelector } from '../components/ColorSchemaSelector';
 import { ReturnTypeUseThemeTokens } from '../components/ThemeContext';
 import { useThemeStyles } from '../utils/useThemeStyles';
+import { useTour } from '../components/guide_tour/TourGuideProvider';
 
 export default function ProfileScreen() {
+  const { startTour } = useTour();
+
   const { styles, t } = useThemeStyles(createStyles);
   const { user, userInfo } = useAuthUser();
 
@@ -58,6 +61,10 @@ export default function ProfileScreen() {
         <ColorSchemaSelector />
       </CollapsibleSection>
 
+      <TouchableOpacity style={styles.button} onPress={startTour}>
+        <TextBase style={styles.buttonText}>🧭 Start App Tour</TextBase>
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <TextBase style={styles.logoutButtonText}>Logout</TextBase>
       </TouchableOpacity>
@@ -72,6 +79,18 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     backgroundColor: t.colors.collapsed,
     borderRadius: BORDER_RADIUS,
     marginTop: SPACING.small
+  },
+  button: {
+    backgroundColor: t.colors.buttonSecondary,
+    paddingVertical: SPACING.medium,
+    paddingHorizontal: SPACING.medium,
+    borderRadius: BORDER_RADIUS,
+    marginTop: SPACING.small,
+  },
+  buttonText: {
+    color: t.colors.buttonText,
+    fontSize: FONT_SIZES.large,
+    fontWeight: 'bold',
   },
   sectionTitle: { fontSize: FONT_SIZES.xLarge, color: t.colors.collapsedTitleText, fontWeight: 'bold', marginTop: SPACING.small },
   userInfo: { color: t.colors.textPrimary, fontSize: FONT_SIZES.large, marginBottom: SPACING.small },
