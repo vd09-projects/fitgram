@@ -1,5 +1,5 @@
 // src/screens/ProfileScreen.tsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useAuthUser } from '../hooks/useAuthUser';
 import { signOut } from 'firebase/auth';
@@ -15,9 +15,10 @@ import { ColorSchemaSelector } from '../components/ColorSchemaSelector';
 import { ReturnTypeUseThemeTokens } from '../components/ThemeContext';
 import { useThemeStyles } from '../utils/useThemeStyles';
 import { useTour } from '../components/guide_tour/TourGuideProvider';
+import { TourStep } from '../components/guide_tour/TourStep';
 
 export default function ProfileScreen() {
-  const { startTour } = useTour();
+  const { startTour, clearStep } = useTour();
 
   const { styles, t } = useThemeStyles(createStyles);
   const { user, userInfo } = useAuthUser();
@@ -30,6 +31,10 @@ export default function ProfileScreen() {
       show.alert('Logout Failed', error.message || 'Something went wrong.');
     }
   };
+
+  useEffect(() => {
+    startTour();
+  }, []);
 
   return (
     <ScrollableScreen
@@ -44,8 +49,9 @@ export default function ProfileScreen() {
         nonCollapsible={true}
         contentStyle={{ paddingLeft: SPACING.small }}
       >
-
+      <TourStep order={1} title="Welcome" description="This is your first step11!" positionType='above' isFunComponent>
         <TextBase style={styles.userInfo}>Name: {userInfo?.name || "Guest"}</TextBase>
+      </TourStep>
         <TextBase style={styles.userInfo}>Email: {user?.email || "--"}</TextBase>
       </CollapsibleSection>
 
@@ -63,6 +69,10 @@ export default function ProfileScreen() {
 
       <TouchableOpacity style={styles.button} onPress={startTour}>
         <TextBase style={styles.buttonText}>🧭 Start App Tour</TextBase>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.button} onPress={clearStep}>
+        <TextBase style={styles.buttonText}>🧭 Clear App Tour</TextBase>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>

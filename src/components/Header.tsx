@@ -8,6 +8,7 @@ import { TextBase } from './TextBase';
 import { ReturnTypeUseThemeTokens } from "./ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 import { useNavigationState } from '@react-navigation/native';
+import { TourStep } from './guide_tour/TourStep';
 
 interface HeaderProps {
   onPressTab: (tab: keyof typeof LayoutRoutes) => void;
@@ -38,11 +39,13 @@ export default function Header({ onPressTab }: HeaderProps) {
         <TextBase style={styles.companyName} isDefaultFontFamilyRequired>Fitgram</TextBase>
       </TouchableOpacity>
 
+      <TourStep order={2} title="Welcome" description="This is your first step11!">
       <View style={styles.rightControls}>
         <TouchableOpacity onPress={() => onPressTab(LayoutRoutes.Profile)}>
           <Ionicons name="menu" style={styles.rightIcon} />
         </TouchableOpacity>
       </View>
+      </TourStep>
     </View>
   );
 }

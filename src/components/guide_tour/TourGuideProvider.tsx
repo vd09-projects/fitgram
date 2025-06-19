@@ -21,6 +21,7 @@ type TourGuideContextType = {
   startTour: () => void;
   nextStep: () => void;
   previousStep: () => void;
+  clearStep: () => void;
   currentStep: number;
   isTourActive: boolean;
   steps: Step[];
@@ -56,15 +57,20 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-    const previousStep = () => {
+  const previousStep = () => {
     if (currentStep > 0) {
       setCurrentStep((prev) => prev - 1);
     }
   };
 
+  const clearStep = () => {
+    setSteps([]);
+    setIsTourActive(false);
+  };
+
   return (
     <TourGuideContext.Provider
-      value={{ registerStep, startTour, nextStep, previousStep, currentStep, isTourActive, steps }}
+      value={{ registerStep, startTour, nextStep, previousStep, clearStep, currentStep, isTourActive, steps }}
     >
       {children}
     </TourGuideContext.Provider>

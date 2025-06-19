@@ -15,6 +15,7 @@ type Props = {
   description: string;
   stylePropName?: string;
   positionType?: PositionType;
+  isFunComponent?: boolean;
 };
 
 export const TourStep: React.FC<Props> = ({
@@ -23,7 +24,8 @@ export const TourStep: React.FC<Props> = ({
   title,
   description,
   stylePropName = 'style',
-  positionType = 'below', // ✅ default
+  positionType = 'below',
+  isFunComponent = false,
 }) => {
   const measureRef = useRef<any>(null);
   const { registerStep, currentStep, steps, isTourActive } = useTour();
@@ -45,6 +47,14 @@ export const TourStep: React.FC<Props> = ({
     const existingStyle = children.props?.[stylePropName];
     if (existingStyle !== undefined) {
       propsToInject[stylePropName] = [existingStyle, isActive && styles.highlight];
+    }
+
+    if (!isFunComponent) {
+      return (
+        <>
+          {cloneElement(children as ReactElement<any>, { ...propsToInject, ref: measureRef })}
+        </>
+      )
     }
 
     return (
