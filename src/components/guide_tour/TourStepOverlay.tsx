@@ -38,6 +38,8 @@ export const TooltipOverlay = () => {
   const tooltipX = Math.min(x, screen.width - TOOLTIP_WIDTH);
   const tooltipY = step?.positionType === 'above' ? Math.max(y - 140, 12) : y + height + 12;
 
+  const isNextStepDefinedButMissing = step?.nextStepId && !steps[step.nextStepId];
+
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       {/* Blockers */}
@@ -51,9 +53,19 @@ export const TooltipOverlay = () => {
         <Text style={styles.title}>{step.title}</Text>
         <Text style={styles.desc}>{step.description}</Text>
 
+        {isNextStepDefinedButMissing && (
+          <Text style={styles.waitingMsg}>
+            Hang tight! We’re waiting for the next part of the screen to load. Please interact with the app (like tapping a button or switching pages) to continue the tour.
+          </Text>
+        )}
+
         <View style={styles.buttonRow}>
           <Button title="Skip" onPress={skipTour} />
-          <Button title={step.nextStepId ? 'Next' : 'Finish'} onPress={nextStep} />
+          <Button
+            title={step.nextStepId ? 'Next' : 'Finish'}
+            onPress={nextStep}
+            disabled={isNextStepDefinedButMissing}
+          />
         </View>
       </View>
     </View>
@@ -81,6 +93,11 @@ const styles = StyleSheet.create({
   desc: {
     fontSize: 14,
     color: '#444',
+  },
+  waitingMsg: {
+    fontSize: 13,
+    color: '#D2691E',
+    marginTop: 8,
   },
   buttonRow: {
     flexDirection: 'row',

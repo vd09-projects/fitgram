@@ -35,7 +35,7 @@ export default function Header({ onPressTab }: HeaderProps) {
   
   return (
     <View style={styles.container}>
-      <TourStep id="step3" title="Welcome" description="This is your first step11!">
+      <TourStep id="step3" nextStepId="step4" title="Welcome" description="This is your first step11!">
       <TouchableOpacity style={[styles.tabButton]} onPress={() => onPressTab(LayoutRoutes.Home)}>
         <TextBase style={styles.companyName} isDefaultFontFamilyRequired>Fitgram</TextBase>
       </TouchableOpacity>

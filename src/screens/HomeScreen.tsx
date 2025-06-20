@@ -7,18 +7,22 @@ import { useAuthUser } from '../hooks/useAuthUser';
 import { Greeting } from '../components/Greeting';
 import { ReturnTypeUseThemeTokens } from '../components/ThemeContext';
 import { useThemeStyles } from '../utils/useThemeStyles';
+import { TourStep } from '../components/guide_tour/TourStep';
 
 export default function HomeScreen() {
   const { styles, t } = useThemeStyles(createStyles);
   const { userInfo } = useAuthUser();
 
   return (
+              <TourStep id="step4" title="Welcome" description="This is your first step11!">
     <View style={styles.container}>
+      
       <Greeting
         name={userInfo?.name || 'Guest'}
         message="Welcome to"
       />
     </View>
+      </TourStep>
   );
 }
 

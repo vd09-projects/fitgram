@@ -16,8 +16,10 @@ import { ReturnTypeUseThemeTokens } from '../components/ThemeContext';
 import { useThemeStyles } from '../utils/useThemeStyles';
 import { useTour } from '../components/guide_tour/TourGuideProvider';
 import { TourStep } from '../components/guide_tour/TourStep';
+import { useAppControl } from '../components/app_manager/AppControlProvider';
 
 export default function ProfileScreen() {
+  const { forceReload } = useAppControl();
   const { startTour, clearStep } = useTour();
 
   const { styles, t } = useThemeStyles(createStyles);
@@ -71,7 +73,11 @@ export default function ProfileScreen() {
         <TextBase style={styles.buttonText}>🧭 Start App Tour</TextBase>
       </TouchableOpacity> */}
 
-      <TouchableOpacity style={styles.button} onPress={clearStep}>
+      <TouchableOpacity style={styles.button} onPress={() => {
+        clearStep();
+        forceReload();
+      }
+      }>
         <TextBase style={styles.buttonText}>🧭 Clear App Tour</TextBase>
       </TouchableOpacity>
 

@@ -11,6 +11,7 @@ import { ThemeProvider } from './src/components/ThemeContext';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { TourGuideProvider } from './src/components/guide_tour/TourGuideProvider';
 import { TooltipOverlay } from './src/components/guide_tour/TourStepOverlay';
+import { AppControlProvider } from './src/components/app_manager/AppControlProvider';
 
 export default function App() {
   const [fontLoaded, setFontLoaded] = useState(false);
@@ -31,13 +32,15 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider>
-        <TourGuideProvider>
-          <AppNavigator />
-          <Toast config={toastConfig} />
-          <TooltipOverlay />
-        </TourGuideProvider>
-      </ThemeProvider>
+      <AppControlProvider>
+        <ThemeProvider>
+          <TourGuideProvider>
+            <AppNavigator />
+            <Toast config={toastConfig} />
+            <TooltipOverlay />
+          </TourGuideProvider>
+        </ThemeProvider>
+      </AppControlProvider>
     </GestureHandlerRootView>
   );
 }

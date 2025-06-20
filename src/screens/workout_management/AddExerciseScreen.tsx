@@ -165,7 +165,7 @@ export default function AddExerciseScreen() {
 
       {/* 🔹 Submit Button */}
       {workoutDetailsUpdated && (
-        // <TourStep order={3} title="Welcome" description="This is your first step11!">
+        // <TourStep id="step4" title="Welcome" description="This is your first step11!">
           <TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
             <Ionicons name="checkmark-circle-outline" size={24} color={t.colors.buttonText} />
             <TextBase style={styles.saveButtonText}>Save Exercise</TextBase>
