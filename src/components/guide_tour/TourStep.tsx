@@ -1,60 +1,47 @@
-import React, {
-  useEffect,
-  useRef,
-  isValidElement,
-  cloneElement,
-  ReactElement,
-} from 'react';
+import React, { useEffect, useRef, isValidElement, cloneElement, ReactElement } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { PositionType, useTour } from './TourGuideProvider';
 
 type Props = {
-  children: React.ReactNode;
-  order: number;
+  id: string;
+  nextStepId?: string | null;
   title: string;
   description: string;
-  stylePropName?: string;
   positionType?: PositionType;
+  stylePropName?: string;
   isFunComponent?: boolean;
+  children: React.ReactNode;
 };
 
 export const TourStep: React.FC<Props> = ({
-  children,
-  order,
+  id,
+  nextStepId = null,
   title,
   description,
-  stylePropName = 'style',
   positionType = 'below',
+  stylePropName = 'style',
   isFunComponent = false,
+  children,
 }) => {
   const measureRef = useRef<any>(null);
-  const { registerStep, currentStep, steps, isTourActive } = useTour();
+  const { registerStep, currentStepId, isTourActive, steps } = useTour();
 
+  const isActive = isTourActive && currentStepId === id;
   const belowPositionType = positionType === 'below';
 
   useEffect(() => {
-    if (measureRef.current) {
-      registerStep({ order, ref: measureRef, title, description, positionType });
-    }
+    registerStep({ id, nextStepId, ref: measureRef, title, description, positionType });
   }, []);
-
-  const currentStepObj = steps[currentStep];
-  const isActive = isTourActive && currentStepObj?.order === order;
 
   if (isValidElement(children)) {
     const propsToInject: Record<string, any> = {};
-
     const existingStyle = children.props?.[stylePropName];
     if (existingStyle !== undefined) {
       propsToInject[stylePropName] = [existingStyle, isActive && styles.highlight];
     }
 
     if (!isFunComponent) {
-      return (
-        <>
-          {cloneElement(children as ReactElement<any>, { ...propsToInject, ref: measureRef })}
-        </>
-      )
+      return cloneElement(children as ReactElement<any>, { ...propsToInject, ref: measureRef });
     }
 
     return (
@@ -81,6 +68,5 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderRadius: 6,
   },
-  measureAnchor: {
-  },
+  measureAnchor: {},
 });

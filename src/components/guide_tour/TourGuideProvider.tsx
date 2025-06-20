@@ -3,28 +3,23 @@ import React, { createContext, useContext, useState } from 'react';
 export type PositionType = 'above' | 'below';
 
 type Step = {
-  order: number;
+  id: string;
+  nextStepId?: string | null;
   ref: React.RefObject<any>;
   title: string;
   description: string;
   positionType?: PositionType;
-  position?: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  }; // ✅ Add this
 };
 
 type TourGuideContextType = {
   registerStep: (step: Step) => void;
-  startTour: () => void;
+  startTour: (firstStepId: string) => void;
   nextStep: () => void;
-  previousStep: () => void;
+  skipTour: () => void;
   clearStep: () => void;
-  currentStep: number;
+  currentStepId: string | null;
   isTourActive: boolean;
-  steps: Step[];
+  steps: Record<string, Step>;
 };
 
 const TourGuideContext = createContext<TourGuideContextType>({} as any);
@@ -32,45 +27,44 @@ const TourGuideContext = createContext<TourGuideContextType>({} as any);
 export const useTour = () => useContext(TourGuideContext);
 
 export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [steps, setSteps] = useState<Step[]>([]);
-  const [currentStep, setCurrentStep] = useState(0);
+  const [steps, setSteps] = useState<Record<string, Step>>({});
+  const [currentStepId, setCurrentStepId] = useState<string | null>(null);
   const [isTourActive, setIsTourActive] = useState(false);
 
   const registerStep = (step: Step) => {
-    console.log('Registering step:', step);
-    setSteps((prev) => {
-      const filtered = prev.filter((s) => s.order !== step.order);
-      return [...filtered, step].sort((a, b) => a.order - b.order);
-    });
+    setSteps(prev => ({ ...prev, [step.id]: step }));
   };
 
-  const startTour = () => {
+  const startTour = (firstStepId: string) => {
     setIsTourActive(true);
-    setCurrentStep(0);
+    setCurrentStepId(firstStepId);
   };
 
   const nextStep = () => {
-    if (currentStep + 1 < steps.length) {
-      setCurrentStep((prev) => prev + 1);
+    if (!currentStepId) return;
+    const nextId = steps[currentStepId]?.nextStepId;
+    if (nextId && steps[nextId]) {
+      setCurrentStepId(nextId);
     } else {
       setIsTourActive(false);
+      setCurrentStepId(null);
     }
   };
 
-  const previousStep = () => {
-    if (currentStep > 0) {
-      setCurrentStep((prev) => prev - 1);
-    }
+  const skipTour = () => {
+    setIsTourActive(false);
+    setCurrentStepId(null);
   };
 
   const clearStep = () => {
-    setSteps([]);
     setIsTourActive(false);
+    setCurrentStepId(null);
+    setSteps({});
   };
 
   return (
     <TourGuideContext.Provider
-      value={{ registerStep, startTour, nextStep, previousStep, clearStep, currentStep, isTourActive, steps }}
+      value={{ registerStep, startTour, nextStep, skipTour, clearStep, currentStepId, isTourActive, steps }}
     >
       {children}
     </TourGuideContext.Provider>

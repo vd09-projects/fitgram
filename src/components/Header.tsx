@@ -35,13 +35,13 @@ export default function Header({ onPressTab }: HeaderProps) {
   
   return (
     <View style={styles.container}>
-      <TourStep order={3} title="Welcome" description="This is your first step11!">
+      <TourStep id="step3" title="Welcome" description="This is your first step11!">
       <TouchableOpacity style={[styles.tabButton]} onPress={() => onPressTab(LayoutRoutes.Home)}>
         <TextBase style={styles.companyName} isDefaultFontFamilyRequired>Fitgram</TextBase>
       </TouchableOpacity>
       </TourStep>
 
-      <TourStep order={2} title="Welcome" description="This is your first step11!">
+      <TourStep id="step2" nextStepId="step3" title="Welcome" description="This is your first step11!">
       <View style={styles.rightControls}>
         <TouchableOpacity onPress={() => onPressTab(LayoutRoutes.Profile)}>
           <Ionicons name="menu" style={styles.rightIcon} />

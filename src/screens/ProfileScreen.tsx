@@ -33,7 +33,7 @@ export default function ProfileScreen() {
   };
 
   useEffect(() => {
-    startTour();
+    startTour("step1");
   }, []);
 
   return (
@@ -49,7 +49,7 @@ export default function ProfileScreen() {
         nonCollapsible={true}
         contentStyle={{ paddingLeft: SPACING.small }}
       >
-      <TourStep order={1} title="Welcome" description="This is your first step11!" positionType='above' isFunComponent>
+      <TourStep id="step1" nextStepId="step2" title="Welcome" description="This is your first step11!" positionType='above' isFunComponent>
         <TextBase style={styles.userInfo}>Name: {userInfo?.name || "Guest"}</TextBase>
       </TourStep>
         <TextBase style={styles.userInfo}>Email: {user?.email || "--"}</TextBase>
@@ -67,9 +67,9 @@ export default function ProfileScreen() {
         <ColorSchemaSelector />
       </CollapsibleSection>
 
-      <TouchableOpacity style={styles.button} onPress={startTour}>
+      {/* <TouchableOpacity style={styles.button} onPress={startTour}>
         <TextBase style={styles.buttonText}>🧭 Start App Tour</TextBase>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
 
       <TouchableOpacity style={styles.button} onPress={clearStep}>
         <TextBase style={styles.buttonText}>🧭 Clear App Tour</TextBase>
