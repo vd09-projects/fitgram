@@ -21,7 +21,6 @@ import { TextBase } from '../../components/TextBase';
 import { validateCustomFields, validateExerciseSelection, validateWorkoutAndExercises, validateWorkoutSelection } from '../../utils/exerciseValidations';
 import { ReturnTypeUseThemeTokens } from '../../components/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
-import { TourStep } from '../../components/guide_tour/TourStep';
 
 export default function AddExerciseScreen() {
   const { styles, t } = useThemeStyles(createStyles);
@@ -165,12 +164,10 @@ export default function AddExerciseScreen() {
 
       {/* 🔹 Submit Button */}
       {workoutDetailsUpdated && (
-        // <TourStep id="step4" title="Welcome" description="This is your first step11!">
-          <TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
-            <Ionicons name="checkmark-circle-outline" size={24} color={t.colors.buttonText} />
-            <TextBase style={styles.saveButtonText}>Save Exercise</TextBase>
-          </TouchableOpacity>
-        // </TourStep>
+        <TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
+          <Ionicons name="checkmark-circle-outline" size={24} color={t.colors.buttonText} />
+          <TextBase style={styles.saveButtonText}>Save Exercise</TextBase>
+        </TouchableOpacity>
       )}
     </ScrollableScreen>
   );

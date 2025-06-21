@@ -9,6 +9,7 @@ import { ReturnTypeUseThemeTokens } from "./ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 import { useNavigationState } from '@react-navigation/native';
 import { TourStep } from './guide_tour/TourStep';
+import { TOUR_STEPS } from '../constants/tourSteps';
 
 interface HeaderProps {
   onPressTab: (tab: keyof typeof LayoutRoutes) => void;
@@ -32,21 +33,22 @@ export default function Header({ onPressTab }: HeaderProps) {
   }
 
   const { styles, t } = useThemeStyles(createStyles);
-  
+
   return (
     <View style={styles.container}>
-      <TourStep id="step3" nextStepId="step4" title="Welcome" description="This is your first step11!">
-      <TouchableOpacity style={[styles.tabButton]} onPress={() => onPressTab(LayoutRoutes.Home)}>
-        <TextBase style={styles.companyName} isDefaultFontFamilyRequired>Fitgram</TextBase>
-      </TouchableOpacity>
+      <TourStep {...TOUR_STEPS.HOME_BUTTON}>
+        <TouchableOpacity style={[styles.tabButton]} onPress={() => onPressTab(LayoutRoutes.Home)}>
+          <TextBase style={styles.companyName} isDefaultFontFamilyRequired>Fitgram</TextBase>
+        </TouchableOpacity>
       </TourStep>
 
-      <TourStep id="step2" nextStepId="step3" title="Welcome" description="This is your first step11!">
-      <View style={styles.rightControls}>
-        <TouchableOpacity onPress={() => onPressTab(LayoutRoutes.Profile)}>
-          <Ionicons name="menu" style={styles.rightIcon} />
-        </TouchableOpacity>
-      </View>
+      {/* <TourStep id="step2" nextStepId="step3" title="Welcome" description="This is your first step11!"> */}
+      <TourStep {...TOUR_STEPS.PROFILE_BUTTON}>
+        <View style={styles.rightControls}>
+          <TouchableOpacity onPress={() => onPressTab(LayoutRoutes.Profile)}>
+            <Ionicons name="menu" style={styles.rightIcon} />
+          </TouchableOpacity>
+        </View>
       </TourStep>
     </View>
   );

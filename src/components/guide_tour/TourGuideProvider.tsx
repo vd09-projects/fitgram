@@ -9,6 +9,7 @@ type Step = {
   title: string;
   description: string;
   positionType?: PositionType;
+  screen?: string;
 };
 
 type TourGuideContextType = {
@@ -35,7 +36,17 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setSteps(prev => ({ ...prev, [step.id]: step }));
   };
 
+  const clearStepsForStart = () => {
+    const filteredSteps = Object.fromEntries(
+      Object.entries(steps).filter(([_, step]) => step.screen === "HomeScreen")
+    );
+    console.log('Filtered steps for HomeScreen:', filteredSteps);
+    setSteps(filteredSteps);
+  };
+
   const startTour = (firstStepId: string) => {
+    clearStepsForStart();
+    console.log('Starting tour with first step:', firstStepId, "steps:", steps);
     setIsTourActive(true);
     setCurrentStepId(firstStepId);
   };

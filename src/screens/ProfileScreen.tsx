@@ -8,18 +8,15 @@ import show from '../utils/toastUtils';
 import { BORDER_RADIUS, FONT_FAMILY, FONT_SIZES, SPACING } from '../constants/styles';
 import ScrollableScreen from '../components/ScrollableScreen';
 import { TextBase } from '../components/TextBase';
-import { CollapsibleContent } from '../components/collapsible_table/CollapsibleTableParts';
 import CollapsibleSection from '../components/CollapsibleSection';
-import { AllColorSchemas } from '../constants/colors';
 import { ColorSchemaSelector } from '../components/ColorSchemaSelector';
 import { ReturnTypeUseThemeTokens } from '../components/ThemeContext';
 import { useThemeStyles } from '../utils/useThemeStyles';
 import { useTour } from '../components/guide_tour/TourGuideProvider';
+import { FIRST_TOUR_STEP_ID, TOUR_STEPS } from '../constants/tourSteps';
 import { TourStep } from '../components/guide_tour/TourStep';
-import { useAppControl } from '../components/app_manager/AppControlProvider';
 
 export default function ProfileScreen() {
-  const { forceReload } = useAppControl();
   const { startTour, clearStep } = useTour();
 
   const { styles, t } = useThemeStyles(createStyles);
@@ -34,28 +31,24 @@ export default function ProfileScreen() {
     }
   };
 
-  useEffect(() => {
-    startTour("step1");
-  }, []);
-
   return (
     <ScrollableScreen
       style={styles.container}
     >
-      <CollapsibleSection
-        collapsibleStyle={styles.collapsibleStyle}
-        collapsibleIconColor={t.colors.textPrimary}
-        title={<TextBase style={styles.sectionTitle}>👤 Profile</TextBase>}
-        defaultCollapsed={false}
-        dividerLineColor={t.colors.transparent}
-        nonCollapsible={true}
-        contentStyle={{ paddingLeft: SPACING.small }}
-      >
-      <TourStep id="step1" nextStepId="step2" title="Welcome" description="This is your first step11!" positionType='above' isFunComponent>
-        <TextBase style={styles.userInfo}>Name: {userInfo?.name || "Guest"}</TextBase>
+      <TourStep {...TOUR_STEPS.HOME_BUTTON} isFunComponent={true}>
+        <CollapsibleSection
+          collapsibleStyle={styles.collapsibleStyle}
+          collapsibleIconColor={t.colors.textPrimary}
+          title={<TextBase style={styles.sectionTitle}>👤 Profile</TextBase>}
+          defaultCollapsed={false}
+          dividerLineColor={t.colors.transparent}
+          nonCollapsible={true}
+          contentStyle={{ paddingLeft: SPACING.small }}
+        >
+          <TextBase style={styles.userInfo}>Name: {userInfo?.name || "Guest"}</TextBase>
+          <TextBase style={styles.userInfo}>Email: {user?.email || "--"}</TextBase>
+        </CollapsibleSection>
       </TourStep>
-        <TextBase style={styles.userInfo}>Email: {user?.email || "--"}</TextBase>
-      </CollapsibleSection>
 
       <CollapsibleSection
         collapsibleStyle={styles.collapsibleStyle}
@@ -69,15 +62,11 @@ export default function ProfileScreen() {
         <ColorSchemaSelector />
       </CollapsibleSection>
 
-      {/* <TouchableOpacity style={styles.button} onPress={startTour}>
+      <TouchableOpacity style={styles.button} onPress={() => { startTour(FIRST_TOUR_STEP_ID); }}>
         <TextBase style={styles.buttonText}>🧭 Start App Tour</TextBase>
-      </TouchableOpacity> */}
+      </TouchableOpacity>
 
-      <TouchableOpacity style={styles.button} onPress={() => {
-        clearStep();
-        forceReload();
-      }
-      }>
+      <TouchableOpacity style={styles.button} onPress={() => { clearStep(); }}>
         <TextBase style={styles.buttonText}>🧭 Clear App Tour</TextBase>
       </TouchableOpacity>
 

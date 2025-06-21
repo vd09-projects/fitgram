@@ -10,6 +10,7 @@ type Props = {
   positionType?: PositionType;
   stylePropName?: string;
   isFunComponent?: boolean;
+  screen?: string;
   children: React.ReactNode;
 };
 
@@ -21,6 +22,7 @@ export const TourStep: React.FC<Props> = ({
   positionType = 'below',
   stylePropName = 'style',
   isFunComponent = false,
+  screen,
   children,
 }) => {
   const measureRef = useRef<any>(null);
@@ -30,7 +32,7 @@ export const TourStep: React.FC<Props> = ({
   const belowPositionType = positionType === 'below';
 
   useEffect(() => {
-    registerStep({ id, nextStepId, ref: measureRef, title, description, positionType });
+    registerStep({ id, nextStepId, ref: measureRef, title, description, positionType, screen });
   }, []);
 
   if (isValidElement(children)) {
