@@ -1,5 +1,5 @@
 import { StyleSheet } from "react-native";
-import { ReturnTypeUseThemeTokens } from "../components/ThemeContext";
+import { ReturnTypeUseThemeTokens } from "../components/app_manager/ThemeContext";
 
 export const FONT_FAMILY = {
   regular: {

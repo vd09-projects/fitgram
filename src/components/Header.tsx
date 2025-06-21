@@ -5,7 +5,7 @@ import { BUTTON_SIZES, FONT_SIZES, SPACING } from '../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
 import { LayoutRoutes } from '../constants/routes';
 import { TextBase } from './TextBase';
-import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 import { useNavigationState } from '@react-navigation/native';
 import { TourStep } from './guide_tour/TourStep';

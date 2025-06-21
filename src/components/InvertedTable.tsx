@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, ScrollView, StyleSheet } from "react-native";
 import { FONT_SIZES, SPACING, BORDER_RADIUS } from "../constants/styles";
-import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
 interface TableProps {

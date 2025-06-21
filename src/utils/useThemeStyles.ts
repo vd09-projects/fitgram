@@ -1,5 +1,5 @@
 import { StyleSheet, ViewStyle, TextStyle, ImageStyle } from 'react-native';
-import { ReturnTypeUseThemeTokens, useThemeTokens } from '../components/ThemeContext';
+import { ReturnTypeUseThemeTokens, useThemeTokens } from '../components/app_manager/ThemeContext';
 
 type NamedStyles<T> = {
   [P in keyof T]: ViewStyle | TextStyle | ImageStyle;

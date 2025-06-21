@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, ImageBackground } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FONT_SIZES, SPACING } from '../constants/styles';
 import { TextBase } from './TextBase';
-import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
 interface GreetingProps {

@@ -5,7 +5,7 @@ import {
   FONT_SIZES,
   SPACING,
 } from "../../constants/styles";
-import { ReturnTypeUseThemeTokens } from "../ThemeContext";
+import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 
 export type CollapsibleTableStyles = {
   outerScroll: ViewStyle;

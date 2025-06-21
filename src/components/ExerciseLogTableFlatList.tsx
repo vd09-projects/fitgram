@@ -10,7 +10,7 @@ import CollapsibleSection from "./CollapsibleSection";
 import { TextBase } from "./TextBase";
 import { Column } from "./collapsible_table/CollapsibleTableParts";
 import { CollapsibleTable } from "./collapsible_table/CollapsibleTable";
-import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
 type Props = {

@@ -11,7 +11,7 @@ import CollapsibleSection from "./CollapsibleSection";
 import { TextBase } from "./TextBase";
 import { CollapsibleTable } from "./collapsible_table/CollapsibleTable";
 import { WorkoutHistoricalDisplayLog } from "./WorkoutHistoricalLogsFilter";
-import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
 type Props = {

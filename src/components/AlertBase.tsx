@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { BORDER_RADIUS, FONT_SIZES, LARGE_BORDER_RADIUS, SPACING } from '../constants/styles';
 import { TextBase } from './TextBase';
-import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
 export interface AlertBaseButton {

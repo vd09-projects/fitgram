@@ -9,7 +9,7 @@ import { getWorkoutLogs } from "../services/db/userDB";
 import { TextBase } from "./TextBase";
 import { BORDER_RADIUS, FONT_SIZES, SPACING } from "../constants/styles";
 import { WorkoutLog } from "../types/workoutLogs";
-import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
 export type WorkoutHistoricalDisplayLog = {

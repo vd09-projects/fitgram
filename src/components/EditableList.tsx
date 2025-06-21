@@ -5,7 +5,7 @@ import { BORDER_RADIUS, BUTTON_SIZES, FONT_SIZES, SPACING } from '../constants/s
 import { TextBase } from './TextBase';
 import { emptyOutlineStyle, PrimaryInputField } from './PrimaryInputField';
 import { TextInput } from 'react-native-paper';
-import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
 interface EditableListProps {

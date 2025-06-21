@@ -13,7 +13,7 @@ import { SPACING, BORDER_RADIUS, FONT_SIZES } from "../constants/styles";
 import { Ionicons } from "@expo/vector-icons";
 import { TextBase } from "./TextBase";
 import CompactTextSwitch from "./CompactTextSwitch";
-import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
 interface TableControlsProps {

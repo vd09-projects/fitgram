@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useMemo } from 'react';
-import { AllColorSchemas, ColorSchemaValueType } from '../constants/colors';
-import { useColorSchemaStore } from '../stores/colorSchemaStore';
-import { FONT_SIZES, getShadow } from '../constants/styles';
+import { AllColorSchemas, ColorSchemaValueType } from '../../constants/colors';
+import { useColorSchemaStore } from '../../stores/colorSchemaStore';
+import { FONT_SIZES, getShadow } from '../../constants/styles';
 
 type ShadowStyle = {
   shadowColor: string;

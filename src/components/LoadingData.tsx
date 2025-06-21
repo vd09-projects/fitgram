@@ -9,7 +9,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { FONT_SIZES, FONT_FAMILY, SPACING } from '../constants/styles';
-import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
 const MAX_DOTS = 3;

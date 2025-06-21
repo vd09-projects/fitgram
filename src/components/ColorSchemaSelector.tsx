@@ -5,7 +5,7 @@ import CollapsibleSection from './CollapsibleSection';
 import { AllColorSchemas } from '../constants/colors';
 import { BORDER_RADIUS, FONT_SIZES, SPACING } from '../constants/styles';
 import { useColorSchemaStore } from '../stores/colorSchemaStore';
-import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
 export const ColorSchemaSelector: React.FC = () => {

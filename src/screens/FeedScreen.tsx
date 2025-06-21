@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useAuthUser } from '../hooks/useAuthUser';
 import { Greeting } from '../components/Greeting';
-import { ReturnTypeUseThemeTokens } from '../components/ThemeContext';
+import { ReturnTypeUseThemeTokens } from '../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../utils/useThemeStyles';
 
 export default function FeedScreen() {

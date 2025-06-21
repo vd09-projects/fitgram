@@ -12,7 +12,7 @@ import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
 import { LayoutRoutes, WorkoutRoutes } from "../../constants/routes";
 import { useNavigation } from "@react-navigation/native";
 import { TextBase } from "../../components/TextBase";
-import { ReturnTypeUseThemeTokens } from '../../components/ThemeContext';
+import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
 
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.LogWorkout>;

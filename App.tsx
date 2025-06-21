@@ -7,7 +7,7 @@ import { toastConfig } from './src/constants/toastConfig';
 import { useEffect, useState } from 'react';
 import { FONT_FAMILY } from './src/constants/styles';
 import { useColorSchemaStore } from './src/stores/colorSchemaStore';
-import { ThemeProvider } from './src/components/ThemeContext';
+import { ThemeProvider } from './src/components/app_manager/ThemeContext';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { TourGuideProvider } from './src/components/guide_tour/TourGuideProvider';
 import { TooltipOverlay } from './src/components/guide_tour/TourStepOverlay';

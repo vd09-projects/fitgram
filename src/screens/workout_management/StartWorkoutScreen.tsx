@@ -22,7 +22,7 @@ import { useNavigation } from "@react-navigation/native";
 import { TextBase } from "../../components/TextBase";
 import AlertBase from "../../components/AlertBase";
 import LoadingData from "../../components/LoadingData";
-import { ReturnTypeUseThemeTokens } from '../../components/ThemeContext';
+import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
 
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.StartWorkout>;

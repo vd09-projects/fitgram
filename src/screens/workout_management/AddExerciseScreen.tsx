@@ -19,7 +19,7 @@ import CollapsibleExerciseList from '../../components/CollapsibleExerciseList';
 import { Exercise, WorkoutPlan } from '../../types/workoutType';
 import { TextBase } from '../../components/TextBase';
 import { validateCustomFields, validateExerciseSelection, validateWorkoutAndExercises, validateWorkoutSelection } from '../../utils/exerciseValidations';
-import { ReturnTypeUseThemeTokens } from '../../components/ThemeContext';
+import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
 
 export default function AddExerciseScreen() {

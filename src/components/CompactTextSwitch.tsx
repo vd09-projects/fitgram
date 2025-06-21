@@ -10,7 +10,7 @@ import {
   TextStyle,
 } from "react-native";
 import { FONT_FAMILY, FONT_SIZES, SPACING } from "../constants/styles";
-import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
 interface SideTextSwitchProps {

@@ -16,7 +16,7 @@ import { validateCredentials } from '../../utils/validation';
 import { TextBase } from '../../components/TextBase';
 import LoadingData from '../../components/LoadingData';
 import { BORDER_RADIUS, FONT_FAMILY, FONT_SIZES, SPACING } from '../../constants/styles';
-import { ReturnTypeUseThemeTokens } from '../../components/ThemeContext';
+import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
 
 type SignInScreenNavigationProp = ScreenNavigationProp<typeof AuthRoutes.SignIn>;

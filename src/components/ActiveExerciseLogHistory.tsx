@@ -7,7 +7,7 @@ import { CollapsibleTable } from "./collapsible_table/CollapsibleTable";
 import { SPACING, BORDER_RADIUS, FONT_SIZES, LARGE_BORDER_RADIUS } from "../constants/styles";
 import { LoggedExercise } from "../types/zustandWorkoutType";
 import { Column } from "./collapsible_table/CollapsibleTableParts";
-import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
 interface ActiveExerciseLogHistoryProps {

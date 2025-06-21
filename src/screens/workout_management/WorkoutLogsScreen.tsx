@@ -10,7 +10,7 @@ import { TextBase } from "../../components/TextBase";
 import TableControls from "../../components/TableControl";
 import WorkoutHistoricalLogsFilter, { WorkoutHistoricalDisplayLog } from "../../components/WorkoutHistoricalLogsFilter";
 import { Ionicons } from '@expo/vector-icons';
-import { ReturnTypeUseThemeTokens } from '../../components/ThemeContext';
+import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
 
 export default function WorkoutLogsScreen() {

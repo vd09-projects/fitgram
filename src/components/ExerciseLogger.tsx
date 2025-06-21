@@ -7,7 +7,7 @@ import { LoggedExercise } from "../types/zustandWorkoutType";
 import { TextBase } from "./TextBase";
 import { getClearIcon, PrimaryInputField } from "./PrimaryInputField";
 import ActiveExerciseLogHistory from "./ActiveExerciseLogHistory";
-import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
 export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise }) {

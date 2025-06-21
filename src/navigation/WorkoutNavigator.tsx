@@ -6,7 +6,7 @@ import StartWorkoutScreen from '../screens/workout_management/StartWorkoutScreen
 import ActiveWorkoutScreen from '../screens/workout_management/ActiveWorkoutScreen';
 import AddExerciseScreen from '../screens/workout_management/AddExerciseScreen';
 import WorkoutLogsScreen from '../screens/workout_management/WorkoutLogsScreen';
-import { useThemeTokens } from '../components/ThemeContext';
+import { useThemeTokens } from '../components/app_manager/ThemeContext';
 
 export type WorkoutStackParamList = {
   WorkoutLogs: undefined;

@@ -1,7 +1,7 @@
 import { BaseToast, BaseToastProps, ErrorToast } from "react-native-toast-message";
 import { FONT_FAMILY, FONT_SIZES } from "./styles";
 import { TostSucessColor, TostWarnColor } from "./colors";
-import { useThemeTokens } from "../components/ThemeContext";
+import { useThemeTokens } from "../components/app_manager/ThemeContext";
 
 export const toastConfig = {
   success: (props: BaseToastProps) => {

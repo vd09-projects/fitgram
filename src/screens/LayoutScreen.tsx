@@ -8,7 +8,7 @@ import LayoutNavigator, { LayoutScreenNavigationProp } from '../navigation/Layou
 import { LayoutRoutes } from '../constants/routes';
 import { SPACING } from '../constants/styles';
 import AnimatedScreen from '../components/AnimatedText';
-import { ReturnTypeUseThemeTokens } from '../components/ThemeContext';
+import { ReturnTypeUseThemeTokens } from '../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../utils/useThemeStyles';
 
 const Stack = createStackNavigator();

@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { getClearIcon, PrimaryInputField } from "./PrimaryInputField";
 import { TextInput } from 'react-native-paper';
 import { SPACING } from "../constants/styles";
-import { useThemeTokens } from "./ThemeContext";
+import { useThemeTokens } from "./app_manager/ThemeContext";
 
 interface SearchBoxProps {
   label: string;

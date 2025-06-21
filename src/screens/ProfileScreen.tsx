@@ -10,7 +10,7 @@ import ScrollableScreen from '../components/ScrollableScreen';
 import { TextBase } from '../components/TextBase';
 import CollapsibleSection from '../components/CollapsibleSection';
 import { ColorSchemaSelector } from '../components/ColorSchemaSelector';
-import { ReturnTypeUseThemeTokens } from '../components/ThemeContext';
+import { ReturnTypeUseThemeTokens } from '../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../utils/useThemeStyles';
 import { useTour } from '../components/guide_tour/TourGuideProvider';
 import { FIRST_TOUR_STEP_ID, TOUR_STEPS } from '../constants/tourSteps';

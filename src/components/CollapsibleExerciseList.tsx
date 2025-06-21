@@ -6,7 +6,7 @@ import EditableList from './EditableList';
 import { Exercise } from '../types/workoutType';
 import { TextBase } from './TextBase';
 import CollapsibleSection from './CollapsibleSection'; // ✅ make sure this is the reusable component you already created
-import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
 interface CollapsibleExerciseListProps {

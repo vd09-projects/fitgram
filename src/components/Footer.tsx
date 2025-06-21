@@ -6,7 +6,7 @@ import { LayoutRoutes } from '../constants/routes';
 import { useKeyboardVisibility } from '../hooks/useKeyboardVisibility'; // Optimized hook
 import { useWorkoutStore } from '../stores/useWorkoutStore';
 import { TextBase } from './TextBase';
-import { ReturnTypeUseThemeTokens } from "./ThemeContext";
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
 interface FooterProps {
