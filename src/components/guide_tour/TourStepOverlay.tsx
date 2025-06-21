@@ -25,6 +25,11 @@ export const TooltipOverlay = () => {
     if (!isTourActive || !currentStepId) return;
 
     const step = steps[currentStepId];
+    if (!step) {
+      console.warn('Tour step not found:', currentStepId);
+      return;
+    }
+
     const view = step?.ref?.current;
 
     if (!view || typeof view.measure !== 'function') {
@@ -54,6 +59,22 @@ export const TooltipOverlay = () => {
       <View style={[styles.blocker, { top: y + height, left: 0, right: 0, bottom: 0 }]} pointerEvents="auto" />
       <View style={[styles.blocker, { top: y, left: 0, width: x, height }]} pointerEvents="auto" />
       <View style={[styles.blocker, { top: y, left: x + width, right: 0, height }]} pointerEvents="auto" />
+
+      {/* Golden border around selected element */}
+      <View
+        style={{
+          position: 'absolute',
+          top: y - 1,
+          left: x - 2,
+          width: width + 2,
+          height: height + 2,
+          borderWidth: 2,
+          borderColor: 'gold',
+          borderRadius: 6,
+          zIndex: 10,
+        }}
+        pointerEvents="none"
+      />
 
       {/* Tooltip */}
       <View style={[styles.tooltip, { top: tooltipY, left: tooltipX }]}>

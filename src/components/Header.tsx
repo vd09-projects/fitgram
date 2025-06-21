@@ -1,5 +1,5 @@
 // src/components/Header.tsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { BUTTON_SIZES, FONT_SIZES, SPACING } from '../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,13 +9,21 @@ import { ReturnTypeUseThemeTokens } from "./ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 import { useNavigationState } from '@react-navigation/native';
 import { TourStep } from './guide_tour/TourStep';
-import { TOUR_STEPS } from '../constants/tourSteps';
+import { FIRST_TOUR_STEP_ID, TOUR_STEPS } from '../constants/tourSteps';
+import { useSafeTour } from '../components/guide_tour/TourGuideProvider';
 
 interface HeaderProps {
   onPressTab: (tab: keyof typeof LayoutRoutes) => void;
 }
 
 export default function Header({ onPressTab }: HeaderProps) {
+  const { startTour, isTourActive } = useSafeTour();
+    console.log("Header rendered", isTourActive);
+  useEffect(() => {
+    console.log("Header useEffect called, starting tour if not active");
+    startTour(FIRST_TOUR_STEP_ID);
+  }, []);
+
   const navigationState = useNavigationState((state) => state);
 
   const shouldShowHeader = (() => {

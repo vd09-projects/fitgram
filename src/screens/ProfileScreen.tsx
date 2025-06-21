@@ -65,7 +65,7 @@ export default function ProfileScreen() {
       </TourStep>
 
       <TourStep {...TOUR_STEPS.PROFILE_START_TOUR}>
-        <TouchableOpacity style={styles.button} onPress={() => { startTour(FIRST_TOUR_STEP_ID); }}>
+        <TouchableOpacity style={styles.button} onPress={() => { startTour(FIRST_TOUR_STEP_ID, undefined, true); }}>
           <TextBase style={styles.buttonText}>🧭 Start App Tour</TextBase>
         </TouchableOpacity>
       </TourStep>

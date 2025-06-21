@@ -25,9 +25,9 @@ export const TourStep: React.FC<Props> = ({
   screen,
   children,
 }) => {
-  const measureRef = useRef<any>(null);
   const { registerStep, currentStepId, isTourActive, triggerMeasureRefresh } = useTour();
 
+  const measureRef = useRef<any>(null);
   const isActive = isTourActive && currentStepId === id;
   const belowPositionType = positionType === 'below';
 
@@ -51,34 +51,31 @@ export const TourStep: React.FC<Props> = ({
     }
 
     const propsToInject = {
-      [stylePropName]: [childStyle, isActive && styles.highlight],
+      [stylePropName]: [childStyle],
     };
 
-    if (!isFunComponent) {
-      return cloneElement(children as ReactElement<any>, { ...propsToInject, ref: measureRef, onLayout: () => { triggerMeasureRefresh(); } });
-    }
-
     return (
-      <View ref={measureRef} collapsable={false} style={spacingStyle} onLayout={() => { triggerMeasureRefresh(); }}>
+      <View
+        ref={measureRef}
+        collapsable={false}
+        style={isFunComponent ? spacingStyle : undefined}
+        onLayout={triggerMeasureRefresh}
+      >
         {cloneElement(children as ReactElement<any>, propsToInject)}
       </View>
     );
   }
 
+  // Fallback for non-ReactElement children (e.g., string, number)
   return (
     <>
-      {!belowPositionType && <View ref={measureRef} collapsable={false} style={styles.measureAnchor} />}
+      {!belowPositionType && (
+        <View ref={measureRef} collapsable={false} onLayout={triggerMeasureRefresh} />
+      )}
       {children}
-      {belowPositionType && <View ref={measureRef} collapsable={false} style={styles.measureAnchor} />}
+      {belowPositionType && (
+        <View ref={measureRef} collapsable={false} onLayout={triggerMeasureRefresh} />
+      )}
     </>
   );
 };
-
-const styles = StyleSheet.create({
-  highlight: {
-    borderColor: 'gold',
-    borderWidth: 2,
-    borderRadius: 6,
-  },
-  measureAnchor: {},
-});
