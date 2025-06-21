@@ -36,7 +36,7 @@ export const TOUR_STEPS: Record<string, TourStepConfig> = {
     title: "View Profile Information",
     description:
       "Here you can see your personal details like name, email, and more.",
-    // nextStepId: "PROFILE_THEME",
+    nextStepId: "PROFILE_THEME",
     screen: "ProfileScreen",
   },
   PROFILE_THEME: {

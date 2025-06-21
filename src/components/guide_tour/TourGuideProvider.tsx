@@ -18,8 +18,10 @@ type TourGuideContextType = {
   nextStep: () => void;
   skipTour: () => void;
   clearStep: () => void;
+  triggerMeasureRefresh: () => void;
   currentStepId: string | null;
   isTourActive: boolean;
+  refreshKey: number;
   steps: Record<string, Step>;
 };
 
@@ -31,6 +33,7 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [steps, setSteps] = useState<Record<string, Step>>({});
   const [currentStepId, setCurrentStepId] = useState<string | null>(null);
   const [isTourActive, setIsTourActive] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const registerStep = (step: Step) => {
     setSteps(prev => ({ ...prev, [step.id]: step }));
@@ -38,15 +41,13 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const clearStepsForStart = () => {
     const filteredSteps = Object.fromEntries(
-      Object.entries(steps).filter(([_, step]) => step.screen === "HomeScreen")
+      Object.entries(steps).filter(([_, step]) => step.screen === "Header")
     );
-    console.log('Filtered steps for HomeScreen:', filteredSteps);
     setSteps(filteredSteps);
   };
 
   const startTour = (firstStepId: string) => {
     clearStepsForStart();
-    console.log('Starting tour with first step:', firstStepId, "steps:", steps);
     setIsTourActive(true);
     setCurrentStepId(firstStepId);
   };
@@ -73,9 +74,14 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setSteps({});
   };
 
+  const triggerMeasureRefresh = () => {
+    // console.log('Triggering measure refresh');
+    setRefreshKey((k) => k + 1);
+  };
+
   return (
     <TourGuideContext.Provider
-      value={{ registerStep, startTour, nextStep, skipTour, clearStep, currentStepId, isTourActive, steps }}
+      value={{ registerStep, startTour, nextStep, skipTour, clearStep, triggerMeasureRefresh, refreshKey, currentStepId, isTourActive, steps }}
     >
       {children}
     </TourGuideContext.Provider>

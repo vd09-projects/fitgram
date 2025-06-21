@@ -35,7 +35,7 @@ export default function ProfileScreen() {
     <ScrollableScreen
       style={styles.container}
     >
-      <TourStep {...TOUR_STEPS.HOME_BUTTON} isFunComponent={true}>
+      <TourStep {...TOUR_STEPS.PROFILE_DETAILS} isFunComponent={true}>
         <CollapsibleSection
           collapsibleStyle={styles.collapsibleStyle}
           collapsibleIconColor={t.colors.textPrimary}
@@ -50,21 +50,25 @@ export default function ProfileScreen() {
         </CollapsibleSection>
       </TourStep>
 
-      <CollapsibleSection
-        collapsibleStyle={styles.collapsibleStyle}
-        collapsibleIconColor={t.colors.textPrimary}
-        title={<TextBase style={styles.sectionTitle}>🎨 Appearance</TextBase>}
-        defaultCollapsed={true}
-        dividerLineColor={t.colors.transparent}
-        titleContainerStyle={{ marginBottom: SPACING.medium }}
-        dividerLineStyle={{ marginTop: 0, marginBottom: 0 }}
-      >
-        <ColorSchemaSelector />
-      </CollapsibleSection>
+      <TourStep {...TOUR_STEPS.PROFILE_THEME} isFunComponent={true}>
+        <CollapsibleSection
+          collapsibleStyle={styles.collapsibleStyle}
+          collapsibleIconColor={t.colors.textPrimary}
+          title={<TextBase style={styles.sectionTitle}>🎨 Appearance</TextBase>}
+          defaultCollapsed={true}
+          dividerLineColor={t.colors.transparent}
+          titleContainerStyle={{ marginBottom: SPACING.medium }}
+          dividerLineStyle={{ marginTop: 0, marginBottom: 0 }}
+        >
+          <ColorSchemaSelector />
+        </CollapsibleSection>
+      </TourStep>
 
-      <TouchableOpacity style={styles.button} onPress={() => { startTour(FIRST_TOUR_STEP_ID); }}>
-        <TextBase style={styles.buttonText}>🧭 Start App Tour</TextBase>
-      </TouchableOpacity>
+      <TourStep {...TOUR_STEPS.PROFILE_START_TOUR}>
+        <TouchableOpacity style={styles.button} onPress={() => { startTour(FIRST_TOUR_STEP_ID); }}>
+          <TextBase style={styles.buttonText}>🧭 Start App Tour</TextBase>
+        </TouchableOpacity>
+      </TourStep>
 
       <TouchableOpacity style={styles.button} onPress={() => { clearStep(); }}>
         <TextBase style={styles.buttonText}>🧭 Clear App Tour</TextBase>

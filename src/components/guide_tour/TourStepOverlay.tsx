@@ -5,7 +5,15 @@ import { useTour } from './TourGuideProvider';
 const TOOLTIP_WIDTH = 280;
 
 export const TooltipOverlay = () => {
-  const { steps, currentStepId, nextStep, skipTour, isTourActive } = useTour();
+  const {
+    steps,
+    currentStepId,
+    nextStep,
+    skipTour,
+    isTourActive,
+    refreshKey,
+  } = useTour();
+
   const [tooltipPosition, setTooltipPosition] = useState<{
     x: number;
     y: number;
@@ -15,6 +23,7 @@ export const TooltipOverlay = () => {
 
   useEffect(() => {
     if (!isTourActive || !currentStepId) return;
+
     const step = steps[currentStepId];
     const view = step?.ref?.current;
 
@@ -23,12 +32,10 @@ export const TooltipOverlay = () => {
       return;
     }
 
-    setTimeout(() => {
-      view.measure((_x, _y, width, height, pageX, pageY) => {
-        setTooltipPosition({ x: pageX, y: pageY, width, height });
-      });
-    }, 100);
-  }, [steps, currentStepId, isTourActive]);
+    view.measure((_x, _y, width, height, pageX, pageY) => {
+      setTooltipPosition({ x: pageX, y: pageY, width, height });
+    });
+  }, [steps, currentStepId, isTourActive, refreshKey]);
 
   if (!isTourActive || !tooltipPosition || !currentStepId) return null;
 
