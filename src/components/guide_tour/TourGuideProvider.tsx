@@ -85,10 +85,13 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     tourId: string = 'default-tour',
     force: boolean = false
   ) => {
+    console.log('Starting tour:', tourId, 'First step:', firstStepId);
     if (hasSeenTour(tourId)) {
+      console.log('Tour already seen:', tourId);
       if (!force) return;
       resetTourSeen(tourId);
     }
+    console.log('Registering steps for tour:', tourId);
 
     clearStepsForStart();
     setIsTourActive(true);
@@ -117,9 +120,10 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const skipTour = () => {
-    setIsTourActive(false);
-    setCurrentStepId(null);
-    setCurrentTourId(null);
+    // setIsTourActive(false);
+    // setCurrentStepId(null);
+    // setCurrentTourId(null);
+    endTour();
   };
 
   const clearStep = () => {

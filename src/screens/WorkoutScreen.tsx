@@ -15,6 +15,8 @@ import { useNavigation } from '@react-navigation/native';
 import { TextBase } from '../components/TextBase';
 import { ReturnTypeUseThemeTokens } from '../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../utils/useThemeStyles';
+import { TOUR_STEPS } from '../constants/tourSteps';
+import { TourStep } from '../components/guide_tour/TourStep';
 
 const workoutOptions = [
   {
@@ -28,6 +30,7 @@ const workoutOptions = [
     title: 'Add New Workout',
     description: 'Create & customize your workout routine.',
     icon: 'add-circle-outline',
+    tous: 'ADD_NEW_WORKOUT_BUTTON',
     // action: () => console.log('Navigating to Add Workout'),
     action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.AddExercise),
   },
@@ -35,6 +38,7 @@ const workoutOptions = [
     title: 'Start Workout',
     description: 'Begin your workout session now.',
     icon: 'play-circle-outline',
+    tous: 'START_WORKOUT_BUTTON',
     // action: (navigation: workoutScreenNavigationProp) => console.log('Navigating to Start Workout'), 
     action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.StartWorkout),
   },
@@ -42,6 +46,7 @@ const workoutOptions = [
     title: 'Log Active Workout',
     description: 'Begin your workout session now.',
     icon: 'document-text-outline',
+    tous: 'LOG_ACTIVE_WORKOUT_BUTTON',
     // action: (navigation: workoutScreenNavigationProp) => console.log('Navigating to Start Workout'), 
     action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.LogWorkout),
   }
@@ -64,29 +69,39 @@ export default function WorkoutScreen() {
 
         {/* 🔹 Workout Options (Dynamic Buttons) */}
         <View style={styles.buttonContainer}>
-          {workoutOptions.map((option, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.buttonPrimary}
-              onPress={() => option.action(navigation)}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name={option.icon as keyof typeof Ionicons.glyphMap}
-                size={SPACING.xxxLarge}
-                color={t.colors.cardHeader}
-                style={styles.icon}
-              />
-              <View style={styles.buttonTextContainer}>
-                <TextBase style={styles.buttonTextPrimary}>
-                  {option.title}
-                </TextBase>
-                <TextBase style={styles.buttonSubText}>
-                  {option.description}
-                </TextBase>
-              </View>
-            </TouchableOpacity>
-          ))}
+          {workoutOptions.map((option, index) => {
+            const tousDetails = option.tous ? TOUR_STEPS[option.tous as keyof typeof TOUR_STEPS] : undefined;
+            const tabContent = (
+              <TouchableOpacity
+                key={index}
+                style={styles.buttonPrimary}
+                onPress={() => option.action(navigation)}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={option.icon as keyof typeof Ionicons.glyphMap}
+                  size={SPACING.xxxLarge}
+                  color={t.colors.cardHeader}
+                  style={styles.icon}
+                />
+                <View style={styles.buttonTextContainer}>
+                  <TextBase style={styles.buttonTextPrimary}>
+                    {option.title}
+                  </TextBase>
+                  <TextBase style={styles.buttonSubText}>
+                    {option.description}
+                  </TextBase>
+                </View>
+              </TouchableOpacity>
+            )
+            return tousDetails ? (
+              <TourStep {...tousDetails} key={index}>
+                {tabContent}
+              </TourStep>
+            ) : (
+              tabContent
+            );
+          })}
         </View>
       </View>
     </ImageBackground>

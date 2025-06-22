@@ -62,7 +62,7 @@ export const TOUR_STEPS: Record<string, TourStepConfig> = {
     nextStepId: "WORKOUT_BUTTON",
     screen: "Footer",
   },
-    WORKOUT_BUTTON: {
+  WORKOUT_BUTTON: {
     id: "WORKOUT_BUTTON",
     title: "Access Your Workout Options",
     description: "Tap this button to view your Workout related options.",
@@ -80,6 +80,13 @@ export const TOUR_STEPS: Record<string, TourStepConfig> = {
     id: "START_WORKOUT_BUTTON",
     title: "You can start a workout",
     description: "Tap this button to start your workout session.",
+    // nextStepId: "PROFILE_DETAILS",
+    screen: "WorkoutScreen",
+  },
+  LOG_ACTIVE_WORKOUT_BUTTON: {
+    id: "LOG_ACTIVE_WORKOUT_BUTTON",
+    title: "Log Your Active Workout",
+    description: "Tap this button to log your current workout activity.",
     // nextStepId: "PROFILE_DETAILS",
     screen: "WorkoutScreen",
   },

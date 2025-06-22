@@ -5,22 +5,20 @@ import { BUTTON_SIZES, FONT_SIZES, SPACING } from '../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
 import { LayoutRoutes } from '../constants/routes';
 import { TextBase } from './TextBase';
-import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 import { useNavigationState } from '@react-navigation/native';
 import { TourStep } from './guide_tour/TourStep';
 import { FIRST_TOUR_STEP_ID, TOUR_STEPS } from '../constants/tourSteps';
-import { useSafeTour } from '../components/guide_tour/TourGuideProvider';
+import { useSafeTour, useTour } from '../components/guide_tour/TourGuideProvider';
+import { ReturnTypeUseThemeTokens } from './app_manager/ThemeContext';
 
 interface HeaderProps {
   onPressTab: (tab: keyof typeof LayoutRoutes) => void;
 }
 
 export default function Header({ onPressTab }: HeaderProps) {
-  const { startTour, isTourActive } = useSafeTour();
-    console.log("Header rendered", isTourActive);
+  const { startTour } = useTour();
   useEffect(() => {
-    console.log("Header useEffect called, starting tour if not active");
     startTour(FIRST_TOUR_STEP_ID);
   }, []);
 

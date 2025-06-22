@@ -21,21 +21,15 @@ export const TooltipOverlay = () => {
     height: number;
   } | null>(null);
 
+  const [tooltipHeight, setTooltipHeight] = useState(0);
+
   useEffect(() => {
     if (!isTourActive || !currentStepId) return;
 
     const step = steps[currentStepId];
-    if (!step) {
-      console.warn('Tour step not found:', currentStepId);
-      return;
-    }
-
     const view = step?.ref?.current;
 
-    if (!view || typeof view.measure !== 'function') {
-      console.warn('Invalid ref or measure() missing for step:', step);
-      return;
-    }
+    if (!view || typeof view.measure !== 'function') return;
 
     view.measure((_x, _y, width, height, pageX, pageY) => {
       setTooltipPosition({ x: pageX, y: pageY, width, height });
@@ -47,10 +41,14 @@ export const TooltipOverlay = () => {
   const { x, y, width, height } = tooltipPosition;
   const screen = Dimensions.get('window');
   const step = steps[currentStepId];
-  const tooltipX = Math.min(x, screen.width - TOOLTIP_WIDTH);
-  const tooltipY = step?.positionType === 'above' ? Math.max(y - 240, 12) : y + height + 12;
-
   const isNextStepDefinedButMissing = step?.nextStepId && !steps[step.nextStepId];
+
+  const tooltipX = Math.min(x, screen.width - TOOLTIP_WIDTH);
+  const tooltipY =
+    step?.positionType === 'above'
+      ? Math.max(y - tooltipHeight - 12, 12)
+      : y + height + 12;
+  const topViewVal = step?.positionType === 'above' ? y - 4 : y - 2;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
@@ -64,8 +62,8 @@ export const TooltipOverlay = () => {
       <View
         style={{
           position: 'absolute',
-          top: y - 1,
-          left: x - 2,
+          top: topViewVal,
+          left: x,
           width: width + 2,
           height: height + 2,
           borderWidth: 2,
@@ -77,13 +75,15 @@ export const TooltipOverlay = () => {
       />
 
       {/* Tooltip */}
-      <View style={[styles.tooltip, { top: tooltipY, left: tooltipX }]}>
+      <View
+        style={[styles.tooltip, { top: tooltipY, left: tooltipX }]}
+        onLayout={(e) => setTooltipHeight(e.nativeEvent.layout.height)}
+      >
         <Text style={styles.title}>{step.title}</Text>
         <Text style={styles.desc}>{step.description}</Text>
 
         {isNextStepDefinedButMissing && (
           <Text style={styles.waitingMsg}>
-            {/* We’re waiting for the next part of the screen to load.  */}
             Hang tight! Please interact with the app (like tapping a button or switching pages) to continue the tour.
           </Text>
         )}

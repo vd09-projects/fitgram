@@ -43,7 +43,11 @@ export const TourStep: React.FC<Props> = ({
     const childStyle: ViewStyle = {};
 
     for (const key in flattenedStyle) {
-      if (key.startsWith('align')) {
+      if (
+        (key.startsWith('align') && !flattenedStyle.hasOwnProperty('flexDirection'))
+        || 
+        key.startsWith('flexDirection')
+      ) {
         childStyle[key] = flattenedStyle[key];
       } else {
         spacingStyle[key] = flattenedStyle[key];
