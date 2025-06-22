@@ -43,10 +43,10 @@ export const TourStep: React.FC<Props> = ({
     const childStyle: ViewStyle = {};
 
     for (const key in flattenedStyle) {
-      if (isFunComponent && (key.startsWith('margin') || key.startsWith('padding'))) {
-        spacingStyle[key] = flattenedStyle[key];
-      } else {
+      if (key.startsWith('align')) {
         childStyle[key] = flattenedStyle[key];
+      } else {
+        spacingStyle[key] = flattenedStyle[key];
       }
     }
 
@@ -58,7 +58,7 @@ export const TourStep: React.FC<Props> = ({
       <View
         ref={measureRef}
         collapsable={false}
-        style={isFunComponent ? spacingStyle : undefined}
+        style={spacingStyle}
         onLayout={triggerMeasureRefresh}
       >
         {cloneElement(children as ReactElement<any>, propsToInject)}

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, Dimensions, StyleSheet, Button } from 'react-native';
 import { useTour } from './TourGuideProvider';
 
-const TOOLTIP_WIDTH = 280;
+const TOOLTIP_WIDTH = 320;
 
 export const TooltipOverlay = () => {
   const {
@@ -48,7 +48,7 @@ export const TooltipOverlay = () => {
   const screen = Dimensions.get('window');
   const step = steps[currentStepId];
   const tooltipX = Math.min(x, screen.width - TOOLTIP_WIDTH);
-  const tooltipY = step?.positionType === 'above' ? Math.max(y - 140, 12) : y + height + 12;
+  const tooltipY = step?.positionType === 'above' ? Math.max(y - 240, 12) : y + height + 12;
 
   const isNextStepDefinedButMissing = step?.nextStepId && !steps[step.nextStepId];
 
@@ -83,7 +83,8 @@ export const TooltipOverlay = () => {
 
         {isNextStepDefinedButMissing && (
           <Text style={styles.waitingMsg}>
-            Hang tight! We’re waiting for the next part of the screen to load. Please interact with the app (like tapping a button or switching pages) to continue the tour.
+            {/* We’re waiting for the next part of the screen to load.  */}
+            Hang tight! Please interact with the app (like tapping a button or switching pages) to continue the tour.
           </Text>
         )}
 

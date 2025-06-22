@@ -52,8 +52,47 @@ export const TOUR_STEPS: Record<string, TourStepConfig> = {
     title: "Restart the Tour",
     description:
       "Want to take the tour again later? Tap here to restart it anytime.",
+    nextStepId: "FEED_BUTTON",
     screen: "ProfileScreen",
+  },
+  FEED_BUTTON: {
+    id: "FEED_BUTTON",
+    title: "Access Your Feed",
+    description: "Tap this button to view your feed of updates and posts.",
+    nextStepId: "WORKOUT_BUTTON",
+    screen: "Footer",
+  },
+    WORKOUT_BUTTON: {
+    id: "WORKOUT_BUTTON",
+    title: "Access Your Workout Options",
+    description: "Tap this button to view your Workout related options.",
+    nextStepId: "ADD_NEW_WORKOUT_BUTTON",
+    screen: "Footer",
+  },
+  ADD_NEW_WORKOUT_BUTTON: {
+    id: "ADD_NEW_WORKOUT_BUTTON",
+    title: "You can add/update a workout",
+    description: "Tap this button to add or update your workout details.",
+    // nextStepId: "PROFILE_DETAILS",
+    screen: "WorkoutScreen",
+  },
+  START_WORKOUT_BUTTON: {
+    id: "START_WORKOUT_BUTTON",
+    title: "You can start a workout",
+    description: "Tap this button to start your workout session.",
+    // nextStepId: "PROFILE_DETAILS",
+    screen: "WorkoutScreen",
   },
 };
 
-export const FIRST_TOUR_STEP_ID = TOUR_STEPS.HOME_BUTTON.id;
+// Example usage:
+// const feedButtonStep = TOUR_STEPS["FEED_BUTTON"];
+// console.log(feedButtonStep.title); // "Access Your Feed"
+
+export const RETAIN_SCREENS_TOUR_STEPS = [
+  // TOUR_STEPS.HOME_BUTTON.screen,
+  TOUR_STEPS.PROFILE_THEME.screen,
+  TOUR_STEPS.FEED_BUTTON.screen,
+];
+
+export const FIRST_TOUR_STEP_ID = TOUR_STEPS.PROFILE_THEME.id;

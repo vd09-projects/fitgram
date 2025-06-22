@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 import { useTourStore } from '../../stores/useTourStore';
+import { RETAIN_SCREENS_TOUR_STEPS } from '../../constants/tourSteps';
 
 export type PositionType = 'above' | 'below';
 
@@ -74,7 +75,7 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
    const clearStepsForStart = () => {
     const filteredSteps = Object.fromEntries(
-      Object.entries(steps).filter(([_, step]) => step.screen === "Header")
+      Object.entries(steps).filter(([_, step]) => RETAIN_SCREENS_TOUR_STEPS.includes(step.screen))
     );
     setSteps(filteredSteps);
   };

@@ -1,13 +1,15 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { FONT_SIZES,SPACING } from '../constants/styles';
+import { FONT_SIZES, SPACING } from '../constants/styles';
 import { LayoutRoutes } from '../constants/routes';
 import { useKeyboardVisibility } from '../hooks/useKeyboardVisibility'; // Optimized hook
 import { useWorkoutStore } from '../stores/useWorkoutStore';
 import { TextBase } from './TextBase';
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
+import { TOUR_STEPS } from '../constants/tourSteps';
+import { TourStep } from './guide_tour/TourStep';
 
 interface FooterProps {
   activeTab: keyof typeof LayoutRoutes;
@@ -22,8 +24,8 @@ export default function Footer({ activeTab, onChangeTab }: FooterProps) {
   if (isKeyboardVisible) return null; // Hide footer when keyboard is visible
 
   const tabs = [
-    { key: LayoutRoutes.Feed, label: 'Feed', icon: 'home-outline' as const },
-    { key: LayoutRoutes.Workout, label: 'Workout', icon: 'barbell-outline' as const },
+    { key: LayoutRoutes.Feed, label: 'Feed', icon: 'home-outline' as const, tous: "FEED_BUTTON" },
+    { key: LayoutRoutes.Workout, label: 'Workout', icon: 'barbell-outline' as const, tous: "WORKOUT_BUTTON" },
     ...(activeWorkout ? [{ key: LayoutRoutes.LogWorkout, label: 'Log Workout', icon: 'list-outline' as const }] : []),
   ];
 
@@ -31,7 +33,8 @@ export default function Footer({ activeTab, onChangeTab }: FooterProps) {
     <View style={styles.container}>
       {tabs.map((tab) => {
         const isActive = activeTab === tab.key;
-        return (
+        const tousDetails = tab.tous ? TOUR_STEPS[tab.tous as keyof typeof TOUR_STEPS] : undefined;
+        const tabContent = (
           <TouchableOpacity
             key={tab.key}
             style={[styles.tabButton, isActive && styles.activeTab]}
@@ -47,6 +50,13 @@ export default function Footer({ activeTab, onChangeTab }: FooterProps) {
               {tab.label}
             </TextBase>
           </TouchableOpacity>
+        );
+        return tousDetails ? (
+          <TourStep {...tousDetails} key={tab.key} positionType='above'>
+            {tabContent}
+          </TourStep>
+        ) : (
+          tabContent
         );
       })}
     </View>
