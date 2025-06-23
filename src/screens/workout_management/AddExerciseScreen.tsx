@@ -21,6 +21,7 @@ import { TextBase } from '../../components/TextBase';
 import { validateCustomFields, validateExerciseSelection, validateWorkoutAndExercises, validateWorkoutSelection } from '../../utils/exerciseValidations';
 import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
+import { SEARCHABLE_INPUT_DROPDOWN_PREFIX } from '../../constants/tourSteps';
 
 export default function AddExerciseScreen() {
   const { styles, t } = useThemeStyles(createStyles);
@@ -120,6 +121,7 @@ export default function AddExerciseScreen() {
         onChange={handleSelectWorkout}
         title={"Workout" + (selectedWorkout ? ` : ${selectedWorkout.label}` : '')}
         isDataLoading={loadingWorkoutPlans}
+        tourStepPrefix={SEARCHABLE_INPUT_DROPDOWN_PREFIX.WORKOUT}
       />
 
 

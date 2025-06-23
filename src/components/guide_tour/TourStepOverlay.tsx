@@ -84,7 +84,7 @@ export const TooltipOverlay = () => {
 
         {isNextStepDefinedButMissing && (
           <Text style={styles.waitingMsg}>
-            Hang tight! Please interact with the app (like tapping a button or switching pages) to continue the tour.
+            Hang tight! Please interact with the app (like tapping a button or switching pages) to continue the tour. {step.nextStepId}
           </Text>
         )}
 

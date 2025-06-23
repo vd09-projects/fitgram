@@ -14,6 +14,9 @@ import { TextInput } from 'react-native-paper';
 import LoadingData from './LoadingData';
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
+import { TourStep } from './guide_tour/TourStep';
+import { SEARCHABLE_INPUT_DROPDOWN_PREFIX, STEP_NAMES, TOUR_STEPS } from '../constants/tourSteps';
+import { ValueOf } from 'react-native-gesture-handler/lib/typescript/typeUtils';
 
 export interface DropdownItem<T> {
   label: string;
@@ -35,6 +38,7 @@ interface SearchableInputDropdownProps<T> {
   allowCustomInput?: boolean;
   conatinerStyle?: StyleProp<ViewStyle>;
   isDataLoading?: boolean;
+  tourStepPrefix?: ValueOf<typeof SEARCHABLE_INPUT_DROPDOWN_PREFIX>;
 }
 
 export default function SearchableInputDropdown<T>({
@@ -46,6 +50,7 @@ export default function SearchableInputDropdown<T>({
   allowCustomInput = true,
   conatinerStyle,
   isDataLoading = false,
+  tourStepPrefix = SEARCHABLE_INPUT_DROPDOWN_PREFIX.DEFAULT,
 }: SearchableInputDropdownProps<T>) {
   const { styles, t } = useThemeStyles(createStyles);
   const [isNewMode, setIsNewMode] = useState(false);
@@ -61,21 +66,24 @@ export default function SearchableInputDropdown<T>({
     setCustomValue(item.label);
   };
 
+  console.log("SearchableInputDropdown ", tourStepPrefix + STEP_NAMES.SEARCHABLE_INPUT_DROPDOWN_NEW_BUTTON);
   return (
     <View style={[styles.container, conatinerStyle]}>
       <View style={styles.header}>
         <TextBase style={styles.heading}>{title}</TextBase>
         {allowCustomInput && (
-          <View style={styles.switchContainer}>
-            <Switch
-              value={isNewMode}
-              onValueChange={setIsNewMode}
-              trackColor={{ false: t.colors.switchFalse, true: t.colors.switchTrue }}
-              thumbColor={t.colors.textSecondary}
-              style={{ transform: [{ scaleX: 1.1 }] }}
-            />
-            <TextBase style={[styles.switchLabel, { opacity: isNewMode ? 1 : 0.5 }]}>New</TextBase>
-          </View>
+          <TourStep {...TOUR_STEPS[tourStepPrefix + STEP_NAMES.SEARCHABLE_INPUT_DROPDOWN_NEW_BUTTON]}>
+            <View style={styles.switchContainer}>
+              <Switch
+                value={isNewMode}
+                onValueChange={setIsNewMode}
+                trackColor={{ false: t.colors.switchFalse, true: t.colors.switchTrue }}
+                thumbColor={t.colors.textSecondary}
+                style={{ transform: [{ scaleX: 1.1 }] }}
+              />
+              <TextBase style={[styles.switchLabel, { opacity: isNewMode ? 1 : 0.5 }]}>New</TextBase>
+            </View>
+          </TourStep>
         )}
       </View>
 
@@ -85,22 +93,24 @@ export default function SearchableInputDropdown<T>({
         </View>
       ) :
         allowCustomInput && isNewMode ? (
-          <PrimaryInputField
-            label=''
-            value={customValue}
-            onChangeText={setCustomValue}
-            placeholder={"Enter " + placeholder}
-            container={styles.primaryInputContainer}
-            outline={emptyOutlineStyle}
-            inputBox={{ color: t.colors.dropdownInputText }}
-            placeholderTextColor={t.colors.dropdownInputPlaceholder}
-            right={<TextInput.Icon
-              icon="text-box-check"
-              onPress={handleAddCustomField}
-              color={t.colors.button}
-              size={BUTTON_SIZES.large}
-            />}
-          />
+          <TourStep {...TOUR_STEPS[tourStepPrefix + STEP_NAMES.SEARCHABLE_INPUT_DROPDOWN_INPUT_AND_SAVE]}>
+            <PrimaryInputField
+              label=''
+              value={customValue}
+              onChangeText={setCustomValue}
+              placeholder={"Enter " + placeholder}
+              container={styles.primaryInputContainer}
+              outline={emptyOutlineStyle}
+              inputBox={{ color: t.colors.dropdownInputText }}
+              placeholderTextColor={t.colors.dropdownInputPlaceholder}
+              right={<TextInput.Icon
+                icon="text-box-check"
+                onPress={handleAddCustomField}
+                color={t.colors.button}
+                size={BUTTON_SIZES.large}
+              />}
+            />
+          </TourStep>
         ) : (
           <Dropdown
             style={styles.dropdown}

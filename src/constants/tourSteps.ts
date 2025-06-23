@@ -8,6 +8,27 @@ export type TourStepConfig = {
   screen?: string;
 };
 
+const SCREEN_NAMES = {
+  HEADER: "Header",
+  HOME_SCREEN: "HomeScreen",
+  PROFILE_SCREEN: "ProfileScreen",
+  FOOTER: "Footer",
+  WORKOUT_SCREEN: "WorkoutScreen",
+  SEARCHABLE_INPUT_DROPDOWN: "SearchableInputDropdown",
+};
+
+export const SEARCHABLE_INPUT_DROPDOWN_PREFIX = {
+  DEFAULT: "",
+  WORKOUT: "MANAGE_WORKOUT",
+  EXERCISE: "MANAGE_EXERCISE",
+};
+
+export const STEP_NAMES = {
+  MANAGE_NEW_WORKOUT_BUTTON: "MANAGE_NEW_WORKOUT_BUTTON",
+  SEARCHABLE_INPUT_DROPDOWN_NEW_BUTTON: "SEARCHABLE_INPUT_DROPDOWN_NEW_BUTTON",
+  SEARCHABLE_INPUT_DROPDOWN_INPUT_AND_SAVE: "SEARCHABLE_INPUT_DROPDOWN_INPUT_AND_SAVE",
+}
+
 export const TOUR_STEPS: Record<string, TourStepConfig> = {
   HOME_BUTTON: {
     id: "HOME_BUTTON",
@@ -66,29 +87,51 @@ export const TOUR_STEPS: Record<string, TourStepConfig> = {
     id: "WORKOUT_BUTTON",
     title: "Access Your Workout Options",
     description: "Tap this button to view your Workout related options.",
-    nextStepId: "ADD_NEW_WORKOUT_BUTTON",
+    nextStepId: "MANAGE_NEW_WORKOUT_BUTTON",
     screen: "Footer",
   },
-  ADD_NEW_WORKOUT_BUTTON: {
-    id: "ADD_NEW_WORKOUT_BUTTON",
+  MANAGE_NEW_WORKOUT_BUTTON: {
+    id: "MANAGE_NEW_WORKOUT_BUTTON",
     title: "You can add/update a workout",
     description: "Tap this button to add or update your workout details.",
-    // nextStepId: "PROFILE_DETAILS",
-    screen: "WorkoutScreen",
+    nextStepId: SEARCHABLE_INPUT_DROPDOWN_PREFIX.WORKOUT + STEP_NAMES.SEARCHABLE_INPUT_DROPDOWN_NEW_BUTTON,
+    screen: SCREEN_NAMES.WORKOUT_SCREEN,
+  },
+  [SEARCHABLE_INPUT_DROPDOWN_PREFIX.WORKOUT + STEP_NAMES.SEARCHABLE_INPUT_DROPDOWN_NEW_BUTTON]: {
+    id: SEARCHABLE_INPUT_DROPDOWN_PREFIX.WORKOUT + STEP_NAMES.SEARCHABLE_INPUT_DROPDOWN_NEW_BUTTON,
+    title: "Click this button to create a new workout",
+    description: "Tap this button to create a new workout entry.",
+    nextStepId: SEARCHABLE_INPUT_DROPDOWN_PREFIX.WORKOUT + STEP_NAMES.SEARCHABLE_INPUT_DROPDOWN_INPUT_AND_SAVE,
+    screen: SCREEN_NAMES.SEARCHABLE_INPUT_DROPDOWN,
+  },
+  [SEARCHABLE_INPUT_DROPDOWN_PREFIX.WORKOUT + STEP_NAMES.SEARCHABLE_INPUT_DROPDOWN_INPUT_AND_SAVE]: {
+    id: SEARCHABLE_INPUT_DROPDOWN_PREFIX.WORKOUT + STEP_NAMES.SEARCHABLE_INPUT_DROPDOWN_INPUT_AND_SAVE,
+    title: "Enter Workout Name",
+    description: "Write the name of your new workout in the input field and press save on right.",
+    // nextStepId: "START_WORKOUT_BUTTON",
+    screen: SCREEN_NAMES.SEARCHABLE_INPUT_DROPDOWN,
+  },
+  
+  SEARCHABLE_INPUT_DROPDOWN: {
+    id: "SEARCHABLE_INPUT_DROPDOWN",
+    title: "Select a Workout",
+    description: "Choose a workout from the list to manage or log.",
+    nextStepId: "START_WORKOUT_BUTTON",
+    screen: SCREEN_NAMES.SEARCHABLE_INPUT_DROPDOWN,
   },
   START_WORKOUT_BUTTON: {
     id: "START_WORKOUT_BUTTON",
     title: "You can start a workout",
     description: "Tap this button to start your workout session.",
     // nextStepId: "PROFILE_DETAILS",
-    screen: "WorkoutScreen",
+    screen: SCREEN_NAMES.WORKOUT_SCREEN,
   },
   LOG_ACTIVE_WORKOUT_BUTTON: {
     id: "LOG_ACTIVE_WORKOUT_BUTTON",
     title: "Log Your Active Workout",
     description: "Tap this button to log your current workout activity.",
     // nextStepId: "PROFILE_DETAILS",
-    screen: "WorkoutScreen",
+    screen: SCREEN_NAMES.WORKOUT_SCREEN,
   },
 };
 
@@ -97,9 +140,9 @@ export const TOUR_STEPS: Record<string, TourStepConfig> = {
 // console.log(feedButtonStep.title); // "Access Your Feed"
 
 export const RETAIN_SCREENS_TOUR_STEPS = [
-  // TOUR_STEPS.HOME_BUTTON.screen,
-  TOUR_STEPS.PROFILE_THEME.screen,
+  TOUR_STEPS.HOME_BUTTON.screen,
+  // TOUR_STEPS.PROFILE_THEME.screen,
   TOUR_STEPS.FEED_BUTTON.screen,
 ];
 
-export const FIRST_TOUR_STEP_ID = TOUR_STEPS.PROFILE_THEME.id;
+export const FIRST_TOUR_STEP_ID = TOUR_STEPS.WORKOUT_BUTTON.id;

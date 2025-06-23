@@ -70,6 +70,7 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   } = useTourStore();
 
   const registerStep = (step: Step) => {
+    console.log('Registering step:', step.id);
     setSteps((prev) => ({ ...prev, [step.id]: step }));
   };
 
