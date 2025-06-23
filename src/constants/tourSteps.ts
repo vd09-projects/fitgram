@@ -8,7 +8,7 @@ export type TourStepConfig = {
   screen?: string;
 };
 
-const SCREEN_NAMES = {
+export const SCREEN_NAMES = {
   HEADER: "Header",
   HOME_SCREEN: "HomeScreen",
   PROFILE_SCREEN: "ProfileScreen",
@@ -24,7 +24,7 @@ export const SEARCHABLE_INPUT_DROPDOWN_PREFIX = {
 };
 
 export const STEP_NAMES = {
-  MANAGE_NEW_WORKOUT_BUTTON: "MANAGE_NEW_WORKOUT_BUTTON",
+  MANAGE_NEW_WORKOUT_BUTTON: "MANAGE_WORKOUT_BUTTON",
   SEARCHABLE_INPUT_DROPDOWN_NEW_BUTTON: "SEARCHABLE_INPUT_DROPDOWN_NEW_BUTTON",
   SEARCHABLE_INPUT_DROPDOWN_INPUT_AND_SAVE: "SEARCHABLE_INPUT_DROPDOWN_INPUT_AND_SAVE",
 }
@@ -87,7 +87,7 @@ export const TOUR_STEPS: Record<string, TourStepConfig> = {
     id: "WORKOUT_BUTTON",
     title: "Access Your Workout Options",
     description: "Tap this button to view your Workout related options.",
-    nextStepId: "MANAGE_NEW_WORKOUT_BUTTON",
+    nextStepId: "MANAGE_WORKOUT_NEW_AND_UPDATE_BUTTON",
     screen: "Footer",
   },
   MANAGE_NEW_WORKOUT_BUTTON: {
@@ -111,7 +111,7 @@ export const TOUR_STEPS: Record<string, TourStepConfig> = {
     // nextStepId: "START_WORKOUT_BUTTON",
     screen: SCREEN_NAMES.SEARCHABLE_INPUT_DROPDOWN,
   },
-  
+
   SEARCHABLE_INPUT_DROPDOWN: {
     id: "SEARCHABLE_INPUT_DROPDOWN",
     title: "Select a Workout",

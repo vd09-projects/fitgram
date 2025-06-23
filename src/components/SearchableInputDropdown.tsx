@@ -15,8 +15,12 @@ import LoadingData from './LoadingData';
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 import { TourStep } from './guide_tour/TourStep';
-import { SEARCHABLE_INPUT_DROPDOWN_PREFIX, STEP_NAMES, TOUR_STEPS } from '../constants/tourSteps';
+import { SEARCHABLE_INPUT_DROPDOWN_PREFIX, STEP_NAMES } from '../constants/tourSteps';
 import { ValueOf } from 'react-native-gesture-handler/lib/typescript/typeUtils';
+import { TOUR_STEPS } from '../tour_steps';
+import { SEARCHABLE_INPUT_STEP_NAMES } from '../tour_steps/manageWorkout';
+import { makeStepId } from '../tour_steps/utils';
+import { MaybeTourStep } from './guide_tour/MaybeTourStep';
 
 export interface DropdownItem<T> {
   label: string;
@@ -50,7 +54,7 @@ export default function SearchableInputDropdown<T>({
   allowCustomInput = true,
   conatinerStyle,
   isDataLoading = false,
-  tourStepPrefix = SEARCHABLE_INPUT_DROPDOWN_PREFIX.DEFAULT,
+  tourStepPrefix
 }: SearchableInputDropdownProps<T>) {
   const { styles, t } = useThemeStyles(createStyles);
   const [isNewMode, setIsNewMode] = useState(false);
@@ -66,13 +70,15 @@ export default function SearchableInputDropdown<T>({
     setCustomValue(item.label);
   };
 
-  console.log("SearchableInputDropdown ", tourStepPrefix + STEP_NAMES.SEARCHABLE_INPUT_DROPDOWN_NEW_BUTTON);
   return (
     <View style={[styles.container, conatinerStyle]}>
       <View style={styles.header}>
         <TextBase style={styles.heading}>{title}</TextBase>
         {allowCustomInput && (
-          <TourStep {...TOUR_STEPS[tourStepPrefix + STEP_NAMES.SEARCHABLE_INPUT_DROPDOWN_NEW_BUTTON]}>
+          <MaybeTourStep stepId={[
+            makeStepId(SEARCHABLE_INPUT_STEP_NAMES.NEW_BUTTON, tourStepPrefix),
+            makeStepId(SEARCHABLE_INPUT_STEP_NAMES.OLD_BUTTON, tourStepPrefix)
+          ]}>
             <View style={styles.switchContainer}>
               <Switch
                 value={isNewMode}
@@ -83,7 +89,7 @@ export default function SearchableInputDropdown<T>({
               />
               <TextBase style={[styles.switchLabel, { opacity: isNewMode ? 1 : 0.5 }]}>New</TextBase>
             </View>
-          </TourStep>
+          </MaybeTourStep>
         )}
       </View>
 
@@ -93,7 +99,7 @@ export default function SearchableInputDropdown<T>({
         </View>
       ) :
         allowCustomInput && isNewMode ? (
-          <TourStep {...TOUR_STEPS[tourStepPrefix + STEP_NAMES.SEARCHABLE_INPUT_DROPDOWN_INPUT_AND_SAVE]}>
+          <MaybeTourStep stepId={makeStepId(SEARCHABLE_INPUT_STEP_NAMES.INPUT_AND_SAVE, tourStepPrefix)}>
             <PrimaryInputField
               label=''
               value={customValue}
@@ -110,7 +116,7 @@ export default function SearchableInputDropdown<T>({
                 size={BUTTON_SIZES.large}
               />}
             />
-          </TourStep>
+          </MaybeTourStep>
         ) : (
           <Dropdown
             style={styles.dropdown}

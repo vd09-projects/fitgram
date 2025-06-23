@@ -15,8 +15,9 @@ import { useNavigation } from '@react-navigation/native';
 import { TextBase } from '../components/TextBase';
 import { ReturnTypeUseThemeTokens } from '../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../utils/useThemeStyles';
-import { STEP_NAMES, TOUR_STEPS } from '../constants/tourSteps';
 import { TourStep } from '../components/guide_tour/TourStep';
+import { TOUR_STEPS } from '../tour_steps';
+import { MANAGE_WOURKOUT_STEP_NAMES } from '../tour_steps/manageWorkout';
 
 const workoutOptions = [
   {
@@ -30,7 +31,7 @@ const workoutOptions = [
     title: 'Add New Workout',
     description: 'Create & customize your workout routine.',
     icon: 'add-circle-outline',
-    tous: STEP_NAMES.MANAGE_NEW_WORKOUT_BUTTON,
+    tous: MANAGE_WOURKOUT_STEP_NAMES.NEW_AND_UPDATE_BUTTON,
     // action: () => console.log('Navigating to Add Workout'),
     action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.AddExercise),
   },
