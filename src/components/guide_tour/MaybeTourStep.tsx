@@ -9,12 +9,14 @@ type Props = {
   stepId?: string | string[];
   positionType?: PositionType;
   children: React.ReactNode;
+  stylePropName?: string;
 };
 
 export const MaybeTourStep: React.FC<Props> = ({
   stepId,
   positionType = 'below',
   children,
+  stylePropName,
 }) => {
   if (!stepId) return <>{children}</>;
 
@@ -30,7 +32,7 @@ export const MaybeTourStep: React.FC<Props> = ({
     }));
 
   return validSteps.length > 0 ? (
-    <MultiTourSteps steps={validSteps}>
+    <MultiTourSteps steps={validSteps} stylePropName={stylePropName}>
       {children}
     </MultiTourSteps>
   ) : (

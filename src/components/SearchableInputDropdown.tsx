@@ -93,50 +93,55 @@ export default function SearchableInputDropdown<T>({
         )}
       </View>
 
-      {isDataLoading ? (
-        <View style={styles.loadingContainer}>
-          <LoadingData />
-        </View>
-      ) :
-        allowCustomInput && isNewMode ? (
-          <MaybeTourStep stepId={makeStepId(SEARCHABLE_INPUT_STEP_NAMES.INPUT_AND_SAVE, tourStepPrefix)}>
-            <PrimaryInputField
-              label=''
-              value={customValue}
-              onChangeText={setCustomValue}
-              placeholder={"Enter " + placeholder}
-              container={styles.primaryInputContainer}
-              outline={emptyOutlineStyle}
-              inputBox={{ color: t.colors.dropdownInputText }}
-              placeholderTextColor={t.colors.dropdownInputPlaceholder}
-              right={<TextInput.Icon
-                icon="text-box-check"
-                onPress={handleAddCustomField}
-                color={t.colors.button}
-                size={BUTTON_SIZES.large}
-              />}
+      <MaybeTourStep stepId={[
+        makeStepId(SEARCHABLE_INPUT_STEP_NAMES.INPUT_AND_SAVE, tourStepPrefix),
+        makeStepId(SEARCHABLE_INPUT_STEP_NAMES.DROPDOWN_BUTTON, tourStepPrefix)
+      ]}>
+        {isDataLoading ? (
+          <View style={styles.loadingContainer}>
+            <LoadingData />
+          </View>
+        ) :
+          allowCustomInput && isNewMode ? (
+            <MaybeTourStep stepId={makeStepId(SEARCHABLE_INPUT_STEP_NAMES.INPUT_AND_SAVE, tourStepPrefix)}>
+              <PrimaryInputField
+                label=''
+                value={customValue}
+                onChangeText={setCustomValue}
+                placeholder={"Enter " + placeholder}
+                container={styles.primaryInputContainer}
+                outline={emptyOutlineStyle}
+                inputBox={{ color: t.colors.dropdownInputText }}
+                placeholderTextColor={t.colors.dropdownInputPlaceholder}
+                right={<TextInput.Icon
+                  icon="text-box-check"
+                  onPress={handleAddCustomField}
+                  color={t.colors.button}
+                  size={BUTTON_SIZES.large}
+                />}
+              />
+            </MaybeTourStep>
+          ) : (
+            <Dropdown
+              style={styles.dropdown}
+              containerStyle={styles.dropdownContainer}
+              itemContainerStyle={styles.itemContainer}
+              placeholderStyle={styles.placeholderStyle}
+              selectedTextStyle={styles.selectedTextStyle}
+              inputSearchStyle={styles.inputSearchStyle}
+              itemTextStyle={styles.itemTextStyle}
+              data={data}
+              search
+              maxHeight={300}
+              labelField="label"
+              valueField="value"
+              placeholder={"Choose " + placeholder}
+              searchPlaceholder="Search..."
+              value={value}
+              onChange={handleSelectField}
             />
-          </MaybeTourStep>
-        ) : (
-          <Dropdown
-            style={styles.dropdown}
-            containerStyle={styles.dropdownContainer}
-            itemContainerStyle={styles.itemContainer}
-            placeholderStyle={styles.placeholderStyle}
-            selectedTextStyle={styles.selectedTextStyle}
-            inputSearchStyle={styles.inputSearchStyle}
-            itemTextStyle={styles.itemTextStyle}
-            data={data}
-            search
-            maxHeight={300}
-            labelField="label"
-            valueField="value"
-            placeholder={"Choose " + placeholder}
-            searchPlaceholder="Search..."
-            value={value}
-            onChange={handleSelectField}
-          />
-        )}
+          )}
+      </MaybeTourStep>
     </View>
 
   );

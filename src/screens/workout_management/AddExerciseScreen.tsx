@@ -153,6 +153,7 @@ export default function AddExerciseScreen() {
         title={"Exercise" + (selectedExercise?.value ? ` : ${selectedExercise.label}` : '')}
         conatinerStyle={{ marginBottom: SPACING.large }}
         isDataLoading={loadingPredefinedExercises}
+        tourStepPrefix={MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_SEARCHABLE}
       />
 
       {/* 🔹 Input Fields for Selected or Custom Exercise */}

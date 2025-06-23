@@ -44,11 +44,15 @@ export const MultiTourSteps: React.FC<Props> = ({
     for (const key in flattenedStyle) {
       if (
         (key.startsWith('align') && !flattenedStyle.hasOwnProperty('flexDirection')) ||
-        key.startsWith('flexDirection')
+        key.startsWith('flexDirection') ||
+        key.startsWith('height')
       ) {
         childStyle[key] = flattenedStyle[key];
       } else {
         spacingStyle[key] = flattenedStyle[key];
+        if (key.startsWith('align')) {
+          childStyle[key] = flattenedStyle[key];
+        }
       }
     }
 

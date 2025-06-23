@@ -1,10 +1,15 @@
 import { SCREEN_NAMES } from "../constants/tourSteps";
 import { generateStepsFromMap } from "./utils";
 
+export const EDITABLE_LIST_STEP_NAMES = {
+
+}
+
 export const SEARCHABLE_INPUT_STEP_NAMES = {
   NEW_BUTTON: "SEARCHABLE_INPUT_DROPDOWN_NEW_BUTTON",
   OLD_BUTTON: "SEARCHABLE_INPUT_DROPDOWN_OLD_BUTTON",
   INPUT_AND_SAVE: "SEARCHABLE_INPUT_DROPDOWN_INPUT_AND_SAVE",
+  DROPDOWN_BUTTON: "SEARCHABLE_INPUT_DROPDOWN_DROPDOWN_BUTTON",
 }
 
 export const MANAGE_WOURKOUT_STEP_NAMES = {
@@ -24,9 +29,20 @@ const TOUR_STEP1 = {
     description: "Write the name of your new workout in the input field and press save on right.",
     screen: SCREEN_NAMES.SEARCHABLE_INPUT_DROPDOWN,
   },
-  [SEARCHABLE_INPUT_STEP_NAMES.OLD_BUTTON]: {
-    title: "Click this button to select an existing workout",
-    description: "Tap this button to select from existing workout entry.",
+}
+
+const TOUR_STEP2 = {
+  [SEARCHABLE_INPUT_STEP_NAMES.DROPDOWN_BUTTON]: {
+    title: "Select a Exercise",
+    description: "Choose a exercise from the list to manage or log.",
+    screen: SCREEN_NAMES.SEARCHABLE_INPUT_DROPDOWN,
+  },
+}
+
+const TOUR_STEP3 = {
+  [SEARCHABLE_INPUT_STEP_NAMES.DROPDOWN_BUTTON]: {
+    title: "Select a Exercise",
+    description: "Choose a exercise from the list to manage or log.",
     screen: SCREEN_NAMES.SEARCHABLE_INPUT_DROPDOWN,
   },
 }
@@ -38,6 +54,7 @@ const TOUR_STEPS = {
     screen: SCREEN_NAMES.WORKOUT_SCREEN,
   },
   [MANAGE_WOURKOUT_STEP_NAMES.WORKOUT_SEARCHABLE]: TOUR_STEP1,
+  [MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_SEARCHABLE]: TOUR_STEP2,
 };
 
 export const SELECTED_INPUT_STEPS = generateStepsFromMap(TOUR_STEPS);
