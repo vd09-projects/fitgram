@@ -10,6 +10,8 @@ import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 import { TOUR_STEPS } from '../constants/tourSteps';
 import { TourStep } from './guide_tour/TourStep';
+import { MaybeTourStep } from './guide_tour/MaybeTourStep';
+import { MANAGE_WOURKOUT_STEP_NAMES } from '../tour_steps/manageWorkout';
 
 interface FooterProps {
   activeTab: keyof typeof LayoutRoutes;
@@ -25,7 +27,7 @@ export default function Footer({ activeTab, onChangeTab }: FooterProps) {
 
   const tabs = [
     { key: LayoutRoutes.Feed, label: 'Feed', icon: 'home-outline' as const, tous: "FEED_BUTTON" },
-    { key: LayoutRoutes.Workout, label: 'Workout', icon: 'barbell-outline' as const, tous: "WORKOUT_BUTTON" },
+    { key: LayoutRoutes.Workout, label: 'Workout', icon: 'barbell-outline' as const, tous: ["WORKOUT_BUTTON",MANAGE_WOURKOUT_STEP_NAMES.WORKOUT_FOOTER_BUTTON] },
     ...(activeWorkout ? [{ key: LayoutRoutes.LogWorkout, label: 'Log Workout', icon: 'list-outline' as const }] : []),
   ];
 
@@ -33,8 +35,8 @@ export default function Footer({ activeTab, onChangeTab }: FooterProps) {
     <View style={styles.container}>
       {tabs.map((tab) => {
         const isActive = activeTab === tab.key;
-        const tousDetails = tab.tous ? TOUR_STEPS[tab.tous as keyof typeof TOUR_STEPS] : undefined;
-        const tabContent = (
+        // const tousDetails = tab.tous ? TOUR_STEPS[tab.tous as keyof typeof TOUR_STEPS] : undefined;
+        return <MaybeTourStep stepId={tab.tous} positionType='above'>
           <TouchableOpacity
             key={tab.key}
             style={[styles.tabButton, isActive && styles.activeTab]}
@@ -50,14 +52,32 @@ export default function Footer({ activeTab, onChangeTab }: FooterProps) {
               {tab.label}
             </TextBase>
           </TouchableOpacity>
-        );
-        return tousDetails ? (
-          <TourStep {...tousDetails} key={tab.key} positionType='above'>
-            {tabContent}
-          </TourStep>
-        ) : (
-          tabContent
-        );
+        </MaybeTourStep>
+
+        // const tabContent = (
+        //   <TouchableOpacity
+        //     key={tab.key}
+        //     style={[styles.tabButton, isActive && styles.activeTab]}
+        //     onPress={() => onChangeTab(tab.key)}
+        //   >
+        //     <Ionicons
+        //       name={tab.icon}
+        //       size={22}
+        //       color={isActive ? t.colors.tertiary : t.colors.textSecondary}
+        //       style={{ marginBottom: 2 }}
+        //     />
+        //     <TextBase style={[styles.tabText, isActive && styles.activeText]}>
+        //       {tab.label}
+        //     </TextBase>
+        //   </TouchableOpacity>
+        // );
+        // return tousDetails ? (
+        //   <TourStep {...tousDetails} key={tab.key} positionType='above'>
+        //     {tabContent}
+        //   </TourStep>
+        // ) : (
+        //   tabContent
+        // );
       })}
     </View>
   );

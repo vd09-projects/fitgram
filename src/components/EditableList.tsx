@@ -7,19 +7,25 @@ import { emptyOutlineStyle, PrimaryInputField } from './PrimaryInputField';
 import { TextInput } from 'react-native-paper';
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
+import { MaybeTourStep } from './guide_tour/MaybeTourStep';
+import { ValueOf } from 'react-native-gesture-handler/lib/typescript/typeUtils';
+import { EDITABLE_LIST_STEP_NAMES, MANAGE_WOURKOUT_STEP_NAMES } from '../tour_steps/manageWorkout';
+import { makeStepId } from '../tour_steps/utils';
 
 interface EditableListProps {
   title: string;
   items: string[];
   onItemsChange: (updatedItems: string[]) => void;
   showInputField?: boolean;
+  tourStepPrefix?: ValueOf<typeof MANAGE_WOURKOUT_STEP_NAMES>;
 }
 
 const EditableList: React.FC<EditableListProps> = ({
   title,
   items,
   onItemsChange,
-  showInputField = true
+  showInputField = true,
+  tourStepPrefix,
 }) => {
   const { styles, t } = useThemeStyles(createStyles);
   const [newItem, setNewItem] = useState('');
@@ -49,57 +55,63 @@ const EditableList: React.FC<EditableListProps> = ({
     <View style={styles.container}>
       <TextBase style={styles.title}>{title}</TextBase>
 
-      {items.map((field, index) => {
-        const isDuplicate = errorMessage && field === newItem.trim();
+      <MaybeTourStep stepId={makeStepId(EDITABLE_LIST_STEP_NAMES.EXISTING_ITEM, tourStepPrefix)}>
+        <>
+          {items.map((field, index) => {
+            const isDuplicate = errorMessage && field === newItem.trim();
 
-        return (
-          <PrimaryInputField
-            key={index}
-            label=''
-            value={field}
-            container={[styles.primaryItemContainer, isDuplicate && styles.duplicateItem]}
-            placeholderTextColor={t.colors.inputSecondaryPlaceholder}
-            inputBox={{ color: t.colors.inputSecondaryText }}
+            return (
+              <PrimaryInputField
+                key={index}
+                label=''
+                value={field}
+                container={[styles.primaryItemContainer, isDuplicate && styles.duplicateItem]}
+                placeholderTextColor={t.colors.inputSecondaryPlaceholder}
+                inputBox={{ color: t.colors.inputSecondaryText }}
 
-            onChangeText={(text) => {
-              const updatedFields = [...items];
-              updatedFields[index] = text;
-              onItemsChange(updatedFields);
-            }}
-            right={<TextInput.Icon
-              icon="close"
-              color={t.colors.inputPrimaryText}
-              onPress={() => handleRemoveItem(index)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              size={20}
-            />}
-          />
-        );
-      })}
+                onChangeText={(text) => {
+                  const updatedFields = [...items];
+                  updatedFields[index] = text;
+                  onItemsChange(updatedFields);
+                }}
+                right={<TextInput.Icon
+                  icon="close"
+                  color={t.colors.inputPrimaryText}
+                  onPress={() => handleRemoveItem(index)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  size={20}
+                />}
+              />
+            );
+          })}
+        </>
+      </MaybeTourStep>
 
       {showInputField && (
-        <PrimaryInputField
-          label=''
-          placeholder="Enter new field"
-          value={newItem}
-          onChangeText={(text) => {
-            setNewItem(text);
-            setErrorMessage(null);
-          }}
+        <MaybeTourStep stepId={makeStepId(EDITABLE_LIST_STEP_NAMES.ADD_NEW_ITEM, tourStepPrefix)}>
+          <PrimaryInputField
+            label=''
+            placeholder="Enter new field"
+            value={newItem}
+            onChangeText={(text) => {
+              setNewItem(text);
+              setErrorMessage(null);
+            }}
 
-          container={[styles.primaryInputContainer, errorMessage ? styles.errorInput : {}]}
-          placeholderTextColor={t.colors.inputSecondaryPlaceholder}
-          inputBox={{ color: t.colors.inputSecondaryText }}
-          // outline={emptyOutlineStyle}
+            container={[styles.primaryInputContainer, errorMessage ? styles.errorInput : {}]}
+            placeholderTextColor={t.colors.inputSecondaryPlaceholder}
+            inputBox={{ color: t.colors.inputSecondaryText }}
+            // outline={emptyOutlineStyle}
 
-          right={<TextInput.Icon
-            icon="playlist-plus"
-            color={errorMessage ? t.colors.cancelButton : t.colors.button}
-            onPress={handleAddItem}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            size={BUTTON_SIZES.xLarge}
-          />}
-        />
+            right={<TextInput.Icon
+              icon="playlist-plus"
+              color={errorMessage ? t.colors.cancelButton : t.colors.button}
+              onPress={handleAddItem}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              size={BUTTON_SIZES.xLarge}
+            />}
+          />
+        </MaybeTourStep>
       )}
 
       {errorMessage && <TextBase style={styles.errorText}>{errorMessage}</TextBase>}

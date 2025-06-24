@@ -22,6 +22,7 @@ import { validateCustomFields, validateExerciseSelection, validateWorkoutAndExer
 import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
 import { MANAGE_WOURKOUT_STEP_NAMES } from '../../tour_steps/manageWorkout';
+import { MaybeTourStep } from '../../components/guide_tour/MaybeTourStep';
 
 export default function AddExerciseScreen() {
   const { styles, t } = useThemeStyles(createStyles);
@@ -162,15 +163,18 @@ export default function AddExerciseScreen() {
           title={"Select `" + selectedExercise.label + "` Fields"}
           items={customFields}
           onItemsChange={setCustomFields}
+          tourStepPrefix={MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_EDITABLE_LIST}
         />
       )}
 
       {/* 🔹 Submit Button */}
       {workoutDetailsUpdated && (
-        <TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
-          <Ionicons name="checkmark-circle-outline" size={24} color={t.colors.buttonText} />
-          <TextBase style={styles.saveButtonText}>Save Exercise</TextBase>
-        </TouchableOpacity>
+        <MaybeTourStep stepId={MANAGE_WOURKOUT_STEP_NAMES.SAVE_BUTTON} positionType='above'>
+          <TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
+            <Ionicons name="checkmark-circle-outline" size={24} color={t.colors.buttonText} />
+            <TextBase style={styles.saveButtonText}>Save Exercise</TextBase>
+          </TouchableOpacity>
+        </MaybeTourStep>
       )}
     </ScrollableScreen>
   );

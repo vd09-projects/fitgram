@@ -1,5 +1,7 @@
 // src/constants/tourSteps.ts
 
+import { EDITABLE_LIST_STEP_NAMES } from "../tour_steps/manageWorkout";
+
 export type TourStepConfig = {
   id: string;
   title: string;
@@ -15,6 +17,7 @@ export const SCREEN_NAMES = {
   FOOTER: "Footer",
   WORKOUT_SCREEN: "WorkoutScreen",
   SEARCHABLE_INPUT_DROPDOWN: "SearchableInputDropdown",
+  EDITABLE_LIST: "EditableList",
 };
 
 export const SEARCHABLE_INPUT_DROPDOWN_PREFIX = {
