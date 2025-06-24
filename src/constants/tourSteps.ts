@@ -16,6 +16,7 @@ export const SCREEN_NAMES = {
   PROFILE_SCREEN: "ProfileScreen",
   FOOTER: "Footer",
   WORKOUT_SCREEN: "WorkoutScreen",
+  START_WORKOUT_SCREEN: "StartWorkoutScreen",
   SEARCHABLE_INPUT_DROPDOWN: "SearchableInputDropdown",
   EDITABLE_LIST: "EditableList",
 };
@@ -90,7 +91,8 @@ export const TOUR_STEPS: Record<string, TourStepConfig> = {
     id: "WORKOUT_BUTTON",
     title: "Access Your Workout Options",
     description: "Tap this button to view your Workout related options.",
-    nextStepId: "MANAGE_WORKOUT_NEW_AND_UPDATE_BUTTON",
+    // nextStepId: "MANAGE_WORKOUT_NEW_AND_UPDATE_BUTTON",
+    nextStepId: "START_WORKOUT_BUTTON",
     screen: "Footer",
   },
   MANAGE_NEW_WORKOUT_BUTTON: {
@@ -122,13 +124,13 @@ export const TOUR_STEPS: Record<string, TourStepConfig> = {
     nextStepId: "START_WORKOUT_BUTTON",
     screen: SCREEN_NAMES.SEARCHABLE_INPUT_DROPDOWN,
   },
-  START_WORKOUT_BUTTON: {
-    id: "START_WORKOUT_BUTTON",
-    title: "You can start a workout",
-    description: "Tap this button to start your workout session.",
-    // nextStepId: "PROFILE_DETAILS",
-    screen: SCREEN_NAMES.WORKOUT_SCREEN,
-  },
+  // START_WORKOUT_BUTTON: {
+  //   id: "START_WORKOUT_BUTTON",
+  //   title: "You can start a workout",
+  //   description: "Tap this button to start your workout session.",
+  //   // nextStepId: "PROFILE_DETAILS",
+  //   screen: SCREEN_NAMES.WORKOUT_SCREEN,
+  // },
   LOG_ACTIVE_WORKOUT_BUTTON: {
     id: "LOG_ACTIVE_WORKOUT_BUTTON",
     title: "Log Your Active Workout",

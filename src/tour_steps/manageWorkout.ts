@@ -1,4 +1,5 @@
 import { SCREEN_NAMES } from "../constants/tourSteps";
+import { START_WOURKOUT_STEP_NAMES } from "./startWorkout";
 import { generateStepsFromMap } from "./utils";
 
 export const EDITABLE_LIST_STEP_NAMES = {
@@ -74,6 +75,7 @@ const TOUR_STEPS = {
     title: "Access Your Workout Options",
     description: "Tap this button to explore tour of other Workout related options.",
     screen: SCREEN_NAMES.FOOTER,
+    nextStepId: START_WOURKOUT_STEP_NAMES.SEARCH_BOX,
   },
 };
 

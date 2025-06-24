@@ -18,6 +18,8 @@ import { useThemeStyles } from '../utils/useThemeStyles';
 import { TourStep } from '../components/guide_tour/TourStep';
 import { TOUR_STEPS } from '../tour_steps';
 import { MANAGE_WOURKOUT_STEP_NAMES } from '../tour_steps/manageWorkout';
+import { START_WOURKOUT_STEP_NAMES } from '../tour_steps/startWorkout';
+import { MaybeTourStep } from '../components/guide_tour/MaybeTourStep';
 
 const workoutOptions = [
   {
@@ -39,7 +41,7 @@ const workoutOptions = [
     title: 'Start Workout',
     description: 'Begin your workout session now.',
     icon: 'play-circle-outline',
-    tous: 'START_WORKOUT_BUTTON',
+    tous: START_WOURKOUT_STEP_NAMES.START_WORKOUT_BUTTON,
     // action: (navigation: workoutScreenNavigationProp) => console.log('Navigating to Start Workout'), 
     action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.StartWorkout),
   },
@@ -71,37 +73,31 @@ export default function WorkoutScreen() {
         {/* 🔹 Workout Options (Dynamic Buttons) */}
         <View style={styles.buttonContainer}>
           {workoutOptions.map((option, index) => {
-            const tousDetails = option.tous ? TOUR_STEPS[option.tous as keyof typeof TOUR_STEPS] : undefined;
-            const tabContent = (
-              <TouchableOpacity
-                key={index}
-                style={styles.buttonPrimary}
-                onPress={() => option.action(navigation)}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name={option.icon as keyof typeof Ionicons.glyphMap}
-                  size={SPACING.xxxLarge}
-                  color={t.colors.cardHeader}
-                  style={styles.icon}
-                />
-                <View style={styles.buttonTextContainer}>
-                  <TextBase style={styles.buttonTextPrimary}>
-                    {option.title}
-                  </TextBase>
-                  <TextBase style={styles.buttonSubText}>
-                    {option.description}
-                  </TextBase>
-                </View>
-              </TouchableOpacity>
+            return (
+              <MaybeTourStep stepId={option.tous} key={index}>
+                <TouchableOpacity
+                  key={index}
+                  style={styles.buttonPrimary}
+                  onPress={() => option.action(navigation)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name={option.icon as keyof typeof Ionicons.glyphMap}
+                    size={SPACING.xxxLarge}
+                    color={t.colors.cardHeader}
+                    style={styles.icon}
+                  />
+                  <View style={styles.buttonTextContainer}>
+                    <TextBase style={styles.buttonTextPrimary}>
+                      {option.title}
+                    </TextBase>
+                    <TextBase style={styles.buttonSubText}>
+                      {option.description}
+                    </TextBase>
+                  </View>
+                </TouchableOpacity>
+              </MaybeTourStep>
             )
-            return tousDetails ? (
-              <TourStep {...tousDetails} key={index}>
-                {tabContent}
-              </TourStep>
-            ) : (
-              tabContent
-            );
           })}
         </View>
       </View>

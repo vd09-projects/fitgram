@@ -24,6 +24,8 @@ import AlertBase from "../../components/AlertBase";
 import LoadingData from "../../components/LoadingData";
 import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
+import { START_WOURKOUT_STEP_NAMES } from "../../tour_steps/startWorkout";
+import { MaybeTourStep } from "../../components/guide_tour/MaybeTourStep";
 
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.StartWorkout>;
 
@@ -111,61 +113,68 @@ export default function StartWorkoutScreen() {
         onChangeText={setSearchQuery}
         label="Search Workout"
         placeholder="Workout name"
+        tourStepPrefix={START_WOURKOUT_STEP_NAMES.SEARCH_BOX}
       />
 
       {/* 🏋️ Workout Grid Selection */}
-      {loadingWorkoutPlans ? (
-        <LoadingData
-          containerStyle={styles.loadingConatiner}
-          textStyle={{ fontSize: FONT_SIZES.large, color: t.colors.textPrimary }}
-          dotStyle={{ fontSize: FONT_SIZES.xLarge, color: t.colors.textPrimary }}
-        />
-      ) :
-        <FlatList
-          data={filteredWorkouts}
-          key={selectedWorkout ? "horizontal" : "grid"}
-          keyExtractor={(item) => item.id}
-          horizontal={!!selectedWorkout}
-          scrollEnabled={!!selectedWorkout}
-          showsHorizontalScrollIndicator={!!selectedWorkout}
-          numColumns={selectedWorkout ? undefined : 2}
-          columnWrapperStyle={!selectedWorkout ? styles.gridRow : undefined}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.workoutCard,
-                selectedWorkout?.id === item.id && styles.selectedWorkout,
-                selectedWorkout && { marginVertical: SPACING.small }
-              ]}
-              onPress={() => toggleWorkoutSelection(item)}
-            >
-              <TextBase style={styles.workoutTitle}>{item.name}</TextBase>
-            </TouchableOpacity>
-          )}
-          ListEmptyComponent={
-            <TextBase style={styles.noResultsText}>No workouts found</TextBase>
-          }
-        />
-      }
+      <MaybeTourStep stepId={START_WOURKOUT_STEP_NAMES.SEARCHED_WORKOUT_ITEMS}>
+        {loadingWorkoutPlans ? (
+          <LoadingData
+            containerStyle={styles.loadingConatiner}
+            textStyle={{ fontSize: FONT_SIZES.large, color: t.colors.textPrimary }}
+            dotStyle={{ fontSize: FONT_SIZES.xLarge, color: t.colors.textPrimary }}
+          />
+        ) :
+          <FlatList
+            data={filteredWorkouts}
+            key={selectedWorkout ? "horizontal" : "grid"}
+            keyExtractor={(item) => item.id}
+            horizontal={!!selectedWorkout}
+            scrollEnabled={!!selectedWorkout}
+            showsHorizontalScrollIndicator={!!selectedWorkout}
+            numColumns={selectedWorkout ? undefined : 2}
+            columnWrapperStyle={!selectedWorkout ? styles.gridRow : undefined}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.workoutCard,
+                  selectedWorkout?.id === item.id && styles.selectedWorkout,
+                  selectedWorkout && { marginVertical: SPACING.small }
+                ]}
+                onPress={() => toggleWorkoutSelection(item)}
+              >
+                <TextBase style={styles.workoutTitle}>{item.name}</TextBase>
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              <TextBase style={styles.noResultsText}>No workouts found</TextBase>
+            }
+          />
+        }
+      </MaybeTourStep>
 
       {/* ▶️ Floating Start Workout Button */}
       {selectedWorkout && (
-        <TouchableOpacity style={styles.startWorkoutButton} onPress={handleStartWorkout}>
-          <TextBase style={styles.startWorkoutText}>Start {selectedWorkout.name}</TextBase>
-        </TouchableOpacity>
+        <MaybeTourStep stepId={START_WOURKOUT_STEP_NAMES.START_SELECTED_WORKOUT_BUTTON} positionType='above'>
+          <TouchableOpacity style={styles.startWorkoutButton} onPress={handleStartWorkout}>
+            <TextBase style={styles.startWorkoutText}>Start {selectedWorkout.name}</TextBase>
+          </TouchableOpacity>
+        </MaybeTourStep>
       )}
 
       {/* 📜 Exercise List (Shown only when a workout is selected) */}
       {selectedWorkout && (
-        <ScrollView style={styles.exerciseList}>
-          <TextBase style={styles.exerciseHeader}>Exercises in {selectedWorkout.name}</TextBase>
-          {selectedWorkout.exercises.map((exercise) => (
-            <View key={exercise.id} style={styles.exerciseCard}>
-              <Ionicons name="barbell-outline" size={20} color={t.colors.primary} />
-              <TextBase style={styles.exerciseText}>{exercise.name}</TextBase>
-            </View>
-          ))}
-        </ScrollView>
+        <MaybeTourStep stepId={START_WOURKOUT_STEP_NAMES.SELECTED_WORKOUT_EXERCISE_LIST} positionType='above'>
+          <ScrollView style={styles.exerciseList}>
+            <TextBase style={styles.exerciseHeader}>Exercises in {selectedWorkout.name}</TextBase>
+            {selectedWorkout.exercises.map((exercise) => (
+              <View key={exercise.id} style={styles.exerciseCard}>
+                <Ionicons name="barbell-outline" size={20} color={t.colors.primary} />
+                <TextBase style={styles.exerciseText}>{exercise.name}</TextBase>
+              </View>
+            ))}
+          </ScrollView>
+        </MaybeTourStep>
       )}
     </ScrollableScreen>
   );
