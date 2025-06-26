@@ -1,9 +1,6 @@
 import { SCREEN_NAMES } from "../constants/tourSteps";
+import { SEARCH_BOX_STEP_NAMES } from "./commonStepNames";
 import { generateStepsFromMap } from "./utils";
-
-export const SEARCH_BOX_STEP_NAMES = {
-  SEARCH_BOX: "SEARCH_BOX",
-}
 
 export const START_WOURKOUT_STEP_NAMES = {
   START_WORKOUT_BUTTON: "START_WORKOUT_BUTTON",

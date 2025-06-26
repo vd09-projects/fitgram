@@ -18,7 +18,7 @@ import { TourStep } from './guide_tour/TourStep';
 import { SEARCHABLE_INPUT_DROPDOWN_PREFIX, STEP_NAMES } from '../constants/tourSteps';
 import { ValueOf } from 'react-native-gesture-handler/lib/typescript/typeUtils';
 import { TOUR_STEPS } from '../tour_steps';
-import { SEARCHABLE_INPUT_STEP_NAMES } from '../tour_steps/manageWorkout';
+import { SEARCHABLE_INPUT_STEP_NAMES } from '../tour_steps/commonStepNames';
 import { makeStepId } from '../tour_steps/utils';
 import { MaybeTourStep } from './guide_tour/MaybeTourStep';
 

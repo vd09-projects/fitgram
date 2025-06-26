@@ -1,7 +1,5 @@
 // src/constants/tourSteps.ts
 
-import { EDITABLE_LIST_STEP_NAMES } from "../tour_steps/manageWorkout";
-
 export type TourStepConfig = {
   id: string;
   title: string;
@@ -19,6 +17,8 @@ export const SCREEN_NAMES = {
   START_WORKOUT_SCREEN: "StartWorkoutScreen",
   SEARCHABLE_INPUT_DROPDOWN: "SearchableInputDropdown",
   EDITABLE_LIST: "EditableList",
+  WORKOUT_LOGS: "WorkoutLogs",
+  ACTIVE_WORKOUT: "ActiveWorkout"
 };
 
 export const SEARCHABLE_INPUT_DROPDOWN_PREFIX = {
@@ -92,7 +92,8 @@ export const TOUR_STEPS: Record<string, TourStepConfig> = {
     title: "Access Your Workout Options",
     description: "Tap this button to view your Workout related options.",
     // nextStepId: "MANAGE_WORKOUT_NEW_AND_UPDATE_BUTTON",
-    nextStepId: "START_WORKOUT_BUTTON",
+    // nextStepId: "START_WORKOUT_BUTTON",
+    nextStepId: "ACTIVE_WORKOUT_LOG_ACTIVE_WORKOUT_BUTTON",
     screen: "Footer",
   },
   MANAGE_NEW_WORKOUT_BUTTON: {
@@ -131,13 +132,13 @@ export const TOUR_STEPS: Record<string, TourStepConfig> = {
   //   // nextStepId: "PROFILE_DETAILS",
   //   screen: SCREEN_NAMES.WORKOUT_SCREEN,
   // },
-  LOG_ACTIVE_WORKOUT_BUTTON: {
-    id: "LOG_ACTIVE_WORKOUT_BUTTON",
-    title: "Log Your Active Workout",
-    description: "Tap this button to log your current workout activity.",
-    // nextStepId: "PROFILE_DETAILS",
-    screen: SCREEN_NAMES.WORKOUT_SCREEN,
-  },
+  // LOG_ACTIVE_WORKOUT_BUTTON: {
+  //   id: "LOG_ACTIVE_WORKOUT_BUTTON",
+  //   title: "Log Your Active Workout",
+  //   description: "Tap this button to log your current workout activity.",
+  //   // nextStepId: "PROFILE_DETAILS",
+  //   screen: SCREEN_NAMES.WORKOUT_SCREEN,
+  // },
 };
 
 // Example usage:

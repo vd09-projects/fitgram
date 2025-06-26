@@ -9,8 +9,9 @@ import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 import { MaybeTourStep } from './guide_tour/MaybeTourStep';
 import { ValueOf } from 'react-native-gesture-handler/lib/typescript/typeUtils';
-import { EDITABLE_LIST_STEP_NAMES, MANAGE_WOURKOUT_STEP_NAMES } from '../tour_steps/manageWorkout';
+import { EDITABLE_LIST_STEP_NAMES } from '../tour_steps/commonStepNames';
 import { makeStepId } from '../tour_steps/utils';
+import { MANAGE_WOURKOUT_STEP_NAMES } from '../tour_steps/manageWorkout';
 
 interface EditableListProps {
   title: string;

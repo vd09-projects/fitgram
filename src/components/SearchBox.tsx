@@ -7,7 +7,7 @@ import { useThemeTokens } from "./app_manager/ThemeContext";
 import { MaybeTourStep } from "./guide_tour/MaybeTourStep";
 import { ValueOf } from "react-native-gesture-handler/lib/typescript/typeUtils";
 import { makeStepId } from "../tour_steps/utils";
-import { SEARCH_BOX_STEP_NAMES } from "../tour_steps/startWorkout";
+import { SEARCH_BOX_STEP_NAMES } from "../tour_steps/commonStepNames";
 
 interface SearchBoxProps {
   label: string;

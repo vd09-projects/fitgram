@@ -14,6 +14,8 @@ import { useNavigation } from "@react-navigation/native";
 import { TextBase } from "../../components/TextBase";
 import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
+import { MaybeTourStep } from "../../components/guide_tour/MaybeTourStep";
+import { ACTIVE_WORKOUT_STEP_NAMES } from "../../tour_steps/activeWorkout";
 
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.LogWorkout>;
 type layoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof LayoutRoutes.LogWorkout>;
@@ -90,6 +92,7 @@ export default function ActiveWorkoutScreen() {
         }
         onChange={handleSelectExercise}
         title="Exercises"
+        tourStepPrefix={ACTIVE_WORKOUT_STEP_NAMES.SELECTED_WORKOUT_EXERCISE}
       />
 
       {/* Show the selected exercise details */}
@@ -97,12 +100,17 @@ export default function ActiveWorkoutScreen() {
 
       {/* Buttons for ending/canceling workout */}
       <View style={styles.buttonContainer}>
-        <TouchableOpacity style={[styles.endButton, { backgroundColor: t.colors.cancelButton }]} onPress={cancelWorkout}>
-          <TextBase style={styles.buttonText}>Cancel Workout</TextBase>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.endButton} onPress={handleSaveWorkout}>
-          <TextBase style={styles.buttonText}>Save Workout</TextBase>
-        </TouchableOpacity>
+        <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.CANCEL_CURRENT_WORKOUT_LOGER}>
+          <TouchableOpacity style={[styles.endButton, { backgroundColor: t.colors.cancelButton }]} onPress={cancelWorkout}>
+            <TextBase style={styles.buttonText}>Cancel Workout</TextBase>
+          </TouchableOpacity>
+        </MaybeTourStep>
+
+        <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.SAVE_CURRENT_WORKOUT_LOGER}>
+          <TouchableOpacity style={styles.endButton} onPress={handleSaveWorkout}>
+            <TextBase style={styles.buttonText}>Save Workout</TextBase>
+          </TouchableOpacity>
+        </MaybeTourStep>
       </View>
     </ScrollableScreen>
   );

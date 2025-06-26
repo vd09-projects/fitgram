@@ -20,6 +20,7 @@ import { TOUR_STEPS } from '../tour_steps';
 import { MANAGE_WOURKOUT_STEP_NAMES } from '../tour_steps/manageWorkout';
 import { START_WOURKOUT_STEP_NAMES } from '../tour_steps/startWorkout';
 import { MaybeTourStep } from '../components/guide_tour/MaybeTourStep';
+import { ACTIVE_WORKOUT_STEP_NAMES } from '../tour_steps/activeWorkout';
 
 const workoutOptions = [
   {
@@ -49,7 +50,7 @@ const workoutOptions = [
     title: 'Log Active Workout',
     description: 'Begin your workout session now.',
     icon: 'document-text-outline',
-    tous: 'LOG_ACTIVE_WORKOUT_BUTTON',
+    // tous: ACTIVE_WORKOUT_STEP_NAMES.LOG_ACTIVE_WORKOUT_BUTTON,
     // action: (navigation: workoutScreenNavigationProp) => console.log('Navigating to Start Workout'), 
     action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.LogWorkout),
   }
