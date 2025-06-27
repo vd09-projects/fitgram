@@ -15,8 +15,6 @@ import { useNavigation } from '@react-navigation/native';
 import { TextBase } from '../components/TextBase';
 import { ReturnTypeUseThemeTokens } from '../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../utils/useThemeStyles';
-import { TourStep } from '../components/guide_tour/TourStep';
-import { TOUR_STEPS } from '../tour_steps';
 import { MANAGE_WOURKOUT_STEP_NAMES } from '../tour_steps/manageWorkout';
 import { START_WOURKOUT_STEP_NAMES } from '../tour_steps/startWorkout';
 import { MaybeTourStep } from '../components/guide_tour/MaybeTourStep';

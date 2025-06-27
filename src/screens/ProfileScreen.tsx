@@ -14,7 +14,7 @@ import { ReturnTypeUseThemeTokens } from '../components/app_manager/ThemeContext
 import { useThemeStyles } from '../utils/useThemeStyles';
 import { useTour } from '../components/guide_tour/TourGuideProvider';
 import { FIRST_TOUR_STEP_ID, TOUR_STEPS } from '../constants/tourSteps';
-import { TourStep } from '../components/guide_tour/TourStep';
+import { MaybeTourStep } from '../components/guide_tour/MaybeTourStep';
 
 export default function ProfileScreen() {
   const { startTour, clearStep } = useTour();
@@ -35,7 +35,7 @@ export default function ProfileScreen() {
     <ScrollableScreen
       style={styles.container}
     >
-      <TourStep {...TOUR_STEPS.PROFILE_DETAILS} isFunComponent={true}>
+      <MaybeTourStep {...TOUR_STEPS.PROFILE_DETAILS}>
         <CollapsibleSection
           collapsibleStyle={styles.collapsibleStyle}
           collapsibleIconColor={t.colors.textPrimary}
@@ -48,9 +48,9 @@ export default function ProfileScreen() {
           <TextBase style={styles.userInfo}>Name: {userInfo?.name || "Guest"}</TextBase>
           <TextBase style={styles.userInfo}>Email: {user?.email || "--"}</TextBase>
         </CollapsibleSection>
-      </TourStep>
+      </MaybeTourStep>
 
-      <TourStep {...TOUR_STEPS.PROFILE_THEME} isFunComponent={true}>
+      <MaybeTourStep {...TOUR_STEPS.PROFILE_THEME}>
         <CollapsibleSection
           collapsibleStyle={styles.collapsibleStyle}
           collapsibleIconColor={t.colors.textPrimary}
@@ -62,13 +62,13 @@ export default function ProfileScreen() {
         >
           <ColorSchemaSelector />
         </CollapsibleSection>
-      </TourStep>
+      </MaybeTourStep>
 
-      <TourStep {...TOUR_STEPS.PROFILE_START_TOUR}>
+      <MaybeTourStep {...TOUR_STEPS.PROFILE_START_TOUR}>
         <TouchableOpacity style={styles.button} onPress={() => { startTour(FIRST_TOUR_STEP_ID, undefined, true); }}>
           <TextBase style={styles.buttonText}>🧭 Start App Tour</TextBase>
         </TouchableOpacity>
-      </TourStep>
+      </MaybeTourStep>
 
       <TouchableOpacity style={styles.button} onPress={() => { clearStep(); }}>
         <TextBase style={styles.buttonText}>🧭 Clear App Tour</TextBase>

@@ -8,8 +8,6 @@ import { useWorkoutStore } from '../stores/useWorkoutStore';
 import { TextBase } from './TextBase';
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
-import { TOUR_STEPS } from '../constants/tourSteps';
-import { TourStep } from './guide_tour/TourStep';
 import { MaybeTourStep } from './guide_tour/MaybeTourStep';
 import { MANAGE_WOURKOUT_STEP_NAMES } from '../tour_steps/manageWorkout';
 import { ACTIVE_WORKOUT_STEP_NAMES } from '../tour_steps/activeWorkout';

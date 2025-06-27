@@ -7,8 +7,8 @@ import { useAuthUser } from '../hooks/useAuthUser';
 import { Greeting } from '../components/Greeting';
 import { ReturnTypeUseThemeTokens } from '../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../utils/useThemeStyles';
-import { TourStep } from '../components/guide_tour/TourStep';
 import { TOUR_STEPS } from '../constants/tourSteps';
+import { MaybeTourStep } from '../components/guide_tour/MaybeTourStep';
 
 export default function HomeScreen() {
   const { styles, t } = useThemeStyles(createStyles);
@@ -16,12 +16,12 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <TourStep {...TOUR_STEPS.HOME_PAGE} isFunComponent={true}>
+      <MaybeTourStep {...TOUR_STEPS.HOME_PAGE}>
         <Greeting
           name={userInfo?.name || 'Guest'}
           message="Welcome to"
         />
-      </TourStep>
+      </MaybeTourStep>
     </View>
   );
 }

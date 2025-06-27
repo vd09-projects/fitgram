@@ -30,28 +30,6 @@ type TourGuideContextType = {
 const TourGuideContext = createContext<TourGuideContextType>({} as any);
 export const useTour = () => useContext(TourGuideContext);
 
-export function useSafeTour() {
-  const context = useContext(TourGuideContext);
-
-  if (!context || Object.keys(context).length === 0) {
-    // Return a safe fallback implementation
-    return {
-      registerStep: () => {},
-      startTour: () => {},
-      nextStep: () => {},
-      skipTour: () => {},
-      clearStep: () => {},
-      triggerMeasureRefresh: () => {},
-      currentStepId: null,
-      isTourActive: false,
-      refreshKey: 0,
-      steps: {},
-    };
-  }
-
-  return context;
-}
-
 export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [steps, setSteps] = useState<Record<string, Step>>({});
   const [refreshKey, setRefreshKey] = useState(0);
@@ -74,7 +52,7 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setSteps((prev) => ({ ...prev, [step.id]: step }));
   };
 
-   const clearStepsForStart = () => {
+  const clearStepsForStart = () => {
     const filteredSteps = Object.fromEntries(
       Object.entries(steps).filter(([_, step]) => RETAIN_SCREENS_TOUR_STEPS.includes(step.screen))
     );

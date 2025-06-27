@@ -14,7 +14,6 @@ import { TextInput } from 'react-native-paper';
 import LoadingData from './LoadingData';
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
-import { TourStep } from './guide_tour/TourStep';
 import { SEARCHABLE_INPUT_DROPDOWN_PREFIX, STEP_NAMES } from '../constants/tourSteps';
 import { ValueOf } from 'react-native-gesture-handler/lib/typescript/typeUtils';
 import { TOUR_STEPS } from '../tour_steps';
