@@ -82,6 +82,13 @@
 |------|--------|----------|-------|
 | **Develop a basic social media feed** | TBD | TBD | To be decided. |
 
+### 🔹 **Phase 8: Bugs**
+| Task | Status | Timeline | Notes |
+|------|--------|----------|-------|
+| **Add Tour Guide to AAP** | 🚫 | 6-7 days | To be decided. |
+| **Loading on Sign-in/up screen** | ✅ | 1-2 days | Done. |
+| **DropDown not open properly when screen scrolable area is less** | 🚫 | 2-3 days | To be decided. |
+
 ---
 
 ### 📝 Notes:
