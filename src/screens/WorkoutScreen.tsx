@@ -74,15 +74,12 @@ export default function WorkoutScreen() {
         <View style={styles.buttonContainer}>
           {workoutOptions.map((option, index) => {
             return (
-              <MaybeTourStep stepId={option.tous} key={index} isIntractive={true}>
+              <MaybeTourStep stepId={option.tous} key={index} >
                 <TouchableOpacityBase
                   key={index}
                   style={styles.buttonPrimary}
                   onPress={() => {
-                    setTimeout(() => {
                     option.action(navigation);
-                  // }, 2000);
-                  }, 0);
                   }}
                   activeOpacity={0.8}
                 >

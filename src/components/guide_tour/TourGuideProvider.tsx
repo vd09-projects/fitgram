@@ -26,7 +26,6 @@ type TourGuideContextType = {
   isTourActive: boolean;
   refreshKey: number;
   steps: Record<string, Step>;
-  currentStepNotPresent: boolean;
 };
 
 const TourGuideContext = createContext<TourGuideContextType>({} as any);
@@ -34,7 +33,6 @@ export const useTour = () => useContext(TourGuideContext);
 
 export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [steps, setSteps] = useState<Record<string, Step>>({});
-  const [currentStepNotPresent, setCurrentStepNotPresent] = useState<boolean>(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   // ✅ NEW: Ref to hold the latest steps
@@ -95,7 +93,7 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // ✅ Use the ref to always get latest steps
     const nextId = stepsRef.current[currentStepId]?.nextStepId;
     if (nextId) {
-        setCurrentStepId(nextId);
+      setCurrentStepId(nextId);
 
       // if (!!stepsRef.current[nextId]) {
       //   setCurrentStepId(nextId);
@@ -127,10 +125,6 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const triggerMeasureRefresh = () => {
     setRefreshKey((k) => k + 1);
-    if (!currentStepId) return;
-    if (!!stepsRef.current[currentStepId]) {
-      setCurrentStepNotPresent(false)
-    }
   };
 
   const buttonPressed = () => {
@@ -156,7 +150,6 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         isTourActive,
         refreshKey,
         steps,
-        currentStepNotPresent
       }}
     >
       {children}

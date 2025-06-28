@@ -15,14 +15,12 @@ type Props = {
   steps: StepData[];
   children: React.ReactNode;
   stylePropName?: string;
-  isIntractive?: boolean;
 };
 
 export const MultiTourSteps: React.FC<Props> = ({
   steps,
   children,
   stylePropName = 'style',
-  isIntractive = false,
 }) => {
   const measureRef = useRef<any>(null);
   const { registerStep, currentStepId, isTourActive, triggerMeasureRefresh, buttonPressed } = useTour();
@@ -62,55 +60,18 @@ export const MultiTourSteps: React.FC<Props> = ({
       [stylePropName]: [childStyle],
     };
 
-    // return (
-    //   <TouchableOpacity
-    //     ref={measureRef}
-    //     style={spacingStyle}
-    //     onLayout={triggerMeasureRefresh}
-    //     onPress={() => {
-    //       console.log("VDJI TouchableOpacity TouchableOpacity TouchableOpacity")
-    //       if (isIntractive) {
-    //         buttonPressed()
-    //       }
-    //     }}
-    //   >
-    //     {cloneElement(children as ReactElement<any>, propsToInject)}
-    //   </TouchableOpacity>
-    // );
-
     return (
       <View
         ref={measureRef}
         collapsable={false}
         style={spacingStyle}
         onLayout={() => setTimeout(() => {
-      triggerMeasureRefresh()
-    }, 300)}
-        // onStartShouldSetResponder={() => {
-        //   console.log("Wrapper detected touch release1");
-        //   return false;
-        // }}
-        // onResponderRelease={() => {
-        //   console.log("Wrapper detected touch release");
-        //   if (isIntractive) {
-        //     buttonPressed();
-        //   }
-        // }}
+          triggerMeasureRefresh()
+        }, 400)}
       >
         {cloneElement(children as ReactElement<any>, propsToInject)}
       </View>
     );
-
-    // return (
-    //   <View
-    //     ref={measureRef}
-    //     collapsable={false}
-    //     style={spacingStyle}
-    //     onLayout={triggerMeasureRefresh}
-    //   >
-    //     {cloneElement(children as ReactElement<any>, propsToInject)}
-    //   </View>
-    // );
   }
 
   return (

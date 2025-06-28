@@ -11,6 +11,7 @@ import { useThemeStyles } from "../utils/useThemeStyles";
 import { MaybeTourStep } from './guide_tour/MaybeTourStep';
 import { MANAGE_WOURKOUT_STEP_NAMES } from '../tour_steps/manageWorkout';
 import { ACTIVE_WORKOUT_STEP_NAMES } from '../tour_steps/activeWorkout';
+import { TouchableOpacityBase } from './TouchableOpacityBase';
 
 interface FooterProps {
   activeTab: keyof typeof LayoutRoutes;
@@ -36,7 +37,7 @@ export default function Footer({ activeTab, onChangeTab }: FooterProps) {
         const isActive = activeTab === tab.key;
         return (
           <MaybeTourStep stepId={tab.tous} positionType='above'>
-            <TouchableOpacity
+            <TouchableOpacityBase
               key={tab.key}
               style={[styles.tabButton, isActive && styles.activeTab]}
               onPress={() => onChangeTab(tab.key)}
@@ -50,7 +51,7 @@ export default function Footer({ activeTab, onChangeTab }: FooterProps) {
               <TextBase style={[styles.tabText, isActive && styles.activeText]}>
                 {tab.label}
               </TextBase>
-            </TouchableOpacity>
+            </TouchableOpacityBase>
           </MaybeTourStep>
         )
       })}
