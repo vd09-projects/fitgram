@@ -19,6 +19,7 @@ import { MANAGE_WOURKOUT_STEP_NAMES } from '../tour_steps/manageWorkout';
 import { START_WOURKOUT_STEP_NAMES } from '../tour_steps/startWorkout';
 import { MaybeTourStep } from '../components/guide_tour/MaybeTourStep';
 import { ACTIVE_WORKOUT_STEP_NAMES } from '../tour_steps/activeWorkout';
+import { TouchableOpacityBase } from '../components/TouchableOpacityBase';
 
 const workoutOptions = [
   {
@@ -73,11 +74,16 @@ export default function WorkoutScreen() {
         <View style={styles.buttonContainer}>
           {workoutOptions.map((option, index) => {
             return (
-              <MaybeTourStep stepId={option.tous} key={index}>
-                <TouchableOpacity
+              <MaybeTourStep stepId={option.tous} key={index} isIntractive={true}>
+                <TouchableOpacityBase
                   key={index}
                   style={styles.buttonPrimary}
-                  onPress={() => option.action(navigation)}
+                  onPress={() => {
+                    setTimeout(() => {
+                    option.action(navigation);
+                  // }, 2000);
+                  }, 0);
+                  }}
                   activeOpacity={0.8}
                 >
                   <Ionicons
@@ -94,7 +100,7 @@ export default function WorkoutScreen() {
                       {option.description}
                     </TextBase>
                   </View>
-                </TouchableOpacity>
+                </TouchableOpacityBase>
               </MaybeTourStep>
             )
           })}

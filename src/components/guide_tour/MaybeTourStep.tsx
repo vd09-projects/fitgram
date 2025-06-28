@@ -10,6 +10,7 @@ type Props = {
   positionType?: PositionType;
   children: React.ReactNode;
   stylePropName?: string;
+  isIntractive?: boolean;
 };
 
 export const MaybeTourStep: React.FC<Props> = ({
@@ -17,6 +18,7 @@ export const MaybeTourStep: React.FC<Props> = ({
   positionType = 'below',
   children,
   stylePropName,
+  isIntractive,
 }) => {
   if (!stepId) return <>{children}</>;
 
@@ -32,7 +34,7 @@ export const MaybeTourStep: React.FC<Props> = ({
     }));
 
   return validSteps.length > 0 ? (
-    <MultiTourSteps steps={validSteps} stylePropName={stylePropName}>
+    <MultiTourSteps steps={validSteps} stylePropName={stylePropName} isIntractive={isIntractive}>
       {children}
     </MultiTourSteps>
   ) : (

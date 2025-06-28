@@ -12,6 +12,7 @@ export const TooltipOverlay = () => {
     skipTour,
     isTourActive,
     refreshKey,
+    triggerMeasureRefresh,
   } = useTour();
 
   const [tooltipPosition, setTooltipPosition] = useState<{
@@ -22,11 +23,18 @@ export const TooltipOverlay = () => {
   } | null>(null);
 
   const [tooltipHeight, setTooltipHeight] = useState(0);
+  const [isCurrentStepVisible, setIsCurrentStepVisible] = useState(true);
 
   useEffect(() => {
     if (!isTourActive || !currentStepId) return;
 
     const step = steps[currentStepId];
+    if (!!step) {
+      setIsCurrentStepVisible(true)
+    } else {
+      setIsCurrentStepVisible(false)
+      return
+    }
     const view = step?.ref?.current;
 
     if (!view || typeof view.measure !== 'function') return;
@@ -41,6 +49,32 @@ export const TooltipOverlay = () => {
   const { x, y, width, height } = tooltipPosition;
   const screen = Dimensions.get('window');
   const step = steps[currentStepId];
+
+  if (!step) {
+    return (
+      <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+        <View
+          style={[
+            styles.tooltip,
+            {
+              top: screen.height / 2 - 60,
+              left: screen.width / 2 - TOOLTIP_WIDTH / 2,
+            },
+          ]}
+        >
+          {/* <Text style={styles.title}>{step.title}</Text> */}
+          <Text style={styles.desc}>
+            This step is not currently visible. Please navigate to the relevant screen or component, then tap Next to continue.
+          </Text>
+          <View style={styles.buttonRow}>
+            <Button title="Skip" onPress={skipTour} />
+            <Button title="Refresh" onPress={triggerMeasureRefresh} />
+          </View>
+        </View>
+      </View>
+    );
+  }
+  
   const isNextStepDefinedButMissing = step?.nextStepId && !steps[step.nextStepId];
 
   const tooltipX = Math.min(x, screen.width - TOOLTIP_WIDTH);

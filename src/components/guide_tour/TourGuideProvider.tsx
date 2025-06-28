@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 import { useTourStore } from '../../stores/useTourStore';
 import { RETAIN_SCREENS_TOUR_STEPS } from '../../constants/tourSteps';
 
@@ -21,10 +21,12 @@ type TourGuideContextType = {
   skipTour: () => void;
   clearStep: () => void;
   triggerMeasureRefresh: () => void;
+  buttonPressed: () => void;
   currentStepId: string | null;
   isTourActive: boolean;
   refreshKey: number;
   steps: Record<string, Step>;
+  currentStepNotPresent: boolean;
 };
 
 const TourGuideContext = createContext<TourGuideContextType>({} as any);
@@ -32,7 +34,14 @@ export const useTour = () => useContext(TourGuideContext);
 
 export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [steps, setSteps] = useState<Record<string, Step>>({});
+  const [currentStepNotPresent, setCurrentStepNotPresent] = useState<boolean>(false);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // ✅ NEW: Ref to hold the latest steps
+  const stepsRef = useRef<Record<string, Step>>({});
+  useEffect(() => {
+    stepsRef.current = steps;
+  }, [steps]);
 
   const {
     isTourActive,
@@ -54,7 +63,9 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const clearStepsForStart = () => {
     const filteredSteps = Object.fromEntries(
-      Object.entries(steps).filter(([_, step]) => RETAIN_SCREENS_TOUR_STEPS.includes(step.screen))
+      Object.entries(stepsRef.current).filter(([_, step]) =>
+        RETAIN_SCREENS_TOUR_STEPS.includes(step.screen)
+      )
     );
     setSteps(filteredSteps);
   };
@@ -75,14 +86,21 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     clearStepsForStart();
     setIsTourActive(true);
     setCurrentStepId(firstStepId);
-    setCurrentTourId(tourId); // 🔐 Set tour id
+    setCurrentTourId(tourId);
   };
 
   const nextStep = () => {
     if (!currentStepId) return;
-    const nextId = steps[currentStepId]?.nextStepId;
-    if (nextId && steps[nextId]) {
-      setCurrentStepId(nextId);
+
+    // ✅ Use the ref to always get latest steps
+    const nextId = stepsRef.current[currentStepId]?.nextStepId;
+    if (nextId) {
+        setCurrentStepId(nextId);
+
+      // if (!!stepsRef.current[nextId]) {
+      //   setCurrentStepId(nextId);
+      //   // setCurrentStepNotPresent(true)
+      // }
     } else {
       endTour();
     }
@@ -99,9 +117,6 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const skipTour = () => {
-    // setIsTourActive(false);
-    // setCurrentStepId(null);
-    // setCurrentTourId(null);
     endTour();
   };
 
@@ -112,6 +127,19 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const triggerMeasureRefresh = () => {
     setRefreshKey((k) => k + 1);
+    if (!currentStepId) return;
+    if (!!stepsRef.current[currentStepId]) {
+      setCurrentStepNotPresent(false)
+    }
+  };
+
+  const buttonPressed = () => {
+    if (!isTourActive) {
+      return;
+    }
+    setTimeout(() => {
+      nextStep()
+    }, 0);
   };
 
   return (
@@ -123,10 +151,12 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         skipTour,
         clearStep,
         triggerMeasureRefresh,
+        buttonPressed,
         currentStepId,
         isTourActive,
         refreshKey,
         steps,
+        currentStepNotPresent
       }}
     >
       {children}

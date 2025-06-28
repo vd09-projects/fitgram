@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, isValidElement, cloneElement, ReactElement } from 'react';
-import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { View, StyleSheet, StyleProp, ViewStyle, TouchableOpacity } from 'react-native';
 import { PositionType, useTour } from './TourGuideProvider';
 
 type StepData = {
@@ -15,15 +15,17 @@ type Props = {
   steps: StepData[];
   children: React.ReactNode;
   stylePropName?: string;
+  isIntractive?: boolean;
 };
 
 export const MultiTourSteps: React.FC<Props> = ({
   steps,
   children,
   stylePropName = 'style',
+  isIntractive = false,
 }) => {
   const measureRef = useRef<any>(null);
-  const { registerStep, currentStepId, isTourActive, triggerMeasureRefresh } = useTour();
+  const { registerStep, currentStepId, isTourActive, triggerMeasureRefresh, buttonPressed } = useTour();
 
   useEffect(() => {
     for (const step of steps) {
@@ -60,16 +62,55 @@ export const MultiTourSteps: React.FC<Props> = ({
       [stylePropName]: [childStyle],
     };
 
+    // return (
+    //   <TouchableOpacity
+    //     ref={measureRef}
+    //     style={spacingStyle}
+    //     onLayout={triggerMeasureRefresh}
+    //     onPress={() => {
+    //       console.log("VDJI TouchableOpacity TouchableOpacity TouchableOpacity")
+    //       if (isIntractive) {
+    //         buttonPressed()
+    //       }
+    //     }}
+    //   >
+    //     {cloneElement(children as ReactElement<any>, propsToInject)}
+    //   </TouchableOpacity>
+    // );
+
     return (
       <View
         ref={measureRef}
         collapsable={false}
         style={spacingStyle}
-        onLayout={triggerMeasureRefresh}
+        onLayout={() => setTimeout(() => {
+      triggerMeasureRefresh()
+    }, 300)}
+        // onStartShouldSetResponder={() => {
+        //   console.log("Wrapper detected touch release1");
+        //   return false;
+        // }}
+        // onResponderRelease={() => {
+        //   console.log("Wrapper detected touch release");
+        //   if (isIntractive) {
+        //     buttonPressed();
+        //   }
+        // }}
       >
         {cloneElement(children as ReactElement<any>, propsToInject)}
       </View>
     );
+
+    // return (
+    //   <View
+    //     ref={measureRef}
+    //     collapsable={false}
+    //     style={spacingStyle}
+    //     onLayout={triggerMeasureRefresh}
+    //   >
+    //     {cloneElement(children as ReactElement<any>, propsToInject)}
+    //   </View>
+    // );
   }
 
   return (

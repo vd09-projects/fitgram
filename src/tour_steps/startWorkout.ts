@@ -12,8 +12,8 @@ export const START_WOURKOUT_STEP_NAMES = {
 
 const SEARCH_BOX_TOUR_STEPS = {
   [SEARCH_BOX_STEP_NAMES.SEARCH_BOX]: {
-    title: "Click this button to create a new workout",
-    description: "Tap this button to create a new workout entry.",
+    title: "Click this button to search workout name",
+    description: "Click this button to search workout name",
     screen: SCREEN_NAMES.SEARCHABLE_INPUT_DROPDOWN,
   },
 }
