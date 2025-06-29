@@ -12,6 +12,7 @@ import { MaybeTourStep } from './guide_tour/MaybeTourStep';
 import { MANAGE_WOURKOUT_STEP_NAMES } from '../tour_steps/manageWorkout';
 import { ACTIVE_WORKOUT_STEP_NAMES } from '../tour_steps/activeWorkout';
 import { TouchableOpacityBase } from './TouchableOpacityBase';
+import { START_WOURKOUT_STEP_NAMES } from '../tour_steps/startWorkout';
 
 interface FooterProps {
   activeTab: keyof typeof LayoutRoutes;
@@ -27,7 +28,7 @@ export default function Footer({ activeTab, onChangeTab }: FooterProps) {
 
   const tabs = [
     { key: LayoutRoutes.Feed, label: 'Feed', icon: 'home-outline' as const, tous: "FEED_BUTTON" },
-    { key: LayoutRoutes.Workout, label: 'Workout', icon: 'barbell-outline' as const, tous: ["WORKOUT_BUTTON", MANAGE_WOURKOUT_STEP_NAMES.WORKOUT_FOOTER_BUTTON] },
+    { key: LayoutRoutes.Workout, label: 'Workout', icon: 'barbell-outline' as const, tous: [MANAGE_WOURKOUT_STEP_NAMES.WORKOUT_FOOTER_BUTTON, START_WOURKOUT_STEP_NAMES.WORKOUT_FOOTER_BUTTON] },
     ...(activeWorkout ? [{ key: LayoutRoutes.LogWorkout, label: 'Log Workout', icon: 'list-outline' as const, tous: ACTIVE_WORKOUT_STEP_NAMES.LOG_ACTIVE_WORKOUT_BUTTON }] : []),
   ];
 

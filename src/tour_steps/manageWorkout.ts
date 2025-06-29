@@ -1,6 +1,6 @@
-import { SCREEN_NAMES } from "../constants/tourSteps";
 import {
   EDITABLE_LIST_STEP_NAMES,
+  SCREEN_NAMES,
   SEARCHABLE_INPUT_STEP_NAMES,
 } from "./commonStepNames";
 import { START_WOURKOUT_STEP_NAMES } from "./startWorkout";
@@ -53,6 +53,12 @@ const EXERCISE_EDITABLE_LIST_TOUR_STEPS = {
 };
 
 const TOUR_STEPS = {
+  [MANAGE_WOURKOUT_STEP_NAMES.WORKOUT_FOOTER_BUTTON]: {
+    title: "Explore Workout Options",
+    description:
+      "Tap this button to explore other available workout options and start the guided tour.",
+    screen: SCREEN_NAMES.FOOTER,
+  },
   [MANAGE_WOURKOUT_STEP_NAMES.NEW_AND_UPDATE_BUTTON]: {
     title: "Add or Update a Workout",
     description:
@@ -69,13 +75,7 @@ const TOUR_STEPS = {
     title: "Save Workout",
     description: "Press this button to save all the details of your workout.",
     screen: SCREEN_NAMES.WORKOUT_SCREEN,
-  },
-  [MANAGE_WOURKOUT_STEP_NAMES.WORKOUT_FOOTER_BUTTON]: {
-    title: "Explore Workout Options",
-    description:
-      "Tap this button to explore other available workout options and start the guided tour.",
-    screen: SCREEN_NAMES.FOOTER,
-    nextStepId: START_WOURKOUT_STEP_NAMES.SEARCH_BOX,
+    nextStepId: START_WOURKOUT_STEP_NAMES.WORKOUT_FOOTER_BUTTON,
   },
 };
 

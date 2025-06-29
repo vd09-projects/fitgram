@@ -12,6 +12,7 @@ import { ValueOf } from 'react-native-gesture-handler/lib/typescript/typeUtils';
 import { EDITABLE_LIST_STEP_NAMES } from '../tour_steps/commonStepNames';
 import { makeStepId } from '../tour_steps/utils';
 import { MANAGE_WOURKOUT_STEP_NAMES } from '../tour_steps/manageWorkout';
+import { PositionType } from './guide_tour/TourGuideProvider';
 
 interface EditableListProps {
   title: string;
@@ -19,6 +20,7 @@ interface EditableListProps {
   onItemsChange: (updatedItems: string[]) => void;
   showInputField?: boolean;
   tourStepPrefix?: ValueOf<typeof MANAGE_WOURKOUT_STEP_NAMES>;
+  positionType?: PositionType;
 }
 
 const EditableList: React.FC<EditableListProps> = ({
@@ -27,6 +29,7 @@ const EditableList: React.FC<EditableListProps> = ({
   onItemsChange,
   showInputField = true,
   tourStepPrefix,
+  positionType
 }) => {
   const { styles, t } = useThemeStyles(createStyles);
   const [newItem, setNewItem] = useState('');
@@ -56,7 +59,7 @@ const EditableList: React.FC<EditableListProps> = ({
     <View style={styles.container}>
       <TextBase style={styles.title}>{title}</TextBase>
 
-      <MaybeTourStep stepId={makeStepId(EDITABLE_LIST_STEP_NAMES.EXISTING_ITEM, tourStepPrefix)}>
+      <MaybeTourStep stepId={makeStepId(EDITABLE_LIST_STEP_NAMES.EXISTING_ITEM, tourStepPrefix)} positionType={positionType}>
         <>
           {items.map((field, index) => {
             const isDuplicate = errorMessage && field === newItem.trim();
@@ -89,7 +92,7 @@ const EditableList: React.FC<EditableListProps> = ({
       </MaybeTourStep>
 
       {showInputField && (
-        <MaybeTourStep stepId={makeStepId(EDITABLE_LIST_STEP_NAMES.ADD_NEW_ITEM, tourStepPrefix)}>
+        <MaybeTourStep stepId={makeStepId(EDITABLE_LIST_STEP_NAMES.ADD_NEW_ITEM, tourStepPrefix)} positionType={positionType}>
           <PrimaryInputField
             label=''
             placeholder="Enter new field"

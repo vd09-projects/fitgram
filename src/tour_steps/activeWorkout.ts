@@ -1,5 +1,4 @@
-import { SCREEN_NAMES } from "../constants/tourSteps";
-import { SEARCHABLE_INPUT_STEP_NAMES } from "./commonStepNames";
+import { SCREEN_NAMES, SEARCHABLE_INPUT_STEP_NAMES } from "./commonStepNames";
 import { generateStepsFromMap } from "./utils";
 
 export const ACTIVE_WORKOUT_STEP_NAMES = {

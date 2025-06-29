@@ -155,6 +155,7 @@ export default function AddExerciseScreen() {
         conatinerStyle={{ marginBottom: SPACING.large }}
         isDataLoading={loadingPredefinedExercises}
         tourStepPrefix={MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_SEARCHABLE}
+        positionType="above"
       />
 
       {/* 🔹 Input Fields for Selected or Custom Exercise */}
@@ -164,6 +165,7 @@ export default function AddExerciseScreen() {
           items={customFields}
           onItemsChange={setCustomFields}
           tourStepPrefix={MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_EDITABLE_LIST}
+          positionType="above"
         />
       )}
 

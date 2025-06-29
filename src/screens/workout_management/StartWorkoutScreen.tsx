@@ -26,6 +26,7 @@ import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeCont
 import { useThemeStyles } from '../../utils/useThemeStyles';
 import { START_WOURKOUT_STEP_NAMES } from "../../tour_steps/startWorkout";
 import { MaybeTourStep } from "../../components/guide_tour/MaybeTourStep";
+import { TouchableOpacityBase } from "../../components/TouchableOpacityBase";
 
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.StartWorkout>;
 
@@ -156,9 +157,9 @@ export default function StartWorkoutScreen() {
       {/* ▶️ Floating Start Workout Button */}
       {selectedWorkout && (
         <MaybeTourStep stepId={START_WOURKOUT_STEP_NAMES.START_SELECTED_WORKOUT_BUTTON} positionType='above'>
-          <TouchableOpacity style={styles.startWorkoutButton} onPress={handleStartWorkout}>
+          <TouchableOpacityBase style={styles.startWorkoutButton} onPress={handleStartWorkout}>
             <TextBase style={styles.startWorkoutText}>Start {selectedWorkout.name}</TextBase>
-          </TouchableOpacity>
+          </TouchableOpacityBase>
         </MaybeTourStep>
       )}
 

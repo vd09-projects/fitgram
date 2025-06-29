@@ -14,12 +14,10 @@ import { TextInput } from 'react-native-paper';
 import LoadingData from './LoadingData';
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
-import { SEARCHABLE_INPUT_DROPDOWN_PREFIX, STEP_NAMES } from '../constants/tourSteps';
-import { ValueOf } from 'react-native-gesture-handler/lib/typescript/typeUtils';
-import { TOUR_STEPS } from '../tour_steps';
 import { SEARCHABLE_INPUT_STEP_NAMES } from '../tour_steps/commonStepNames';
 import { makeStepId } from '../tour_steps/utils';
 import { MaybeTourStep } from './guide_tour/MaybeTourStep';
+import { PositionType } from './guide_tour/TourGuideProvider';
 
 export interface DropdownItem<T> {
   label: string;
@@ -41,7 +39,8 @@ interface SearchableInputDropdownProps<T> {
   allowCustomInput?: boolean;
   conatinerStyle?: StyleProp<ViewStyle>;
   isDataLoading?: boolean;
-  tourStepPrefix?: ValueOf<typeof SEARCHABLE_INPUT_DROPDOWN_PREFIX>;
+  tourStepPrefix?: string;
+  positionType?: PositionType;
 }
 
 export default function SearchableInputDropdown<T>({
@@ -53,7 +52,8 @@ export default function SearchableInputDropdown<T>({
   allowCustomInput = true,
   conatinerStyle,
   isDataLoading = false,
-  tourStepPrefix
+  tourStepPrefix,
+  positionType
 }: SearchableInputDropdownProps<T>) {
   const { styles, t } = useThemeStyles(createStyles);
   const [isNewMode, setIsNewMode] = useState(false);
@@ -77,7 +77,7 @@ export default function SearchableInputDropdown<T>({
           <MaybeTourStep stepId={[
             makeStepId(SEARCHABLE_INPUT_STEP_NAMES.NEW_BUTTON, tourStepPrefix),
             makeStepId(SEARCHABLE_INPUT_STEP_NAMES.OLD_BUTTON, tourStepPrefix)
-          ]}>
+          ]} positionType={positionType}>
             <View style={styles.switchContainer}>
               <Switch
                 value={isNewMode}
@@ -95,7 +95,7 @@ export default function SearchableInputDropdown<T>({
       <MaybeTourStep stepId={[
         makeStepId(SEARCHABLE_INPUT_STEP_NAMES.INPUT_AND_SAVE, tourStepPrefix),
         makeStepId(SEARCHABLE_INPUT_STEP_NAMES.DROPDOWN_BUTTON, tourStepPrefix)
-      ]}>
+      ]} positionType={positionType}>
         {isDataLoading ? (
           <View style={styles.loadingContainer}>
             <LoadingData />

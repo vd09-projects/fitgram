@@ -13,8 +13,9 @@ import { ColorSchemaSelector } from '../components/ColorSchemaSelector';
 import { ReturnTypeUseThemeTokens } from '../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../utils/useThemeStyles';
 import { useTour } from '../components/guide_tour/TourGuideProvider';
-import { FIRST_TOUR_STEP_ID, TOUR_STEPS } from '../constants/tourSteps';
+import { FIRST_TOUR_STEP_ID } from '../constants/tourSteps';
 import { MaybeTourStep } from '../components/guide_tour/MaybeTourStep';
+import { PROFILE_STEP_NAMES } from '../tour_steps/profile';
 
 export default function ProfileScreen() {
   const { startTour, clearStep } = useTour();
@@ -35,7 +36,7 @@ export default function ProfileScreen() {
     <ScrollableScreen
       style={styles.container}
     >
-      <MaybeTourStep {...TOUR_STEPS.PROFILE_DETAILS}>
+      <MaybeTourStep stepId={PROFILE_STEP_NAMES.DETAILS} >
         <CollapsibleSection
           collapsibleStyle={styles.collapsibleStyle}
           collapsibleIconColor={t.colors.textPrimary}
@@ -50,7 +51,7 @@ export default function ProfileScreen() {
         </CollapsibleSection>
       </MaybeTourStep>
 
-      <MaybeTourStep {...TOUR_STEPS.PROFILE_THEME}>
+      <MaybeTourStep stepId={PROFILE_STEP_NAMES.THEMES} >
         <CollapsibleSection
           collapsibleStyle={styles.collapsibleStyle}
           collapsibleIconColor={t.colors.textPrimary}
@@ -64,7 +65,7 @@ export default function ProfileScreen() {
         </CollapsibleSection>
       </MaybeTourStep>
 
-      <MaybeTourStep {...TOUR_STEPS.PROFILE_START_TOUR}>
+      <MaybeTourStep stepId={PROFILE_STEP_NAMES.START_TOUR_BUTTON} >
         <TouchableOpacity style={styles.button} onPress={() => { startTour(FIRST_TOUR_STEP_ID, undefined, true); }}>
           <TextBase style={styles.buttonText}>🧭 Start App Tour</TextBase>
         </TouchableOpacity>
