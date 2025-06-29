@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Dimensions, StyleSheet, Button } from 'react-native';
+import { View, Text, Dimensions, StyleSheet, Button, TouchableOpacity } from 'react-native';
 import { useTour } from './TourGuideProvider';
 import { useThemeStyles } from '../../utils/useThemeStyles';
 import { ReturnTypeUseThemeTokens } from '../app_manager/ThemeContext';
+import { BORDER_RADIUS, FONT_SIZES, SPACING } from '../../constants/styles';
+import { TextBase } from '../TextBase';
 
 const TOOLTIP_WIDTH = 320;
 
@@ -120,22 +122,25 @@ export const TooltipOverlay = () => {
         style={[styles.tooltip, { top: tooltipY, left: tooltipX }]}
         onLayout={(e) => setTooltipHeight(e.nativeEvent.layout.height)}
       >
-        <Text style={styles.title}>{step.title}</Text>
-        <Text style={styles.desc}>{step.description}</Text>
+        <TextBase style={styles.title}>{step.title}</TextBase>
+        <TextBase style={styles.desc}>{step.description}</TextBase>
 
         {isNextStepDefinedButMissing && (
-          <Text style={styles.waitingMsg}>
-            Hang tight! Please interact with the app (like tapping a button or switching pages) to continue the tour. {step.nextStepId}
-          </Text>
+          <TextBase style={styles.waitingMsg}>
+            Hang tight! Tap a button or switch pages to keep the tour going.
+          </TextBase>
         )}
 
         <View style={styles.buttonRow}>
-          <Button title="Skip" onPress={skipTour} />
-          <Button
-            title={step.nextStepId ? 'Next' : 'Finish'}
+          <TouchableOpacity style={styles.button} onPress={skipTour} >
+            <TextBase style={styles.buttonText}> Skip </TextBase>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, isNextStepDefinedButMissing && { backgroundColor: t.colors.buttonDisabled }]}
             onPress={nextStep}
-            disabled={isNextStepDefinedButMissing}
-          />
+            disabled={isNextStepDefinedButMissing} >
+            <TextBase style={styles.buttonText}> {step.nextStepId ? 'Next' : 'Finish'} </TextBase>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -149,29 +154,41 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   },
   tooltip: {
     position: 'absolute',
-    backgroundColor: 'white',
-    padding: 12,
-    borderRadius: 8,
-    elevation: 4,
+    backgroundColor: t.colors.tourGuideBackground,
+    padding: SPACING.medium,
+    borderRadius: BORDER_RADIUS,
     width: TOOLTIP_WIDTH,
+    ...t.shadows.shadowSmall
   },
   title: {
     fontWeight: 'bold',
-    fontSize: 16,
-    marginBottom: 6,
+    fontSize: FONT_SIZES.large,
+    marginBottom: SPACING.small,
+    color: t.colors.tourGuideTitileText,
   },
   desc: {
-    fontSize: 14,
-    color: '#444',
+    fontSize: FONT_SIZES.xMedium,
+    color: t.colors.tourGuideBodyText,
   },
   waitingMsg: {
     fontSize: 13,
-    color: '#D2691E',
+    color: t.colors.tourGuideWaitingText,
     marginTop: 8,
   },
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 12,
+    marginTop: SPACING.medium,
+  },
+  button: {
+    backgroundColor: t.colors.button,
+    padding: SPACING.small,
+    borderRadius: 8,
+    marginTop: SPACING.small,
+    paddingHorizontal: SPACING.xMedium,
+  },
+  buttonText: {
+    color: t.colors.textSecondary,
+    fontSize: 14,
   },
 });

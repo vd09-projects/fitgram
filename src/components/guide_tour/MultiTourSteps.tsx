@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, isValidElement, cloneElement, ReactElement } from 'react';
-import { View, StyleSheet, StyleProp, ViewStyle, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, StyleProp, ViewStyle, TouchableOpacity, InteractionManager } from 'react-native';
 import { PositionType, useTour } from './TourGuideProvider';
 
 type StepData = {
@@ -65,9 +65,11 @@ export const MultiTourSteps: React.FC<Props> = ({
         ref={measureRef}
         collapsable={false}
         style={spacingStyle}
-        onLayout={() => setTimeout(() => {
-          triggerMeasureRefresh()
-        }, 400)}
+        onLayout={() => {
+          InteractionManager.runAfterInteractions(() => {
+            triggerMeasureRefresh();
+          });
+        }}
       >
         {cloneElement(children as ReactElement<any>, propsToInject)}
       </View>

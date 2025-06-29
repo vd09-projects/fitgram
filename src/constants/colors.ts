@@ -16,6 +16,7 @@ export const LDeathNoteColors = {
 
   button: "#436671",
   buttonSecondary: "#7A9196",
+  buttonDisabled: '#B0B9BC',
   buttonText: "#E1E9E8",
   cancelButton: "#973740", // A strong yet slightly muted red (less aggressive than pure red)
   errorBackground: "#ffcccc", // More vibrant than dull red but not neon
@@ -70,6 +71,11 @@ export const LDeathNoteColors = {
   popupButton: "#C5ADC5",
   popupButtonText: "#FFFFFF",
   popupBorder: "#B2B5E0",
+
+  tourGuideBackground: "#47494B",
+  tourGuideTitileText: "#E1E9E8",
+  tourGuideBodyText: "#E1E9E8",
+  tourGuideWaitingText: '#D2691E',
 };
 
 export const HinataHyugaColors = {
@@ -83,6 +89,7 @@ export const HinataHyugaColors = {
 
   button: "#5B6590",
   buttonSecondary: "#B5A3CF",
+  buttonDisabled: '#B0B9BC',
   buttonText: "#EADDF0",
   cancelButton: "#973740", // A strong yet slightly muted red (less aggressive than pure red)
   errorBackground: "#ffcccc", // More vibrant than dull red but not neon
@@ -137,6 +144,11 @@ export const HinataHyugaColors = {
   popupButton: "#C5ADC5",
   popupButtonText: "#FFFFFF",
   popupBorder: "#B2B5E0",
+
+  tourGuideBackground: "#E7EBE9",
+  tourGuideTitileText: "#3C3F5C",
+  tourGuideBodyText: "#3C3F5C",
+  tourGuideWaitingText: "#B5A3CF",
 };
 
 export const DefaultColorSchema = LDeathNoteColors.name;

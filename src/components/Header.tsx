@@ -12,6 +12,7 @@ import { useTour } from '../components/guide_tour/TourGuideProvider';
 import { ReturnTypeUseThemeTokens } from './app_manager/ThemeContext';
 import { MaybeTourStep } from './guide_tour/MaybeTourStep';
 import { HOME_STEP_NAMES, PROFILE_STEP_NAMES } from '../tour_steps/profile';
+import { TouchableOpacityBase } from './TouchableOpacityBase';
 
 interface HeaderProps {
   onPressTab: (tab: keyof typeof LayoutRoutes) => void;
@@ -44,17 +45,17 @@ export default function Header({ onPressTab }: HeaderProps) {
   return (
     <View style={styles.container}>
       <MaybeTourStep stepId={HOME_STEP_NAMES.HOME_BUTTON} >
-        <TouchableOpacity style={[styles.tabButton]} onPress={() => onPressTab(LayoutRoutes.Home)}>
+        <TouchableOpacityBase style={[styles.tabButton]} onPress={() => onPressTab(LayoutRoutes.Home)}>
           <TextBase style={styles.companyName} isDefaultFontFamilyRequired>Fitgram</TextBase>
-        </TouchableOpacity>
+        </TouchableOpacityBase>
       </MaybeTourStep>
 
       {/* <TourStep id="step2" nextStepId="step3" title="Welcome" description="This is your first step11!"> */}
       <MaybeTourStep stepId={PROFILE_STEP_NAMES.PROFILE_BUTTON} >
         <View style={styles.rightControls}>
-          <TouchableOpacity onPress={() => onPressTab(LayoutRoutes.Profile)}>
+          <TouchableOpacityBase onPress={() => onPressTab(LayoutRoutes.Profile)}>
             <Ionicons name="menu" style={styles.rightIcon} />
-          </TouchableOpacity>
+          </TouchableOpacityBase>
         </View>
       </MaybeTourStep>
     </View>
