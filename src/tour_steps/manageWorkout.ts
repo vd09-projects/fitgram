@@ -1,5 +1,8 @@
 import { SCREEN_NAMES } from "../constants/tourSteps";
-import { EDITABLE_LIST_STEP_NAMES, SEARCHABLE_INPUT_STEP_NAMES } from "./commonStepNames";
+import {
+  EDITABLE_LIST_STEP_NAMES,
+  SEARCHABLE_INPUT_STEP_NAMES,
+} from "./commonStepNames";
 import { START_WOURKOUT_STEP_NAMES } from "./startWorkout";
 import { generateStepsFromMap } from "./utils";
 
@@ -10,59 +13,67 @@ export const MANAGE_WOURKOUT_STEP_NAMES = {
   EXERCISE_EDITABLE_LIST: "MANAGE_WOURKOUT_EXERCISE_EDITABLE_LIST",
   SAVE_BUTTON: "MANAGE_WORKOUT_SAVE_BUTTON",
   WORKOUT_FOOTER_BUTTON: "MANAGE_WORKOUT_FOOTER_BUTTON",
-}
+};
 
 const WORKOUT_SEARCHABLE_TOUR_STEPS = {
   [SEARCHABLE_INPUT_STEP_NAMES.NEW_BUTTON]: {
-    title: "Click this button to create a new workout",
-    description: "Tap this button to create a new workout entry.",
+    title: "Create a New Workout",
+    description: "Tap this button to start creating a new workout entry.",
     screen: SCREEN_NAMES.SEARCHABLE_INPUT_DROPDOWN,
   },
   [SEARCHABLE_INPUT_STEP_NAMES.INPUT_AND_SAVE]: {
-    title: "Enter Workout Name",
-    description: "Write the name of your new workout in the input field and press save on right.",
+    title: "Name Your Workout",
+    description:
+      "Enter the name of your new workout in the input field and press the save button on the right.",
     screen: SCREEN_NAMES.SEARCHABLE_INPUT_DROPDOWN,
   },
-}
+};
 
 const EXERCISE_SEARCHABLE_TOUR_STEPS = {
   [SEARCHABLE_INPUT_STEP_NAMES.DROPDOWN_BUTTON]: {
-    title: "Select a Exercise",
-    description: "Choose a exercise from the list to manage or log.",
+    title: "Select an Exercise",
+    description: "Choose an exercise from the list to manage or log.",
     screen: SCREEN_NAMES.SEARCHABLE_INPUT_DROPDOWN,
   },
-}
+};
 
 const EXERCISE_EDITABLE_LIST_TOUR_STEPS = {
   [EDITABLE_LIST_STEP_NAMES.EXISTING_ITEM]: {
-    title: "Existing Tracking Metrics",
-    description: "Here are the existing metrics for the selected exercise. you can update name and remove them by presing crose on right on each metric.",
+    title: "View Existing Tracking Metrics",
+    description:
+      "These are the current metrics for the selected exercise. You can rename them or remove any by pressing the cross icon on the right.",
     screen: SCREEN_NAMES.EDITABLE_LIST,
   },
   [EDITABLE_LIST_STEP_NAMES.ADD_NEW_ITEM]: {
-    title: "Add New Tracking Metric",
-    description: "You can add a new metric by pressing the plus button on right.",
+    title: "Add a New Tracking Metric",
+    description:
+      "Press the plus button on the right to add a new tracking metric for this exercise.",
     screen: SCREEN_NAMES.EDITABLE_LIST,
   },
-}
+};
 
 const TOUR_STEPS = {
   [MANAGE_WOURKOUT_STEP_NAMES.NEW_AND_UPDATE_BUTTON]: {
-    title: "You can add/update a workout",
-    description: "Tap this button to add or update your workout details.",
+    title: "Add or Update a Workout",
+    description:
+      "Tap this button to create a new workout or update an existing one.",
     screen: SCREEN_NAMES.WORKOUT_SCREEN,
   },
-  [MANAGE_WOURKOUT_STEP_NAMES.WORKOUT_SEARCHABLE]: WORKOUT_SEARCHABLE_TOUR_STEPS,
-  [MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_SEARCHABLE]: EXERCISE_SEARCHABLE_TOUR_STEPS,
-  [MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_EDITABLE_LIST]: EXERCISE_EDITABLE_LIST_TOUR_STEPS,
+  [MANAGE_WOURKOUT_STEP_NAMES.WORKOUT_SEARCHABLE]:
+    WORKOUT_SEARCHABLE_TOUR_STEPS,
+  [MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_SEARCHABLE]:
+    EXERCISE_SEARCHABLE_TOUR_STEPS,
+  [MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_EDITABLE_LIST]:
+    EXERCISE_EDITABLE_LIST_TOUR_STEPS,
   [MANAGE_WOURKOUT_STEP_NAMES.SAVE_BUTTON]: {
-    title: "Save Your Workout",
-    description: "Press this button to save your workout details.",
+    title: "Save Workout",
+    description: "Press this button to save all the details of your workout.",
     screen: SCREEN_NAMES.WORKOUT_SCREEN,
   },
   [MANAGE_WOURKOUT_STEP_NAMES.WORKOUT_FOOTER_BUTTON]: {
-    title: "Access Your Workout Options",
-    description: "Tap this button to explore tour of other Workout related options.",
+    title: "Explore Workout Options",
+    description:
+      "Tap this button to explore other available workout options and start the guided tour.",
     screen: SCREEN_NAMES.FOOTER,
     nextStepId: START_WOURKOUT_STEP_NAMES.SEARCH_BOX,
   },

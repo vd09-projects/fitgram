@@ -14,44 +14,48 @@ export const ACTIVE_WORKOUT_STEP_NAMES = {
 
 const EXERCISE_SEARCHABLE_TOUR_STEPS = {
   [SEARCHABLE_INPUT_STEP_NAMES.DROPDOWN_BUTTON]: {
-    title: "Select a Exercise",
-    description: "Choose a exercise from the list to log.",
+    title: "Select an Exercise",
+    description: "Open the list to choose an exercise you want to log.",
     screen: SCREEN_NAMES.SEARCHABLE_INPUT_DROPDOWN,
   },
-}
+};
 
 const ACTIVE_WORKOUT_TOUR_STEPS = {
   [ACTIVE_WORKOUT_STEP_NAMES.LOG_ACTIVE_WORKOUT_BUTTON]: {
-    title: "Start Logging Workout",
-    description: "Tap this button to begin logging your workout session.",
+    title: "Start Logging Your Workout",
+    description: "Tap this button to begin recording your workout session.",
     screen: SCREEN_NAMES.FOOTER,
   },
-  [ACTIVE_WORKOUT_STEP_NAMES.SELECTED_WORKOUT_EXERCISE]: EXERCISE_SEARCHABLE_TOUR_STEPS,
+  [ACTIVE_WORKOUT_STEP_NAMES.SELECTED_WORKOUT_EXERCISE]:
+    EXERCISE_SEARCHABLE_TOUR_STEPS,
   [ACTIVE_WORKOUT_STEP_NAMES.LOG_HISTORY]: {
-    title: "Workout History",
-    description: "View your previously logged sets and exercises for this workout.",
+    title: "View Workout History",
+    description:
+      "See all the sets and exercises you’ve previously logged during this workout.",
     screen: SCREEN_NAMES.ACTIVE_WORKOUT,
   },
   [ACTIVE_WORKOUT_STEP_NAMES.LOG_FIELDS]: {
     title: "Enter Exercise Details",
     description:
-      "Fill in the sets, reps, and weights for your selected exercise.",
+      "Provide information for the current exercise, including the number of sets, repetitions, and the weight used.",
     screen: SCREEN_NAMES.ACTIVE_WORKOUT,
   },
   [ACTIVE_WORKOUT_STEP_NAMES.SAVE_EXERCISE_SET]: {
-    title: "Save Exercise Set",
-    description: "Tap here to save the current set for this exercise.",
+    title: "Save This Exercise Set",
+    description:
+      "Tap here to save the details of the current set you’ve entered.",
     screen: SCREEN_NAMES.ACTIVE_WORKOUT,
   },
   [ACTIVE_WORKOUT_STEP_NAMES.CANCEL_CURRENT_WORKOUT_LOGER]: {
-    title: "Cancel Logging",
+    title: "Cancel Workout Logging",
     description:
-      "Click to cancel logging your current workout and discard changes.",
+      "Click this button to cancel logging your current workout and discard any unsaved changes.",
     screen: SCREEN_NAMES.ACTIVE_WORKOUT,
   },
   [ACTIVE_WORKOUT_STEP_NAMES.SAVE_CURRENT_WORKOUT_LOGER]: {
     title: "Save Workout Log",
-    description: "Press this button to save your entire workout log.",
+    description:
+      "Press this button to save all exercises and sets recorded in this workout session.",
     screen: SCREEN_NAMES.ACTIVE_WORKOUT,
   },
 };
