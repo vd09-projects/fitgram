@@ -15,8 +15,8 @@ export const TouchableOpacityBase: React.FC<TouchableOpacityBaseProps> = ({
       onPress(event);
     }
     setTimeout(() => {
-    buttonPressed();
-  }, 0);
+      buttonPressed();
+    }, 500);
   };
 
   return (

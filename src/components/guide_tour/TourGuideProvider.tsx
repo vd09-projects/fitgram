@@ -55,7 +55,6 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   } = useTourStore();
 
   const registerStep = (step: Step) => {
-    console.log('Registering step:', step.id);
     setSteps((prev) => ({ ...prev, [step.id]: step }));
   };
 
@@ -73,13 +72,10 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     tourId: string = 'default-tour',
     force: boolean = false
   ) => {
-    console.log('Starting tour:', tourId, 'First step:', firstStepId);
     if (hasSeenTour(tourId)) {
-      console.log('Tour already seen:', tourId);
       if (!force) return;
       resetTourSeen(tourId);
     }
-    console.log('Registering steps for tour:', tourId);
 
     clearStepsForStart();
     setIsTourActive(true);
