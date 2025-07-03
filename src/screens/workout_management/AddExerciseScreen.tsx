@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import {
   Text,
   TouchableOpacity,
-  StyleSheet
+  StyleSheet,
+  View
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -178,6 +179,7 @@ export default function AddExerciseScreen() {
           </TouchableOpacity>
         </MaybeTourStep>
       )}
+      <View style={{marginVertical:SPACING.xxxxLarge}}></View>
     </ScrollableScreen>
   );
 }
