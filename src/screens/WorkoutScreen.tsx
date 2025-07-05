@@ -1,10 +1,7 @@
 import React from 'react';
 import {
   View,
-  Text,
   StyleSheet,
-  ImageBackground,
-  TouchableOpacity
 } from 'react-native';
 import { useAuthUser } from '../hooks/useAuthUser';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,8 +15,8 @@ import { useThemeStyles } from '../utils/useThemeStyles';
 import { MANAGE_WOURKOUT_STEP_NAMES } from '../tour_steps/manageWorkout';
 import { START_WOURKOUT_STEP_NAMES } from '../tour_steps/startWorkout';
 import { MaybeTourStep } from '../components/guide_tour/MaybeTourStep';
-import { ACTIVE_WORKOUT_STEP_NAMES } from '../tour_steps/activeWorkout';
 import { TouchableOpacityBase } from '../components/TouchableOpacityBase';
+import ScrollableScreen from '../components/ScrollableScreen';
 
 const workoutOptions = [
   {
@@ -64,10 +61,8 @@ export default function WorkoutScreen() {
   const navigation = useNavigation<workoutScreenNavigationProp>();
 
   return (
-    <ImageBackground
-      style={styles.container}
-      source={{ uri: 'https://source.unsplash.com/featured/?gym,fitness' }} // Dynamic gym-themed background
-    >
+    <ScrollableScreen
+      innerContainerStyle={styles.container}>
       <View style={styles.content}>
 
         {/* 🔹 Workout Options (Dynamic Buttons) */}
@@ -103,7 +98,7 @@ export default function WorkoutScreen() {
           })}
         </View>
       </View>
-    </ImageBackground>
+    </ScrollableScreen>
   );
 }
 
@@ -112,9 +107,10 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     backgroundColor: t.colors.primary,
+    padding: 0,
+    paddingHorizontal: SPACING.xMedium,
   },
   content: {
-    width: '90%',
     alignItems: 'center',
     paddingTop: SPACING.xxxxLarge,
   },

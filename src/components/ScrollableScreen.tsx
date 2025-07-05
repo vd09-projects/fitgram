@@ -8,9 +8,10 @@ interface ScrollableScreenProps {
   children: ReactNode;
   title?: ReactNode; // ✅ Allow passing JSX instead of a string
   style?: object;
+  innerContainerStyle?: object;
 }
 
-const ScrollableScreen: React.FC<ScrollableScreenProps> = ({ children, style, title }) => {
+const ScrollableScreen: React.FC<ScrollableScreenProps> = ({ children, style, title, innerContainerStyle }) => {
   const { styles, t } = useThemeStyles(createStyles);
   return (
     <SafeAreaView style={[styles.safeArea, style]}>
@@ -28,7 +29,7 @@ const ScrollableScreen: React.FC<ScrollableScreenProps> = ({ children, style, ti
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.innerContainer}>{children}</View>
+          <View style={[styles.innerContainer, innerContainerStyle]}>{children}</View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
