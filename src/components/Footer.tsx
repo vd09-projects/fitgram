@@ -37,7 +37,7 @@ export default function Footer({ activeTab, onChangeTab }: FooterProps) {
       {tabs.map((tab) => {
         const isActive = activeTab === tab.key;
         return (
-          <MaybeTourStep stepId={tab.tous} positionType='above'>
+          <MaybeTourStep key={tab.key} stepId={tab.tous} positionType='above'>
             <TouchableOpacityBase
               key={tab.key}
               style={[styles.tabButton, isActive && styles.activeTab]}
