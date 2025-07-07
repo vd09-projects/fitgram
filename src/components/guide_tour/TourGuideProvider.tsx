@@ -34,6 +34,7 @@ export const useTour = () => useContext(TourGuideContext);
 export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [steps, setSteps] = useState<Record<string, Step>>({});
   const [refreshKey, setRefreshKey] = useState(0);
+  const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
   // ✅ NEW: Ref to hold the latest steps
   const stepsRef = useRef<Record<string, Step>>({});
@@ -120,7 +121,13 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const triggerMeasureRefresh = () => {
-    setRefreshKey((k) => k + 1);
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
+    }
+
+    debounceTimeout.current = setTimeout(() => {
+      setRefreshKey((k) => k + 1);
+    }, 300); // 200ms debounce window; adjust as needed
   };
 
   const buttonPressed = () => {

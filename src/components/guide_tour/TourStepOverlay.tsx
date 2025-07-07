@@ -54,13 +54,13 @@ export const TooltipOverlay = () => {
     return (
       <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
         {/* Full-screen dimmed background */}
-        <View
+        {/* <View
           style={[
             StyleSheet.absoluteFill,
             { backgroundColor: 'rgba(0,0,0,0.5)' },
           ]}
           pointerEvents="auto"
-        />
+        /> */}
 
         {/* Centered tooltip */}
         <View
@@ -96,10 +96,10 @@ export const TooltipOverlay = () => {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       {/* Blockers */}
-      <View style={[styles.blocker, { top: 0, left: 0, right: 0, height: y }]} pointerEvents="auto" />
+      {/* <View style={[styles.blocker, { top: 0, left: 0, right: 0, height: y }]} pointerEvents="auto" />
       <View style={[styles.blocker, { top: y + height, left: 0, right: 0, bottom: 0 }]} pointerEvents="auto" />
       <View style={[styles.blocker, { top: y, left: 0, width: x, height }]} pointerEvents="auto" />
-      <View style={[styles.blocker, { top: y, left: x + width, right: 0, height }]} pointerEvents="auto" />
+      <View style={[styles.blocker, { top: y, left: x + width, right: 0, height }]} pointerEvents="auto" /> */}
 
       {/* Golden border around selected element */}
       <View
