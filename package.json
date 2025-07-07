@@ -23,7 +23,6 @@
     "react-native-element-dropdown": "^2.12.4",
     "react-native-gesture-handler": "~2.20.2",
     "react-native-paper": "^5.13.5",
-    "react-native-popper": "^0.3.2",
     "react-native-safe-area-context": "^5.4.0",
     "react-native-screens": "~4.4.0",
     "react-native-toast-message": "^2.2.1",
