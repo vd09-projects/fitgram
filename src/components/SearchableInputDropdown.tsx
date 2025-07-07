@@ -7,7 +7,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
-import { BORDER_RADIUS, BUTTON_SIZES, FONT_FAMILY, FONT_SIZES, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, BUTTON_SIZES, FONT_FAMILY, SPACING } from '../constants/styles';
 import { TextBase } from './TextBase';
 import { emptyOutlineStyle, PrimaryInputField } from './PrimaryInputField';
 import { TextInput } from 'react-native-paper';
@@ -162,7 +162,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     width: '100%',
   },
   heading: {
-    fontSize: FONT_SIZES.large,
+    fontSize: t.fonts.large,
     fontWeight: 'bold',
     color: t.colors.textPrimary,
     flexShrink: 1,
@@ -174,7 +174,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     paddingLeft: SPACING.small,
   },
   switchLabel: {
-    fontSize: FONT_SIZES.small,
+    fontSize: t.fonts.small,
     color: t.colors.textPrimary,
     fontWeight: 'bold',
   },
@@ -199,25 +199,25 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     margin: 1,
   },
   placeholderStyle: {
-    fontSize: FONT_SIZES.large,
+    fontSize: t.fonts.large,
     color: t.colors.dropdownInputPlaceholder,
     fontFamily: FONT_FAMILY.regular.name,
     padding: SPACING.xSmall,
   },
   itemTextStyle: {
-    fontSize: FONT_SIZES.large,
+    fontSize: t.fonts.large,
     color: t.colors.textPrimary,
     fontFamily: FONT_FAMILY.regular.name,
     padding: SPACING.xSmall,
   },
   selectedTextStyle: {
-    fontSize: FONT_SIZES.large,
+    fontSize: t.fonts.large,
     color: t.colors.dropdownInputText,
     fontFamily: FONT_FAMILY.regular.name,
     padding: SPACING.xSmall,
   },
   inputSearchStyle: {
-    fontSize: FONT_SIZES.large,
+    fontSize: t.fonts.large,
     color: t.colors.dropdownInputText,
     backgroundColor: t.colors.inputPrimaryBackground,
     borderRadius: BORDER_RADIUS,
@@ -233,8 +233,8 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     backgroundColor: t.colors.dropdown,
     height: 46,
     marginBottom: 0,
-    // fontSize: FONT_SIZES.medium,
-    fontSize: FONT_SIZES.large,
+    // fontSize: t.fonts.medium,
+    fontSize: t.fonts.large,
     borderWidth: 0,
     ...t.shadows.shadowSmall,
   },
@@ -248,7 +248,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   },
   loadingText: {
     color: t.colors.dropdownInputPlaceholder,
-    fontSize: FONT_SIZES.medium,
+    fontSize: t.fonts.medium,
     fontFamily: FONT_FAMILY.regular.name,
   },
 });

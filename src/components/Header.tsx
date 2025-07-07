@@ -1,7 +1,7 @@
 // src/components/Header.tsx
 import React, { useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { BUTTON_SIZES, FONT_SIZES, SPACING } from '../constants/styles';
+import { BUTTON_SIZES, SPACING } from '../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
 import { LayoutRoutes } from '../constants/routes';
 import { TextBase } from './TextBase';
@@ -76,12 +76,12 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   text: {
     color: t.colors.textSecondary,
     fontWeight: "bold",
-    fontSize: FONT_SIZES.medium,
+    fontSize: t.fonts.medium,
     marginRight: SPACING.small,
     paddingTop: SPACING.small,
   },
   companyName: {
-    fontSize: FONT_SIZES.xLarge,
+    fontSize: t.fonts.xLarge,
     color: t.colors.textSecondary,
     fontFamily: "cursive",
     fontStyle: "italic",

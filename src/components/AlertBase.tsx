@@ -10,7 +10,7 @@ import {
   ViewStyle,
   Platform,
 } from 'react-native';
-import { BORDER_RADIUS, FONT_SIZES, LARGE_BORDER_RADIUS, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, LARGE_BORDER_RADIUS, SPACING } from '../constants/styles';
 import { TextBase } from './TextBase';
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
@@ -96,14 +96,14 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     ...t.shadows.shadowMedium,
   },
   title: {
-    fontSize: FONT_SIZES.large,
+    fontSize: t.fonts.large,
     fontWeight: 'bold',
     color: t.colors.popupTitleText,
     marginBottom: SPACING.medium,
     textAlign: 'center',
   },
   message: {
-    fontSize: FONT_SIZES.medium,
+    fontSize: t.fonts.medium,
     color: t.colors.popupText,
     textAlign: 'center',
     marginBottom: SPACING.xLarge,
@@ -126,7 +126,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   buttonText: {
     color: t.colors.popupButtonText,
     fontWeight: 'bold',
-    fontSize: FONT_SIZES.medium,
+    fontSize: t.fonts.medium,
     textAlign: 'center',
   },
 });

@@ -61,7 +61,7 @@ export const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     backgroundColor: t.colors.primary,
   },
   title: {
-    fontSize: FONT_SIZES.xLarge,
+    fontSize: t.fonts.xLarge,
     fontWeight: "bold",
     marginBottom: SPACING.xLarge,
     color: t.colors.textPrimary,
@@ -90,7 +90,7 @@ export const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   authContainer: { width: "85%" },
   buttonText: {
     color: t.colors.textSecondary,
-    fontSize: FONT_SIZES.large,
+    fontSize: t.fonts.large,
     fontWeight: "bold",
   },
   switchText: {

@@ -1,5 +1,5 @@
 import { BaseToast, BaseToastProps, ErrorToast } from "react-native-toast-message";
-import { FONT_FAMILY, FONT_SIZES } from "./styles";
+import { FONT_FAMILY } from "./styles";
 import { TostSucessColor, TostWarnColor } from "./colors";
 import { useThemeTokens } from "../components/app_manager/ThemeContext";
 
@@ -15,12 +15,12 @@ export const toastConfig = {
       }}
       contentContainerStyle={{ paddingHorizontal: 12 }}
       text1Style={{
-        fontSize: FONT_SIZES.large,
+        fontSize: t.fonts.large,
         fontFamily: FONT_FAMILY.bold.name,
         color: t.colors.cardHeader,
       }}
       text2Style={{
-        fontSize: FONT_SIZES.xMedium,
+        fontSize: t.fonts.xMedium,
         fontFamily: FONT_FAMILY.regular.name,
         color: t.colors.textSecondary,
       }}
@@ -40,12 +40,12 @@ export const toastConfig = {
       }}
       contentContainerStyle={{ paddingHorizontal: 12 }}
       text1Style={{
-        fontSize: FONT_SIZES.large,
+        fontSize: t.fonts.large,
         fontFamily: FONT_FAMILY.bold.name,
         color: t.colors.cardHeader,
       }}
       text2Style={{
-        fontSize: FONT_SIZES.xMedium,
+        fontSize: t.fonts.xMedium,
         fontFamily: FONT_FAMILY.regular.name,
         color: t.colors.textSecondary,
       }}
@@ -67,12 +67,12 @@ export const toastConfig = {
       }}
       contentContainerStyle={{ paddingHorizontal: 12 }}
       text1Style={{
-        fontSize: FONT_SIZES.large,
+        fontSize: t.fonts.large,
         fontFamily: FONT_FAMILY.bold.name,
         color: t.colors.cardHeader,
       }}
       text2Style={{
-        fontSize: FONT_SIZES.xMedium,
+        fontSize: t.fonts.xMedium,
         fontFamily: FONT_FAMILY.regular.name,
         color: t.colors.textSecondary,
       }}
@@ -93,12 +93,12 @@ export const toastConfig = {
       }}
       contentContainerStyle={{ paddingHorizontal: 12 }}
       text1Style={{
-        fontSize: FONT_SIZES.large,
+        fontSize: t.fonts.large,
         fontFamily: FONT_FAMILY.bold.name,
         color: t.colors.cardHeader,
       }}
       text2Style={{
-        fontSize: FONT_SIZES.xMedium,
+        fontSize: t.fonts.xMedium,
         fontFamily: FONT_FAMILY.regular.name,
         color: t.colors.textSecondary,
       }}

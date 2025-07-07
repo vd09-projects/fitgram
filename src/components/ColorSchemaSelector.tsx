@@ -3,7 +3,7 @@ import { TouchableOpacity, StyleSheet } from 'react-native';
 import { TextBase } from './TextBase';
 import CollapsibleSection from './CollapsibleSection';
 import { AllColorSchemas } from '../constants/colors';
-import { BORDER_RADIUS, FONT_SIZES, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, SPACING } from '../constants/styles';
 import { useColorSchemaStore } from '../stores/colorSchemaStore';
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
@@ -53,7 +53,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     paddingBottom: SPACING.medium,
   },
   colorSchemaTitle: {
-    fontSize: FONT_SIZES.medium,
+    fontSize: t.fonts.medium,
     color: t.colors.collapsedTitleText,
   },
   button: {

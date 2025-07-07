@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { BORDER_RADIUS, BUTTON_SIZES, FONT_SIZES, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, BUTTON_SIZES, SPACING } from '../constants/styles';
 import { TextBase } from './TextBase';
 import { emptyOutlineStyle, PrimaryInputField } from './PrimaryInputField';
 import { TextInput } from 'react-native-paper';
@@ -129,7 +129,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   },
   title: {
     marginBottom: SPACING.small,
-    fontSize: FONT_SIZES.medium,
+    fontSize: t.fonts.medium,
     color: t.colors.textPrimary,
     fontWeight: 'bold',
   },
@@ -141,7 +141,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     paddingBottom: 2,
     height: 46,
     marginBottom: SPACING.xSmall,
-    fontSize: FONT_SIZES.medium,
+    fontSize: t.fonts.medium,
   },
   primaryInputContainer: {
     flex: 1,
@@ -150,7 +150,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     height: 50,
     paddingBottom: SPACING.xSmall,
     marginBottom: SPACING.xSmall,
-    fontSize: FONT_SIZES.large,
+    fontSize: t.fonts.large,
     backgroundColor: t.colors.inputSecondaryBackground,
     ...t.shadows.shadowSmall,
   },
@@ -160,7 +160,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   },
   errorText: {
     color: t.colors.cancelButton,
-    fontSize: FONT_SIZES.xMedium,
+    fontSize: t.fonts.xMedium,
     fontWeight: 'bold',
     marginTop: SPACING.xSmall,
   },

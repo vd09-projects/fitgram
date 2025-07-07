@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { FONT_SIZES, SPACING } from '../constants/styles';
+import { SPACING } from '../constants/styles';
 import { LayoutRoutes } from '../constants/routes';
 import { useKeyboardVisibility } from '../hooks/useKeyboardVisibility'; // Optimized hook
 import { useWorkoutStore } from '../stores/useWorkoutStore';
@@ -79,7 +79,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   },
   tabText: {
     color: t.colors.textSecondary,
-    fontSize: FONT_SIZES.small,
+    fontSize: t.fonts.small,
     marginTop: 2,
   },
   activeTab: {

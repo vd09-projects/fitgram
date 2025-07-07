@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { BORDER_RADIUS, FONT_SIZES, SPACING } from '../../constants/styles';
+import { BORDER_RADIUS, SPACING } from '../../constants/styles';
 import ScrollableScreen from '../../components/ScrollableScreen';
 import SearchableInputDropdown, { DropdownSelection } from '../../components/SearchableInputDropdown';
 import EditableList from '../../components/EditableList';
@@ -186,7 +186,7 @@ export default function AddExerciseScreen() {
 
 const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   heading: {
-    fontSize: FONT_SIZES.xLarge,
+    fontSize: t.fonts.xLarge,
     fontWeight: 'bold',
     color: t.colors.textPrimary,
     textAlign: 'center',
@@ -203,7 +203,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     // ...t.shadows.shadowSmall,
   },
   saveButtonText: {
-    fontSize: FONT_SIZES.large,
+    fontSize: t.fonts.large,
     fontWeight: 'bold',
     color: t.colors.buttonText,
     marginLeft: 8,

@@ -4,7 +4,7 @@ import {
   Platform,
   UIManager,
 } from "react-native";
-import { BORDER_RADIUS, FONT_SIZES, SPACING } from "../constants/styles";
+import { BORDER_RADIUS, SPACING } from "../constants/styles";
 import { WorkoutLog, SetsString, SetLog } from "../types/workoutLogs";
 import { Column } from "./collapsible_table/CollapsibleTableParts";
 import CollapsibleSection from "./CollapsibleSection";
@@ -92,7 +92,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     marginBottom: SPACING.medium,
   },
   dateText: {
-    fontSize: FONT_SIZES.medium,
+    fontSize: t.fonts.medium,
     color: t.colors.collapsedTitleText,
   }
 });

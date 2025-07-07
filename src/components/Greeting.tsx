@@ -2,7 +2,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ImageBackground } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { FONT_SIZES, SPACING } from '../constants/styles';
+import { SPACING } from '../constants/styles';
 import { TextBase } from './TextBase';
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
@@ -35,24 +35,24 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     paddingTop: '25%',
   },
   greeting: {
-    fontSize: SPACING.xxxLarge,
+    fontSize: t.fonts.xLarge,
     fontWeight: 'bold',
     color: t.colors.textPrimary,
     marginBottom: 10,
   },
   welcome: {
-    fontSize: SPACING.xLarge,
+    fontSize: t.fonts.large,
     fontWeight: '600',
     color: t.colors.textSecondary,
     marginBottom: 5,
   },
   appName: {
-    fontSize: SPACING.xxxLarge,
+    fontSize: t.fonts.xLarge,
     color: t.colors.textPrimary,
     letterSpacing: 1,
   },
   companyName: {
-    fontSize: FONT_SIZES.xLarge,
+    fontSize: t.fonts.xLarge,
     color: t.colors.textSecondary,
     fontFamily: "cursive",
     fontStyle: "italic",

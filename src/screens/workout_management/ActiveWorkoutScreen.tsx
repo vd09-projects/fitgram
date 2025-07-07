@@ -4,7 +4,7 @@ import { useWorkoutStore } from "../../stores/useWorkoutStore";
 import ExerciseLogger from "../../components/ExerciseLogger";
 import SearchableInputDropdown, { DropdownSelection, DropdownItem } from "../../components/SearchableInputDropdown";
 import ScrollableScreen from "../../components/ScrollableScreen";
-import { BORDER_RADIUS, FONT_SIZES, SPACING } from "../../constants/styles";
+import { BORDER_RADIUS, SPACING } from "../../constants/styles";
 import { LoggedExercise } from "../../types/zustandWorkoutType";
 import { useAuthUser } from "../../hooks/useAuthUser";
 import show from "../../utils/toastUtils";
@@ -121,7 +121,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: FONT_SIZES.xLarge,
+    fontSize: t.fonts.xLarge,
     fontWeight: "bold",
     color: t.colors.textPrimary
   },
@@ -152,14 +152,14 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     backgroundColor: t.colors.primary,
   },
   noWorkoutText: {
-    fontSize: FONT_SIZES.large,
+    fontSize: t.fonts.large,
     color: t.colors.textPrimary,
     textAlign: "center",
     fontWeight: "bold",
     opacity: 0.9,
   },
   switchText: {
-    fontSize: FONT_SIZES.medium,
+    fontSize: t.fonts.medium,
     color: t.colors.textPrimary,
     textAlign: 'center',
     fontWeight: "bold",

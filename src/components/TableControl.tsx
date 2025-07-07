@@ -9,7 +9,7 @@ import {
   TouchableWithoutFeedback,
   ScrollView,
 } from "react-native";
-import { SPACING, BORDER_RADIUS, FONT_SIZES } from "../constants/styles";
+import { SPACING, BORDER_RADIUS } from "../constants/styles";
 import { Ionicons } from "@expo/vector-icons";
 import { TextBase } from "./TextBase";
 import CompactTextSwitch from "./CompactTextSwitch";
@@ -138,12 +138,12 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   },
   buttonText: {
     color: t.colors.dropdownInputText,
-    fontSize: FONT_SIZES.medium,
+    fontSize: t.fonts.medium,
     flexShrink: 1,  // Allows text to shrink if too long
   },
   dropdownArrow: {
     color: t.colors.dropdownInputText,
-    fontSize: FONT_SIZES.medium,
+    fontSize: t.fonts.medium,
     marginLeft: 8,
   },
   buttonContent: {
@@ -154,11 +154,11 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
   modalContainer: { width: "80%", backgroundColor: t.colors.collapsed, padding: 20, borderRadius: BORDER_RADIUS, alignItems: "center" },
-  modalTitle: { fontSize: FONT_SIZES.large, fontWeight: "bold", marginBottom: 10, color: t.colors.textPrimary },
+  modalTitle: { fontSize: t.fonts.large, fontWeight: "bold", marginBottom: 10, color: t.colors.textPrimary },
   checkboxContainer: { flexDirection: "row", alignItems: "center", paddingVertical: 5 },
   checkbox: { width: 20, height: 20, borderWidth: 2, borderColor: t.colors.textPrimary, marginRight: 10 },
   checkboxSelected: { backgroundColor: t.colors.textPrimary },
-  checkboxLabel: { fontSize: FONT_SIZES.medium, color: t.colors.textPrimary },
+  checkboxLabel: { fontSize: t.fonts.medium, color: t.colors.textPrimary },
   selectionButtonsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -175,7 +175,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   },
   selectionButtonText: {
     color: t.colors.textSecondary,
-    fontSize: FONT_SIZES.medium,
+    fontSize: t.fonts.medium,
     fontWeight: "bold",
   },
 });

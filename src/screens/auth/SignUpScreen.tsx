@@ -9,7 +9,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { ScreenNavigationProp } from '../../navigation/AuthNavigator';
 import { signUpUser } from '../../services/db/authService';
-import { FONT_FAMILY, FONT_SIZES, SPACING, BORDER_RADIUS } from '../../constants/styles';
+import { FONT_FAMILY, SPACING, BORDER_RADIUS } from '../../constants/styles';
 import { AuthRoutes } from '../../constants/routes';
 import { PrimaryInputField } from '../../components/PrimaryInputField';
 import { validateCredentials } from '../../utils/validation';
@@ -117,7 +117,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
       backgroundColor: t.colors.primary,
     },
     title: {
-      fontSize: FONT_SIZES.xLarge,
+      fontSize: t.fonts.xLarge,
       fontWeight: 'bold',
       marginBottom: SPACING.xLarge,
       color: t.colors.textPrimary,
@@ -152,12 +152,12 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
     },
     buttonText: {
       color: t.colors.textSecondary,
-      fontSize: FONT_SIZES.large,
+      fontSize: t.fonts.large,
       fontWeight: 'bold',
       fontFamily: FONT_FAMILY.bold.name,
     },
     loadingText: {
-      fontSize: FONT_SIZES.large,
+      fontSize: t.fonts.large,
       color: t.colors.textSecondary,
       fontFamily: FONT_FAMILY.bold.name,
     },

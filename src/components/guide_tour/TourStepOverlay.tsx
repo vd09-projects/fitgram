@@ -3,7 +3,7 @@ import { View, Text, Dimensions, StyleSheet, Button, TouchableOpacity } from 're
 import { useTour } from './TourGuideProvider';
 import { useThemeStyles } from '../../utils/useThemeStyles';
 import { ReturnTypeUseThemeTokens } from '../app_manager/ThemeContext';
-import { BORDER_RADIUS, FONT_SIZES, SPACING } from '../../constants/styles';
+import { BORDER_RADIUS, SPACING } from '../../constants/styles';
 import { TextBase } from '../TextBase';
 
 const TOOLTIP_WIDTH = 320;
@@ -162,12 +162,12 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   },
   title: {
     fontWeight: 'bold',
-    fontSize: FONT_SIZES.large,
+    fontSize: t.fonts.large,
     marginBottom: SPACING.small,
     color: t.colors.tourGuideTitileText,
   },
   desc: {
-    fontSize: FONT_SIZES.xMedium,
+    fontSize: t.fonts.xMedium,
     color: t.colors.tourGuideBodyText,
   },
   waitingMsg: {

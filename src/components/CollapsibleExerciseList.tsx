@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { BORDER_RADIUS, FONT_SIZES, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, SPACING } from '../constants/styles';
 import EditableList from './EditableList';
 import { Exercise } from '../types/workoutType';
 import { TextBase } from './TextBase';
@@ -68,7 +68,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     marginTop: SPACING.large,
   },
   subHeading: {
-    fontSize: FONT_SIZES.large,
+    fontSize: t.fonts.large,
     fontWeight: 'bold',
     color: t.colors.textPrimary,
     marginBottom: SPACING.medium,
@@ -80,7 +80,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     padding: SPACING.small,
   },
   exerciseText: {
-    fontSize: FONT_SIZES.medium,
+    fontSize: t.fonts.medium,
     fontWeight: 'bold',
     color: t.colors.collapsedTitleText,
     paddingVertical: SPACING.small,

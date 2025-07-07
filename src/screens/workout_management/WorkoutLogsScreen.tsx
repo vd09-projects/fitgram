@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from "react-native";
 import ScrollableScreen from "../../components/ScrollableScreen";
 import SearchableInputDropdown, { DropdownSelection } from "../../components/SearchableInputDropdown";
-import { BORDER_RADIUS, BUTTON_SIZES, FONT_SIZES, SPACING } from "../../constants/styles";
+import { BORDER_RADIUS, BUTTON_SIZES, SPACING } from "../../constants/styles";
 import { WorkoutLog } from "../../types/workoutLogs";
 import ExerciseLogTableFlatList from "../../components/ExerciseLogTableFlatList";
 import ExerciseSetLogTable from "../../components/ExerciseSetLogTable";
@@ -112,7 +112,7 @@ export default function WorkoutLogsScreen() {
 const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   titleContainer: { width: '100%', alignItems: 'center', position: 'relative' },
   title: {
-    fontSize: FONT_SIZES.xLarge,
+    fontSize: t.fonts.xLarge,
     fontWeight: "bold",
     color: t.colors.textPrimary,
     textAlign: "center",
@@ -128,7 +128,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     marginBottom: SPACING.medium,
   },
   noLogsTitle: {
-    fontSize: FONT_SIZES.large,
+    fontSize: t.fonts.large,
     color: t.colors.textPrimary,
     textAlign: "center",
     marginTop: SPACING.medium,
@@ -152,6 +152,6 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   },
   pageText: {
     color: t.colors.textPrimary,
-    fontSize: FONT_SIZES.medium,
+    fontSize: t.fonts.medium,
   },
 });

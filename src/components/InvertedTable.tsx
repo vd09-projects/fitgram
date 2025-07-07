@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, ScrollView, StyleSheet } from "react-native";
-import { FONT_SIZES, SPACING, BORDER_RADIUS } from "../constants/styles";
+import { SPACING, BORDER_RADIUS } from "../constants/styles";
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
@@ -76,18 +76,18 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   },
   toggleButtonText: {
     color: t.colors.textPrimary,
-    fontSize: FONT_SIZES.medium,
+    fontSize: t.fonts.medium,
     fontWeight: "bold",
   },
   tableContainer: { marginBottom: SPACING.large },
   tableRowHeader: { flexDirection: "row", backgroundColor: t.colors.tableHeader, borderWidth: 0.7, borderColor: t.colors.tableBorder },
   headerCell: { justifyContent: "center", alignItems: "center", borderRightWidth: 1, borderColor: t.colors.tableBorder, borderBottomWidth: 1 },
-  headerText: { fontWeight: "bold", color: t.colors.textSecondary, textAlign: "center", padding: SPACING.medium, fontSize: FONT_SIZES.large },
+  headerText: { fontWeight: "bold", color: t.colors.textSecondary, textAlign: "center", padding: SPACING.medium, fontSize: t.fonts.large },
   tableRow: { flexDirection: "row", borderWidth: 0.7, borderColor: t.colors.tableBorder },
   alternateRowEven: { backgroundColor: t.colors.tableRowEven },
   alternateRowOdd: { backgroundColor: t.colors.tableRowOdd },
   cellContainer: { justifyContent: "center", alignItems: "center", borderRightWidth: 1, borderColor: t.colors.tableBorder },
-  cellText: { textAlign: "center", paddingVertical: SPACING.small, fontSize: FONT_SIZES.medium, color: t.colors.tableText },
+  cellText: { textAlign: "center", paddingVertical: SPACING.small, fontSize: t.fonts.medium, color: t.colors.tableText },
 });
 
 export default InvertedTable;

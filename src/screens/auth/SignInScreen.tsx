@@ -15,7 +15,7 @@ import { PrimaryInputField } from '../../components/PrimaryInputField';
 import { validateCredentials } from '../../utils/validation';
 import { TextBase } from '../../components/TextBase';
 import LoadingData from '../../components/LoadingData';
-import { BORDER_RADIUS, FONT_FAMILY, FONT_SIZES, SPACING } from '../../constants/styles';
+import { BORDER_RADIUS, FONT_FAMILY, SPACING } from '../../constants/styles';
 import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
 
@@ -109,7 +109,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
       backgroundColor: t.colors.primary,
     },
     title: {
-      fontSize: FONT_SIZES.xLarge,
+      fontSize: t.fonts.xLarge,
       fontWeight: 'bold',
       marginBottom: SPACING.xLarge,
       color: t.colors.textPrimary,
@@ -131,12 +131,12 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
     },
     buttonText: {
       color: t.colors.textSecondary,
-      fontSize: FONT_SIZES.large,
+      fontSize: t.fonts.large,
       fontWeight: 'bold',
       fontFamily: FONT_FAMILY.bold.name,
     },
     loadingText: {
-      fontSize: FONT_SIZES.large,
+      fontSize: t.fonts.large,
       color: t.colors.textSecondary,
       fontFamily: FONT_FAMILY.bold.name,
     },

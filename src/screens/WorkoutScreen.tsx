@@ -134,11 +134,11 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     flex: 1,
   },
   buttonSubText: {
-    fontSize: SPACING.xMedium,
+    fontSize: t.fonts.xMedium,
     color: t.colors.textSecondary,
   },
   buttonTextPrimary: {
-    fontSize: SPACING.xLarge,
+    fontSize: t.fonts.large,
     fontWeight: 'bold',
     color: t.colors.cardHeader,
     paddingBottom: SPACING.xSmall,

@@ -1,7 +1,26 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import { AllColorSchemas, ColorSchemaValueType } from '../../constants/colors';
 import { useColorSchemaStore } from '../../stores/colorSchemaStore';
-import { FONT_SIZES, getShadow } from '../../constants/styles';
+import { getShadow } from '../../constants/styles';
+import { Dimensions, PixelRatio } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const scale = SCREEN_WIDTH / 375; // base iPhone width
+
+export const normalizeFont = (size: number) => {
+  const newSize = size * scale;
+  return Math.round(PixelRatio.roundToNearestPixel(newSize));
+};
+
+export const THEME_FONT_SIZES = {
+  xSmall: normalizeFont(10),
+  small: normalizeFont(12),
+  xMedium: normalizeFont(14),
+  medium: normalizeFont(16),
+  large: normalizeFont(18),
+  xLarge: normalizeFont(22),
+};
+export type FontSizeType = typeof THEME_FONT_SIZES;
 
 type ShadowStyle = {
   shadowColor: string;
@@ -19,6 +38,7 @@ type ShadowsType = {
 
 const ThemeContext = createContext<null | {
   colors: ColorSchemaValueType;
+  fonts: FontSizeType;
   shadows: ShadowsType;
   // fonts: typeof FONT_SIZES;
 }>(null);
@@ -31,7 +51,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       const cs = AllColorSchemas[current];
       return {
         colors: cs,
-        fonts: FONT_SIZES,
+        fonts: THEME_FONT_SIZES,
         shadows: {
           shadowSmall: getShadow(2, cs.shadowSmall),
           shadowMedium: getShadow(3, cs.shadowSmall),

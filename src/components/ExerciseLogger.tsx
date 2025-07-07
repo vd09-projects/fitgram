@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { useWorkoutStore } from "../stores/useWorkoutStore";
 import { Ionicons } from "@expo/vector-icons";
-import { BORDER_RADIUS, FONT_SIZES, SPACING } from "../constants/styles";
+import { BORDER_RADIUS, SPACING } from "../constants/styles";
 import { LoggedExercise } from "../types/zustandWorkoutType";
 import { TextBase } from "./TextBase";
 import { getClearIcon, PrimaryInputField } from "./PrimaryInputField";
@@ -85,7 +85,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   logButtonText: {
     color: t.colors.buttonText,
     fontWeight: "bold",
-    fontSize: FONT_SIZES.large,
+    fontSize: t.fonts.large,
   },
   primaryInputContainer: {
     flex: 1,
@@ -94,7 +94,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     paddingBottom: 2,
     height: 48,
     marginBottom: SPACING.xSmall,
-    fontSize: FONT_SIZES.medium,
+    fontSize: t.fonts.medium,
     // ...t.shadows.shadowSmall,
   },
 });

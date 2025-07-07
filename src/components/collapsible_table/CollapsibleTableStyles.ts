@@ -2,7 +2,6 @@ import { StyleSheet, ViewStyle, TextStyle } from "react-native";
 import {
   BORDER_RADIUS,
   BUTTON_SIZES,
-  FONT_SIZES,
   SPACING,
 } from "../../constants/styles";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
@@ -54,7 +53,7 @@ export const defaultCreateStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.c
     borderColor: t.colors.tableBorder,
   },
   rowText: {
-    fontSize: FONT_SIZES.xMedium,
+    fontSize: t.fonts.xMedium,
     color: t.colors.tableText,
   },
   iconCell: {
@@ -68,7 +67,7 @@ export const defaultCreateStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.c
   },
   headerText: {
     fontWeight: "bold",
-    fontSize: FONT_SIZES.medium,
+    fontSize: t.fonts.medium,
     color: t.colors.tableHeaderText,
   },
   headerCellSpliter: {
@@ -89,7 +88,7 @@ export const defaultCreateStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.c
     paddingHorizontal: SPACING.small,
   },
   kvKey: {
-    fontSize: FONT_SIZES.xMedium,
+    fontSize: t.fonts.xMedium,
     color: t.colors.tableText,
   },
   kvValue: {

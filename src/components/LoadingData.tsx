@@ -8,7 +8,7 @@ import {
   TextStyle,
   ViewStyle,
 } from 'react-native';
-import { FONT_SIZES, FONT_FAMILY, SPACING } from '../constants/styles';
+import { FONT_FAMILY, SPACING } from '../constants/styles';
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
@@ -107,7 +107,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     flexDirection: 'row',
   },
   loadingText: {
-    fontSize: FONT_SIZES.medium,
+    fontSize: t.fonts.medium,
     fontFamily: FONT_FAMILY.regular.name,
     color: t.colors.textPrimaryPlaceholder,
   },
@@ -116,7 +116,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     marginLeft: SPACING.xSmall,
   },
   dot: {
-    fontSize: FONT_SIZES.large,
+    fontSize: t.fonts.large,
     fontFamily: FONT_FAMILY.regular.name,
     color: t.colors.textPrimaryPlaceholder,
     marginHorizontal: 1,

@@ -9,7 +9,7 @@ import {
   ViewStyle,
   TextStyle,
 } from "react-native";
-import { FONT_FAMILY, FONT_SIZES, SPACING } from "../constants/styles";
+import { FONT_FAMILY, SPACING } from "../constants/styles";
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
@@ -120,7 +120,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     position: "absolute",
     left: SPACING.small,
     zIndex: 2,
-    fontSize: FONT_SIZES.xSmall,
+    fontSize: t.fonts.xSmall,
     fontWeight: "600",
     fontFamily: FONT_FAMILY.bold.name,
   },
@@ -128,7 +128,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     position: "absolute",
     right: SPACING.xSmall,
     zIndex: 2,
-    fontSize: FONT_SIZES.small,
+    fontSize: t.fonts.small,
     fontFamily: FONT_FAMILY.bold.name,
   },
 });

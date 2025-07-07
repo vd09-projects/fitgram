@@ -5,7 +5,7 @@ import { useAuthUser } from '../hooks/useAuthUser';
 import { signOut } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import show from '../utils/toastUtils';
-import { BORDER_RADIUS, FONT_FAMILY, FONT_SIZES, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, FONT_FAMILY, SPACING } from '../constants/styles';
 import ScrollableScreen from '../components/ScrollableScreen';
 import { TextBase } from '../components/TextBase';
 import CollapsibleSection from '../components/CollapsibleSection';
@@ -99,11 +99,11 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   },
   buttonText: {
     color: t.colors.buttonText,
-    fontSize: FONT_SIZES.large,
+    fontSize: t.fonts.large,
     fontWeight: 'bold',
   },
-  sectionTitle: { fontSize: FONT_SIZES.xLarge, color: t.colors.collapsedTitleText, fontWeight: 'bold', marginTop: SPACING.small },
-  userInfo: { color: t.colors.textPrimary, fontSize: FONT_SIZES.large, marginBottom: SPACING.small },
+  sectionTitle: { fontSize: t.fonts.xLarge, color: t.colors.collapsedTitleText, fontWeight: 'bold', marginTop: SPACING.small },
+  userInfo: { color: t.colors.textPrimary, fontSize: t.fonts.large, marginBottom: SPACING.small },
   logoutButton: { backgroundColor: t.colors.button, padding: SPACING.large, borderRadius: BORDER_RADIUS, marginTop: SPACING.large },
-  logoutButtonText: { color: t.colors.textPrimary, fontWeight: 'bold', fontSize: FONT_SIZES.large, textAlign: 'center' },
+  logoutButtonText: { color: t.colors.textPrimary, fontWeight: 'bold', fontSize: t.fonts.large, textAlign: 'center' },
 });

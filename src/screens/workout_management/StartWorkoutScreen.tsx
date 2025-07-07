@@ -11,7 +11,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import useWorkoutPlans from "../../hooks/useWorkoutPlans";
 import { WorkoutPlan } from "../../types/workoutType";
-import { BORDER_RADIUS, FONT_SIZES, SPACING } from "../../constants/styles";
+import { BORDER_RADIUS, SPACING } from "../../constants/styles";
 import ScrollableScreen from "../../components/ScrollableScreen";
 import SearchBox from "../../components/SearchBox";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
@@ -122,8 +122,8 @@ export default function StartWorkoutScreen() {
         {loadingWorkoutPlans ? (
           <LoadingData
             containerStyle={styles.loadingConatiner}
-            textStyle={{ fontSize: FONT_SIZES.large, color: t.colors.textPrimary }}
-            dotStyle={{ fontSize: FONT_SIZES.xLarge, color: t.colors.textPrimary }}
+            textStyle={{ fontSize: t.fonts.large, color: t.colors.textPrimary }}
+            dotStyle={{ fontSize: t.fonts.xLarge, color: t.colors.textPrimary }}
           />
         ) :
           <FlatList
@@ -186,7 +186,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   noResultsText: {
     justifyContent: 'center',
     textAlign: "center",
-    fontSize: FONT_SIZES.large,
+    fontSize: t.fonts.large,
     color: t.colors.textPrimary,
     marginVertical: SPACING.small,
     fontWeight: "bold",
@@ -212,7 +212,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     ...t.shadows.shadowMedium,
   },
   workoutTitle: {
-    fontSize: FONT_SIZES.large,
+    fontSize: t.fonts.large,
     fontWeight: "bold",
     color: t.colors.textSecondary,
     textAlign: "center",
@@ -221,7 +221,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     marginTop: 20,
   },
   exerciseHeader: {
-    fontSize: FONT_SIZES.large,
+    fontSize: t.fonts.large,
     fontWeight: "bold",
     color: t.colors.textPrimary,
     marginBottom: 10,
@@ -235,7 +235,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     marginBottom: SPACING.small,
   },
   exerciseText: {
-    fontSize: FONT_SIZES.medium,
+    fontSize: t.fonts.medium,
     fontWeight: "bold",
     marginLeft: SPACING.small,
     color: t.colors.textPrimary,
@@ -248,7 +248,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     alignItems: "center",
   },
   startWorkoutText: {
-    fontSize: FONT_SIZES.large,
+    fontSize: t.fonts.large,
     fontWeight: "bold",
     color: t.colors.textSecondary,
   },

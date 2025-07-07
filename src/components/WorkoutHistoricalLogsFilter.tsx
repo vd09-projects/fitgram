@@ -7,7 +7,7 @@ import { Exercise, WorkoutPlan } from "../types/workoutType";
 import show from "../utils/toastUtils";
 import { getWorkoutLogs } from "../services/db/userDB";
 import { TextBase } from "./TextBase";
-import { BORDER_RADIUS, FONT_SIZES, SPACING } from "../constants/styles";
+import { BORDER_RADIUS, SPACING } from "../constants/styles";
 import { WorkoutLog } from "../types/workoutLogs";
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
@@ -242,7 +242,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     flexGrow: 1,
   },
   toggleText: {
-    fontSize: FONT_SIZES.medium,
+    fontSize: t.fonts.medium,
     color: t.colors.textSecondary,
   },
 });
