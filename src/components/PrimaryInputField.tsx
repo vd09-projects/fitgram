@@ -1,7 +1,10 @@
 import React from 'react';
 import { TextInput } from 'react-native-paper';
-import { StyleProp, TextStyle, StyleSheet, ViewStyle, KeyboardType } from 'react-native';
-import { BORDER_RADIUS, COLORS, FONT_FAMILY, FONT_SIZES, SPACING } from '../constants/styles'; // adjust path if needed
+import { StyleProp, TextStyle, StyleSheet, ViewStyle, KeyboardType, TextInput as RNTextInput } from 'react-native';
+import { BORDER_RADIUS, FONT_FAMILY, FONT_SIZES, SPACING } from '../constants/styles'; // adjust path if needed
+import { ReturnTypeUseThemeTokens, useThemeTokens } from "./app_manager/ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
+import { TransparentColor } from '../constants/colors';
 
 interface PrimaryInputFieldProps {
   mode?: 'flat' | 'outlined';
@@ -14,7 +17,6 @@ interface PrimaryInputFieldProps {
   container?: StyleProp<TextStyle>;
   outline?: StyleProp<ViewStyle>;
   inputBox?: StyleProp<TextStyle>;
-  backgroundColor?: string;
   placeholderTextColor?: string;
   labelColor?: string;
   left?: React.ReactNode;
@@ -22,7 +24,7 @@ interface PrimaryInputFieldProps {
   disabled?: boolean
 }
 
-export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
+export const PrimaryInputField = React.forwardRef<RNTextInput, PrimaryInputFieldProps>(({
   mode = 'outlined',
   label,
   value,
@@ -33,18 +35,21 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
   outline,
   inputBox,
   placeholder = '',
-  placeholderTextColor = COLORS.textPrimaryPlaceholder,
-  backgroundColor = COLORS.textSecondary,
-  labelColor = COLORS.textPrimary,
+  placeholderTextColor,
+  labelColor,
   disabled = false,
   left,
   right,
-}) => {
+}, ref) => {
+  const { styles, t } = useThemeStyles(createStyles);
+  labelColor = labelColor || t.colors.textPrimary;
+  placeholderTextColor = placeholderTextColor || t.colors.inputPrimaryPlaceholder;
   const [secureEntry, setSecureEntry] = React.useState(secureTextEntry);
 
   return (
     <TextInput
       mode={mode}
+      ref={ref}
 
       label={label}
       value={value}
@@ -59,6 +64,7 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
             <TextInput.Icon
               icon="eye"
               onPress={() => setSecureEntry(prev => !prev)}
+              color={t.colors.inputBorder}
             />
           ) : undefined
       }
@@ -76,8 +82,9 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
         isV3: true,
         colors: {
           primary: labelColor,
+          background: t.colors.primary,
+          // background: "#000000",
           onSurfaceVariant: labelColor,
-          background: backgroundColor,
         },
         fonts: {
           bodyLarge: {
@@ -89,39 +96,36 @@ export const PrimaryInputField: React.FC<PrimaryInputFieldProps> = ({
       }}
     />
   );
-};
+});
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
     width: '100%',
+    backgroundColor: t.colors.inputPrimaryBackground,
     paddingBottom: SPACING.xSmall,
     paddingLeft: SPACING.small,
     marginBottom: SPACING.small,
     borderWidth: 1,
-    borderColor: COLORS.transparent,
+    borderColor: t.colors.transparent,
     borderRadius: BORDER_RADIUS,
     fontSize: SPACING.xLarge,
     lineHeight: SPACING.xxxLarge,
   },
   outline: {
     borderWidth: 2,
-    borderColor: COLORS.border,
+    borderColor: t.colors.inputBorder,
     borderRadius: BORDER_RADIUS,
   },
   inputBox: {
     padding: SPACING.small,
-    color: COLORS.textPrimary,
+    color: t.colors.inputPrimaryText,
     fontWeight: 'normal',
-  },
-  inputLabel: {
-    fontWeight: 'bold',
-    color: COLORS.textPrimary,
   },
 });
 
 export const emptyOutlineStyle = {
   borderWidth: 0,
-  borderColor: COLORS.transparent,
+  borderColor: TransparentColor,
 }
 
 export const getClearIcon = (

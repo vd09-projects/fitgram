@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import {
   Text,
   TouchableOpacity,
-  StyleSheet
+  StyleSheet,
+  View
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from '../../constants/styles';
+import { BORDER_RADIUS, FONT_SIZES, SPACING } from '../../constants/styles';
 import ScrollableScreen from '../../components/ScrollableScreen';
 import SearchableInputDropdown, { DropdownSelection } from '../../components/SearchableInputDropdown';
 import EditableList from '../../components/EditableList';
@@ -19,8 +20,13 @@ import CollapsibleExerciseList from '../../components/CollapsibleExerciseList';
 import { Exercise, WorkoutPlan } from '../../types/workoutType';
 import { TextBase } from '../../components/TextBase';
 import { validateCustomFields, validateExerciseSelection, validateWorkoutAndExercises, validateWorkoutSelection } from '../../utils/exerciseValidations';
+import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
+import { useThemeStyles } from '../../utils/useThemeStyles';
+import { MANAGE_WOURKOUT_STEP_NAMES } from '../../tour_steps/manageWorkout';
+import { MaybeTourStep } from '../../components/guide_tour/MaybeTourStep';
 
 export default function AddExerciseScreen() {
+  const { styles, t } = useThemeStyles(createStyles);
   const { user } = useAuthUser();
 
   const [selectedExercise, setSelectedExercise] = useState<DropdownSelection<Exercise> | undefined>(undefined);
@@ -106,8 +112,8 @@ export default function AddExerciseScreen() {
   };
 
   return (
-    <ScrollableScreen>
-      <TextBase style={styles.heading}>Manage Workout</TextBase>
+    <ScrollableScreen
+      title={<TextBase style={styles.heading}>Manage Workout</TextBase>}>
 
       {/* 🔹 Select Workout */}
       <SearchableInputDropdown<WorkoutPlan>
@@ -117,6 +123,7 @@ export default function AddExerciseScreen() {
         onChange={handleSelectWorkout}
         title={"Workout" + (selectedWorkout ? ` : ${selectedWorkout.label}` : '')}
         isDataLoading={loadingWorkoutPlans}
+        tourStepPrefix={MANAGE_WOURKOUT_STEP_NAMES.WORKOUT_SEARCHABLE}
       />
 
 
@@ -132,7 +139,7 @@ export default function AddExerciseScreen() {
               selectedWorkout.value.exercises.splice(index, 1, updatedExercises);
             }
             const newWorkout = { ...selectedWorkout } as DropdownSelection<WorkoutPlan>;
-            console.log('🔥 Updated Workout:', newWorkout);
+            // console.log('🔥 Updated Workout:', newWorkout);
             setWorkoutDetailsUpdated(true);
             setSelectedWorkout(newWorkout);
           }}
@@ -148,6 +155,8 @@ export default function AddExerciseScreen() {
         title={"Exercise" + (selectedExercise?.value ? ` : ${selectedExercise.label}` : '')}
         conatinerStyle={{ marginBottom: SPACING.large }}
         isDataLoading={loadingPredefinedExercises}
+        tourStepPrefix={MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_SEARCHABLE}
+        positionType="above"
       />
 
       {/* 🔹 Input Fields for Selected or Custom Exercise */}
@@ -156,39 +165,47 @@ export default function AddExerciseScreen() {
           title={"Select `" + selectedExercise.label + "` Fields"}
           items={customFields}
           onItemsChange={setCustomFields}
+          tourStepPrefix={MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_EDITABLE_LIST}
+          positionType="above"
         />
       )}
 
       {/* 🔹 Submit Button */}
-      {workoutDetailsUpdated && (<TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
-        <Ionicons name="checkmark-circle-outline" size={24} color={COLORS.textSecondary} />
-        <TextBase style={styles.saveButtonText}>Save Exercise</TextBase>
-      </TouchableOpacity>)}
+      {workoutDetailsUpdated && (
+        <MaybeTourStep stepId={MANAGE_WOURKOUT_STEP_NAMES.SAVE_BUTTON} positionType='above'>
+          <TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
+            <Ionicons name="checkmark-circle-outline" size={24} color={t.colors.buttonText} />
+            <TextBase style={styles.saveButtonText}>Save Exercise</TextBase>
+          </TouchableOpacity>
+        </MaybeTourStep>
+      )}
+      <View style={{marginVertical:SPACING.xxxxLarge}}></View>
     </ScrollableScreen>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   heading: {
     fontSize: FONT_SIZES.xLarge,
     fontWeight: 'bold',
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
     textAlign: 'center',
-    marginBottom: SPACING.xLarge,
   },
   saveButton: {
     flexDirection: 'row',
-    backgroundColor: COLORS.button,
+    backgroundColor: t.colors.button,
     padding: SPACING.xMedium,
     borderRadius: BORDER_RADIUS,
     alignItems: 'center',
     justifyContent: 'center',
+    marginVertical: SPACING.xSmall,
     marginTop: SPACING.xLarge,
+    // ...t.shadows.shadowSmall,
   },
   saveButtonText: {
     fontSize: FONT_SIZES.large,
     fontWeight: 'bold',
-    color: COLORS.primary,
+    color: t.colors.buttonText,
     marginLeft: 8,
   },
 });

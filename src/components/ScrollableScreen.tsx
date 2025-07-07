@@ -1,15 +1,21 @@
 import React, { ReactNode } from 'react';
 import { ScrollView, View, StyleSheet, KeyboardAvoidingView, Platform, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS } from '../constants/styles';
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
+import { useTour } from './guide_tour/TourGuideProvider';
 
 interface ScrollableScreenProps {
   children: ReactNode;
   title?: ReactNode; // ✅ Allow passing JSX instead of a string
   style?: object;
+  innerContainerStyle?: object;
 }
 
-const ScrollableScreen: React.FC<ScrollableScreenProps> = ({ children, style, title }) => {
+const ScrollableScreen: React.FC<ScrollableScreenProps> = ({ children, style, title, innerContainerStyle }) => {
+  const { styles, t } = useThemeStyles(createStyles);
+  const { triggerMeasureRefresh } = useTour();
+
   return (
     <SafeAreaView style={[styles.safeArea, style]}>
       {/* Fixed Title Section (Accepts JSX) */}
@@ -25,8 +31,11 @@ const ScrollableScreen: React.FC<ScrollableScreenProps> = ({ children, style, ti
           contentContainerStyle={styles.contentContainer}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          onScroll={(event) => {
+            triggerMeasureRefresh();
+          }}
         >
-          <View style={styles.innerContainer}>{children}</View>
+          <View style={[styles.innerContainer, innerContainerStyle]}>{children}</View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -35,19 +44,19 @@ const ScrollableScreen: React.FC<ScrollableScreenProps> = ({ children, style, ti
 
 export default ScrollableScreen;
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.primary,
+    backgroundColor: t.colors.primary,
   },
   titleContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
     paddingHorizontal: 20,
-    backgroundColor: COLORS.primary,
+    backgroundColor: t.colors.primary,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: t.colors.border,
   },
   flex: {
     flex: 1,
@@ -60,7 +69,7 @@ const styles = StyleSheet.create({
   },
   innerContainer: {
     flex: 1,
-    backgroundColor: COLORS.primary,
+    backgroundColor: t.colors.primary,
     padding: 16,
   },
 });

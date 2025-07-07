@@ -1,8 +1,5 @@
-import { FontFamily } from "./../../node_modules/lightningcss/node/ast.d";
-import { Alert, StyleSheet } from "react-native";
-import { BasicColors } from "./colors";
-
-export const COLORS = BasicColors;
+import { StyleSheet } from "react-native";
+import { ReturnTypeUseThemeTokens } from "../components/app_manager/ThemeContext";
 
 export const FONT_FAMILY = {
   regular: {
@@ -48,146 +45,59 @@ export const SPACING = {
 export const BORDER_RADIUS = 8;
 export const LARGE_BORDER_RADIUS = 16;
 
-export const getShadow = (level: number) => ({
-  shadowColor: COLORS.shadow,
+export const getShadow = (level: number, shadowColor: string) => ({
+  shadowColor: shadowColor,
   shadowOffset: { width: 0, height: level },
   shadowOpacity: level * 0.1,
   shadowRadius: level * 2,
   elevation: level * 2,
 });
 
-export const SHADOW = getShadow(2);
-export const SHADOW_3 = getShadow(3);
-export const SHADOW_4 = getShadow(4);
-
-const styles = StyleSheet.create({
+export const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: COLORS.primary,
+    backgroundColor: t.colors.primary,
   },
   title: {
     fontSize: FONT_SIZES.xLarge,
     fontWeight: "bold",
     marginBottom: SPACING.xLarge,
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
   },
   input: {
     width: "80%",
     padding: SPACING.small,
     marginBottom: SPACING.small,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: t.colors.border,
     borderRadius: BORDER_RADIUS,
-    backgroundColor: COLORS.textSecondary,
+    backgroundColor: t.colors.textSecondary,
   },
   link: {
-    color: COLORS.link,
+    color: t.colors.link,
     marginTop: SPACING.small,
   },
   button: {
-    backgroundColor: COLORS.button,
+    backgroundColor: t.colors.button,
     paddingVertical: SPACING.medium,
     paddingHorizontal: SPACING.large,
     borderRadius: BORDER_RADIUS,
     alignItems: "center",
-    ...SHADOW,
+    ...t.shadows.shadowSmall,
   },
   authContainer: { width: "85%" },
   buttonText: {
-    color: COLORS.textSecondary,
+    color: t.colors.textSecondary,
     fontSize: FONT_SIZES.large,
     fontWeight: "bold",
   },
   switchText: {
     marginVertical: SPACING.medium,
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
     textAlign: "center",
     textDecorationLine: "underline",
     fontStyle: "italic",
-  },
-});
-
-export default styles;
-
-export const headerStyles = StyleSheet.create({
-  container: {
-    backgroundColor: COLORS.secondary,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: SPACING.large,
-    paddingTop: SPACING.xxxLarge,
-    paddingBottom: SPACING.xSmall,
-  },
-  text: {
-    color: COLORS.textSecondary,
-    fontWeight: "bold",
-    fontSize: FONT_SIZES.medium,
-    marginRight: SPACING.small,
-    paddingTop: SPACING.small,
-  },
-  companyName: {
-    fontSize: FONT_SIZES.xLarge,
-    color: COLORS.textSecondary,
-    fontFamily: "cursive",
-    fontStyle: "italic",
-    fontWeight: "bold",
-    letterSpacing: 1.4,
-    ...SHADOW,
-  },
-  tabButton: {
-    padding: SPACING.small,
-  },
-  rightControls: {
-    marginRight: SPACING.small,
-    paddingTop: SPACING.small,
-  },
-  rightIcon: {
-    color: COLORS.textSecondary,
-    fontWeight: "bold",
-    fontSize: BUTTON_SIZES.medium,
-  },
-});
-
-export const layoutStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.primary,
-  },
-  content: {
-    flex: 1,
-    margin: SPACING.xSmall,
-    marginBottom: 0,
-  },
-});
-
-export const footerStyles = StyleSheet.create({
-  tabButton: {
-    padding: SPACING.small,
-    alignItems: "center",
-    justifyContent: "center",
-    flex: 1,
-  },
-  container: {
-    height: 60,
-    backgroundColor: COLORS.secondary,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-  },
-  tabText: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZES.small,
-    marginTop: 2,
-  },
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: COLORS.tertiary,
-  },
-  activeText: {
-    color: COLORS.tertiary,
-    fontWeight: "bold",
   },
 });

@@ -1,14 +1,19 @@
 import React, { useState } from "react";
-import { View, TouchableOpacity, StyleSheet, Animated } from "react-native";
+import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { useWorkoutStore } from "../stores/useWorkoutStore";
 import { Ionicons } from "@expo/vector-icons";
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SHADOW, SPACING } from "../constants/styles";
+import { BORDER_RADIUS, FONT_SIZES, SPACING } from "../constants/styles";
 import { LoggedExercise } from "../types/zustandWorkoutType";
 import { TextBase } from "./TextBase";
 import { getClearIcon, PrimaryInputField } from "./PrimaryInputField";
 import ActiveExerciseLogHistory from "./ActiveExerciseLogHistory";
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
+import { MaybeTourStep } from "./guide_tour/MaybeTourStep";
+import { ACTIVE_WORKOUT_STEP_NAMES } from "../tour_steps/activeWorkout";
 
 export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise }) {
+  const { styles, t } = useThemeStyles(createStyles);
   const { addSetToExercise } = useWorkoutStore();
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
 
@@ -27,60 +32,69 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
 
   return (
     <View style={styles.container}>
-      <ActiveExerciseLogHistory key={exercise.id} exercise={exercise} />
+      <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.LOG_HISTORY}>
+        <ActiveExerciseLogHistory key={exercise.id} exercise={exercise} />
+      </MaybeTourStep>
 
-      <View style={styles.inputContainer}>
-        {exercise.fields.map((field, index) => (
-          <PrimaryInputField
-            key={index}
-            label={inputValues[field] ? field : ""}
+      <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.LOG_FIELDS}>
+        <View style={styles.inputContainer}>
+          {exercise.fields.map((field, index) => (
+            <PrimaryInputField
+              key={index}
+              label={inputValues[field] ? field : ""}
 
-            placeholder={field}
-            placeholderTextColor={COLORS.textPrimaryPlaceholder}
-            value={inputValues[field] || ""}
+              placeholder={field}
+              // placeholderTextColor={t.colors.inputPrimaryBackground}
+              value={inputValues[field] || ""}
 
-            onChangeText={(text) => onChangeValueForField(field, text)}
-            container={[styles.primaryInputContainer]}
-            right={getClearIcon(inputValues[field], (text) => onChangeValueForField(field, text))}
-          />
-        ))}
-      </View>
+              onChangeText={(text) => onChangeValueForField(field, text)}
+              container={[styles.primaryInputContainer]}
+              right={getClearIcon(inputValues[field], (text) => onChangeValueForField(field, text))}
+            />
+          ))}
+        </View>
+      </MaybeTourStep>
 
-      <TouchableOpacity style={styles.logButton} onPress={logSet} accessibilityLabel="Log Set">
-        <Ionicons name="barbell-outline" size={24} color={COLORS.textSecondary} style={{ marginRight: SPACING.small }} />
-        <TextBase style={styles.logButtonText}>Save Set</TextBase>
-        <Ionicons name="checkmark-done" size={20} color={COLORS.textSecondary} style={{ marginLeft: SPACING.small }} />
-      </TouchableOpacity>
+      <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.SAVE_EXERCISE_SET}>
+        <TouchableOpacity style={styles.logButton} onPress={logSet} accessibilityLabel="Log Set">
+          <Ionicons name="barbell-outline" size={24} color={t.colors.textSecondary} style={{ marginRight: SPACING.small }} />
+          <TextBase style={styles.logButtonText}>Save Set</TextBase>
+          <Ionicons name="checkmark-done" size={20} color={t.colors.textSecondary} style={{ marginLeft: SPACING.small }} />
+        </TouchableOpacity>
+      </MaybeTourStep>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { paddingVertical: 15, borderBottomWidth: 1, borderColor: "#ddd" },
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
+  container: {
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderColor: "#ddd"
+  },
   inputContainer: { marginBottom: SPACING.medium },
   logButton: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: COLORS.buttonSecondary,
+    backgroundColor: t.colors.buttonSecondary,
     padding: SPACING.large,
     borderRadius: BORDER_RADIUS,
-    ...SHADOW,
+    ...t.shadows.shadowSmall,
   },
   logButtonText: {
-    color: COLORS.textSecondary,
+    color: t.colors.buttonText,
     fontWeight: "bold",
     fontSize: FONT_SIZES.large,
   },
   primaryInputContainer: {
     flex: 1,
-    backgroundColor: COLORS.textSecondary,
     borderRadius: BORDER_RADIUS,
     paddingLeft: 0,
     paddingBottom: 2,
-    height: 46,
+    height: 48,
     marginBottom: SPACING.xSmall,
     fontSize: FONT_SIZES.medium,
-    // ...SHADOW,
+    // ...t.shadows.shadowSmall,
   },
 });

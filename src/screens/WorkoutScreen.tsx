@@ -1,18 +1,22 @@
 import React from 'react';
 import {
   View,
-  Text,
   StyleSheet,
-  ImageBackground,
-  TouchableOpacity
 } from 'react-native';
 import { useAuthUser } from '../hooks/useAuthUser';
 import { Ionicons } from '@expo/vector-icons';
-import { BORDER_RADIUS, COLORS, FONT_FAMILY, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, SPACING } from '../constants/styles';
 import { WorkoutScreenNavigationProp } from '../navigation/WorkoutNavigator';
 import { WorkoutRoutes } from '../constants/routes';
 import { useNavigation } from '@react-navigation/native';
 import { TextBase } from '../components/TextBase';
+import { ReturnTypeUseThemeTokens } from '../components/app_manager/ThemeContext';
+import { useThemeStyles } from '../utils/useThemeStyles';
+import { MANAGE_WOURKOUT_STEP_NAMES } from '../tour_steps/manageWorkout';
+import { START_WOURKOUT_STEP_NAMES } from '../tour_steps/startWorkout';
+import { MaybeTourStep } from '../components/guide_tour/MaybeTourStep';
+import { TouchableOpacityBase } from '../components/TouchableOpacityBase';
+import ScrollableScreen from '../components/ScrollableScreen';
 
 const workoutOptions = [
   {
@@ -26,6 +30,7 @@ const workoutOptions = [
     title: 'Add New Workout',
     description: 'Create & customize your workout routine.',
     icon: 'add-circle-outline',
+    tous: MANAGE_WOURKOUT_STEP_NAMES.NEW_AND_UPDATE_BUTTON,
     // action: () => console.log('Navigating to Add Workout'),
     action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.AddExercise),
   },
@@ -33,6 +38,7 @@ const workoutOptions = [
     title: 'Start Workout',
     description: 'Begin your workout session now.',
     icon: 'play-circle-outline',
+    tous: START_WOURKOUT_STEP_NAMES.START_WORKOUT_BUTTON,
     // action: (navigation: workoutScreenNavigationProp) => console.log('Navigating to Start Workout'), 
     action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.StartWorkout),
   },
@@ -40,6 +46,7 @@ const workoutOptions = [
     title: 'Log Active Workout',
     description: 'Begin your workout session now.',
     icon: 'document-text-outline',
+    // tous: ACTIVE_WORKOUT_STEP_NAMES.LOG_ACTIVE_WORKOUT_BUTTON,
     // action: (navigation: workoutScreenNavigationProp) => console.log('Navigating to Start Workout'), 
     action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.LogWorkout),
   }
@@ -48,55 +55,62 @@ const workoutOptions = [
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.WorkoutHome>;
 
 export default function WorkoutScreen() {
+  const { styles, t } = useThemeStyles(createStyles);
+
   const { user } = useAuthUser();
   const navigation = useNavigation<workoutScreenNavigationProp>();
 
   return (
-    <ImageBackground
-      style={styles.container}
-      source={{ uri: 'https://source.unsplash.com/featured/?gym,fitness' }} // Dynamic gym-themed background
-    >
+    <ScrollableScreen
+      innerContainerStyle={styles.container}>
       <View style={styles.content}>
 
         {/* 🔹 Workout Options (Dynamic Buttons) */}
         <View style={styles.buttonContainer}>
-          {workoutOptions.map((option, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.buttonPrimary}
-              onPress={() => option.action(navigation)}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name={option.icon as keyof typeof Ionicons.glyphMap}
-                size={SPACING.xxxLarge}
-                color={COLORS.primary}
-                style={styles.icon}
-              />
-              <View style={styles.buttonTextContainer}>
-                <TextBase style={styles.buttonTextPrimary}>
-                  {option.title}
-                </TextBase>
-                <TextBase style={styles.buttonSubText}>
-                  {option.description}
-                </TextBase>
-              </View>
-            </TouchableOpacity>
-          ))}
+          {workoutOptions.map((option, index) => {
+            return (
+              <MaybeTourStep stepId={option.tous} key={index} >
+                <TouchableOpacityBase
+                  key={index}
+                  style={styles.buttonPrimary}
+                  onPress={() => {
+                    option.action(navigation);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name={option.icon as keyof typeof Ionicons.glyphMap}
+                    size={SPACING.xxxLarge}
+                    color={t.colors.cardHeader}
+                    style={styles.icon}
+                  />
+                  <View style={styles.buttonTextContainer}>
+                    <TextBase style={styles.buttonTextPrimary}>
+                      {option.title}
+                    </TextBase>
+                    <TextBase style={styles.buttonSubText}>
+                      {option.description}
+                    </TextBase>
+                  </View>
+                </TouchableOpacityBase>
+              </MaybeTourStep>
+            )
+          })}
         </View>
       </View>
-    </ImageBackground>
+    </ScrollableScreen>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
-    backgroundColor: COLORS.primary,
+    backgroundColor: t.colors.primary,
+    padding: 0,
+    paddingHorizontal: SPACING.xMedium,
   },
   content: {
-    width: '85%',
     alignItems: 'center',
     paddingTop: SPACING.xxxxLarge,
   },
@@ -106,7 +120,7 @@ const styles = StyleSheet.create({
   },
   buttonPrimary: {
     flexDirection: 'row',
-    backgroundColor: COLORS.secondary,
+    backgroundColor: t.colors.cardBackground,
     padding: SPACING.large,
     borderRadius: BORDER_RADIUS,
     marginBottom: SPACING.large,
@@ -121,12 +135,12 @@ const styles = StyleSheet.create({
   },
   buttonSubText: {
     fontSize: SPACING.xMedium,
-    color: COLORS.textSecondary,
+    color: t.colors.textSecondary,
   },
   buttonTextPrimary: {
     fontSize: SPACING.xLarge,
     fontWeight: 'bold',
-    color: COLORS.primary,
+    color: t.colors.cardHeader,
     paddingBottom: SPACING.xSmall,
   },
 });

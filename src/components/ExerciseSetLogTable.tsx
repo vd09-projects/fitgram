@@ -4,13 +4,15 @@ import {
   Platform,
   UIManager,
 } from "react-native";
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "../constants/styles";
+import { BORDER_RADIUS, FONT_SIZES, SPACING } from "../constants/styles";
 import { WorkoutLog, SetsString, SetLog } from "../types/workoutLogs";
 import { Column } from "./collapsible_table/CollapsibleTableParts";
 import CollapsibleSection from "./CollapsibleSection";
 import { TextBase } from "./TextBase";
 import { CollapsibleTable } from "./collapsible_table/CollapsibleTable";
 import { WorkoutHistoricalDisplayLog } from "./WorkoutHistoricalLogsFilter";
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
 
 type Props = {
   displayLog: WorkoutHistoricalDisplayLog;
@@ -23,6 +25,7 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 const extractFieldKeys = (logs: WorkoutLog[] | null, defaultKeys?: string[]): string[] => {
+  const { styles, t } = useThemeStyles(createStyles);
   var keys = Array.from(new Set(
     logs?.flatMap((log) =>
       log.exercises
@@ -38,6 +41,7 @@ export default function ExerciseSetLogTable({
   displayLog,
   visibleHeaders = [],
 }: Props) {
+  const { styles, t } = useThemeStyles(createStyles);
   const workoutLog = displayLog?.displayData || null;
   if (!workoutLog || workoutLog.length === 0) return null;
 
@@ -80,15 +84,15 @@ export default function ExerciseSetLogTable({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
-    backgroundColor: COLORS.collapsed,
+    backgroundColor: t.colors.collapsed,
     padding: SPACING.small,
     borderRadius: BORDER_RADIUS,
     marginBottom: SPACING.medium,
   },
   dateText: {
     fontSize: FONT_SIZES.medium,
-    color: COLORS.collapsedTitleText,
+    color: t.colors.collapsedTitleText,
   }
 });

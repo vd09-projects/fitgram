@@ -1,7 +1,9 @@
 import React, { useRef, useState, ReactNode } from 'react';
 import { TouchableOpacity, View, StyleSheet, Animated, StyleProp, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { BORDER_RADIUS, COLORS, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, SPACING } from '../constants/styles';
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
 
 type CollapsibleSectionProps = {
   title: ReactNode;
@@ -10,6 +12,8 @@ type CollapsibleSectionProps = {
   defaultCollapsed?: boolean;
   collapsibleStyle?: StyleProp<ViewStyle>;
   contentStyle?: StyleProp<ViewStyle>;
+  titleContainerStyle?: StyleProp<ViewStyle>;
+  dividerLineStyle?: StyleProp<ViewStyle>;
   collapsibleIconColor?: string;
   dividerLineColor?: string;
   rightElement?: ReactNode;
@@ -22,10 +26,16 @@ export default function CollapsibleSection({
   defaultCollapsed = true,
   collapsibleStyle,
   contentStyle,
-  collapsibleIconColor = COLORS.textSecondary,
-  dividerLineColor = COLORS.textSecondary,
+  titleContainerStyle,
+  dividerLineStyle,
+  collapsibleIconColor,
+  dividerLineColor,
   rightElement,
 }: CollapsibleSectionProps) {
+  const { styles, t } = useThemeStyles(createStyles);
+  collapsibleIconColor = collapsibleIconColor || t.colors.textSecondary;
+  dividerLineColor = dividerLineColor || t.colors.textSecondary;
+
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
   const rotation = useRef(new Animated.Value(defaultCollapsed ? 0 : 1)).current;
   
@@ -45,7 +55,7 @@ export default function CollapsibleSection({
   return (
     <View style={collapsibleStyle}>
       <TouchableOpacity
-        style={styles.toggleButton}
+        style={[styles.toggleButton, titleContainerStyle]}
         onPress={toggleCollapse}
         activeOpacity={0.8}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -61,13 +71,13 @@ export default function CollapsibleSection({
         </View>}
       </TouchableOpacity>
 
-      {!isCollapsed && <View style={[styles.dividerLine, { backgroundColor: dividerLineColor }]} />}
+      {!isCollapsed && <View style={[styles.dividerLine, { backgroundColor: dividerLineColor }, dividerLineStyle]} />}
       {!isCollapsed && <View style={[styles.content, contentStyle]}>{children}</View>}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   toggleButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -84,7 +94,7 @@ const styles = StyleSheet.create({
   },
   dividerLine: {
     height: 1,
-    backgroundColor: COLORS.textSecondary,
+    backgroundColor: t.colors.textSecondary,
     marginTop: SPACING.small,
     marginBottom: SPACING.medium,
   },

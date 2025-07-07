@@ -4,7 +4,7 @@ import { useWorkoutStore } from "../../stores/useWorkoutStore";
 import ExerciseLogger from "../../components/ExerciseLogger";
 import SearchableInputDropdown, { DropdownSelection, DropdownItem } from "../../components/SearchableInputDropdown";
 import ScrollableScreen from "../../components/ScrollableScreen";
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "../../constants/styles";
+import { BORDER_RADIUS, FONT_SIZES, SPACING } from "../../constants/styles";
 import { LoggedExercise } from "../../types/zustandWorkoutType";
 import { useAuthUser } from "../../hooks/useAuthUser";
 import show from "../../utils/toastUtils";
@@ -12,11 +12,17 @@ import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
 import { LayoutRoutes, WorkoutRoutes } from "../../constants/routes";
 import { useNavigation } from "@react-navigation/native";
 import { TextBase } from "../../components/TextBase";
+import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
+import { useThemeStyles } from '../../utils/useThemeStyles';
+import { MaybeTourStep } from "../../components/guide_tour/MaybeTourStep";
+import { ACTIVE_WORKOUT_STEP_NAMES } from "../../tour_steps/activeWorkout";
 
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.LogWorkout>;
 type layoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof LayoutRoutes.LogWorkout>;
 
 export default function ActiveWorkoutScreen() {
+  const { styles, t } = useThemeStyles(createStyles);
+
   const navigation = useNavigation<workoutScreenNavigationProp>();
   const layoutNavigation = useNavigation<layoutScreenNavigationProp>();
 
@@ -86,6 +92,7 @@ export default function ActiveWorkoutScreen() {
         }
         onChange={handleSelectExercise}
         title="Exercises"
+        tourStepPrefix={ACTIVE_WORKOUT_STEP_NAMES.SELECTED_WORKOUT_EXERCISE}
       />
 
       {/* Show the selected exercise details */}
@@ -93,38 +100,48 @@ export default function ActiveWorkoutScreen() {
 
       {/* Buttons for ending/canceling workout */}
       <View style={styles.buttonContainer}>
-        <TouchableOpacity style={[styles.endButton, { backgroundColor: COLORS.cancelButton }]} onPress={cancelWorkout}>
-          <TextBase style={styles.buttonText}>Cancel Workout</TextBase>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.endButton} onPress={handleSaveWorkout}>
-          <TextBase style={styles.buttonText}>Save Workout</TextBase>
-        </TouchableOpacity>
+        <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.CANCEL_CURRENT_WORKOUT_LOGER}>
+          <TouchableOpacity style={[styles.endButton, { backgroundColor: t.colors.cancelButton }]} onPress={cancelWorkout}>
+            <TextBase style={styles.buttonText}>Cancel Workout</TextBase>
+          </TouchableOpacity>
+        </MaybeTourStep>
+
+        <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.SAVE_CURRENT_WORKOUT_LOGER}>
+          <TouchableOpacity style={styles.endButton} onPress={handleSaveWorkout}>
+            <TextBase style={styles.buttonText}>Save Workout</TextBase>
+          </TouchableOpacity>
+        </MaybeTourStep>
       </View>
     </ScrollableScreen>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
     flex: 1,
   },
-  title: { fontSize: FONT_SIZES.xLarge, fontWeight: "bold", marginBottom: 10, color: COLORS.textPrimary },
+  title: {
+    fontSize: FONT_SIZES.xLarge,
+    fontWeight: "bold",
+    color: t.colors.textPrimary
+  },
   buttonContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 20,
+    marginTop: SPACING.large,
   },
   endButton: {
-    backgroundColor: COLORS.button,
+    backgroundColor: t.colors.button,
     padding: 10,
     paddingVertical: 18,
     alignItems: "center",
     borderRadius: BORDER_RADIUS,
     flex: 1,
     marginHorizontal: 5,
+    ...t.shadows.shadowLarge,
   },
   buttonText: {
-    color: "white",
+    color: t.colors.buttonText,
     fontWeight: "bold",
     fontSize: 16,
   },
@@ -132,18 +149,18 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     paddingVertical: 90,
-    backgroundColor: COLORS.primary,
+    backgroundColor: t.colors.primary,
   },
   noWorkoutText: {
     fontSize: FONT_SIZES.large,
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
     textAlign: "center",
     fontWeight: "bold",
     opacity: 0.9,
   },
   switchText: {
     fontSize: FONT_SIZES.medium,
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
     textAlign: 'center',
     fontWeight: "bold",
     textDecorationLine: 'underline',

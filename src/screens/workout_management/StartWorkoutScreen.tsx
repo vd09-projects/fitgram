@@ -11,7 +11,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import useWorkoutPlans from "../../hooks/useWorkoutPlans";
 import { WorkoutPlan } from "../../types/workoutType";
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SHADOW, SHADOW_3, SPACING } from "../../constants/styles";
+import { BORDER_RADIUS, FONT_SIZES, SPACING } from "../../constants/styles";
 import ScrollableScreen from "../../components/ScrollableScreen";
 import SearchBox from "../../components/SearchBox";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
@@ -22,10 +22,16 @@ import { useNavigation } from "@react-navigation/native";
 import { TextBase } from "../../components/TextBase";
 import AlertBase from "../../components/AlertBase";
 import LoadingData from "../../components/LoadingData";
+import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
+import { useThemeStyles } from '../../utils/useThemeStyles';
+import { START_WOURKOUT_STEP_NAMES } from "../../tour_steps/startWorkout";
+import { MaybeTourStep } from "../../components/guide_tour/MaybeTourStep";
+import { TouchableOpacityBase } from "../../components/TouchableOpacityBase";
 
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.StartWorkout>;
 
 export default function StartWorkoutScreen() {
+  const { styles, t } = useThemeStyles(createStyles);
   const navigation = useNavigation<workoutScreenNavigationProp>();
 
   const [showAlert, setShowAlert] = useState(true);
@@ -73,9 +79,9 @@ export default function StartWorkoutScreen() {
     <ScrollableScreen
       title={
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <MaterialCommunityIcons name="arm-flex-outline" size={24} color={COLORS.textPrimary} style={{ marginRight: 5 }} />
-          <TextBase style={{ fontSize: 22, fontWeight: 'bold', color: COLORS.textPrimary }}>Start Workout</TextBase>
-          <MaterialCommunityIcons name="arm-flex-outline" size={24} color={COLORS.textPrimary} style={{ marginLeft: 5, transform: [{ scaleX: -1 }] }} />
+          <MaterialCommunityIcons name="arm-flex-outline" size={24} color={t.colors.textPrimary} style={{ marginRight: 5 }} />
+          <TextBase style={{ fontSize: 22, fontWeight: 'bold', color: t.colors.textPrimary }}>Start Workout</TextBase>
+          <MaterialCommunityIcons name="arm-flex-outline" size={24} color={t.colors.textPrimary} style={{ marginLeft: 5, transform: [{ scaleX: -1 }] }} />
         </View>
       }
     >
@@ -90,7 +96,7 @@ export default function StartWorkoutScreen() {
               setShowAlert(false);
               cancelWorkout();
             },
-            style: { backgroundColor: COLORS.cancelButton },
+            style: { backgroundColor: t.colors.cancelButton },
           },
           {
             text: 'Go to Active Workout',
@@ -108,73 +114,80 @@ export default function StartWorkoutScreen() {
         onChangeText={setSearchQuery}
         label="Search Workout"
         placeholder="Workout name"
+        tourStepPrefix={START_WOURKOUT_STEP_NAMES.SEARCH_BOX}
       />
 
       {/* 🏋️ Workout Grid Selection */}
-      {loadingWorkoutPlans ? (
-        <LoadingData
-          containerStyle={styles.loadingConatiner}
-          textStyle={{ fontSize: FONT_SIZES.large, color: COLORS.textPrimary }}
-          dotStyle={{ fontSize: FONT_SIZES.xLarge, color: COLORS.textPrimary }}
-        />
-      ) :
-        <FlatList
-          data={filteredWorkouts}
-          key={selectedWorkout ? "horizontal" : "grid"}
-          keyExtractor={(item) => item.id}
-          horizontal={!!selectedWorkout}
-          scrollEnabled={!!selectedWorkout}
-          showsHorizontalScrollIndicator={!!selectedWorkout}
-          numColumns={selectedWorkout ? undefined : 2}
-          columnWrapperStyle={!selectedWorkout ? styles.gridRow : undefined}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.workoutCard,
-                selectedWorkout?.id === item.id && styles.selectedWorkout,
-                selectedWorkout && { marginVertical: SPACING.small }
-              ]}
-              onPress={() => toggleWorkoutSelection(item)}
-            >
-              <TextBase style={styles.workoutTitle}>{item.name}</TextBase>
-            </TouchableOpacity>
-          )}
-          ListEmptyComponent={
-            <TextBase style={styles.noResultsText}>No workouts found</TextBase>
-          }
-        />
-      }
+      <MaybeTourStep stepId={START_WOURKOUT_STEP_NAMES.SEARCHED_WORKOUT_ITEMS}>
+        {loadingWorkoutPlans ? (
+          <LoadingData
+            containerStyle={styles.loadingConatiner}
+            textStyle={{ fontSize: FONT_SIZES.large, color: t.colors.textPrimary }}
+            dotStyle={{ fontSize: FONT_SIZES.xLarge, color: t.colors.textPrimary }}
+          />
+        ) :
+          <FlatList
+            data={filteredWorkouts}
+            key={selectedWorkout ? "horizontal" : "grid"}
+            keyExtractor={(item) => item.id}
+            horizontal={!!selectedWorkout}
+            scrollEnabled={!!selectedWorkout}
+            showsHorizontalScrollIndicator={!!selectedWorkout}
+            numColumns={selectedWorkout ? undefined : 2}
+            columnWrapperStyle={!selectedWorkout ? styles.gridRow : undefined}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.workoutCard,
+                  selectedWorkout?.id === item.id && styles.selectedWorkout,
+                  selectedWorkout && { marginVertical: SPACING.small }
+                ]}
+                onPress={() => toggleWorkoutSelection(item)}
+              >
+                <TextBase style={styles.workoutTitle}>{item.name}</TextBase>
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              <TextBase style={styles.noResultsText}>No workouts found</TextBase>
+            }
+          />
+        }
+      </MaybeTourStep>
 
       {/* ▶️ Floating Start Workout Button */}
       {selectedWorkout && (
-        <TouchableOpacity style={styles.startWorkoutButton} onPress={handleStartWorkout}>
-          <TextBase style={styles.startWorkoutText}>Start {selectedWorkout.name}</TextBase>
-        </TouchableOpacity>
+        <MaybeTourStep stepId={START_WOURKOUT_STEP_NAMES.START_SELECTED_WORKOUT_BUTTON} positionType='above'>
+          <TouchableOpacityBase style={styles.startWorkoutButton} onPress={handleStartWorkout}>
+            <TextBase style={styles.startWorkoutText}>Start {selectedWorkout.name}</TextBase>
+          </TouchableOpacityBase>
+        </MaybeTourStep>
       )}
 
       {/* 📜 Exercise List (Shown only when a workout is selected) */}
       {selectedWorkout && (
-        <ScrollView style={styles.exerciseList}>
-          <TextBase style={styles.exerciseHeader}>Exercises in {selectedWorkout.name}</TextBase>
-          {selectedWorkout.exercises.map((exercise) => (
-            <View key={exercise.id} style={styles.exerciseCard}>
-              <Ionicons name="barbell-outline" size={20} color={COLORS.primary} />
-              <TextBase style={styles.exerciseText}>{exercise.name}</TextBase>
-            </View>
-          ))}
-        </ScrollView>
+        <MaybeTourStep stepId={START_WOURKOUT_STEP_NAMES.SELECTED_WORKOUT_EXERCISE_LIST} positionType='above'>
+          <ScrollView style={styles.exerciseList}>
+            <TextBase style={styles.exerciseHeader}>Exercises in {selectedWorkout.name}</TextBase>
+            {selectedWorkout.exercises.map((exercise) => (
+              <View key={exercise.id} style={styles.exerciseCard}>
+                <Ionicons name="barbell-outline" size={20} color={t.colors.primary} />
+                <TextBase style={styles.exerciseText}>{exercise.name}</TextBase>
+              </View>
+            ))}
+          </ScrollView>
+        </MaybeTourStep>
       )}
     </ScrollableScreen>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   loadingConatiner: { flex: 1, justifyContent: "center", alignItems: "center" },
   noResultsText: {
     justifyContent: 'center',
     textAlign: "center",
     fontSize: FONT_SIZES.large,
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
     marginVertical: SPACING.small,
     fontWeight: "bold",
     paddingLeft: SPACING.small,
@@ -185,23 +198,23 @@ const styles = StyleSheet.create({
   },
   workoutCard: {
     flex: 1,
-    backgroundColor: COLORS.tertiary,
+    backgroundColor: t.colors.cardBackground,
     padding: 20,
     borderRadius: BORDER_RADIUS,
     alignItems: "center",
     justifyContent: "center",
     marginHorizontal: 5,
-    ...SHADOW,
+    ...t.shadows.shadowSmall,
   },
   selectedWorkout: {
-    borderColor: COLORS.button,
-    borderWidth: 2,
-    ...SHADOW_3,
+    borderColor: t.colors.border,
+    borderWidth: SPACING.xSmall,
+    ...t.shadows.shadowMedium,
   },
   workoutTitle: {
     fontSize: FONT_SIZES.large,
     fontWeight: "bold",
-    color: COLORS.textPrimary,
+    color: t.colors.textSecondary,
     textAlign: "center",
   },
   exerciseList: {
@@ -210,33 +223,33 @@ const styles = StyleSheet.create({
   exerciseHeader: {
     fontSize: FONT_SIZES.large,
     fontWeight: "bold",
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
     marginBottom: 10,
   },
   exerciseCard: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 10,
-    backgroundColor: COLORS.textPrimary,
+    padding: SPACING.medium,
+    backgroundColor: t.colors.secondary,
     borderRadius: BORDER_RADIUS,
-    marginBottom: 10,
+    marginBottom: SPACING.small,
   },
   exerciseText: {
     fontSize: FONT_SIZES.medium,
     fontWeight: "bold",
-    marginLeft: 10,
-    color: COLORS.textSecondary,
+    marginLeft: SPACING.small,
+    color: t.colors.textPrimary,
   },
   startWorkoutButton: {
     marginTop: SPACING.large,
-    paddingVertical: 15,
+    paddingVertical: SPACING.large,
     borderRadius: BORDER_RADIUS,
-    backgroundColor: COLORS.button,
+    backgroundColor: t.colors.button,
     alignItems: "center",
   },
   startWorkoutText: {
     fontSize: FONT_SIZES.large,
     fontWeight: "bold",
-    color: "white",
+    color: t.colors.textSecondary,
   },
 });

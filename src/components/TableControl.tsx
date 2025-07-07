@@ -9,10 +9,12 @@ import {
   TouchableWithoutFeedback,
   ScrollView,
 } from "react-native";
-import { COLORS, SPACING, BORDER_RADIUS, SHADOW, FONT_SIZES } from "../constants/styles";
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from "../constants/styles";
 import { Ionicons } from "@expo/vector-icons";
 import { TextBase } from "./TextBase";
 import CompactTextSwitch from "./CompactTextSwitch";
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
 
 interface TableControlsProps {
   headers: string[];
@@ -33,6 +35,7 @@ const TableControls: React.FC<TableControlsProps> = ({
   isInverted = false,
   setInverted,
 }) => {
+  const { styles, t } = useThemeStyles(createStyles);
   const [isModalVisible, setModalVisible] = useState(false);
 
   const toggleModal = () => setModalVisible((prev) => !prev);
@@ -85,10 +88,10 @@ const TableControls: React.FC<TableControlsProps> = ({
       <TouchableOpacity style={styles.modalButton} onPress={toggleModal}>
         <View style={styles.buttonContent}>
           {selectedFields.length === 0 ?
-            <TextBase style={[styles.buttonText, { color: COLORS.cancelButton }]} numberOfLines={1}>*No field selected</TextBase>
+            <TextBase style={[styles.buttonText, { color: t.colors.dropdownInputPlaceholder }]} numberOfLines={1}>*No field selected</TextBase>
             :
             <TextBase style={styles.buttonText} numberOfLines={1}>{truncatedFieldText}</TextBase>}
-          <Ionicons name="chevron-down" size={20} color={COLORS.textPrimary} style={styles.dropdownArrow} />
+          <Ionicons name="chevron-down" size={20} color={t.colors.textPrimary} style={styles.dropdownArrow} />
         </View>
       </TouchableOpacity>
 
@@ -112,7 +115,7 @@ const TableControls: React.FC<TableControlsProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
@@ -128,18 +131,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     padding: SPACING.medium,
-    backgroundColor: COLORS.textSecondary,
+    backgroundColor: t.colors.dropdown,
     borderRadius: BORDER_RADIUS,
     flex: 1,
-    ...SHADOW
+    ...t.shadows.shadowSmall
   },
   buttonText: {
-    color: COLORS.textPrimary,
+    color: t.colors.dropdownInputText,
     fontSize: FONT_SIZES.medium,
     flexShrink: 1,  // Allows text to shrink if too long
   },
   dropdownArrow: {
-    color: COLORS.textPrimary,
+    color: t.colors.dropdownInputText,
     fontSize: FONT_SIZES.medium,
     marginLeft: 8,
   },
@@ -150,12 +153,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
-  modalContainer: { width: "80%", backgroundColor: "#fff", padding: 20, borderRadius: BORDER_RADIUS, alignItems: "center" },
-  modalTitle: { fontSize: FONT_SIZES.large, fontWeight: "bold", marginBottom: 10 },
+  modalContainer: { width: "80%", backgroundColor: t.colors.collapsed, padding: 20, borderRadius: BORDER_RADIUS, alignItems: "center" },
+  modalTitle: { fontSize: FONT_SIZES.large, fontWeight: "bold", marginBottom: 10, color: t.colors.textPrimary },
   checkboxContainer: { flexDirection: "row", alignItems: "center", paddingVertical: 5 },
-  checkbox: { width: 20, height: 20, borderWidth: 2, borderColor: COLORS.textPrimary, marginRight: 10 },
-  checkboxSelected: { backgroundColor: COLORS.primary },
-  checkboxLabel: { fontSize: FONT_SIZES.medium, color: COLORS.textPrimary },
+  checkbox: { width: 20, height: 20, borderWidth: 2, borderColor: t.colors.textPrimary, marginRight: 10 },
+  checkboxSelected: { backgroundColor: t.colors.textPrimary },
+  checkboxLabel: { fontSize: FONT_SIZES.medium, color: t.colors.textPrimary },
   selectionButtonsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -166,12 +169,12 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     marginHorizontal: 5,
-    backgroundColor: COLORS.primary,
+    backgroundColor: t.colors.primary,
     borderRadius: BORDER_RADIUS,
     alignItems: "center",
   },
   selectionButtonText: {
-    color: "#fff",
+    color: t.colors.textSecondary,
     fontSize: FONT_SIZES.medium,
     fontWeight: "bold",
   },

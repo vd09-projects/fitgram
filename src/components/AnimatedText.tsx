@@ -1,5 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
 
 interface AnimatedScreenProps {
   children: React.ReactNode;
@@ -7,6 +9,7 @@ interface AnimatedScreenProps {
 }
 
 const AnimatedScreen: React.FC<AnimatedScreenProps> = ({ children, animationType = 'fade' }) => {
+  const { styles, t } = useThemeStyles(createStyles);
   const animatedValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -35,7 +38,7 @@ const AnimatedScreen: React.FC<AnimatedScreenProps> = ({ children, animationType
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
     flex: 1,
   },

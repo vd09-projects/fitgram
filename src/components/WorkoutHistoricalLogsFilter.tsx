@@ -7,8 +7,10 @@ import { Exercise, WorkoutPlan } from "../types/workoutType";
 import show from "../utils/toastUtils";
 import { getWorkoutLogs } from "../services/db/userDB";
 import { TextBase } from "./TextBase";
-import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "../constants/styles";
+import { BORDER_RADIUS, FONT_SIZES, SPACING } from "../constants/styles";
 import { WorkoutLog } from "../types/workoutLogs";
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
 
 export type WorkoutHistoricalDisplayLog = {
   displayType: "SetData" | "ExerciseData";
@@ -28,6 +30,7 @@ export default function WorkoutHistoricalLogsFilter({
   setDisplayLog,
   isVisible = true,
 }: WorkoutHistoricalLogsFilterProps) {
+  const { styles, t } = useThemeStyles(createStyles);
   const { user } = useAuthUser();
   const { workoutPlans, loadingWorkoutPlans } = useWorkoutPlans(true);
 
@@ -226,12 +229,12 @@ export default function WorkoutHistoricalLogsFilter({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   filtersContainer: {
     marginBottom: SPACING.medium,
   },
   toggleButton: {
-    backgroundColor: COLORS.button,
+    backgroundColor: t.colors.button,
     padding: SPACING.medium,
     borderRadius: BORDER_RADIUS,
     alignItems: "center",
@@ -240,6 +243,6 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     fontSize: FONT_SIZES.medium,
-    color: COLORS.textSecondary,
+    color: t.colors.textSecondary,
   },
 });

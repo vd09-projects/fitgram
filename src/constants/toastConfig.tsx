@@ -1,56 +1,38 @@
 import { BaseToast, BaseToastProps, ErrorToast } from "react-native-toast-message";
+import { FONT_FAMILY, FONT_SIZES } from "./styles";
+import { TostSucessColor, TostWarnColor } from "./colors";
+import { useThemeTokens } from "../components/app_manager/ThemeContext";
 
 export const toastConfig = {
-  success: (props: BaseToastProps) => (
-    <BaseToast
+  success: (props: BaseToastProps) => {
+    const t = useThemeTokens();
+    return <BaseToast
       {...props}
       style={{
-        borderLeftColor: '#4CAF50', // Success Green
-        backgroundColor: '#B2B5E0',
+        backgroundColor: t.colors.cardBackground,
+        borderLeftColor: TostSucessColor,
         borderRadius: 8,
       }}
       contentContainerStyle={{ paddingHorizontal: 12 }}
       text1Style={{
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#2E7D32', // Darker Green
+        fontSize: FONT_SIZES.large,
+        fontFamily: FONT_FAMILY.bold.name,
+        color: t.colors.cardHeader,
       }}
       text2Style={{
-        fontSize: 14,
-        color: '#1B5E20', // Slightly darker green
+        fontSize: FONT_SIZES.xMedium,
+        fontFamily: FONT_FAMILY.regular.name,
+        color: t.colors.textSecondary,
       }}
     />
-  ),
-  error: (props: BaseToastProps) => (
-    <ErrorToast
+  },
+  error: (props: BaseToastProps) => {
+    const t = useThemeTokens();
+    return <ErrorToast
       {...props}
       style={{
-        borderLeftColor: '#D32F2F', // Error Red
-        backgroundColor: "#B2B5E0", // Light Red Background
-        borderRadius: 8,
-        paddingVertical: 10,
-        minHeight: undefined,
-        height: 'auto',
-      }}
-      contentContainerStyle={{ paddingHorizontal: 12 }}
-      text1Style={{
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#C62828', // Darker Red
-      }}
-      text2Style={{
-        fontSize: 14,
-        color: '#B71C1C', // Slightly darker red
-      }}
-      text2NumberOfLines={0}
-    />
-  ),
-  warning: (props: BaseToastProps) => (
-    <BaseToast
-      {...props}
-      style={{
-        borderLeftColor: '#FFA000', // Warning Orange
-        backgroundColor: "#B2B5E0",
+        borderLeftColor: t.colors.cancelButton,
+        backgroundColor: t.colors.cardBackground,
         borderRadius: 8,
         paddingVertical: 10,
         minHeight: undefined,
@@ -58,15 +40,69 @@ export const toastConfig = {
       }}
       contentContainerStyle={{ paddingHorizontal: 12 }}
       text1Style={{
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#E65100', // Darker Orange
+        fontSize: FONT_SIZES.large,
+        fontFamily: FONT_FAMILY.bold.name,
+        color: t.colors.cardHeader,
       }}
       text2Style={{
-        fontSize: 14,
-        color: '#BF360C', // Slightly darker orange
+        fontSize: FONT_SIZES.xMedium,
+        fontFamily: FONT_FAMILY.regular.name,
+        color: t.colors.textSecondary,
       }}
       text2NumberOfLines={0}
     />
-  ),
+  },
+  warning: (props: BaseToastProps) => {
+    const t = useThemeTokens();
+
+    return <BaseToast
+      {...props}
+      style={{
+        borderLeftColor: TostWarnColor,
+        backgroundColor: t.colors.cardBackground,
+        borderRadius: 8,
+        paddingVertical: 10,
+        minHeight: undefined,
+        height: 'auto',
+      }}
+      contentContainerStyle={{ paddingHorizontal: 12 }}
+      text1Style={{
+        fontSize: FONT_SIZES.large,
+        fontFamily: FONT_FAMILY.bold.name,
+        color: t.colors.cardHeader,
+      }}
+      text2Style={{
+        fontSize: FONT_SIZES.xMedium,
+        fontFamily: FONT_FAMILY.regular.name,
+        color: t.colors.textSecondary,
+      }}
+      text2NumberOfLines={0}
+    />
+  },
+  info: (props: BaseToastProps) => {
+    const t = useThemeTokens();
+    return <BaseToast
+      {...props}
+      style={{
+        borderLeftColor: t.colors.tertiary,
+        backgroundColor: t.colors.cardBackground,
+        borderRadius: 8,
+        paddingVertical: 10,
+        minHeight: undefined,
+        height: 'auto',
+      }}
+      contentContainerStyle={{ paddingHorizontal: 12 }}
+      text1Style={{
+        fontSize: FONT_SIZES.large,
+        fontFamily: FONT_FAMILY.bold.name,
+        color: t.colors.cardHeader,
+      }}
+      text2Style={{
+        fontSize: FONT_SIZES.xMedium,
+        fontFamily: FONT_FAMILY.regular.name,
+        color: t.colors.textSecondary,
+      }}
+      text2NumberOfLines={0}
+    />
+  },
 };

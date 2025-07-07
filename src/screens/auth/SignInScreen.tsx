@@ -1,30 +1,33 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  Keyboard
+  Keyboard,
+  StyleSheet,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { ScreenNavigationProp } from '../../navigation/AuthNavigator';
 import { signInUser } from '../../services/db/authService';
-import styles from '../../constants/styles';
 import { AuthRoutes } from '../../constants/routes';
-import Toast from 'react-native-toast-message';
+import show from '../../utils/toastUtils';
 import { PrimaryInputField } from '../../components/PrimaryInputField';
 import { validateCredentials } from '../../utils/validation';
-import show from '../../utils/toastUtils';
 import { TextBase } from '../../components/TextBase';
-import TestingCollapsibleTable from '../../components/collapsible_table/CollapsibleTable_delete_rough';
+import LoadingData from '../../components/LoadingData';
+import { BORDER_RADIUS, FONT_FAMILY, FONT_SIZES, SPACING } from '../../constants/styles';
+import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
+import { useThemeStyles } from '../../utils/useThemeStyles';
 
 type SignInScreenNavigationProp = ScreenNavigationProp<typeof AuthRoutes.SignIn>;
 
 export default function SignInScreen() {
+  const { styles, t } = useThemeStyles(createStyles);
   const navigation = useNavigation<SignInScreenNavigationProp>();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSignIn = async () => {
     const validationError = validateCredentials(email, password);
@@ -33,11 +36,14 @@ export default function SignInScreen() {
       return;
     }
 
+    setIsLoading(true);
     try {
       await signInUser(email, password);
       show.success('Login Successful', 'Welcome back!');
     } catch (error: any) {
       show.alert('Login Failed', error.message || 'Something went wrong.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -65,18 +71,81 @@ export default function SignInScreen() {
         />
 
         <View style={{ marginTop: 16 }}>
-          <TouchableOpacity style={styles.button} onPress={handleSignIn}>
-            <TextBase style={styles.buttonText} isDefaultFontFamilyRequired>Sign In</TextBase>
+          <TouchableOpacity style={styles.button} onPress={handleSignIn} disabled={isLoading}>
+            <View style={styles.buttonContent}>
+              {isLoading ? (
+                <LoadingData
+                  title="Signing in"
+                  containerStyle={{ height: 30 }}
+                  textStyle={styles.loadingText}
+                  dotStyle={styles.loadingText}
+                  totalDots={3}
+                />
+              ) : (
+                <TextBase style={styles.buttonText}>
+                  Sign In
+                </TextBase>
+              )}
+            </View>
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity onPress={() => navigation.navigate(AuthRoutes.SignUp)}>
-          <TextBase style={styles.switchText} isDefaultFontFamilyRequired>Don't have an account?</TextBase>
+          <TextBase style={styles.switchText} isDefaultFontFamilyRequired>
+            Don't have an account?
+          </TextBase>
         </TouchableOpacity>
-
-      {/* <TestingCollapsibleTable/> */}
-
       </View>
     </TouchableWithoutFeedback>
   );
 }
+
+const createStyles = (t: ReturnTypeUseThemeTokens) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: t.colors.primary,
+    },
+    title: {
+      fontSize: FONT_SIZES.xLarge,
+      fontWeight: 'bold',
+      marginBottom: SPACING.xLarge,
+      color: t.colors.textPrimary,
+    },
+    button: {
+      backgroundColor: t.colors.button,
+      paddingHorizontal: SPACING.large,
+      height: 48,
+      minWidth: 160,
+      borderRadius: BORDER_RADIUS,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...t.shadows.shadowSmall,
+    },
+    buttonContent: {
+      height: 30,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    buttonText: {
+      color: t.colors.textSecondary,
+      fontSize: FONT_SIZES.large,
+      fontWeight: 'bold',
+      fontFamily: FONT_FAMILY.bold.name,
+    },
+    loadingText: {
+      fontSize: FONT_SIZES.large,
+      color: t.colors.textSecondary,
+      fontFamily: FONT_FAMILY.bold.name,
+    },
+    authContainer: { width: '85%' },
+    switchText: {
+      marginVertical: SPACING.medium,
+      color: t.colors.textPrimary,
+      textAlign: 'center',
+      textDecorationLine: 'underline',
+      fontStyle: 'italic',
+    },
+  });

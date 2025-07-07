@@ -101,7 +101,7 @@ export function TableRow<T>({
             ]}
           >
             {/* <TextBase numberOfLines={2} ellipsizeMode="tail" style={styles.rowText}> */}
-            <TextBase ellipsizeMode="tail">
+            <TextBase ellipsizeMode="tail" style={styles.rowText}>
               {String(item[col.key])}
             </TextBase>
           </View>

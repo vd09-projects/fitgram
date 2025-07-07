@@ -4,9 +4,11 @@ import { TextBase } from "./TextBase";
 import CollapsibleSection from "./CollapsibleSection";
 import TableControls from "./TableControl";
 import { CollapsibleTable } from "./collapsible_table/CollapsibleTable";
-import { COLORS, SPACING, BORDER_RADIUS, SHADOW, FONT_SIZES } from "../constants/styles";
+import { SPACING, BORDER_RADIUS, FONT_SIZES, LARGE_BORDER_RADIUS } from "../constants/styles";
 import { LoggedExercise } from "../types/zustandWorkoutType";
 import { Column } from "./collapsible_table/CollapsibleTableParts";
+import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
+import { useThemeStyles } from "../utils/useThemeStyles";
 
 interface ActiveExerciseLogHistoryProps {
   exercise: LoggedExercise;
@@ -15,6 +17,7 @@ interface ActiveExerciseLogHistoryProps {
 export default function ActiveExerciseLogHistory({
   exercise,
 }: ActiveExerciseLogHistoryProps) {
+  const { styles, t } = useThemeStyles(createStyles);
   const [visibleHeaders, setVisibleHeaders] = useState<string[]>(exercise.fields);
 
   const toggleHeader = (header: string) => {
@@ -48,7 +51,7 @@ export default function ActiveExerciseLogHistory({
   return (
     <CollapsibleSection
       collapsibleStyle={styles.exerciseContainer}
-      collapsibleIconColor={COLORS.textPrimary}
+      collapsibleIconColor={t.colors.textPrimary}
       title={<TextBase style={styles.toggleButtonText}>Log History</TextBase>}
     >
       <View style={{ flex: 1, padding: SPACING.small }}>
@@ -73,16 +76,17 @@ export default function ActiveExerciseLogHistory({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   exerciseContainer: {
-    backgroundColor: COLORS.collapsed,
+    backgroundColor: t.colors.collapsed,
     borderRadius: BORDER_RADIUS,
     marginBottom: SPACING.medium,
     padding: SPACING.large,
-    ...SHADOW,
+    ...t.shadows.shadowSmall,
   },
   toggleButtonText: {
-    color: COLORS.collapsedTitleText,
+    color: t.colors.collapsedTitleText,
+    fontSize: FONT_SIZES.large,
     fontWeight: "bold",
   },
   noDataContainer: {
@@ -92,7 +96,7 @@ const styles = StyleSheet.create({
   },
   noDataText: {
     fontSize: FONT_SIZES.large,
-    color: COLORS.textPrimary,
+    color: t.colors.textPrimary,
     fontWeight: "bold",
   },
 });

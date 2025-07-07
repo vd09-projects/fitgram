@@ -1,46 +1,104 @@
 // src/components/Header.tsx
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { useAuthUser } from '../hooks/useAuthUser';
-import { signOut } from 'firebase/auth';
-import { auth } from '../services/firebase';
-import { headerStyles } from '../constants/styles';
+import React, { useEffect } from 'react';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { BUTTON_SIZES, FONT_SIZES, SPACING } from '../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
-import Toast from 'react-native-toast-message';
 import { LayoutRoutes } from '../constants/routes';
-import show from '../utils/toastUtils';
 import { TextBase } from './TextBase';
+import { useThemeStyles } from "../utils/useThemeStyles";
+import { useNavigationState } from '@react-navigation/native';
+import { FIRST_TOUR_STEP_ID } from '../constants/tourSteps';
+import { useTour } from '../components/guide_tour/TourGuideProvider';
+import { ReturnTypeUseThemeTokens } from './app_manager/ThemeContext';
+import { MaybeTourStep } from './guide_tour/MaybeTourStep';
+import { HOME_STEP_NAMES, PROFILE_STEP_NAMES } from '../tour_steps/profile';
+import { TouchableOpacityBase } from './TouchableOpacityBase';
 
 interface HeaderProps {
   onPressTab: (tab: keyof typeof LayoutRoutes) => void;
 }
 
 export default function Header({ onPressTab }: HeaderProps) {
-  const { user } = useAuthUser();
+  const { startTour } = useTour();
+  useEffect(() => {
+    startTour(FIRST_TOUR_STEP_ID);
+  }, []);
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      show.success('Logout Successful', 'You have been logged out.');
-    } catch (error: any) {
-      show.alert('Logout Failed', error.message || 'Something went wrong.');
-    }
-  };
+  const navigationState = useNavigationState((state) => state);
+
+  const shouldShowHeader = (() => {
+    const currentRoute = navigationState?.routes[navigationState.index];
+    const routesToHideHeader: string[] = [LayoutRoutes.Workout, LayoutRoutes.LogWorkout];
+    if (!currentRoute || !routesToHideHeader.includes(currentRoute.name)) return true;
+
+    const nestedWorkoutRoute = currentRoute.state?.routes?.[currentRoute.state.index];
+    if (!nestedWorkoutRoute) return true;
+    return nestedWorkoutRoute?.name === 'WorkoutHome';
+  })();
+
+  if (!shouldShowHeader) {
+    return null;
+  }
+
+  const { styles, t } = useThemeStyles(createStyles);
 
   return (
-    <View style={headerStyles.container}>
-      <TouchableOpacity style={[headerStyles.tabButton]} onPress={() => onPressTab(LayoutRoutes.Home)}>
-        <TextBase style={headerStyles.companyName} isDefaultFontFamilyRequired>Fitgram</TextBase>
-      </TouchableOpacity>
+    <View style={styles.container}>
+      <MaybeTourStep stepId={HOME_STEP_NAMES.HOME_BUTTON} >
+        <TouchableOpacityBase style={[styles.tabButton]} onPress={() => onPressTab(LayoutRoutes.Home)}>
+          <TextBase style={styles.companyName} isDefaultFontFamilyRequired>Fitgram</TextBase>
+        </TouchableOpacityBase>
+      </MaybeTourStep>
 
-      {/* <TouchableOpacity onPress={handleLogout}>
-        <TextBase style={[headerStyles.text]}>Logout</TextBase>
-      </TouchableOpacity> */}
-      <View style={headerStyles.rightControls}>
-        <TouchableOpacity onPress={() => onPressTab(LayoutRoutes.Profile)}>
-          <Ionicons name="menu" style={headerStyles.rightIcon} />
-        </TouchableOpacity>
-      </View>
+      {/* <TourStep id="step2" nextStepId="step3" title="Welcome" description="This is your first step11!"> */}
+      <MaybeTourStep stepId={PROFILE_STEP_NAMES.PROFILE_BUTTON} >
+        <View style={styles.rightControls}>
+          <TouchableOpacityBase onPress={() => onPressTab(LayoutRoutes.Profile)}>
+            <Ionicons name="menu" style={styles.rightIcon} />
+          </TouchableOpacityBase>
+        </View>
+      </MaybeTourStep>
     </View>
   );
 }
+
+const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
+  container: {
+    backgroundColor: t.colors.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: SPACING.large,
+    // paddingTop: SPACING.small,
+    paddingBottom: SPACING.xSmall,
+    ...t.shadows.shadowLarge,
+  },
+  text: {
+    color: t.colors.textSecondary,
+    fontWeight: "bold",
+    fontSize: FONT_SIZES.medium,
+    marginRight: SPACING.small,
+    paddingTop: SPACING.small,
+  },
+  companyName: {
+    fontSize: FONT_SIZES.xLarge,
+    color: t.colors.textSecondary,
+    fontFamily: "cursive",
+    fontStyle: "italic",
+    fontWeight: "bold",
+    letterSpacing: 1.4,
+    ...t.shadows.shadowSmall,
+  },
+  tabButton: {
+    padding: SPACING.small,
+  },
+  rightControls: {
+    marginRight: SPACING.small,
+    paddingTop: SPACING.small,
+  },
+  rightIcon: {
+    color: t.colors.textSecondary,
+    fontWeight: "bold",
+    fontSize: BUTTON_SIZES.medium,
+  },
+});
