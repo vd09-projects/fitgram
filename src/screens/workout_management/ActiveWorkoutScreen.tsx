@@ -100,13 +100,13 @@ export default function ActiveWorkoutScreen() {
 
       {/* Buttons for ending/canceling workout */}
       <View style={styles.buttonContainer}>
-        <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.CANCEL_CURRENT_WORKOUT_LOGER}>
+        <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.CANCEL_CURRENT_WORKOUT_LOGER} positionType="above">
           <TouchableOpacity style={[styles.endButton, { backgroundColor: t.colors.cancelButton }]} onPress={cancelWorkout}>
             <TextBase style={styles.buttonText}>Cancel Workout</TextBase>
           </TouchableOpacity>
         </MaybeTourStep>
 
-        <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.SAVE_CURRENT_WORKOUT_LOGER}>
+        <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.SAVE_CURRENT_WORKOUT_LOGER} positionType="above">
           <TouchableOpacity style={styles.endButton} onPress={handleSaveWorkout}>
             <TextBase style={styles.buttonText}>Save Workout</TextBase>
           </TouchableOpacity>

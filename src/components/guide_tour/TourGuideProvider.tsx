@@ -56,7 +56,8 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   } = useTourStore();
 
   const registerStep = (step: Step) => {
-    setSteps((prev) => ({ ...prev, [step.id]: step }));
+    stepsRef.current[step.id] = step;
+    setSteps({ ...stepsRef.current });
   };
 
   const clearStepsForStart = () => {

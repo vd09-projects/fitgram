@@ -4,12 +4,19 @@ import { useColorSchemaStore } from '../../stores/colorSchemaStore';
 import { getShadow } from '../../constants/styles';
 import { Dimensions, PixelRatio } from 'react-native';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const scale = SCREEN_WIDTH / 375; // base iPhone width
 
 export const normalizeFont = (size: number) => {
   const newSize = size * scale;
   return Math.round(PixelRatio.roundToNearestPixel(newSize));
+};
+
+// Spacing Normalizer (percentage of height or width)
+export const normalizeSpacing = (percent: number, axis: 'vertical' | 'horizontal' = 'vertical') => {
+  return axis === 'vertical'
+    ? Math.round((SCREEN_HEIGHT * percent) / 100)
+    : normalizeFont(percent);
 };
 
 export const THEME_FONT_SIZES = {
@@ -21,6 +28,12 @@ export const THEME_FONT_SIZES = {
   xLarge: normalizeFont(22),
 };
 export type FontSizeType = typeof THEME_FONT_SIZES;
+
+// Spacing
+export const THEME_SPACING = {
+  ScrollingBuffer: normalizeSpacing(20),
+};
+export type SpacingType = typeof THEME_SPACING;
 
 type ShadowStyle = {
   shadowColor: string;
@@ -40,6 +53,7 @@ const ThemeContext = createContext<null | {
   colors: ColorSchemaValueType;
   fonts: FontSizeType;
   shadows: ShadowsType;
+  space: SpacingType;
   // fonts: typeof FONT_SIZES;
 }>(null);
 
@@ -52,6 +66,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       return {
         colors: cs,
         fonts: THEME_FONT_SIZES,
+        space: THEME_SPACING,
         shadows: {
           shadowSmall: getShadow(2, cs.shadowSmall),
           shadowMedium: getShadow(3, cs.shadowSmall),

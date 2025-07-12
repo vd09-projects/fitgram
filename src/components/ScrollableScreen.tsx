@@ -36,6 +36,7 @@ const ScrollableScreen: React.FC<ScrollableScreenProps> = ({ children, style, ti
           }}
         >
           <View style={[styles.innerContainer, innerContainerStyle]}>{children}</View>
+          <View style={{ marginVertical: t.space.ScrollingBuffer }}></View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

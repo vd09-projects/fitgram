@@ -179,7 +179,6 @@ export default function AddExerciseScreen() {
           </TouchableOpacity>
         </MaybeTourStep>
       )}
-      <View style={{marginVertical:SPACING.xxxxLarge}}></View>
     </ScrollableScreen>
   );
 }
