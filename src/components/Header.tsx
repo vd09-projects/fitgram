@@ -43,22 +43,31 @@ export default function Header({ onPressTab }: HeaderProps) {
   const { styles, t } = useThemeStyles(createStyles);
 
   return (
-    <View style={styles.container}>
-      <MaybeTourStep stepId={HOME_STEP_NAMES.HOME_BUTTON} >
-        <TouchableOpacityBase style={[styles.tabButton]} onPress={() => onPressTab(LayoutRoutes.Home)}>
-          <TextBase style={styles.companyName} isDefaultFontFamilyRequired>Fitgram</TextBase>
-        </TouchableOpacityBase>
-      </MaybeTourStep>
-
-      {/* <TourStep id="step2" nextStepId="step3" title="Welcome" description="This is your first step11!"> */}
-      <MaybeTourStep stepId={PROFILE_STEP_NAMES.PROFILE_BUTTON} >
-        <View style={styles.rightControls}>
-          <TouchableOpacityBase onPress={() => onPressTab(LayoutRoutes.Profile)}>
-            <Ionicons name="menu" style={styles.rightIcon} />
+    <>
+      <View style={styles.container}>
+        <MaybeTourStep stepId={HOME_STEP_NAMES.HOME_BUTTON} >
+          <TouchableOpacityBase style={[styles.tabButton]} onPress={() => onPressTab(LayoutRoutes.Home)}>
+            <TextBase style={styles.companyName} isDefaultFontFamilyRequired>Fitgram</TextBase>
           </TouchableOpacityBase>
-        </View>
-      </MaybeTourStep>
-    </View>
+        </MaybeTourStep>
+
+        {/* <TourStep id="step2" nextStepId="step3" title="Welcome" description="This is your first step11!"> */}
+        <MaybeTourStep stepId={PROFILE_STEP_NAMES.PROFILE_BUTTON} >
+          <View style={styles.rightControls}>
+            <TouchableOpacityBase onPress={() => onPressTab(LayoutRoutes.Profile)}>
+              <Ionicons name="menu" style={styles.rightIcon} />
+            </TouchableOpacityBase>
+          </View>
+        </MaybeTourStep>
+      </View>
+      <View
+        style={{
+          paddingBottom: 1,
+          backgroundColor: t.colors.primary,
+          ...t.shadows.shadowSmall,
+        }}
+      />
+    </>
   );
 }
 
@@ -69,9 +78,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: SPACING.large,
-    // paddingTop: SPACING.small,
     paddingBottom: SPACING.xSmall,
-    ...t.shadows.shadowLarge,
   },
   text: {
     color: t.colors.textSecondary,

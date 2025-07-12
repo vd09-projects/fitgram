@@ -68,7 +68,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     flex: 1,
   },
   container: {
-    paddingTop: SPACING.large,
+    paddingTop: SPACING.small,
     height: 60,
     backgroundColor: t.colors.primary,
     flexDirection: "row",
