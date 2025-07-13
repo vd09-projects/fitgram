@@ -71,9 +71,9 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </MaybeTourStep>
 
-      <TouchableOpacity style={styles.button} onPress={() => { clearStep(); }}>
+      {/* <TouchableOpacity style={styles.button} onPress={() => { clearStep(); }}>
         <TextBase style={styles.buttonText}>🧭 Clear App Tour</TextBase>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
 
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <TextBase style={styles.logoutButtonText}>Logout</TextBase>
