@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { useTourStore } from '../../stores/useTourStore';
 
 type AppControlContextType = {
   forceReload: () => void;
@@ -22,6 +23,10 @@ export const AppControlProvider = ({ children }: { children: ReactNode }) => {
   const forceReload = () => {
     setAppInstanceKey(prev => prev + 1); // triggers remount
   };
+
+  useEffect(() => {
+    useTourStore.getState().loadSeenTours();
+  }, []);
 
   return (
     <AppControlContext.Provider
