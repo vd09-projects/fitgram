@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useTourStore } from '../../stores/useTourStore';
+import { useWorkoutStore } from '../../stores/useWorkoutStore';
 
 type AppControlContextType = {
   forceReload: () => void;
@@ -26,6 +27,7 @@ export const AppControlProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     useTourStore.getState().loadSeenTours();
+    useWorkoutStore.getState().loadWorkoutFromStorage();
   }, []);
 
   return (
