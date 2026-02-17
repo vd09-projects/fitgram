@@ -1,7 +1,7 @@
 import React, { useRef, useState, ReactNode } from 'react';
 import { TouchableOpacity, View, StyleSheet, Animated, StyleProp, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { BORDER_RADIUS, SPACING } from '../constants/styles';
+import { SPACING } from '../constants/styles';
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 
