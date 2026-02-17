@@ -8,6 +8,7 @@ export interface UserInfo {
   uid: string;
   createdAt: any;
   role: string;
+  provider?: 'email' | 'google';
 }
 
 interface AuthState {

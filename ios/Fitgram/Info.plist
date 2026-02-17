@@ -30,6 +30,12 @@
           <string>com.vd09.fitgram</string>
         </array>
       </dict>
+      <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>com.googleusercontent.apps.367435954102-e2qkif2tdnqk61b5kceb317p8sut38ir</string>
+        </array>
+      </dict>
     </array>
     <key>CFBundleVersion</key>
     <string>1</string>

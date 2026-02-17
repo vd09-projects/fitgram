@@ -8,3 +8,5 @@ export const firebaseEnvConfig = {
   messagingSenderId: Constants.expoConfig?.extra?.MESSAGING_SENDER_ID as string,
   appId: Constants.expoConfig?.extra?.API_ID as string,
 };
+
+export const googleWebClientId = Constants.expoConfig?.extra?.GOOGLE_WEB_CLIENT_ID as string;

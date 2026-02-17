@@ -13,7 +13,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.vd09.fitgram"
+      "bundleIdentifier": "com.vd09.fitgram",
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "assets": [
       "./assets/fonts/"
@@ -22,12 +23,16 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "googleServicesFile": "./google-services.json"
     },
     "userInterfaceStyle": "automatic",
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "plugins": [
+      "@react-native-google-signin/google-signin"
+    ],
     "extra": {
       "eas": {
         "projectId": "5dab9b63-5d99-4727-bcaf-83dcb6f9e7b3"

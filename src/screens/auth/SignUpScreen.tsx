@@ -5,10 +5,11 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   StyleSheet,
+  ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { ScreenNavigationProp } from '../../navigation/AuthNavigator';
-import { signUpUser } from '../../services/db/authService';
+import { signUpUser, signInWithGoogle } from '../../services/db/authService';
 import { FONT_FAMILY, SPACING, BORDER_RADIUS } from '../../constants/styles';
 import { AuthRoutes } from '../../constants/routes';
 import { PrimaryInputField } from '../../components/PrimaryInputField';
@@ -29,6 +30,19 @@ export default function SignUpScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  const handleGoogleSignUp = async () => {
+    setIsGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+      show.success('Account Created', 'Welcome to Fitgram!');
+    } catch (error: any) {
+      show.alert('Google Sign-Up Failed', error.message || 'Something went wrong.');
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
 
   const handleSignUp = async () => {
     const validationError = validateCredentials(email, password, name);
@@ -49,7 +63,7 @@ export default function SignUpScreen() {
   };
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <TextBase style={styles.title}>Create an Account</TextBase>
 
         <PrimaryInputField
@@ -79,7 +93,7 @@ export default function SignUpScreen() {
         />
 
         <View style={{ marginTop: SPACING.large }}>
-          <TouchableOpacity style={styles.button} onPress={handleSignUp} disabled={isLoading}>
+          <TouchableOpacity style={styles.button} onPress={handleSignUp} disabled={isLoading || isGoogleLoading}>
             <View style={styles.buttonContent}>
               {isLoading ? (
                 <LoadingData
@@ -98,12 +112,36 @@ export default function SignUpScreen() {
           </TouchableOpacity>
         </View>
 
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <TextBase style={styles.dividerText}>or</TextBase>
+          <View style={styles.dividerLine} />
+        </View>
+
+        <TouchableOpacity style={styles.googleButton} onPress={handleGoogleSignUp} disabled={isLoading || isGoogleLoading}>
+          <View style={styles.buttonContent}>
+            {isGoogleLoading ? (
+              <LoadingData
+                title="Signing up"
+                containerStyle={{ height: 30 }}
+                textStyle={styles.googleButtonText}
+                dotStyle={styles.googleButtonText}
+                totalDots={3}
+              />
+            ) : (
+              <TextBase style={styles.googleButtonText} isDefaultFontFamilyRequired>
+                Sign up with Google
+              </TextBase>
+            )}
+          </View>
+        </TouchableOpacity>
+
         <TouchableOpacity onPress={() => navigation.navigate(AuthRoutes.SignIn)}>
           <TextBase style={styles.switchText} isDefaultFontFamilyRequired>
             Already have an account?
           </TextBase>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </TouchableWithoutFeedback>
   );
 }
@@ -111,10 +149,11 @@ export default function SignUpScreen() {
 const createStyles = (t: ReturnTypeUseThemeTokens) =>
   StyleSheet.create({
     container: {
-      flex: 1,
+      flexGrow: 1,
       justifyContent: 'center',
       alignItems: 'center',
       backgroundColor: t.colors.primary,
+      paddingVertical: SPACING.large,
     },
     title: {
       fontSize: t.fonts.xLarge,
@@ -160,6 +199,40 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
       fontSize: t.fonts.large,
       color: t.colors.textSecondary,
       fontFamily: FONT_FAMILY.bold.name,
+    },
+    googleButton: {
+      backgroundColor: '#ffffff',
+      paddingHorizontal: SPACING.large,
+      height: 48,
+      minWidth: 160,
+      borderRadius: BORDER_RADIUS,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      borderWidth: 1,
+      borderColor: t.colors.border,
+      ...t.shadows.shadowSmall,
+    },
+    googleButtonText: {
+      color: '#333333',
+      fontSize: t.fonts.large,
+      fontWeight: 'bold' as const,
+      fontFamily: FONT_FAMILY.bold.name,
+    },
+    divider: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      width: '85%',
+      marginVertical: SPACING.medium,
+    },
+    dividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: t.colors.border,
+    },
+    dividerText: {
+      marginHorizontal: SPACING.small,
+      color: t.colors.textPrimary,
+      fontSize: t.fonts.medium,
     },
     authContainer: { width: '85%' },
     switchText: {

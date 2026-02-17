@@ -20,6 +20,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         foregroundImage: "./assets/adaptive-icon-3.png",
         // backgroundColor: "#FFFFFF",
       },
+      googleServicesFile: "./google-services.json",
     },
     extra: {
       ...config.extra,
@@ -29,6 +30,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       STORAGE_BUCKET: process.env.FS_DB_STORAGE_BUCKET,
       MESSAGING_SENDER_ID: process.env.FS_DB_MESSAGING_SENDER_ID,
       API_ID: process.env.FS_DB_API_ID,
+      GOOGLE_WEB_CLIENT_ID: process.env.GOOGLE_WEB_CLIENT_ID,
     },
   };
 };
