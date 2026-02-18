@@ -180,21 +180,18 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
       fontFamily: FONT_FAMILY.bold.name,
     },
     googleButton: {
-      backgroundColor: '#ffffff',
+      backgroundColor: t.colors.button,
       paddingHorizontal: SPACING.large,
       height: 48,
       minWidth: 160,
       borderRadius: BORDER_RADIUS,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
-      borderWidth: 1,
-      borderColor: t.colors.border,
       ...t.shadows.shadowSmall,
     },
     googleButtonText: {
-      color: '#333333',
+      color: t.colors.textSecondary,
       fontSize: t.fonts.large,
-      fontWeight: 'bold' as const,
       fontFamily: FONT_FAMILY.bold.name,
     },
     divider: {
