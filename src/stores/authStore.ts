@@ -23,7 +23,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   userInfo: null,
-  initialized: false,
+  initialized: false, // always starts false — initAuthIfNeeded sets it to true at runtime
   setUser: (user) => set({ user }),
   setUserInfo: (info) => set({ userInfo: info }),
   setInitialized: (value) => set({ initialized: value }),

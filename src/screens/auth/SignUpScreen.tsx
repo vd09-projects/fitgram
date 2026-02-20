@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { ScreenNavigationProp } from '../../navigation/AuthNavigator';
-import { signUpUser, signInWithGoogle } from '../../services/db/authService';
+import { signUpUser, signUpWithGoogle } from '../../services/db/authService';
 import { FONT_FAMILY, SPACING, BORDER_RADIUS } from '../../constants/styles';
 import { AuthRoutes } from '../../constants/routes';
 import { PrimaryInputField } from '../../components/PrimaryInputField';
@@ -35,7 +35,7 @@ export default function SignUpScreen() {
   const handleGoogleSignUp = async () => {
     setIsGoogleLoading(true);
     try {
-      await signInWithGoogle();
+      await signUpWithGoogle();
       show.success('Account Created', 'Welcome to Fitgram!');
     } catch (error: any) {
       show.alert('Google Sign-Up Failed', error.message || 'Something went wrong.');

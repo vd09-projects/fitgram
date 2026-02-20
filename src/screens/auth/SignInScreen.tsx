@@ -35,7 +35,7 @@ export default function SignInScreen() {
     setIsGoogleLoading(true);
     try {
       await signInWithGoogle();
-      show.success('Login Successful', 'Welcome back!');
+      show.success('Welcome Back', 'Signed in with Google.');
     } catch (error: any) {
       show.alert('Google Sign-In Failed', error.message || 'Something went wrong.');
     } finally {

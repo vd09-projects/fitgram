@@ -4,6 +4,7 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { auth, db } from '../firebase';
 import { googleWebClientId } from '../../config/envConfig';
+import { useAuthStore } from '../../stores/authStore';
 
 // Function to handle user sign-up and Firestore storage
 export const signUpUser = async (name: string, email: string, password: string) => {
@@ -41,50 +42,62 @@ export const signInUser = async (email: string, password: string) => {
   }
 
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
+  useAuthStore.getState().setUser(userCredential.user);
   return userCredential.user;
 };
 
-// Function to handle Google sign-in (works for both sign-in and sign-up)
-export const signInWithGoogle = async () => {
-  GoogleSignin.configure({
-    webClientId: googleWebClientId,
-  });
-
+// Shared helper — authenticates with Google and returns the Firebase user + Google profile
+const authenticateWithGoogle = async () => {
+  GoogleSignin.configure({ webClientId: googleWebClientId });
   await GoogleSignin.hasPlayServices();
   const signInResult = await GoogleSignin.signIn();
   const idToken = signInResult.data?.idToken;
-
-  if (!idToken) {
-    throw new Error('Failed to get Google ID token.');
-  }
-
+  if (!idToken) throw new Error('Failed to get Google ID token.');
+  const googleName = signInResult.data?.user?.name || '';
   const credential = GoogleAuthProvider.credential(idToken);
   const userCredential = await signInWithCredential(auth, credential);
-  const user = userCredential.user;
+  return { user: userCredential.user, googleName };
+};
 
-  // Check if this is a new user — create Firestore profile if so
+// Sign IN with Google — fails if no Fitgram account exists yet
+export const signInWithGoogle = async () => {
+  const { user } = await authenticateWithGoogle();
+
   const userInfoRef = doc(db, 'users', user.uid, 'info', 'data');
   const userInfoSnap = await getDoc(userInfoRef);
 
   if (!userInfoSnap.exists()) {
-    const userRef = doc(db, 'users', user.uid);
-
-    await setDoc(userRef, {
-      uid: user.uid,
-      verified: true,
-      createdAt: new Date(),
-    });
-
-    await setDoc(userInfoRef, {
-      name: user.displayName || '',
-      email: user.email || '',
-      uid: user.uid,
-      createdAt: new Date(),
-      role: 'user',
-      provider: 'google',
-    });
+    throw new Error('No account found. Please sign up first.');
   }
 
+  useAuthStore.getState().setUser(user);
+  return user;
+};
+
+// Sign UP with Google — creates Fitgram profile, fails if account already exists
+export const signUpWithGoogle = async () => {
+  const { user, googleName } = await authenticateWithGoogle();
+
+  const userInfoRef = doc(db, 'users', user.uid, 'info', 'data');
+  const userInfoSnap = await getDoc(userInfoRef);
+
+  if (userInfoSnap.exists()) {
+    useAuthStore.getState().setUser(user);
+    throw new Error('Account already exists. Please sign in instead.');
+  }
+
+  const userRef = doc(db, 'users', user.uid);
+  await setDoc(userRef, { uid: user.uid, verified: true, createdAt: new Date() });
+  await setDoc(userInfoRef, {
+    name: googleName || user.displayName || '',
+    email: user.email || '',
+    uid: user.uid,
+    createdAt: new Date(),
+    role: 'user',
+    provider: 'google',
+  });
+
+  useAuthStore.getState().setUser(user);
   return user;
 };
 

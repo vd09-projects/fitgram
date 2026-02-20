@@ -12,5 +12,5 @@ export const useAuthUser = () => {
     }
   }, [initialized]);
 
-  return { user, userInfo };
+  return { user, userInfo, initialized };
 };
