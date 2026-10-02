@@ -7,7 +7,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 PACKAGE="com.vd09.fitgram"
-PROFILE="production"
+BUILD_PROFILE="production"
+SUBMIT_PROFILE_DEFAULT="internal"   # Play track; override with: submit <artifact> production
 
 # Fingerprints that must be registered in Firebase. Keep in sync with docs/AUTH_DEBUGGING.md.
 FP_DEBUG="5e8f16062ea3cd2c4a0d547876baa6f38cabf625"   # android/app/debug.keystore (local builds)
@@ -69,11 +70,11 @@ $(echo "$dirty" | sed 's/^/        /')"
     }
   fi
 
-  head_ "EAS environment ($PROFILE)"
+  head_ "EAS environment ($BUILD_PROFILE)"
   local listed
-  listed=$(npx eas env:list "$PROFILE" 2>/dev/null || true)
+  listed=$(npx eas env:list "$BUILD_PROFILE" 2>/dev/null || true)
   for v in $REQUIRED_ENV; do
-    echo "$listed" | grep -q "^$v=" && ok "$v" || bad "$v not set in EAS $PROFILE — .env is gitignored and never reaches the builder"
+    echo "$listed" | grep -q "^$v=" && ok "$v" || bad "$v not set in EAS $BUILD_PROFILE — .env is gitignored and never reaches the builder"
   done
 
   head_ "eas.json"
@@ -103,11 +104,13 @@ $(echo "$dirty" | sed 's/^/        /')"
 cmd_build() {
   cmd_check
   head_ "build"
-  echo "  running: eas build --platform android --profile $PROFILE"
-  npx eas build --platform android --profile "$PROFILE"
+  echo "  running: eas build --platform android --profile $BUILD_PROFILE"
+  npx eas build --platform android --profile "$BUILD_PROFILE"
   echo
   echo "  When it finishes, download the .aab and verify it BEFORE submitting:"
-  echo "    ./scripts/release.sh verify ~/Downloads/<artifact>.aab"
+  echo "    ./scripts/release.sh verify  ~/Downloads/<artifact>.aab"
+  echo "    ./scripts/release.sh submit  ~/Downloads/<artifact>.aab              # internal testing"
+  echo "    ./scripts/release.sh submit  ~/Downloads/<artifact>.aab production   # production, as draft"
 }
 
 # ---------------------------------------------------------------- verify
@@ -134,12 +137,13 @@ cmd_verify() {
         out.push((e.GOOGLE_WEB_CLIENT_ID===want?"OK:":"FAIL:")+"GOOGLE_WEB_CLIENT_ID matches .env");
         out.push((e.PROJECT_ID?"OK:":"FAIL:")+"PROJECT_ID = "+(e.PROJECT_ID||"undefined"));
         out.push((e.API_KEY?"OK:":"FAIL:")+"API_KEY present");
-        out.push("INFO:version "+c.version+"  versionCode "+(c.android&&c.android.versionCode));
+        out.push("INFO:version name "+c.version);
+        out.push("NOTE:app.config versionCode "+(c.android&&c.android.versionCode)+" — ignored when appVersionSource is remote; EAS sets the real manifest value");
         console.log(out.join("\n"));
       });
     ' "$(grep '^GOOGLE_WEB_CLIENT_ID=' .env | cut -d= -f2- | tr -d ' \r')" \
     | while IFS=: read -r kind msg; do
-        case "$kind" in OK) ok "$msg";; FAIL) bad "$msg";; INFO) printf '  ---- %s\n' "$msg";; esac
+        case "$kind" in OK) ok "$msg";; FAIL) bad "$msg";; INFO) printf '  ---- %s\n' "$msg";; NOTE) warn "$msg";; esac
       done
   fi
 
@@ -172,13 +176,25 @@ cmd_verify() {
 
 # ---------------------------------------------------------------- submit
 cmd_submit() {
-  local art="${1:?usage: release.sh submit <artifact.aab>}"
+  local art="${1:?usage: release.sh submit <artifact.aab> [internal|production]}"
+  local profile="${2:-$SUBMIT_PROFILE_DEFAULT}"
+  case "$profile" in
+    internal)   local desc="Play INTERNAL TESTING track — visible to your internal testers only" ;;
+    production) local desc="Play PRODUCTION track, created as a DRAFT release — it does NOT go live until you roll it out in Play Console" ;;
+    *) echo "unknown submit profile '$profile' (expected: internal | production)" >&2; return 2 ;;
+  esac
+
   cmd_verify "$art"
+
   head_ "submit"
-  echo "  This uploads to Google Play and is visible to reviewers/testers."
-  read -r -p "  Upload '$art' to Play? [y/N] " a
-  [[ "$a" =~ ^[Yy]$ ]] || { echo "  aborted"; return 1; }
-  npx eas submit --platform android --profile "$PROFILE" --path "$art"
+  printf '  artifact : %s\n' "$art"
+  printf '  profile  : %s\n' "$profile"
+  printf '  target   : %s\n' "$desc"
+  echo
+  echo "  Uploading to Google Play cannot be undone from here."
+  read -r -p "  Type the profile name ('$profile') to confirm: " a
+  [ "$a" = "$profile" ] || { echo "  aborted"; return 1; }
+  npx eas submit --platform android --profile "$profile" --path "$art"
 }
 
 case "${1:-check}" in
@@ -187,5 +203,5 @@ case "${1:-check}" in
   verify) shift; cmd_verify "$@" ;;
   submit) shift; cmd_submit "$@" ;;
   all)    cmd_build ;;
-  *) echo "usage: $0 [check|build|verify <artifact>|submit <artifact>]" >&2; exit 2 ;;
+  *) echo "usage: $0 [check|build|verify <artifact>|submit <artifact> [internal|production]]" >&2; exit 2 ;;
 esac

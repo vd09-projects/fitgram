@@ -77,24 +77,39 @@ Do not upload an artifact that fails this stage.
 ## Stage 4 — submit
 
 ```bash
-./scripts/release.sh submit ~/Downloads/fitgram.aab
+./scripts/release.sh submit <artifact.aab>              # Play internal testing (default)
+./scripts/release.sh submit <artifact.aab> production   # Play production, as a draft release
 ```
 
-Re-runs verification, then asks for confirmation before uploading. Uploading
-makes the build visible to Play reviewers and testers.
+**The track is explicit, and it is not the same thing as the build profile.**
+`eas.json` now defines two submit profiles:
 
-`submit.production` in `eas.json` is currently empty, so `eas submit` will prompt
-for a Google Play service account key. To make it unattended, add:
+| Profile | Play track | Effect |
+|---|---|---|
+| `internal` (default) | `internal` | goes to your internal testers only |
+| `production` | `production`, `releaseStatus: "draft"` | uploads a **draft** release — nothing reaches users until you roll it out manually in Play Console |
+
+The script re-runs verification, prints the target in plain language, and requires
+you to type the profile name to confirm. There is no path that silently publishes
+to production: the default is internal testing, and the production profile still
+stops at a draft.
+
+Historically `submit.production` was `{}`, which relied on EAS Submit's implicit
+default of `track: "internal"`. That was safe but invisible — now it is written down.
+
+### Service account
+
+`eas submit` needs a Google Play service account key. Add it per profile:
 
 ```json
 "submit": {
-  "production": {
-    "android": { "serviceAccountKeyPath": "../play-service-account.json" }
+  "internal": {
+    "android": { "track": "internal", "serviceAccountKeyPath": "../play-service-account.json" }
   }
 }
 ```
 
-Keep that key file outside the repo, or gitignored. It grants publishing rights.
+Keep that file outside the repo, or gitignored. It grants publishing rights.
 
 ---
 
