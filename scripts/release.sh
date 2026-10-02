@@ -147,6 +147,28 @@ cmd_verify() {
       done
   fi
 
+  head_ "manifest vs app.config"
+  # The native android/ dir is committed and prebuild is never run, so
+  # android/app/build.gradle owns versionName — app.config.ts does NOT.
+  local tmpm mver cfgver gver
+  tmpm=$(mktemp -t fitgram-manifest)
+  unzip -p "$art" base/manifest/AndroidManifest.xml > "$tmpm" 2>/dev/null \
+    || unzip -p "$art" AndroidManifest.xml > "$tmpm" 2>/dev/null || true
+  mver=$(strings "$tmpm" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | grep -vE '^(35|36|8)\.' | sort -u | head -1 || true)
+  rm -f "$tmpm"
+  cfgver=$(grep -oE 'const VERSION = "[0-9]+\.[0-9]+\.[0-9]+"' app.config.ts | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
+  gver=$(grep -oE 'versionName "[0-9]+\.[0-9]+\.[0-9]+"' android/app/build.gradle | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
+  printf '  ---- app.config.ts VERSION      : %s\n' "${cfgver:-?}"
+  printf '  ---- build.gradle versionName   : %s\n' "${gver:-?}"
+  printf '  ---- manifest versionName (AAB) : %s\n' "${mver:-?}"
+  if [ -z "$mver" ]; then
+    warn "could not read versionName from the artifact manifest"
+  elif [ "$mver" = "$cfgver" ]; then
+    ok "artifact versionName matches app.config.ts"
+  else
+    bad "artifact ships versionName $mver but app.config.ts says ${cfgver:-?} — build.gradle owns this value"
+  fi
+
   head_ "signature"
   local as; as=$(apksigner_bin)
   if [ -z "$as" ]; then
