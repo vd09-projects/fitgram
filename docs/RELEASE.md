@@ -1,0 +1,125 @@
+# Release process — Android / Play Store
+
+Driven by `scripts/release.sh`. Four stages, each runnable on its own.
+
+```bash
+./scripts/release.sh check                  # preflight only, changes nothing
+./scripts/release.sh build                  # preflight + EAS production build
+./scripts/release.sh verify <artifact.aab>  # inspect the built artifact
+./scripts/release.sh submit <artifact.aab>  # verify, then upload (asks first)
+```
+
+---
+
+## Why verification exists
+
+Two failure modes have already shipped to users from this project, and both are
+invisible until someone installs the app:
+
+- **Env vars missing from the build.** `.env` is listed in `.easignore`, so it
+  never reaches the EAS builder. Values come from EAS environment variables
+  instead. If one is absent or wrong, `extra` is baked as `undefined` and the app
+  fails at runtime — `GOOGLE_WEB_CLIENT_ID: undefined` surfaces as
+  `DEVELOPER_ERROR`, nothing more specific.
+- **Fingerprint not registered.** A build signed with a key Firebase doesn't know
+  breaks Google Sign-In for everyone who installs it.
+
+`verify` reads the real artifact — the `app.config` baked inside it and its
+signing certificate — so both are caught before upload rather than after.
+
+---
+
+## Stage 1 — preflight (`check`)
+
+| Check | Why |
+|---|---|
+| on `main`, working tree clean | EAS archives committed state; uncommitted work silently won't ship |
+| both `google-services.json` copies identical | Gradle reads `android/app/`, `app.config.ts` points at root — see [AUTH_DEBUGGING.md](AUTH_DEBUGGING.md) |
+| all 3 fingerprints + web client present | missing Play fingerprint = broken Google Sign-In in production |
+| 7 env vars exist in EAS `production` | `.env` never reaches the builder |
+| `eas.json` sane | `environment` pinned, `appVersionSource: remote`, submit configured |
+
+Preflight exits non-zero on failure and `build` will not proceed.
+
+## Stage 2 — build
+
+```bash
+./scripts/release.sh build
+```
+
+Runs `eas build --platform android --profile production`. `autoIncrement: true`
+with `appVersionSource: "remote"` means EAS owns `versionCode` — the hardcoded
+`versionCode: 11` in `app.config.ts` is ignored for EAS builds. Bump `VERSION` in
+`app.config.ts` by hand when you want a new user-visible version name.
+
+Download the `.aab` when the build finishes.
+
+## Stage 3 — verify
+
+```bash
+./scripts/release.sh verify ~/Downloads/fitgram.aab
+```
+
+Reports:
+
+- `GOOGLE_WEB_CLIENT_ID` baked into the artifact vs. the value in `.env`
+- `PROJECT_ID` and `API_KEY` present (not `undefined`)
+- version name and versionCode actually built
+- signing key, matched against the known fingerprints
+
+An AAB is signed with your **upload** key; Play re-signs with the app signing key
+before any device sees it, so there is no on-device signature to check at this
+stage. For a direct-install APK, the signing key is checked against the known
+fingerprint list and an unrecognised key fails verification.
+
+Do not upload an artifact that fails this stage.
+
+## Stage 4 — submit
+
+```bash
+./scripts/release.sh submit ~/Downloads/fitgram.aab
+```
+
+Re-runs verification, then asks for confirmation before uploading. Uploading
+makes the build visible to Play reviewers and testers.
+
+`submit.production` in `eas.json` is currently empty, so `eas submit` will prompt
+for a Google Play service account key. To make it unattended, add:
+
+```json
+"submit": {
+  "production": {
+    "android": { "serviceAccountKeyPath": "../play-service-account.json" }
+  }
+}
+```
+
+Keep that key file outside the repo, or gitignored. It grants publishing rights.
+
+---
+
+## After release
+
+Verify on a real device, not just the emulator — the emulator runs a
+debug-signed build and therefore exercises a different fingerprint path entirely.
+That difference is exactly what hid the `DEVELOPER_ERROR` bug.
+
+---
+
+## Known rough edges
+
+- **`eas.json` is gitignored** (`.gitignore:11`). Build configuration should be
+  version-controlled; it holds no secrets today. Consider removing that line.
+- **Release builds are signed with the committed debug keystore.**
+  `android/app/build.gradle` sets `release { signingConfig signingConfigs.debug }`
+  — the Expo prebuild default, whose private key ships in every Expo project and
+  is therefore public. Play App Signing protects Play-distributed builds, but any
+  APK you hand out directly is signed with a publicly-known key. Generate a real
+  release keystore before distributing APKs outside Play. Note `.gitignore`
+  covers `*.jks` and `*.key` but **not** `*.keystore`.
+- **Google deletes OAuth clients unused for 6+ months.** Long gaps between
+  releases can silently break Google Sign-In. See AUTH_DEBUGGING.md §2a.
+- **Keystore hygiene.** `@vd09__fitgram.jks` sits in the repo root (gitignored),
+  and `~/Downloads/@vd09__fitgram-keystore-backup/` stores its password in
+  plaintext beside it. EAS holds the authoritative copy — prefer re-downloading
+  over keeping loose copies, and keep them out of synced folders.
