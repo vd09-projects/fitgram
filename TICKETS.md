@@ -247,7 +247,7 @@ When a user has an active workout in progress, show a visible animated indicator
 
 ### TICKET-012: Account Linking — one identity, multiple sign-in methods
 
-**Priority:** High | **Effort:** Small (Phase 1) / Large (Phase 3) | **Status: OPEN**
+**Priority:** High | **Effort:** Small | **Status: OPEN**
 
 **Problem:**
 
@@ -305,7 +305,10 @@ either way to stop new duplicates, noting that this does not merge existing ones
       them an error at the same time
 - [ ] Never leave an account with zero sign-in methods: block unlinking the last one
 
-**Phase 3 — Large. Only if duplicate uids actually exist.**
+**Phase 3 — NOT NEEDED (confirmed 2026-10-03).** Firebase Console → Authentication
+→ Settings → User account linking is set to *Link accounts that use the same
+email*, so one email always resolves to one uid and duplicate accounts cannot be
+created. Kept below only as a contingency if that setting is ever changed.
 
 - [ ] Detect duplicates by email and pick a surviving uid
 - [ ] Migrate `info/data`, `workouts/*` (incl. nested `exercises`) and
@@ -320,7 +323,11 @@ either way to stop new duplicates, noting that this does not merge existing ones
   which is exactly the Phase 3 signal
 - `src/scripts/` already holds one-off Firestore scripts; a migration script fits
   there, but deletion of auth users still needs Admin credentials
-- Phases 1 and 2 are independently shippable; Phase 3 is probably dead scope
+- Phases 1 and 2 are independently shippable; Phase 3 is confirmed dead scope
+- Because the project links accounts on matching email and Google emails are
+  verified, Firebase auto-links Google onto an existing email/password account.
+  The unhandled direction is the reverse: a Google-only account has no password
+  and no sign-in path creates one, so it needs an explicit linkWithCredential
 
 **Dependencies:** None. Phase 1 can ship on its own.
 
