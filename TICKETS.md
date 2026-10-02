@@ -245,6 +245,80 @@ When a user has an active workout in progress, show a visible animated indicator
 
 ---
 
+### TICKET-012: Account Linking — one identity, multiple sign-in methods
+
+**Priority:** High | **Effort:** Small (Phase 1) / Large (Phase 3) | **Status: OPEN**
+
+**Problem:**
+
+`vikrantdhawan9@gmail.com` can sign in with Google but not with email/password —
+Firebase returns `auth/invalid-credential`. The account exists with only a Google
+provider; no password credential was ever created for it.
+
+`linkGoogleAccount()` exists in `src/services/db/authService.ts:105` but is **never
+called from anywhere**. So every account ends up with exactly one provider and can
+never gain another. There is also no password reset flow anywhere in the app, so a
+user in this state has no self-service route back in.
+
+Firebase's email-enumeration protection (on by default) returns the same
+`auth/invalid-credential` for *wrong password* and *no password credential*, so the
+client cannot tell the user which one happened. The toast is therefore unhelpful by
+construction.
+
+**Before starting:** check Firebase Console → Authentication → Settings → User
+account linking. If it is set to *Multiple accounts per email address*, duplicate
+uids can already exist and Phase 3 is required. If it is *One account per email*
+(the default), Phase 3 is almost certainly unnecessary — switch it to one-account
+either way to stop new duplicates, noting that this does not merge existing ones.
+
+---
+
+**Phase 1 — Small. Unblocks the reported problem.**
+
+- [ ] `sendPasswordReset(email)` wrapping `sendPasswordResetEmail`, with a
+      "Forgot password?" link on `SignInScreen`
+- [ ] `setPasswordForCurrentUser(password)` using
+      `linkWithCredential(auth.currentUser, EmailAuthProvider.credential(email, password))`
+      so a Google-only user can add a password
+- [ ] Handle `auth/requires-recent-login` by re-authenticating before linking —
+      Firebase rejects credential changes on an old session
+- [ ] Update `users/{uid}/info/data.provider` once a second method is linked; the
+      field is currently a single value (`'email' | 'google'`) and should become a
+      list of linked methods
+
+**Phase 2 — Small/Medium. Makes linking reachable and automatic.**
+
+- [ ] Profile → "Sign-in methods" section listing linked providers, with an action
+      to add the missing one. Wire up the existing `linkGoogleAccount()`
+- [ ] Handle `auth/account-exists-with-different-credential` in the Google path:
+      look up existing methods for the email, sign in with the known method, then
+      `linkWithCredential` the Google credential instead of erroring
+- [ ] Fix `signUpWithGoogle` (`authService.ts:84-87`), which calls `setUser(user)`
+      and *then* throws "Account already exists" — signing the user in and showing
+      them an error at the same time
+- [ ] Never leave an account with zero sign-in methods: block unlinking the last one
+
+**Phase 3 — Large. Only if duplicate uids actually exist.**
+
+- [ ] Detect duplicates by email and pick a surviving uid
+- [ ] Migrate `info/data`, `workouts/*` (incl. nested `exercises`) and
+      `workout_logs/*/logs/*` — recursive, idempotent, resumable
+- [ ] Delete the dead auth user via a Cloud Function; the client SDK cannot delete
+      another user
+- [ ] Dry-run mode and a verification pass before any destructive step
+
+**Technical Notes:**
+- Linking is `linkWithCredential` on the *currently signed-in* user; it fails with
+  `auth/credential-already-in-use` if that credential belongs to another uid —
+  which is exactly the Phase 3 signal
+- `src/scripts/` already holds one-off Firestore scripts; a migration script fits
+  there, but deletion of auth users still needs Admin credentials
+- Phases 1 and 2 are independently shippable; Phase 3 is probably dead scope
+
+**Dependencies:** None. Phase 1 can ship on its own.
+
+---
+
 ## Recommended Execution Order
 
 ```
@@ -256,7 +330,8 @@ When a user has an active workout in progress, show a visible animated indicator
 6. TICKET-005  (AsyncStorage service)     — Unblocks Google Sign-In
 7. TICKET-006  (Break large components)   — General cleanup
 8. TICKET-008  (Barrel exports)           — Polish
-9. TICKET-010  (Forgot Password)          — Quickest feature win
+9. TICKET-012  (Account Linking Ph.1)     — Unblocks locked-out users
+10. TICKET-010 (Forgot Password)          — Subsumed by TICKET-012 Phase 1
 10. TICKET-009 (Google Sign-In)           — Largest feature
 11. TICKET-011 (Active Workout Animation) — UX enhancement
 ```
