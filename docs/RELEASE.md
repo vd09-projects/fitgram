@@ -169,6 +169,17 @@ That difference is exactly what hid the `DEVELOPER_ERROR` bug.
   APK you hand out directly is signed with a publicly-known key. Generate a real
   release keystore before distributing APKs outside Play. Note `.gitignore`
   covers `*.jks` and `*.key` but **not** `*.keystore`.
+- **Target API level.** Play requires targetSdk 36 (Android 16); the deadline
+  was 31 Aug 2026 and uploads below it are rejected. `android/build.gradle` sets
+  compile/target 36 and buildTools 36.0.0. This works on Expo SDK 52 / RN 0.77
+  with AGP 8.7.2 — verified by a local `assembleDebug` producing
+  `targetSdkVersion:'36'` with no compatibility warnings. Google raises this
+  requirement annually, so expect to repeat it.
+- **Edge-to-edge is mandatory at targetSdk 36.**
+  `windowOptOutEdgeToEdgeEnforcement` is deprecated and ignored, so the app must
+  handle insets itself. `LayoutScreen` is the single owner of safe-area insets
+  for the signed-in app; the auth screens handle their own. Do not re-apply
+  insets in nested components — that double-pads. See AUTH_DEBUGGING.md.
 - **Google deletes OAuth clients unused for 6+ months.** Long gaps between
   releases can silently break Google Sign-In. See AUTH_DEBUGGING.md §2a.
 - **Keystore hygiene.** `@vd09__fitgram.jks` sits in the repo root (gitignored),
