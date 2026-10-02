@@ -26,6 +26,42 @@ apksigner_bin() {
   ls -d "$HOME"/Library/Android/sdk/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1
 }
 
+# ---------------------------------------------------------------- versions
+# versionName lives in THREE places and nothing keeps them in sync automatically:
+#   app.config.ts   -> what expo-constants reports to JS
+#   build.gradle    -> what the Android manifest actually ships  (source of truth)
+#   ios Info.plist  -> what iOS ships
+# EAS manages versionCode (appVersionSource: remote) but never versionName.
+read_versions() {
+  V_CFG=$(grep -oE 'const VERSION = "[0-9]+\.[0-9]+\.[0-9]+"' app.config.ts | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
+  V_GRADLE=$(grep -oE 'versionName "[0-9]+\.[0-9]+\.[0-9]+"' android/app/build.gradle | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
+  V_IOS=$(awk '/CFBundleShortVersionString/{getline; print}' ios/Fitgram/Info.plist 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
+}
+
+cmd_version() {
+  read_versions
+  local new="${1:-}"
+  if [ -z "$new" ]; then
+    printf '  app.config.ts  : %s\n  build.gradle   : %s\n  ios Info.plist : %s\n' "${V_CFG:-?}" "${V_GRADLE:-?}" "${V_IOS:-?}"
+    if [ "$V_CFG" = "$V_GRADLE" ] && [ "$V_CFG" = "$V_IOS" ]; then
+      ok "in sync"
+    else
+      bad "out of sync — run: $0 version <x.y.z>"
+      return 1
+    fi
+    return 0
+  fi
+  echo "$new" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "version must look like 1.2.3" >&2; return 2; }
+  sed -i '' "s/const VERSION = \"[0-9]*\.[0-9]*\.[0-9]*\"/const VERSION = \"$new\"/" app.config.ts
+  sed -i '' "s/versionName \"[0-9]*\.[0-9]*\.[0-9]*\"/versionName \"$new\"/" android/app/build.gradle
+  if [ -f ios/Fitgram/Info.plist ]; then
+    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $new" ios/Fitgram/Info.plist >/dev/null 2>&1 || true
+  fi
+  read_versions
+  printf '  app.config.ts  : %s\n  build.gradle   : %s\n  ios Info.plist : %s\n' "${V_CFG:-?}" "${V_GRADLE:-?}" "${V_IOS:-?}"
+  ok "version set to $new — commit this before building"
+}
+
 # ---------------------------------------------------------------- check
 cmd_check() {
   FAILED=0
@@ -68,6 +104,15 @@ $(echo "$dirty" | sed 's/^/        /')"
       '
       bad "google-services.json incomplete — re-download from Firebase (see docs/AUTH_DEBUGGING.md)"
     }
+  fi
+
+  head_ "versionName sources"
+  read_versions
+  printf '  ---- app.config.ts %s | build.gradle %s | ios Info.plist %s\n' "${V_CFG:-?}" "${V_GRADLE:-?}" "${V_IOS:-?}"
+  if [ -n "$V_GRADLE" ] && [ "$V_CFG" = "$V_GRADLE" ] && [ "$V_CFG" = "$V_IOS" ]; then
+    ok "all three agree ($V_CFG)"
+  else
+    bad "versionName sources disagree — android/app/build.gradle is what ships. Run: $0 version <x.y.z>"
   fi
 
   head_ "EAS environment ($BUILD_PROFILE)"
@@ -220,10 +265,11 @@ cmd_submit() {
 }
 
 case "${1:-check}" in
-  check)  cmd_check ;;
+  check)   cmd_check ;;
+  version) shift; cmd_version "${1:-}" ;;
   build)  cmd_build ;;
   verify) shift; cmd_verify "$@" ;;
   submit) shift; cmd_submit "$@" ;;
   all)    cmd_build ;;
-  *) echo "usage: $0 [check|build|verify <artifact>|submit <artifact> [internal|production]]" >&2; exit 2 ;;
+  *) echo "usage: $0 [version [x.y.z]|check|build|verify <artifact>|submit <artifact> [internal|production]]" >&2; exit 2 ;;
 esac

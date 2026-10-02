@@ -29,6 +29,34 @@ signing certificate — so both are caught before upload rather than after.
 
 ---
 
+## Stage 0 — set the version
+
+```bash
+./scripts/release.sh version          # show all three sources, fail if they disagree
+./scripts/release.sh version 1.0.3    # set all three together
+```
+
+`versionName` lives in **three** places and nothing syncs them automatically:
+
+| File | Drives |
+|---|---|
+| `app.config.ts` (`VERSION`) | what `expo-constants` reports to JS |
+| `android/app/build.gradle` (`versionName`) | **what the Android manifest actually ships** |
+| `ios/Fitgram/Info.plist` (`CFBundleShortVersionString`) | what iOS ships |
+
+Because `android/` is committed and `expo prebuild` is never run, **build.gradle
+wins on Android**. Editing `app.config.ts` alone changes only what JS sees.
+
+EAS manages `versionCode` through `appVersionSource: "remote"` with
+`autoIncrement`, but it does **not** touch `versionName`. This bit once: release
+1.0.1 was built with `app.config.ts` saying 1.0.2 and the manifest saying 1.0.1,
+and nothing caught it until the artifact was inspected. `check` now fails when
+the three disagree, and `verify` reads `versionName` out of the artifact manifest
+and fails on mismatch.
+
+`versionCode 11` in `build.gradle` and `app.config.ts` is stale and ignored —
+EAS overwrites it. Leave it or delete it; it has no effect.
+
 ## Stage 1 — preflight (`check`)
 
 | Check | Why |
@@ -73,6 +101,15 @@ stage. For a direct-install APK, the signing key is checked against the known
 fingerprint list and an unrecognised key fails verification.
 
 Do not upload an artifact that fails this stage.
+
+`submit` re-runs `verify` and refuses to upload on failure, with no bypass flag —
+that is the point of it. To ship an artifact that deliberately fails a check
+(as release 1.0.1 did, built before the versionName fix), call EAS directly and
+own the decision:
+
+```bash
+npx eas submit --platform android --profile internal --id <build-id>
+```
 
 ## Stage 4 — submit
 
