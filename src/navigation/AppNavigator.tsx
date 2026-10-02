@@ -8,12 +8,15 @@ import LayoutScreen from '../screens/LayoutScreen';
 import { enableScreens } from 'react-native-screens';
 import { TextBase } from '../components/TextBase';
 import { useColorSchemaStore } from '../stores/colorSchemaStore';
+import { AllColorSchemas } from '../constants/colors';
 
 enableScreens();
 
 export default function AppNavigator() {
   const { user, initialized } = useAuthUser();
-  const schema = useColorSchemaStore((s) => s.schema);
+  // The store holds the schema *key*; resolve it so the splash honours the chosen theme
+  const schemaKey = useColorSchemaStore((s) => s.currentColorSchema);
+  const schema = AllColorSchemas[schemaKey];
   const bg = schema?.primary ?? '#1A1D1A';
   const textColor = schema?.textPrimary ?? '#DAD3C9';
   const spinnerColor = schema?.button ?? '#436671';

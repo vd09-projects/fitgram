@@ -1,6 +1,5 @@
 import React, { ReactNode } from 'react';
 import { ScrollView, View, StyleSheet, KeyboardAvoidingView, Platform, Text } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 import { useTour } from './guide_tour/TourGuideProvider';
@@ -17,7 +16,7 @@ const ScrollableScreen: React.FC<ScrollableScreenProps> = ({ children, style, ti
   const { triggerMeasureRefresh } = useTour();
 
   return (
-    <SafeAreaView style={[styles.safeArea, style]}>
+    <View style={[styles.safeArea, style]}>
       {/* Fixed Title Section (Accepts JSX) */}
       {title && <View style={styles.titleContainer}>{title}</View>}
 
@@ -39,7 +38,7 @@ const ScrollableScreen: React.FC<ScrollableScreenProps> = ({ children, style, ti
           <View style={{ marginVertical: t.space.ScrollingBuffer }}></View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 };
 

@@ -9,6 +9,7 @@ import { FONT_FAMILY } from './src/constants/styles';
 import { useColorSchemaStore } from './src/stores/colorSchemaStore';
 import { ThemeProvider } from './src/components/app_manager/ThemeContext';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TourGuideProvider } from './src/components/guide_tour/TourGuideProvider';
 import { TooltipOverlay } from './src/components/guide_tour/TourStepOverlay';
 import { AppControlProvider } from './src/components/app_manager/AppControlProvider';
@@ -44,15 +45,17 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <AppControlProvider>
-        <ThemeProvider>
-          <TourGuideProvider>
-            <AppNavigator />
-            <Toast config={toastConfig} />
-            <TooltipOverlay />
-          </TourGuideProvider>
-        </ThemeProvider>
-      </AppControlProvider>
+      <SafeAreaProvider>
+        <AppControlProvider>
+          <ThemeProvider>
+            <TourGuideProvider>
+              <AppNavigator />
+              <Toast config={toastConfig} />
+              <TooltipOverlay />
+            </TourGuideProvider>
+          </ThemeProvider>
+        </AppControlProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

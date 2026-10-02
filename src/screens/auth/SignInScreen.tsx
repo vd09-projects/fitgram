@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { ScreenNavigationProp } from '../../navigation/AuthNavigator';
 import { signInUser, signInWithGoogle } from '../../services/db/authService';
@@ -63,7 +64,8 @@ export default function SignInScreen() {
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <TextBase style={styles.title}>Welcome Back</TextBase>
 
         <PrimaryInputField
@@ -133,13 +135,18 @@ export default function SignInScreen() {
             Don't have an account?
           </TextBase>
         </TouchableOpacity>
-      </ScrollView>
+        </ScrollView>
+      </SafeAreaView>
     </TouchableWithoutFeedback>
   );
 }
 
 const createStyles = (t: ReturnTypeUseThemeTokens) =>
   StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: t.colors.primary,
+    },
     container: {
       flexGrow: 1,
       justifyContent: 'center',
