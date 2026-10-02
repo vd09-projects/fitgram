@@ -333,6 +333,69 @@ created. Kept below only as a contingency if that setting is ever changed.
 
 ---
 
+### TICKET-013: Human-readable auth error messages
+
+**Priority:** Medium | **Effort:** Small | **Status: OPEN**
+
+**Problem:**
+
+Raw SDK errors are shown straight to users. Signing in with a wrong or
+non-existent password produces:
+
+> **Login Failed** — Firebase: Error (auth/invalid-credential).
+
+That string is meaningful to a developer and useless to a user. It names a
+vendor, exposes an internal error code, and says nothing about what to do next.
+
+Five call sites pass `error.message` directly into a toast:
+
+- `src/screens/auth/SignInScreen.tsx` — Login Failed, Google Sign-In Failed
+- `src/screens/auth/SignUpScreen.tsx` — Sign Up Failed, Google Sign-Up Failed
+- `src/screens/ProfileScreen.tsx` — Logout Failed
+
+**Goal:** map error codes to plain-language messages that tell the user what
+happened and what to do. Keep the raw error for developers via `console.warn`,
+never on screen.
+
+**Acceptance Criteria:**
+- [ ] Add `src/utils/authErrors.ts` mapping `error.code` to a user-facing message
+- [ ] Replace every `error.message` in a toast with the mapped message; unknown
+      codes fall back to a generic "Something went wrong. Please try again."
+- [ ] Log the original error with `console.warn` so debugging is not lost
+- [ ] No user-facing string contains "Firebase", "auth/", or a stack trace
+
+**Codes to cover (at minimum):**
+
+| Code | Suggested message |
+|---|---|
+| `auth/invalid-credential`, `auth/wrong-password`, `auth/user-not-found` | "Incorrect email or password." |
+| `auth/invalid-email` | "That email address doesn't look right." |
+| `auth/email-already-in-use` | "An account with this email already exists. Try signing in." |
+| `auth/weak-password` | "Please choose a longer password (at least 6 characters)." |
+| `auth/too-many-requests` | "Too many attempts. Please wait a few minutes and try again." |
+| `auth/network-request-failed` | "No connection. Check your internet and try again." |
+| `auth/requires-recent-login` | "Please sign in again to change your account settings." |
+| `DEVELOPER_ERROR` (Google Sign-In) | "Google Sign-In isn't set up correctly for this build." |
+| `SIGN_IN_CANCELLED` | suppress the toast entirely — the user chose to cancel |
+
+**Technical Notes:**
+- Firebase's email-enumeration protection deliberately returns
+  `auth/invalid-credential` for both *wrong password* and *no such account*, so
+  the message must stay deliberately vague — do not try to distinguish them, and
+  do not reveal whether an email is registered
+- `@react-native-google-signin` throws `error.code` values from `statusCodes`,
+  not Firebase codes; handle both shapes
+- `SIGN_IN_CANCELLED` currently shows an error toast when the user simply backs
+  out of the Google picker; it should show nothing
+
+**Related:** TICKET-012 — once account linking exists, `auth/invalid-credential`
+on an account that only has Google should ideally say "This account uses Google
+Sign-In. Tap Sign in with Google." That needs linking to land first.
+
+**Dependencies:** None.
+
+---
+
 ## Recommended Execution Order
 
 ```
@@ -345,7 +408,8 @@ created. Kept below only as a contingency if that setting is ever changed.
 7. TICKET-006  (Break large components)   — General cleanup
 8. TICKET-008  (Barrel exports)           — Polish
 9. TICKET-012  (Account Linking Ph.1)     — Unblocks locked-out users
-10. TICKET-010 (Forgot Password)          — Subsumed by TICKET-012 Phase 1
+10. TICKET-013 (Auth error messages)      — Small, user-facing polish
+11. TICKET-010 (Forgot Password)          — Subsumed by TICKET-012 Phase 1
 10. TICKET-009 (Google Sign-In)           — Largest feature
 11. TICKET-011 (Active Workout Animation) — UX enhancement
 ```
