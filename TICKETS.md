@@ -265,6 +265,13 @@ Firebase's email-enumeration protection (on by default) returns the same
 client cannot tell the user which one happened. The toast is therefore unhelpful by
 construction.
 
+**Hard requirement:** one email = one uid = one data tree. Every Firestore path in
+`src/services/db/userDB.ts` is keyed by uid (`users/{userId}/workouts`,
+`users/{userId}/workout_logs/.../logs`, `users/{userId}/info/data` — nine call
+sites). Two uids for one person means two disjoint sets of workouts and history
+that diverge permanently. Linking must therefore attach providers to the existing
+uid; it must never create a second account or move data between uids.
+
 **Before starting:** check Firebase Console → Authentication → Settings → User
 account linking. If it is set to *Multiple accounts per email address*, duplicate
 uids can already exist and Phase 3 is required. If it is *One account per email*
