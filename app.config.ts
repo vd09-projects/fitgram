@@ -4,7 +4,7 @@ import { ExpoConfig, ConfigContext } from "@expo/config";
 
 const NAME = "Fitgram";
 const SLUG = "fitgram";
-const VERSION = "1.0.1";
+const VERSION = "1.0.2";
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   return {
