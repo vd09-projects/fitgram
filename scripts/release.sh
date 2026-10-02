@@ -115,6 +115,19 @@ $(echo "$dirty" | sed 's/^/        /')"
     bad "versionName sources disagree — android/app/build.gradle is what ships. Run: $0 version <x.y.z>"
   fi
 
+  head_ "target API level"
+  # Play rejects uploads below this; Google raises the floor annually.
+  local MIN_TARGET_SDK=36
+  local tsdk
+  tsdk=$(grep -oE "targetSdkVersion = Integer.parseInt\(findProperty\('android.targetSdkVersion'\) \?: '[0-9]+'" android/build.gradle | grep -oE "'[0-9]+'\$" | tr -d "'" || true)
+  if [ -z "$tsdk" ]; then
+    warn "could not read targetSdkVersion from android/build.gradle"
+  elif [ "$tsdk" -ge "$MIN_TARGET_SDK" ]; then
+    ok "targetSdkVersion $tsdk (Play requires >= $MIN_TARGET_SDK)"
+  else
+    bad "targetSdkVersion $tsdk is below Play's minimum of $MIN_TARGET_SDK — the upload will be rejected"
+  fi
+
   head_ "EAS environment ($BUILD_PROFILE)"
   local listed
   listed=$(npx eas env:list "$BUILD_PROFILE" 2>/dev/null || true)
