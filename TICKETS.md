@@ -312,8 +312,13 @@ Phase 1 notes:
 
 **Phase 2 — Small/Medium. Makes linking reachable and automatic.**
 
-- [ ] Profile → "Sign-in methods" section listing linked providers, with an action
-      to add the missing one. Wire up the existing `linkGoogleAccount()`
+- [x] Profile → "Sign-in methods" section listing linked providers, with an action
+      to add the missing one — `src/components/SignInMethodsSection.tsx`. Covers the
+      password half: sets one on a Google-only account (the Phase 1 function finally
+      has a caller) and changes an existing one
+- [ ] Wire up the existing `linkGoogleAccount()` from that same section, so an
+      email-only account can add Google. The section already renders the method
+      list it belongs next to
 - [ ] Handle `auth/account-exists-with-different-credential` in the Google path:
       look up existing methods for the email, sign in with the known method, then
       `linkWithCredential` the Google credential instead of erroring
@@ -321,6 +326,19 @@ Phase 1 notes:
       and *then* throws "Account already exists" — signing the user in and showing
       them an error at the same time
 - [ ] Never leave an account with zero sign-in methods: block unlinking the last one
+
+Phase 2 notes (password half, 2026-10-03):
+- `changePasswordForCurrentUser` re-authenticates up front with the password the
+  user typed rather than waiting for `auth/requires-recent-login`. That both
+  satisfies Firebase and verifies they know the current password, which is the
+  only check standing between a borrowed unlocked phone and a stolen account
+- The section re-renders off `info/data.provider`, not `user.providerData`: the
+  store holds one `User` instance that `linkWithCredential` mutates in place, so
+  it never triggers a render. The Firestore mirror arrives through the existing
+  `onSnapshot` in `initAuth.ts` and flips the UI from "Set" to "Change" by itself
+- Setting a password on a Google-only account can open the Google picker, since
+  that is the only way to re-authenticate an account with no password. The copy
+  in the section warns about this before the user taps
 
 **Phase 3 — NOT NEEDED (confirmed 2026-10-03).** Firebase Console → Authentication
 → Settings → User account linking is set to *Link accounts that use the same
@@ -374,8 +392,13 @@ Five call sites pass `error.message` directly into a toast:
 happened and what to do. Keep the raw error for developers via `console.warn`,
 never on screen.
 
+**Progress:** `src/utils/authErrors.ts` now exists — TICKET-012 Phase 2 needed it
+for the password flows and added the codes those produce. What remains is the
+other call sites and the codes only they can raise, including the Google Sign-In
+status codes. Extend `MESSAGES` in that file; do not start a second map.
+
 **Acceptance Criteria:**
-- [ ] Add `src/utils/authErrors.ts` mapping `error.code` to a user-facing message
+- [x] Add `src/utils/authErrors.ts` mapping `error.code` to a user-facing message
 - [ ] Replace every `error.message` in a toast with the mapped message; unknown
       codes fall back to a generic "Something went wrong. Please try again."
 - [ ] Log the original error with `console.warn` so debugging is not lost

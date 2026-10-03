@@ -9,6 +9,7 @@ import { BORDER_RADIUS, FONT_FAMILY, SPACING } from '../constants/styles';
 import ScrollableScreen from '../components/ScrollableScreen';
 import { TextBase } from '../components/TextBase';
 import CollapsibleSection from '../components/CollapsibleSection';
+import SignInMethodsSection from '../components/SignInMethodsSection';
 import { ColorSchemaSelector } from '../components/ColorSchemaSelector';
 import { ReturnTypeUseThemeTokens } from '../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../utils/useThemeStyles';
@@ -50,6 +51,8 @@ export default function ProfileScreen() {
           <TextBase style={styles.userInfo}>Email: {user?.email || "--"}</TextBase>
         </CollapsibleSection>
       </MaybeTourStep>
+
+      <SignInMethodsSection />
 
       <MaybeTourStep stepId={PROFILE_STEP_NAMES.THEMES} >
         <CollapsibleSection

@@ -8,6 +8,7 @@ import {
   linkWithCredential,
   reauthenticateWithCredential,
   sendPasswordResetEmail,
+  updatePassword,
   User,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
@@ -187,6 +188,32 @@ export const setPasswordForCurrentUser = async (password: string) => {
   }
 
   await syncLinkedMethods(currentUser);
+};
+
+// Change the password of an account that already has one. Firebase would reject
+// this on a stale session anyway, so rather than waiting for the rejection we
+// re-verify up front with the password the user just typed — which doubles as the
+// check that they actually know their current password.
+export const changePasswordForCurrentUser = async (
+  currentPassword: string,
+  newPassword: string
+) => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('No user is currently signed in.');
+  }
+  if (!currentUser.email) {
+    throw new Error('This account has no email address.');
+  }
+  if (!isValidPassword(newPassword)) {
+    throw new Error('Password must be at least 6 characters.');
+  }
+
+  await reauthenticateWithCredential(
+    currentUser,
+    EmailAuthProvider.credential(currentUser.email, currentPassword)
+  );
+  await updatePassword(currentUser, newPassword);
 };
 
 // Function to link Google account to an existing email/password user
