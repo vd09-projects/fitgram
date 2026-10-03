@@ -413,6 +413,74 @@ Sign-In. Tap Sign in with Google." That needs linking to land first.
 
 ---
 
+### TICKET-014: Password reset email lands in spam and is branded as a project number
+
+**Priority:** High | **Effort:** Small (console) / Medium (own sender) | **Status: OPEN**
+
+**Problem:**
+
+The reset email TICKET-012 Phase 1 added works, but Gmail filed it under Spam
+("This message is similar to messages that were identified as spam in the past")
+and every user-facing string names the project number instead of the app:
+
+> **Subject:** Reset your password for project-367435954102
+> **From:** noreply@gymexerciselogger-fb.firebaseapp.com
+> Follow this link to reset your **project-367435954102** password…
+> Thanks, Your **project-367435954102** team
+
+Two separate causes:
+
+1. **`%APP_NAME%` is unset.** Firebase substitutes the public-facing project name
+   into the default templates; with none set it falls back to `project-<number>`.
+2. **The default sender is a shared domain.** `firebaseapp.com` sends for every
+   Firebase project on earth, so its reputation is not ours to fix, and a generic
+   body signed by a numeric project name matches the spam profile exactly.
+
+Nothing here is reachable from app code — Firebase owns template rendering and
+delivery. The only client-side lever is `actionCodeSettings`, which controls the
+continue URL, not the branding or the sender.
+
+**Phase 1 — console only, free, no domain required.**
+
+- [ ] Project settings → General → **Public-facing name** = `Fitgram`, and set the
+      support email. Fixes subject, body and signature in one change
+- [ ] Authentication → Templates → Password reset → edit subject and body to name
+      Fitgram explicitly and say what the link does. Placeholders available:
+      `%LINK%`, `%EMAIL%`, `%APP_NAME%`, `%DISPLAY_NAME%`
+- [ ] Set the template's **sender display name** and a real reply-to address
+- [ ] Re-send to a Gmail account and confirm it reaches the inbox
+
+**Phase 2 — own sender domain. The actual deliverability fix.**
+
+- [ ] Authentication → Templates → **SMTP settings**: point at a transactional
+      provider (Resend, SendGrid, Mailgun, SES) on a domain we control
+- [ ] Publish SPF, DKIM and DMARC for that domain — without all three, a custom
+      sender is no better than the shared one
+- [ ] Optional: custom **Action URL** domain via Firebase Hosting, so the link is
+      not a bare `firebaseapp.com` URL with a visible `apiKey` query parameter
+
+**Phase 3 — only if the templates prove too limited.**
+
+- [ ] Cloud Function calling Admin SDK `generatePasswordResetLink(email)` and
+      sending our own HTML mail through the provider. Needs the Blaze plan and a
+      `functions/` directory, neither of which exists yet
+- [ ] That path must return an identical response for a registered and an
+      unregistered email — `generatePasswordResetLink` throws `user-not-found`,
+      and surfacing that would undo the email-enumeration protection the client
+      currently respects
+
+**Technical Notes:**
+- `sendPasswordReset` in `src/services/db/authService.ts` needs no change for
+  Phases 1 and 2; the template and transport are entirely server-side
+- The reset toast on `SignInScreen` tells users to check their spam folder. That
+  line is a workaround for this ticket and should be dropped once Phase 2 lands
+- Changing the sender domain rotates the reputation back to zero, so expect a few
+  days of warm-up before judging the result
+
+**Dependencies:** TICKET-012 Phase 1 (shipped). Phase 2 needs a domain we own.
+
+---
+
 ## Recommended Execution Order
 
 ```
@@ -425,7 +493,8 @@ Sign-In. Tap Sign in with Google." That needs linking to land first.
 7. TICKET-006  (Break large components)   — General cleanup
 8. TICKET-008  (Barrel exports)           — Polish
 9. TICKET-012  (Account Linking Ph.1)     — Unblocks locked-out users
-10. TICKET-013 (Auth error messages)      — Small, user-facing polish
+10. TICKET-014 (Reset email branding)     — Console-only Phase 1, do it now
+11. TICKET-013 (Auth error messages)      — Small, user-facing polish
 11. TICKET-010 (Forgot Password)          — Subsumed by TICKET-012 Phase 1
 10. TICKET-009 (Google Sign-In)           — Largest feature
 11. TICKET-011 (Active Workout Animation) — UX enhancement

@@ -58,8 +58,13 @@ export default function SignInScreen() {
     setIsSendingReset(true);
     try {
       await sendPasswordReset(email);
-      // Deliberately vague about whether the account exists — see sendPasswordReset
-      show.success('Check Your Email', `If you has an account, a reset link is on its way.`);
+      // Deliberately vague about whether the account exists — see sendPasswordReset.
+      // The spam folder is called out because Firebase's default sender domain is
+      // shared across every Firebase project, and Gmail routinely filters it.
+      show.success(
+        'Check Your Email',
+        `If ${email.trim()} has an account, a reset link is on its way. Check your spam folder too.`
+      );
     } catch (error: any) {
       show.alert('Could Not Send Reset Link', error.message || 'Something went wrong.');
     } finally {
