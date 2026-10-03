@@ -440,15 +440,28 @@ Nothing here is reachable from app code — Firebase owns template rendering and
 delivery. The only client-side lever is `actionCodeSettings`, which controls the
 continue URL, not the branding or the sender.
 
-**Phase 1 — console only, free, no domain required.**
+**BLOCKER (found 2026-10-03).** The template editor refuses to save:
+
+> Email template updates are currently unavailable for this project. For
+> assistance with template changes, contact Firebase support
+
+Google gates template editing on projects that send through the default
+`firebaseapp.com` sender; the exact trigger for this project is unknown. Subject,
+message body, sender name and reply-to are therefore all **unreachable**. The one
+console lever still available is the public-facing name, which lives on a
+different screen and feeds `%APP_NAME%` in the locked template.
+
+**Phase 1 — the only console change still possible. Free, no domain.**
 
 - [ ] Project settings → General → **Public-facing name** = `Fitgram`, and set the
-      support email. Fixes subject, body and signature in one change
-- [ ] Authentication → Templates → Password reset → edit subject and body to name
-      Fitgram explicitly and say what the link does. Placeholders available:
-      `%LINK%`, `%EMAIL%`, `%APP_NAME%`, `%DISPLAY_NAME%`
-- [ ] Set the template's **sender display name** and a real reply-to address
-- [ ] Re-send to a Gmail account and confirm it reaches the inbox
+      support email. The locked template still interpolates `%APP_NAME%`, so this
+      alone replaces `project-367435954102` in the subject, body and signature
+- [ ] Re-send to a Gmail account and confirm the rendered name changed
+- [ ] Check whether **SMTP settings** on the Templates page is blocked by the same
+      gate or is independently editable — it is a separate control, and if it
+      opens, Phase 2 becomes reachable without a support ticket
+- [ ] File a Firebase support ticket for template editing. Free, and the error
+      message explicitly invites it; it may simply be restored on request
 
 **Phase 2 — own sender domain. The actual deliverability fix.**
 
@@ -459,15 +472,25 @@ continue URL, not the branding or the sender.
 - [ ] Optional: custom **Action URL** domain via Firebase Hosting, so the link is
       not a bare `firebaseapp.com` URL with a visible `apiKey` query parameter
 
-**Phase 3 — only if the templates prove too limited.**
+**Phase 3 — now the only route to custom copy, given the blocker above.**
 
 - [ ] Cloud Function calling Admin SDK `generatePasswordResetLink(email)` and
       sending our own HTML mail through the provider. Needs the Blaze plan and a
       `functions/` directory, neither of which exists yet
+- [ ] `sendPasswordReset` switches from `sendPasswordResetEmail` to a callable;
+      the "Forgot password?" handler on `SignInScreen` does not change
 - [ ] That path must return an identical response for a registered and an
       unregistered email — `generatePasswordResetLink` throws `user-not-found`,
       and surfacing that would undo the email-enumeration protection the client
       currently respects
+- [ ] Firebase never sends anything on this path, so the template gate stops
+      applying — subject, body and sender are all ours
+
+**Unverified alternative:** the Identity Platform admin REST API
+(`identitytoolkit.googleapis.com/admin/v2/projects/{id}/config`) exposes
+`notification.sendEmail.resetPasswordTemplate`. It is likely behind the same gate
+as the console, but a read-only GET would settle it cheaply. Needs `gcloud`
+installed and authenticated; neither is present on this machine.
 
 **Technical Notes:**
 - `sendPasswordReset` in `src/services/db/authService.ts` needs no change for
