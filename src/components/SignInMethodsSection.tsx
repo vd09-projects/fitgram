@@ -10,6 +10,7 @@ import { BORDER_RADIUS, SPACING } from '../constants/styles';
 import { useAuthUser } from '../hooks/useAuthUser';
 import {
   changePasswordForCurrentUser,
+  sendPasswordReset,
   setPasswordForCurrentUser,
 } from '../services/db/authService';
 import { getLinkedMethods, normalizeSignInMethods, SignInMethod } from '../utils/authProviders';
@@ -30,6 +31,9 @@ export default function SignInMethodsSection() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isSendingReset, setIsSendingReset] = useState(false);
+
+  const isBusy = isSaving || isSendingReset;
 
   // info/data.provider is a mirror of providerData, and it is what re-renders this
   // section once a password is linked — the User object in the store is mutated in
@@ -47,6 +51,34 @@ export default function SignInMethodsSection() {
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
+  };
+
+  // The way out of the current-password field for someone who has forgotten it.
+  // Proof of inbox access replaces proof of password, so the unattended-phone
+  // protection holds: whoever holds the phone still cannot change the password
+  // without also reaching the mailbox.
+  const handleForgotCurrentPassword = async () => {
+    const email = user?.email;
+    if (!email) {
+      show.alert('No Email on File', 'This account has no email address to send a reset link to.');
+      return;
+    }
+
+    setIsSendingReset(true);
+    try {
+      await sendPasswordReset(email);
+      // Unlike the sign-in screen, the account is known to exist here, so this can
+      // say so plainly — there is nothing left to leak to a signed-in user
+      show.success(
+        'Check Your Email',
+        `A reset link is on its way to ${email}. Check your spam folder too.`
+      );
+    } catch (error) {
+      console.warn('Password reset request failed:', error);
+      show.alert('Could Not Send Reset Link', describeAuthError(error));
+    } finally {
+      setIsSendingReset(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -104,13 +136,25 @@ export default function SignInMethodsSection() {
       </TextBase>
 
       {hasPassword ? (
-        <PrimaryInputField
-          label="Current password"
-          value={currentPassword}
-          onChangeText={setCurrentPassword}
-          placeholder="Enter your current password"
-          secureTextEntry
-        />
+        <>
+          <PrimaryInputField
+            label="Current password"
+            value={currentPassword}
+            onChangeText={setCurrentPassword}
+            placeholder="Enter your current password"
+            secureTextEntry
+          />
+
+          <TouchableOpacity
+            onPress={handleForgotCurrentPassword}
+            disabled={isBusy}
+            style={styles.forgotRow}
+          >
+            <TextBase style={styles.forgotText} isDefaultFontFamilyRequired>
+              {isSendingReset ? 'Sending reset link...' : 'Forgot your current password?'}
+            </TextBase>
+          </TouchableOpacity>
+        </>
       ) : (
         <TextBase style={styles.hint} isDefaultFontFamilyRequired>
           Adding a password lets you sign in with your email as well as with Google.
@@ -135,7 +179,7 @@ export default function SignInMethodsSection() {
         secureTextEntry
       />
 
-      <TouchableOpacity style={styles.button} onPress={handleSubmit} disabled={isSaving}>
+      <TouchableOpacity style={styles.button} onPress={handleSubmit} disabled={isBusy}>
         <TextBase style={styles.buttonText}>
           {isSaving ? 'Saving...' : hasPassword ? 'Update Password' : 'Set Password'}
         </TextBase>
@@ -170,6 +214,16 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
       color: t.colors.textPrimary,
       fontSize: t.fonts.medium,
       marginBottom: SPACING.medium,
+    },
+    forgotRow: {
+      alignSelf: 'flex-end',
+      marginBottom: SPACING.small,
+    },
+    forgotText: {
+      color: t.colors.textPrimary,
+      fontSize: t.fonts.medium,
+      textDecorationLine: 'underline',
+      fontStyle: 'italic',
     },
     button: {
       backgroundColor: t.colors.buttonSecondary,

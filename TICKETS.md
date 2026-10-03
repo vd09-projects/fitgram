@@ -339,6 +339,13 @@ Phase 2 notes (password half, 2026-10-03):
 - Setting a password on a Google-only account can open the Google picker, since
   that is the only way to re-authenticate an account with no password. The copy
   in the section warns about this before the user taps
+- Changing a password asks for the current one even though Firebase would accept
+  a fresh session without it. Sessions here persist for `INACTIVE_EXPIRY_DAYS`,
+  so being signed in proves possession of the phone, not of the account; without
+  that field anyone holding an unlocked phone could take the account over. A
+  "Forgot your current password?" link in the same section sends a reset mail to
+  the signed-in address, so the requirement has an escape hatch rather than a
+  dead end — proof of inbox access instead of proof of password
 
 **Phase 3 — NOT NEEDED (confirmed 2026-10-03).** Firebase Console → Authentication
 → Settings → User account linking is set to *Link accounts that use the same
