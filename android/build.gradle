@@ -22,6 +22,27 @@ buildscript {
     }
 }
 
+// Android 15+ devices may use 16 KB memory pages, and Play requires every bundled
+// .so to be aligned accordingly. Most native modules already comply, but
+// expo-modules-core and react-native-gesture-handler build their libraries with
+// the NDK default of 4 KB. ANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES (NDK r27+) raises
+// the max page size to 16384 for every CMake-built subproject.
+subprojects { subproject ->
+    afterEvaluate {
+        if (subproject.plugins.hasPlugin("com.android.library") || subproject.plugins.hasPlugin("com.android.application")) {
+            subproject.android {
+                defaultConfig {
+                    externalNativeBuild {
+                        cmake {
+                            arguments "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 apply plugin: "com.facebook.react.rootproject"
 
 allprojects {

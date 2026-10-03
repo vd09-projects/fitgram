@@ -227,6 +227,17 @@ cmd_verify() {
     bad "artifact ships versionName $mver but app.config.ts says ${cfgver:-?} — build.gradle owns this value"
   fi
 
+  head_ "16 KB page alignment"
+  # Play rejects apps targeting Android 15+ whose 64-bit .so files are not
+  # 16 KB aligned. 32-bit ABIs cannot use 16 KB pages and are not checked.
+  local align_out
+  if align_out=$(python3 "$ROOT/scripts/check-16kb.py" "$art" 2>&1); then
+    ok "$align_out"
+  else
+    printf '%s\n' "$align_out" | sed 's/^/        /'
+    bad "native libraries are not 16 KB aligned — Play will reject this upload"
+  fi
+
   head_ "signature"
   local as; as=$(apksigner_bin)
   if [ -z "$as" ]; then
