@@ -1,6 +1,7 @@
 // src/store/authStore.ts
 import { create } from 'zustand';
 import { User } from 'firebase/auth';
+import { SignInMethod } from '../utils/authProviders';
 
 export interface UserInfo {
   name: string;
@@ -8,7 +9,9 @@ export interface UserInfo {
   uid: string;
   createdAt: any;
   role: string;
-  provider?: 'email' | 'google';
+  // A list since TICKET-012; accounts created before that store a single string.
+  // Read it through normalizeSignInMethods, never directly.
+  provider?: SignInMethod | SignInMethod[];
 }
 
 interface AuthState {

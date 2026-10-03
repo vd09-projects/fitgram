@@ -247,7 +247,7 @@ When a user has an active workout in progress, show a visible animated indicator
 
 ### TICKET-012: Account Linking — one identity, multiple sign-in methods
 
-**Priority:** High | **Effort:** Small | **Status: OPEN**
+**Priority:** High | **Effort:** Small | **Status: IN PROGRESS** — Phase 1 done, Phase 2 open
 
 **Problem:**
 
@@ -280,18 +280,35 @@ either way to stop new duplicates, noting that this does not merge existing ones
 
 ---
 
-**Phase 1 — Small. Unblocks the reported problem.**
+**Phase 1 — DONE (2026-10-03). Unblocks the reported problem.**
 
-- [ ] `sendPasswordReset(email)` wrapping `sendPasswordResetEmail`, with a
+- [x] `sendPasswordReset(email)` wrapping `sendPasswordResetEmail`, with a
       "Forgot password?" link on `SignInScreen`
-- [ ] `setPasswordForCurrentUser(password)` using
+- [x] `setPasswordForCurrentUser(password)` using
       `linkWithCredential(auth.currentUser, EmailAuthProvider.credential(email, password))`
       so a Google-only user can add a password
-- [ ] Handle `auth/requires-recent-login` by re-authenticating before linking —
+- [x] Handle `auth/requires-recent-login` by re-authenticating before linking —
       Firebase rejects credential changes on an old session
-- [ ] Update `users/{uid}/info/data.provider` once a second method is linked; the
+- [x] Update `users/{uid}/info/data.provider` once a second method is linked; the
       field is currently a single value (`'email' | 'google'`) and should become a
       list of linked methods
+
+`setPasswordForCurrentUser` has no caller yet — the screen that calls it is the
+Phase 2 "Sign-in methods" section. The locked-out user is unblocked by the reset
+link alone: completing it attaches a password to the existing uid.
+
+Phase 1 notes:
+- `src/utils/authProviders.ts` is the one place that maps Firebase provider ids to
+  the stored `'email' | 'google'` names. `getLinkedMethods(user)` reads
+  `user.providerData` (auth is the source of truth); `normalizeSignInMethods(value)`
+  reads the Firestore field and tolerates the legacy single-string form
+- `provider` is written as a list on every new account and re-synced from
+  `providerData` after any link, so it can never drift to a stale single value
+- The sync write is best-effort (`console.warn` on failure): the credential change
+  has already committed by then, and reporting a failed link would be a lie
+- Re-authentication can only use a provider the account already has. A Google-only
+  account has no password to re-enter, so Google is the only usable path; an
+  email-only account hitting `requires-recent-login` is told to sign in again
 
 **Phase 2 — Small/Medium. Makes linking reachable and automatic.**
 

@@ -10,11 +10,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { ScreenNavigationProp } from '../../navigation/AuthNavigator';
-import { signInUser, signInWithGoogle } from '../../services/db/authService';
+import { sendPasswordReset, signInUser, signInWithGoogle } from '../../services/db/authService';
 import { AuthRoutes } from '../../constants/routes';
 import show from '../../utils/toastUtils';
 import { PrimaryInputField } from '../../components/PrimaryInputField';
-import { validateCredentials } from '../../utils/validation';
+import { isValidEmail, validateCredentials } from '../../utils/validation';
 import { TextBase } from '../../components/TextBase';
 import LoadingData from '../../components/LoadingData';
 import { BORDER_RADIUS, FONT_FAMILY, SPACING } from '../../constants/styles';
@@ -31,6 +31,9 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isSendingReset, setIsSendingReset] = useState(false);
+
+  const isBusy = isLoading || isGoogleLoading || isSendingReset;
 
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
@@ -41,6 +44,26 @@ export default function SignInScreen() {
       show.alert('Google Sign-In Failed', error.message || 'Something went wrong.');
     } finally {
       setIsGoogleLoading(false);
+    }
+  };
+
+  // Also the way a Google-only account gains a password: completing the reset link
+  // links an email/password credential onto the same uid.
+  const handleForgotPassword = async () => {
+    if (!isValidEmail(email)) {
+      show.warn('Email Needed', 'Enter your email above, then tap "Forgot password?" again.');
+      return;
+    }
+
+    setIsSendingReset(true);
+    try {
+      await sendPasswordReset(email);
+      // Deliberately vague about whether the account exists — see sendPasswordReset
+      show.success('Check Your Email', `If you has an account, a reset link is on its way.`);
+    } catch (error: any) {
+      show.alert('Could Not Send Reset Link', error.message || 'Something went wrong.');
+    } finally {
+      setIsSendingReset(false);
     }
   };
 
@@ -86,8 +109,16 @@ export default function SignInScreen() {
           secureTextEntry
         />
 
+        <View style={styles.forgotRow}>
+          <TouchableOpacity onPress={handleForgotPassword} disabled={isBusy}>
+            <TextBase style={styles.forgotText} isDefaultFontFamilyRequired>
+              {isSendingReset ? 'Sending reset link...' : 'Forgot password?'}
+            </TextBase>
+          </TouchableOpacity>
+        </View>
+
         <View style={{ marginTop: 16 }}>
-          <TouchableOpacity style={styles.button} onPress={handleSignIn} disabled={isLoading || isGoogleLoading}>
+          <TouchableOpacity style={styles.button} onPress={handleSignIn} disabled={isBusy}>
             <View style={styles.buttonContent}>
               {isLoading ? (
                 <LoadingData
@@ -112,7 +143,7 @@ export default function SignInScreen() {
           <View style={styles.dividerLine} />
         </View>
 
-        <TouchableOpacity style={styles.googleButton} onPress={handleGoogleSignIn} disabled={isLoading || isGoogleLoading}>
+        <TouchableOpacity style={styles.googleButton} onPress={handleGoogleSignIn} disabled={isBusy}>
           <View style={styles.buttonContent}>
             {isGoogleLoading ? (
               <LoadingData
@@ -218,6 +249,16 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
       fontSize: t.fonts.medium,
     },
     authContainer: { width: '85%' },
+    forgotRow: {
+      width: '85%',
+      alignItems: 'flex-end',
+    },
+    forgotText: {
+      color: t.colors.textPrimary,
+      fontSize: t.fonts.medium,
+      textDecorationLine: 'underline',
+      fontStyle: 'italic',
+    },
     switchText: {
       marginVertical: SPACING.medium,
       color: t.colors.textPrimary,
