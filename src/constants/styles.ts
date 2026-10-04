@@ -1,15 +1,56 @@
 import { StyleSheet } from "react-native";
 import { ReturnTypeUseThemeTokens } from "../components/app_manager/ThemeContext";
 
+// Two faces, two jobs. `display` is the standard face for every piece of copy;
+// `numeric` is monospace and is the ONLY face numbers render in, so that values
+// stack in an aligned column (67.5 kg x 8 over 65 kg x 8). The mono advance width
+// gives that alignment inherently -- we deliberately do not lean on
+// `fontVariant: ['tabular-nums']`, which is unreliable on Android.
+//
+// letterSpacing lives per face rather than as one global: it is a property of the
+// face's metrics, not of the app. Archivo is narrower than ComicRelief was and
+// reads loose at the old 0.4/0.6, and mono digits must not be tracked apart at all
+// or the column widths drift.
 export const FONT_FAMILY = {
-  regular: {
-    name: "ComicRelief",
-    path: require("../../assets/fonts/ComicRelief-Regular.ttf"),
+  display: {
+    regular: {
+      name: "Archivo",
+      path: require("../../assets/fonts/Archivo-Regular.ttf"),
+    },
+    bold: {
+      name: "ArchivoBold",
+      path: require("../../assets/fonts/Archivo-Bold.ttf"),
+    },
+    letterSpacing: {
+      regular: 0.1,
+      bold: 0.2,
+    },
   },
-  bold: {
-    name: "ComicReliefBold",
-    path: require("../../assets/fonts/ComicRelief-Bold.ttf"),
+  numeric: {
+    regular: {
+      name: "IBMPlexMono",
+      path: require("../../assets/fonts/IBMPlexMono-Regular.ttf"),
+    },
+    medium: {
+      name: "IBMPlexMonoMedium",
+      path: require("../../assets/fonts/IBMPlexMono-Medium.ttf"),
+    },
+    letterSpacing: {
+      regular: 0,
+      medium: 0,
+    },
   },
+};
+
+export type FontFamilyType = typeof FONT_FAMILY;
+
+// Flat name -> asset map for `Font.loadAsync`. Derived from FONT_FAMILY so adding
+// a face is a one-line change here and nothing in App.tsx.
+export const FONT_ASSETS = {
+  [FONT_FAMILY.display.regular.name]: FONT_FAMILY.display.regular.path,
+  [FONT_FAMILY.display.bold.name]: FONT_FAMILY.display.bold.path,
+  [FONT_FAMILY.numeric.regular.name]: FONT_FAMILY.numeric.regular.path,
+  [FONT_FAMILY.numeric.medium.name]: FONT_FAMILY.numeric.medium.path,
 };
 
 export const FONT_SIZES = {

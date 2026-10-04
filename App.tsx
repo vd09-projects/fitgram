@@ -5,7 +5,7 @@ import AppNavigator from './src/navigation/AppNavigator';
 import Toast from 'react-native-toast-message';
 import { toastConfig } from './src/constants/toastConfig';
 import { useEffect, useRef, useState } from 'react';
-import { FONT_FAMILY } from './src/constants/styles';
+import { FONT_ASSETS } from './src/constants/styles';
 import { useColorSchemaStore } from './src/stores/colorSchemaStore';
 import { ThemeProvider } from './src/components/app_manager/ThemeContext';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -22,10 +22,7 @@ export default function App() {
   const appState = useRef(AppState.currentState);
 
   useEffect(() => {
-    Font.loadAsync({
-      [FONT_FAMILY.regular.name]: FONT_FAMILY.regular.path,
-      [FONT_FAMILY.bold.name]: FONT_FAMILY.bold.path,
-    }).then(() => setFontLoaded(true));
+    Font.loadAsync(FONT_ASSETS).then(() => setFontLoaded(true));
 
     loadFromStorage();
 

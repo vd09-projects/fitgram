@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import { AllColorSchemas, ColorSchemaValueType } from '../../constants/colors';
 import { useColorSchemaStore } from '../../stores/colorSchemaStore';
-import { getShadow } from '../../constants/styles';
+import { FONT_FAMILY, FontFamilyType, getShadow } from '../../constants/styles';
 import { Dimensions, PixelRatio } from 'react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -29,6 +29,12 @@ export const THEME_FONT_SIZES = {
 };
 export type FontSizeType = typeof THEME_FONT_SIZES;
 
+// The font family is a THEME TOKEN, not a module const, so the deferred
+// display-font selector only has to change what this resolves to -- every
+// consumer already reads it off the theme.
+export const THEME_FONT_FAMILY = FONT_FAMILY;
+export type { FontFamilyType };
+
 // Spacing
 export const THEME_SPACING = {
   ScrollingBuffer: normalizeSpacing(20),
@@ -52,9 +58,9 @@ type ShadowsType = {
 const ThemeContext = createContext<null | {
   colors: ColorSchemaValueType;
   fonts: FontSizeType;
+  fontFamily: FontFamilyType;
   shadows: ShadowsType;
   space: SpacingType;
-  // fonts: typeof FONT_SIZES;
 }>(null);
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
@@ -66,6 +72,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       return {
         colors: cs,
         fonts: THEME_FONT_SIZES,
+        fontFamily: THEME_FONT_FAMILY,
         space: THEME_SPACING,
         shadows: {
           shadowSmall: getShadow(2, cs.shadowSmall),

@@ -76,6 +76,37 @@ export const LDeathNoteColors = {
   tourGuideTitileText: "#E1E9E8",
   tourGuideBodyText: "#E1E9E8",
   tourGuideWaitingText: '#D2691E',
+
+  // --- Workout-flow role tokens (TICKET-015) -------------------------------
+  // Named by ROLE, not by hue, so both schemas answer the same questions and a
+  // screen written against one renders in the other untouched.
+  //
+  // Namespaced under `role` on purpose: three of these names (`accent`,
+  // `textPrimary`, `textSecondary`) already exist flat above with different
+  // values and ~90 live consumers. Nesting adds the full role set without
+  // renaming or shadowing a single existing token.
+  //
+  // The elevation ladder runs ground -> surface -> raised; hairlines sit above
+  // whatever they divide.
+  role: {
+    ground: "#121414",         // screen behind everything
+    surface: "#1A1D1F",        // cards, bottom bar
+    raised: "#222628",         // inputs, pills
+    hairline: "#2A2F31",       // card edges, dividers
+    hairlineStrong: "#3A4245", // input edges
+
+    accent: "#5FA8B8",         // primary action, progress, live dot
+    accentDeep: "#1E3A41",     // selected chip fill
+    signal: "#D8A13B",         // beat last session, PR
+    signalDeep: "#241D0E",     // PR banner fill
+    danger: "#D4757E",         // discard only -- shared with Hinata; 5.36 on surface, 4.83 on raised
+
+    textPrimary: "#E8EDEC",
+    textSecondary: "#8A9593",
+    // Prefilled target values. LARGE NUMERALS ONLY -- it clears 3:1, not 4.5:1,
+    // so it must never carry body copy.
+    textGhost: "#6E7A78",
+  },
 };
 
 export const HinataHyugaColors = {
@@ -149,6 +180,37 @@ export const HinataHyugaColors = {
   tourGuideTitileText: "#3C3F5C",
   tourGuideBodyText: "#3C3F5C",
   tourGuideWaitingText: "#B5A3CF",
+
+  // --- Workout-flow role tokens (TICKET-015) -------------------------------
+  // Named by ROLE, not by hue, so both schemas answer the same questions and a
+  // screen written against one renders in the other untouched.
+  //
+  // Namespaced under `role` on purpose: three of these names (`accent`,
+  // `textPrimary`, `textSecondary`) already exist flat above with different
+  // values and ~90 live consumers. Nesting adds the full role set without
+  // renaming or shadowing a single existing token.
+  //
+  // The elevation ladder runs ground -> surface -> raised; hairlines sit above
+  // whatever they divide.
+  role: {
+    ground: "#161425",         // screen behind everything
+    surface: "#1E1B30",        // cards, bottom bar
+    raised: "#272340",         // inputs, pills
+    hairline: "#322C4A",       // card edges, dividers
+    hairlineStrong: "#473F66", // input edges
+
+    accent: "#B6A4E8",         // primary action, progress, live dot
+    accentDeep: "#2E2654",     // selected chip fill
+    signal: "#D8A13B",         // beat last session, PR
+    signalDeep: "#261E10",     // PR banner fill
+    danger: "#D4757E",         // discard only -- shared with L: Death Note
+
+    textPrimary: "#ECE8F5",
+    textSecondary: "#9A93B0",
+    // Prefilled target values. LARGE NUMERALS ONLY -- it clears 3:1, not 4.5:1,
+    // so it must never carry body copy.
+    textGhost: "#7D7595",
+  },
 };
 
 export const DefaultColorSchema = LDeathNoteColors.name;

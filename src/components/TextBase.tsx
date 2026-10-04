@@ -1,27 +1,58 @@
 import React from 'react';
-import { Text, TextProps, StyleSheet, TextStyle } from 'react-native';
-import { FONT_FAMILY } from '../constants/styles';
+import { Text, TextProps, StyleSheet } from 'react-native';
+import { useThemeTokens } from './app_manager/ThemeContext';
 
 export interface TextBaseProps extends TextProps {
     isDefaultFontFamilyRequired?: boolean;
+    /**
+     * Render in the monospace face. Every number the user compares goes through
+     * this (or through `NumericText`) so that values line up in a column. Never
+     * render a number in the display face.
+     */
+    numeric?: boolean;
 }
 
 export const TextBase: React.FC<TextBaseProps> = ({
     isDefaultFontFamilyRequired = false,
+    numeric = false,
     style,
     ...rest
 }) => {
+    const { fontFamily } = useThemeTokens();
+
     const flattenedStyle = StyleSheet.flatten(style) || {};
     const isBold = flattenedStyle.fontWeight === 'bold';
 
-    const fontFamily =
-        isDefaultFontFamilyRequired
-            ? undefined
-            : isBold
-                ? FONT_FAMILY.bold.name
-                : FONT_FAMILY.regular.name;
+    // Each face names its own heavy weight (display -> bold, numeric -> medium)
+    // and carries its own letterSpacing, so neither is hardcoded here.
+    const face = numeric
+        ? {
+            regular: fontFamily.numeric.regular.name,
+            heavy: fontFamily.numeric.medium.name,
+            spacing: {
+                regular: fontFamily.numeric.letterSpacing.regular,
+                heavy: fontFamily.numeric.letterSpacing.medium,
+            },
+        }
+        : {
+            regular: fontFamily.display.regular.name,
+            heavy: fontFamily.display.bold.name,
+            spacing: {
+                regular: fontFamily.display.letterSpacing.regular,
+                heavy: fontFamily.display.letterSpacing.bold,
+            },
+        };
 
-    const letterSpacing = flattenedStyle.letterSpacing || isBold ? 0.6 : 0.4;
+    const resolvedFamily = isDefaultFontFamilyRequired
+        ? undefined
+        : isBold
+            ? face.heavy
+            : face.regular;
+
+    // An explicit letterSpacing on the caller's style wins; otherwise take the
+    // face's own value for this weight.
+    const letterSpacing =
+        flattenedStyle.letterSpacing ?? (isBold ? face.spacing.heavy : face.spacing.regular);
 
     // Remove fontWeight if using custom fonts
     const { fontWeight, ...restStyle } = flattenedStyle;
@@ -29,7 +60,7 @@ export const TextBase: React.FC<TextBaseProps> = ({
     return (
         <Text
             style={[
-                { fontFamily },
+                { fontFamily: resolvedFamily },
                 isDefaultFontFamilyRequired ? { fontWeight } : {},
                 { letterSpacing },
                 restStyle,
@@ -38,3 +69,11 @@ export const TextBase: React.FC<TextBaseProps> = ({
         />
     );
 };
+
+/**
+ * `TextBase` pinned to the monospace face. Convenience for the workout flow,
+ * where numbers are read in aligned columns.
+ */
+export const NumericText: React.FC<Omit<TextBaseProps, 'numeric'>> = (props) => (
+    <TextBase {...props} numeric />
+);
