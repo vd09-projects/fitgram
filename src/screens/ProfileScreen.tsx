@@ -5,7 +5,7 @@ import { useAuthUser } from '../hooks/useAuthUser';
 import { signOut } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import show from '../utils/toastUtils';
-import { BORDER_RADIUS, FONT_FAMILY, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, SPACING } from '../constants/styles';
 import ScrollableScreen from '../components/ScrollableScreen';
 import { TextBase } from '../components/TextBase';
 import CollapsibleSection from '../components/CollapsibleSection';

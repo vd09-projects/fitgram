@@ -1,5 +1,4 @@
 import { BaseToast, BaseToastProps, ErrorToast } from "react-native-toast-message";
-import { FONT_FAMILY } from "./styles";
 import { TostSucessColor, TostWarnColor } from "./colors";
 import { useThemeTokens } from "../components/app_manager/ThemeContext";
 
@@ -16,12 +15,12 @@ export const toastConfig = {
       contentContainerStyle={{ paddingHorizontal: 12 }}
       text1Style={{
         fontSize: t.fonts.large,
-        fontFamily: FONT_FAMILY.bold.name,
+        fontFamily: t.fontFamily.display.bold.name,
         color: t.colors.cardHeader,
       }}
       text2Style={{
         fontSize: t.fonts.xMedium,
-        fontFamily: FONT_FAMILY.regular.name,
+        fontFamily: t.fontFamily.display.regular.name,
         color: t.colors.textSecondary,
       }}
     />
@@ -41,12 +40,12 @@ export const toastConfig = {
       contentContainerStyle={{ paddingHorizontal: 12 }}
       text1Style={{
         fontSize: t.fonts.large,
-        fontFamily: FONT_FAMILY.bold.name,
+        fontFamily: t.fontFamily.display.bold.name,
         color: t.colors.cardHeader,
       }}
       text2Style={{
         fontSize: t.fonts.xMedium,
-        fontFamily: FONT_FAMILY.regular.name,
+        fontFamily: t.fontFamily.display.regular.name,
         color: t.colors.textSecondary,
       }}
       text2NumberOfLines={0}
@@ -68,12 +67,12 @@ export const toastConfig = {
       contentContainerStyle={{ paddingHorizontal: 12 }}
       text1Style={{
         fontSize: t.fonts.large,
-        fontFamily: FONT_FAMILY.bold.name,
+        fontFamily: t.fontFamily.display.bold.name,
         color: t.colors.cardHeader,
       }}
       text2Style={{
         fontSize: t.fonts.xMedium,
-        fontFamily: FONT_FAMILY.regular.name,
+        fontFamily: t.fontFamily.display.regular.name,
         color: t.colors.textSecondary,
       }}
       text2NumberOfLines={0}
@@ -94,12 +93,12 @@ export const toastConfig = {
       contentContainerStyle={{ paddingHorizontal: 12 }}
       text1Style={{
         fontSize: t.fonts.large,
-        fontFamily: FONT_FAMILY.bold.name,
+        fontFamily: t.fontFamily.display.bold.name,
         color: t.colors.cardHeader,
       }}
       text2Style={{
         fontSize: t.fonts.xMedium,
-        fontFamily: FONT_FAMILY.regular.name,
+        fontFamily: t.fontFamily.display.regular.name,
         color: t.colors.textSecondary,
       }}
       text2NumberOfLines={0}

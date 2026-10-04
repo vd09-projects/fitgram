@@ -17,7 +17,7 @@ import { PrimaryInputField } from '../../components/PrimaryInputField';
 import { isValidEmail, validateCredentials } from '../../utils/validation';
 import { TextBase } from '../../components/TextBase';
 import LoadingData from '../../components/LoadingData';
-import { BORDER_RADIUS, FONT_FAMILY, SPACING } from '../../constants/styles';
+import { BORDER_RADIUS, SPACING } from '../../constants/styles';
 import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
 
@@ -215,12 +215,12 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
       color: t.colors.textSecondary,
       fontSize: t.fonts.large,
       fontWeight: 'bold',
-      fontFamily: FONT_FAMILY.bold.name,
+      fontFamily: t.fontFamily.display.bold.name,
     },
     loadingText: {
       fontSize: t.fonts.large,
       color: t.colors.textSecondary,
-      fontFamily: FONT_FAMILY.bold.name,
+      fontFamily: t.fontFamily.display.bold.name,
     },
     googleButton: {
       backgroundColor: t.colors.button,
@@ -235,7 +235,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
     googleButtonText: {
       color: t.colors.textSecondary,
       fontSize: t.fonts.large,
-      fontFamily: FONT_FAMILY.bold.name,
+      fontFamily: t.fontFamily.display.bold.name,
     },
     divider: {
       flexDirection: 'row' as const,

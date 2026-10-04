@@ -7,7 +7,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
-import { BORDER_RADIUS, BUTTON_SIZES, FONT_FAMILY, SPACING } from '../constants/styles';
+import { BORDER_RADIUS, BUTTON_SIZES, SPACING } from '../constants/styles';
 import { TextBase } from './TextBase';
 import { emptyOutlineStyle, PrimaryInputField } from './PrimaryInputField';
 import { TextInput } from 'react-native-paper';
@@ -201,19 +201,19 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   placeholderStyle: {
     fontSize: t.fonts.large,
     color: t.colors.dropdownInputPlaceholder,
-    fontFamily: FONT_FAMILY.regular.name,
+    fontFamily: t.fontFamily.display.regular.name,
     padding: SPACING.xSmall,
   },
   itemTextStyle: {
     fontSize: t.fonts.large,
     color: t.colors.textPrimary,
-    fontFamily: FONT_FAMILY.regular.name,
+    fontFamily: t.fontFamily.display.regular.name,
     padding: SPACING.xSmall,
   },
   selectedTextStyle: {
     fontSize: t.fonts.large,
     color: t.colors.dropdownInputText,
-    fontFamily: FONT_FAMILY.regular.name,
+    fontFamily: t.fontFamily.display.regular.name,
     padding: SPACING.xSmall,
   },
   inputSearchStyle: {
@@ -222,7 +222,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     backgroundColor: t.colors.inputPrimaryBackground,
     borderRadius: BORDER_RADIUS,
     borderColor: t.colors.border,
-    fontFamily: FONT_FAMILY.regular.name,
+    fontFamily: t.fontFamily.display.regular.name,
   },
   primaryInputContainer: {
     flexDirection: 'row',
@@ -249,6 +249,6 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   loadingText: {
     color: t.colors.dropdownInputPlaceholder,
     fontSize: t.fonts.medium,
-    fontFamily: FONT_FAMILY.regular.name,
+    fontFamily: t.fontFamily.display.regular.name,
   },
 });

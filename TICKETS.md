@@ -534,6 +534,315 @@ installed and authenticated; neither is present on this machine.
 
 ---
 
+## PHASE 3: Workout Flow Redesign
+
+> Rebuilds the start → log → compare → rest path around one idea: the number you
+> need while deciding your next set is the number you lifted last time, and it
+> should already be on screen. Today that number exists only on `WorkoutLogsScreen`
+> behind a filter, so it is unreachable mid-set.
+>
+> Design reference: https://claude.ai/artifact/GaUZBuTFSKNhd7RxKqu9GN
+>
+> **Open decisions.** Needed before TICKET-019 and TICKET-021; they do not block 015-018.
+>
+> 1. Rest duration has no home. `WorkoutPlan` and `Exercise` in
+>    `src/types/workoutType.ts` carry no rest field — per exercise, per workout,
+>    or one global setting?
+> 2. A mistyped set cannot be removed. `useWorkoutStore` has `addSetToExercise`
+>    and `updateSet` but no `removeSet`, so a fat-fingered `650 kg` is permanent.
+>    Fold delete into TICKET-019, or give it its own ticket?
+> 3. Rest timer while the app is backgrounded. Resume-from-timestamp is cheap; a
+>    local notification when rest ends is a separate dependency.
+>
+> A user-facing display-font selector is deliberately **not** ticketed. The decision
+> is to ship one tuned face and keep the option cheap by making the font a theme
+> token in TICKET-015.
+
+---
+
+### TICKET-015: Workout Flow Design Tokens (palette, type, numerals)
+
+**Priority:** High | **Effort:** Medium | **Status: OPEN**
+
+**Description:**
+The redesigned workout flow needs a token foundation before any screen is rebuilt:
+a deeper ground with real elevation layers, one accent for action, one signal colour
+for "you beat last session", a neutral display face, and a monospace face for every
+number. Tokens only — no screen layout changes land in this ticket.
+
+**Acceptance Criteria:**
+- [ ] Add Archivo (Regular, Bold) and IBM Plex Mono (Regular, Medium) ttf files to `assets/fonts/`
+- [ ] Restructure `FONT_FAMILY` in `src/constants/styles.ts` into a per-face record that carries its own `letterSpacing`, replacing the single global pair
+- [ ] Load all four faces in `App.tsx`
+- [ ] Expose the font family through `ThemeContext` as a token, alongside the existing size scale
+- [ ] `TextBase` reads family and letterSpacing from theme tokens; add a numeric variant that renders in the mono face; keep the `isDefaultFontFamilyRequired` escape hatch working
+- [ ] Add the new role keys to **both** schemas in `src/constants/colors.ts`: `ground`, `surface`, `raised`, `hairline`, `hairlineStrong`, `accent`, `accentDeep`, `signal`, `signalDeep`, `danger`, `textGhost`
+- [ ] Dark (`L: Death Note`) values: ground `#121414`, surface `#1A1D1F`, raised `#222628`, hairline `#2A2F31`, hairlineStrong `#3A4245`, accent `#5FA8B8`, accentDeep `#1E3A41`, signal `#D8A13B`, signalDeep `#241D0E`, danger `#C9636C`, textGhost `#6E7A78`
+- [ ] Derive the `Hinata: Naruto` equivalents from its own lavender hues — same roles, contrast verified, not a copy of the dark hexes
+- [ ] Migrate the nine files that import `FONT_FAMILY` directly to the theme token
+- [ ] `npx tsc --noEmit` clean; both schemas render with no missing-token crash; schema switching in Profile still works
+
+**Technical Notes:**
+- `AllColorSchemas` is typed `Record<string, typeof LDeathNoteColors>`, so any key
+  added to one schema must exist on the other or the build breaks
+- Add role keys; do not rename or remove existing ones (`primary`, `secondary`,
+  `cardBackground`, `button`, `tableHeader`, `collapsed`, …). Many screens read them
+  and this ticket must stay non-breaking
+- `TextBase.tsx:28` hardcodes `letterSpacing` 0.4 / 0.6, tuned for ComicRelief's wide
+  metrics. Archivo at 0.6 reads loose, which is why letterSpacing becomes per-face
+- Monospace digits align by construction. Do not rely on `fontVariant: ['tabular-nums']`,
+  which is unreliable on Android
+- `textGhost` is only ever used on large prefilled numerals, where 3:1 contrast is
+  permitted. Never use it for body copy
+- Direct `FONT_FAMILY` importers: `components/TextBase.tsx`, `constants/toastConfig.tsx`,
+  `components/SearchableInputDropdown.tsx`, `components/CompactTextSwitch.tsx`,
+  `components/LoadingData.tsx`, `components/PrimaryInputField.tsx`,
+  `screens/ProfileScreen.tsx`, `screens/auth/SignInScreen.tsx`, `screens/auth/SignUpScreen.tsx`
+- Putting the family behind a theme token is what makes the deferred display-font
+  selector cheap later. No selector UI in this ticket
+- Screens may shift slightly because Archivo's metrics differ from ComicRelief's.
+  Expected, and corrected from TICKET-017 onward
+
+**Dependencies:** None. Blocks TICKET-017 through TICKET-022.
+
+---
+
+### TICKET-016: Previous-Session Lookup for the Active Exercise
+
+**Priority:** High | **Effort:** Medium | **Status: OPEN**
+
+**Description:**
+Nothing in the active workout flow can see what the user did last time. Add one hook
+that answers, for the exercise being logged: what did I do last session set by set,
+what were my last few sessions, what is my best set at each rep count, and how has
+volume trended. Four later tickets read from it.
+
+**Acceptance Criteria:**
+- [ ] `useExerciseHistory(workoutId, exerciseId)` returning `lastSession` (sets keyed by set index), `sessions` (last 3 with dates), `best` (heaviest set per rep count), `volumeTrend` (last 6 sessions)
+- [ ] Prefetch on workout start so logging a set never waits on a network round trip
+- [ ] Cache per workout for the session's lifetime — one fetch, many readers
+- [ ] Handle the no-history case explicitly: consumers must render when an exercise has never been done
+- [ ] Offline, fall back to whatever is cached rather than failing the logging flow
+- [ ] Types live in `src/types/`, not inline
+
+**Technical Notes:**
+- Built on the existing `getLatestWorkoutLogExercises` (`src/services/db/userDB.ts:205`),
+  which runs one ordered query then a `getDocs` per log — N+1 reads. Acceptable as a
+  prefetch, far too expensive per set, which is why the cache is in the acceptance criteria
+- Set index is the join key: `lastSession.sets[3]` is what "set 4" compares against
+- `SetLog.fields` is `Record<string, string>`, so weight and reps arrive as strings and
+  need parsing before any arithmetic
+- Field names are dynamic per exercise (`LoggedExercise.fields`), so do not hardcode
+  "Weight (kg)" or "Reps" — resolve against the exercise's own field list and degrade
+  when a field is absent
+- `getWorkoutLogsPaginated` already exists if the trend needs more history than the
+  last-3 query returns
+
+**Dependencies:** None. Runs in parallel with TICKET-015. Blocks 018, 019, 020, 021, 022.
+
+---
+
+### TICKET-017: Active Workout Shell — exercise pager, header, progress
+
+**Priority:** High | **Effort:** Medium | **Status: OPEN**
+
+**Description:**
+Replace the exercise dropdown with a focused one-exercise-at-a-time pager: prev/next
+controls plus horizontal swipe, workout name and elapsed time in the header, and a
+segment bar showing position in the workout. Also moves the destructive Discard action
+out of the main action row.
+
+**Acceptance Criteria:**
+- [ ] `ActiveWorkoutScreen` drops `SearchableInputDropdown` in favour of prev/next buttons and a swipeable pager
+- [ ] Header shows workout name plus elapsed time derived from `activeWorkout.startTime`
+- [ ] One progress segment per exercise; completed, current (partially filled by sets logged) and untouched states distinguished by lightness, not hue alone
+- [ ] "Exercise N of M" always visible
+- [ ] Add `setCurrentExerciseIndex` to `useWorkoutStore`
+- [ ] Swiping or tapping prev/next updates `currentExerciseIndex`
+- [ ] A `···` header menu holds Discard workout; `Finish workout` stays in the bottom bar as the only footer action
+- [ ] Discard confirms before destroying the session
+- [ ] Hit targets at least 44px
+- [ ] Tour steps in `src/tour_steps/activeWorkout.ts` still resolve, or are updated to the new anchors
+
+**Technical Notes:**
+- `currentExerciseIndex` is currently written only as a side effect of logging a set
+  (`useWorkoutStore.tsx:69` and `:99`), so today it means "last exercise I logged into",
+  not "exercise I am viewing". The explicit setter is what separates those two meanings
+- `ActiveWorkoutScreen` mirrors `activeWorkout` into local `selectedExercise` state via
+  `useEffect`. With the store owning the index, that mirror should go
+- Discard currently sits beside Save at equal weight in the footer button row, so an
+  accidental tap loses the session
+- One accent fill per screen: `Log set` owns it, so `Finish workout` is outlined
+
+**Dependencies:** TICKET-015.
+
+---
+
+### TICKET-018: Set Logger Card with Ghost Targets
+
+**Priority:** High | **Effort:** Medium | **Status: OPEN**
+
+**Description:**
+Rebuild the set input as the focal point of the screen: large numeric fields prefilled
+with last session's values for this set index as ghost placeholders, coarse steppers so
+the keyboard is optional, a one-tap repeat of last session's set, and a pill showing
+where the target came from.
+
+**Acceptance Criteria:**
+- [ ] Replace `ExerciseLogger`'s plain `PrimaryInputField` row with large numeric fields (~62px tall, ~30px mono digits)
+- [ ] Each field's placeholder is last session's value for the current set index, in `textGhost`
+- [ ] Stepper buttons per field, step size appropriate to the field, 44px targets
+- [ ] A "repeat last set" control fills every field from last session's matching set
+- [ ] A `Last time — <weight> × <reps>` pill in the card header, which is the trigger for TICKET-020
+- [ ] Works when the exercise has no history, and when its fields are not weight/reps
+- [ ] Logging still calls `addSetToExercise` and clears the inputs
+- [ ] Current set number shown, and advances after each logged set
+
+**Technical Notes:**
+- `exercise.fields` is a dynamic `string[]`, so the card lays out N fields rather than
+  assuming two. Design the two-field case well and degrade predictably for 1, 3 or more
+- `ExerciseLogger` holds `inputValues` as `Record<string, string>` and returns early when
+  it is empty. With placeholders present, decide deliberately whether an untouched field
+  means "log the ghost value" or "incomplete" — those are different products, pick one
+  and state it in the PR
+- Ghost text must never be mistaken for a logged value: placeholder, not value
+- Steppers operate on a parsed number and write back a string, since `ExerciseSet.fields`
+  is `Record<string, string | number>`
+
+**Dependencies:** TICKET-015, TICKET-016.
+
+---
+
+### TICKET-019: Today's Sets with Per-Set Deltas
+
+**Priority:** High | **Effort:** Small-Medium | **Status: OPEN**
+
+**Description:**
+Make this session's sets permanently visible under the input card, each row carrying how
+it compares with the same set last time, plus session volume against the previous session.
+Replaces the collapsed log-history table.
+
+**Acceptance Criteria:**
+- [ ] Replace `ActiveExerciseLogHistory`'s `CollapsibleSection` + `CollapsibleTable` with an always-visible list of this session's sets for the current exercise
+- [ ] Each row shows set number and logged values in mono digits
+- [ ] Each row shows its delta against the same set index last session: improved, matched, or down
+- [ ] Improvement and decline differ in lightness as well as hue, so the comparison does not depend on colour vision
+- [ ] Footer shows set count and session volume, plus percentage against the previous session
+- [ ] Renders correctly with no history, and with no sets logged yet
+- [ ] Volume computed only from fields that actually parse as numbers
+
+**Technical Notes:**
+- `ActiveExerciseLogHistory` shows only the in-progress session and starts collapsed, so
+  the data most needed mid-set takes a tap to reach. Always-visible is the point here
+- `TableControls` column toggling is dropped for the active flow; it stays on
+  `WorkoutLogsScreen`
+- Volume only means something when weight and reps both parse. For other field shapes,
+  show set count and omit volume rather than printing a meaningless number
+- Blocked on open decision 2 at the top of this phase: with no `removeSet` in the store,
+  a mistyped set cannot be corrected from this list
+
+**Dependencies:** TICKET-015, TICKET-016.
+
+---
+
+### TICKET-020: Exercise History Sheet
+
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN**
+
+**Description:**
+A bottom sheet, opened from the "Last time" pill, holding the full comparison: pick one of
+the last few sessions and see it set by set beside today's, plus the best set for this
+exercise and a volume trend. Available during the exercise, never on screen by default.
+
+**Acceptance Criteria:**
+- [ ] Sheet opens from the pill in the set card and closes without leaving the active workout
+- [ ] Session chips for the last 3 sessions with dates; selecting one switches the table
+- [ ] Table aligns the selected session's sets against today's by set index
+- [ ] Best set for this exercise shown distinctly
+- [ ] Volume trend over the last several sessions
+- [ ] Scrollable and usable at 390px width
+- [ ] Empty state for an exercise with no history
+- [ ] Logging is not blocked while the sheet is open; dismissing returns to the same set in progress
+
+**Technical Notes:**
+- Reads the same `useExerciseHistory` data as 018 and 019. No new fetching
+- This is the in-flow replacement for navigating to `WorkoutLogsScreen` mid-set. That
+  screen stays as the full browser
+- `WorkoutHistoricalLogsFilter` is not reused: its filter state is for browsing, not for a
+  fixed exercise. TICKET-006 already flags it for decomposition
+- Needs a real focus trap and a labelled close control, not just a tappable backdrop
+
+**Dependencies:** TICKET-015, TICKET-016, TICKET-018.
+
+---
+
+### TICKET-021: Rest Timer, Personal-Best Banner, Next-Set Target
+
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN**
+
+**Description:**
+After a set is logged, the input card gives way to a rest countdown with the next set's
+target already shown, and a set that beats the user's previous best is called out.
+
+**Acceptance Criteria:**
+- [ ] Rest timer state in `useWorkoutStore`, started when a set is logged
+- [ ] Countdown with add-time and skip controls
+- [ ] Timer survives navigating away and back, computed from a timestamp rather than a tick counter
+- [ ] Next set's target from last session shown beneath the timer
+- [ ] A set that beats the stored best for its rep count shows a banner naming what was beaten
+- [ ] Timer and banner both render correctly for an exercise with no history
+- [ ] Implement the chosen answers to open decisions 1 and 3 at the top of this phase
+
+**Technical Notes:**
+- Timestamp-based, not interval-based: an interval stops when the JS thread is suspended,
+  and the remaining time will be wrong on return
+- Personal-best comparison uses `best` from `useExerciseHistory`. "Best" needs a
+  definition — heaviest at equal reps is what the design assumes
+- The banner is a signal, not a celebration. It shares `signal` / `signalDeep` with the row
+  deltas so the vocabulary stays one thing
+- Overlaps TICKET-011 (active workout indicator) if the timer should be visible outside this
+  screen. Decide before building; do not build both
+
+**Dependencies:** TICKET-015, TICKET-016, TICKET-018.
+
+---
+
+### TICKET-022: Start Workout Redesign and Resume Banner
+
+**Priority:** High | **Effort:** Medium | **Status: OPEN**
+
+**Description:**
+Rebuild the plan picker so a plan can be judged before it is started — exercise count, when
+it was last done, recent volume — and expand the selected plan to show each exercise's last
+top set. Replace the modal alert that fires when a workout is already running with an inline
+resume banner.
+
+**Acceptance Criteria:**
+- [ ] Plan cards become rows showing name, exercise count, time since last performed, and recent volume
+- [ ] Selecting a plan expands it to list its exercises with each one's last top set
+- [ ] A trend indicator per plan
+- [ ] Search still filters plans
+- [ ] The blocking `AlertBase` on mount is replaced by an inline banner naming the in-progress workout, its elapsed time and sets logged, with Resume and Discard
+- [ ] Discard from the banner confirms first
+- [ ] Primary action is a single bottom-bar button naming the plan being started
+- [ ] Empty state for a user with no plans
+- [ ] Tour steps in `src/tour_steps/startWorkout.ts` still resolve, or are updated
+
+**Technical Notes:**
+- `StartWorkoutScreen.tsx:19` sets `showAlert` from `activeWorkout` in a mount-time
+  `useEffect`, so the user is met by a modal before seeing the screen. The banner carries the
+  same information without the interruption
+- Per-exercise last top sets for a whole plan means history for every exercise in it. Batch
+  through TICKET-016's cache rather than one fetch per row
+- The list currently reflows between 2-column grid and horizontal when a plan is selected
+  (`numColumns` keyed off `selectedWorkout`), which remounts it. Rows avoid that entirely
+- Overlaps TICKET-011 (active workout indicator): the banner is the in-screen case, the
+  indicator is the cross-screen case. Same state, so decide the split once
+
+**Dependencies:** TICKET-015, TICKET-016.
+
+---
+
 ## Recommended Execution Order
 
 ```
@@ -551,6 +860,16 @@ installed and authenticated; neither is present on this machine.
 11. TICKET-010 (Forgot Password)          — Subsumed by TICKET-012 Phase 1
 10. TICKET-009 (Google Sign-In)           — Largest feature
 11. TICKET-011 (Active Workout Animation) — UX enhancement
+
+--- Phase 3: workout flow redesign ---
+12. TICKET-015 (Workout flow tokens)      — Blocks the rest of Phase 3
+12. TICKET-016 (Exercise history hook)    — Parallel with 015
+13. TICKET-017 (Active workout pager)
+14. TICKET-018 (Set logger card)
+15. TICKET-019 (Today's sets + deltas)    — Flow is whole and better here
+16. TICKET-022 (Start Workout redesign)
+17. TICKET-020 (History sheet)
+17. TICKET-021 (Rest timer + PR banner)   — Parallel with 020
 ```
 
 ---

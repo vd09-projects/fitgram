@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { ScreenNavigationProp } from '../../navigation/AuthNavigator';
 import { signUpUser, signUpWithGoogle } from '../../services/db/authService';
-import { FONT_FAMILY, SPACING, BORDER_RADIUS } from '../../constants/styles';
+import { SPACING, BORDER_RADIUS } from '../../constants/styles';
 import { AuthRoutes } from '../../constants/routes';
 import { PrimaryInputField } from '../../components/PrimaryInputField';
 import { validateCredentials } from '../../utils/validation';
@@ -200,12 +200,12 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
       color: t.colors.textSecondary,
       fontSize: t.fonts.large,
       fontWeight: 'bold',
-      fontFamily: FONT_FAMILY.bold.name,
+      fontFamily: t.fontFamily.display.bold.name,
     },
     loadingText: {
       fontSize: t.fonts.large,
       color: t.colors.textSecondary,
-      fontFamily: FONT_FAMILY.bold.name,
+      fontFamily: t.fontFamily.display.bold.name,
     },
     googleButton: {
       backgroundColor: t.colors.button,
@@ -220,7 +220,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
     googleButtonText: {
       color: t.colors.textSecondary,
       fontSize: t.fonts.large,
-      fontFamily: FONT_FAMILY.bold.name,
+      fontFamily: t.fontFamily.display.bold.name,
     },
     divider: {
       flexDirection: 'row' as const,

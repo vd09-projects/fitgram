@@ -1,7 +1,7 @@
 import React from 'react';
 import { TextInput } from 'react-native-paper';
 import { StyleProp, TextStyle, StyleSheet, ViewStyle, KeyboardType, TextInput as RNTextInput } from 'react-native';
-import { BORDER_RADIUS, FONT_FAMILY, SPACING } from '../constants/styles'; // adjust path if needed
+import { BORDER_RADIUS, SPACING } from '../constants/styles'; // adjust path if needed
 import { ReturnTypeUseThemeTokens, useThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 import { TransparentColor } from '../constants/colors';
@@ -89,7 +89,7 @@ export const PrimaryInputField = React.forwardRef<RNTextInput, PrimaryInputField
         fonts: {
           bodyLarge: {
             fontSize: t.fonts.large,
-            fontFamily: FONT_FAMILY.regular.name,
+            fontFamily: t.fontFamily.display.regular.name,
             lineHeight: SPACING.large,
           },
         }
