@@ -99,7 +99,7 @@ export const LDeathNoteColors = {
     accentDeep: "#1E3A41",     // selected chip fill
     signal: "#D8A13B",         // beat last session, PR
     signalDeep: "#241D0E",     // PR banner fill
-    danger: "#C9636C",         // discard only
+    danger: "#D4757E",         // discard only -- shared with Hinata; 5.36 on surface, 4.83 on raised
 
     textPrimary: "#E8EDEC",
     textSecondary: "#8A9593",
@@ -203,7 +203,7 @@ export const HinataHyugaColors = {
     accentDeep: "#2E2654",     // selected chip fill
     signal: "#D8A13B",         // beat last session, PR
     signalDeep: "#261E10",     // PR banner fill
-    danger: "#D4757E",         // discard only
+    danger: "#D4757E",         // discard only -- shared with L: Death Note
 
     textPrimary: "#ECE8F5",
     textSecondary: "#9A93B0",

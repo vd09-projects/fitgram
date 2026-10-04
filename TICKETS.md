@@ -577,7 +577,7 @@ number. Tokens only — no screen layout changes land in this ticket.
 - [ ] Expose the font family through `ThemeContext` as a token, alongside the existing size scale
 - [ ] `TextBase` reads family and letterSpacing from theme tokens; add a numeric variant that renders in the mono face; keep the `isDefaultFontFamilyRequired` escape hatch working
 - [ ] Add the new role keys to **both** schemas in `src/constants/colors.ts`: `ground`, `surface`, `raised`, `hairline`, `hairlineStrong`, `accent`, `accentDeep`, `signal`, `signalDeep`, `danger`, `textGhost`
-- [ ] Dark (`L: Death Note`) values: ground `#121414`, surface `#1A1D1F`, raised `#222628`, hairline `#2A2F31`, hairlineStrong `#3A4245`, accent `#5FA8B8`, accentDeep `#1E3A41`, signal `#D8A13B`, signalDeep `#241D0E`, danger `#C9636C`, textGhost `#6E7A78`
+- [ ] Dark (`L: Death Note`) values: ground `#121414`, surface `#1A1D1F`, raised `#222628`, hairline `#2A2F31`, hairlineStrong `#3A4245`, accent `#5FA8B8`, accentDeep `#1E3A41`, signal `#D8A13B`, signalDeep `#241D0E`, danger `#D4757E`, textGhost `#6E7A78`
 - [ ] Derive the `Hinata: Naruto` equivalents from its own lavender hues — same roles, contrast verified, not a copy of the dark hexes
 - [ ] Migrate the nine files that import `FONT_FAMILY` directly to the theme token
 - [ ] `npx tsc --noEmit` clean; both schemas render with no missing-token crash; schema switching in Profile still works
@@ -594,6 +594,16 @@ number. Tokens only — no screen layout changes land in this ticket.
   which is unreliable on Android
 - `textGhost` is only ever used on large prefilled numerals, where 3:1 contrast is
   permitted. Never use it for body copy
+- `danger` shipped as `#D4757E`, not the originally specified `#C9636C`. The spec hex
+  measured 4.43:1 on `surface` and 3.99:1 on `raised`, below the 4.5:1 this ticket
+  requires for text under 24px. `#D4757E` measures 5.36 / 5.85 / 4.83 against
+  surface / ground / raised and is shared by both schemas
+- The role keys are nested under `role` rather than added flat, because `accent`,
+  `textPrimary` and `textSecondary` already exist flat with different values and ~90
+  consumers. Note the consequence: `t.colors.accent` still compiles and still renders
+  the legacy `#5A3E62`, so a mistyped token fails silently. Needs a follow-up — either
+  a lint rule banning the flat three in new workout-flow files, or renaming them once
+  their consumers are migrated
 - Direct `FONT_FAMILY` importers: `components/TextBase.tsx`, `constants/toastConfig.tsx`,
   `components/SearchableInputDropdown.tsx`, `components/CompactTextSwitch.tsx`,
   `components/LoadingData.tsx`, `components/PrimaryInputField.tsx`,
@@ -708,6 +718,12 @@ where the target came from.
 - Ghost text must never be mistaken for a logged value: placeholder, not value
 - Steppers operate on a parsed number and write back a string, since `ExerciseSet.fields`
   is `Record<string, string | number>`
+- Decide the input's visual boundary explicitly rather than inheriting it. With
+  TICKET-015's tokens, `raised` vs `surface` is only a 1.11:1 fill step (1.12 in Hinata)
+  and `hairlineStrong` vs `raised` is 1.49:1 (1.55 in Hinata), so these fields have no
+  boundary meeting the 3:1 WCAG 1.4.11 asks of a control. The fill steps themselves are
+  fine; it is specifically the input that needs either a stronger border token or an
+  accent-bordered focus state carrying the affordance
 
 **Dependencies:** TICKET-015, TICKET-016.
 
