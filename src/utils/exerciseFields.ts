@@ -1,8 +1,7 @@
 // src/utils/exerciseFields.ts
 //
-// Field semantics by declared role. Replaces the name-substring resolver that
-// used to live in exerciseHistory.ts: `ExerciseField.role` is set when the
-// exercise is defined, so nothing here guesses.
+// Field semantics by declared role. `ExerciseField.role` is set when the
+// exercise is defined, so nothing here infers meaning from a field's name.
 
 import { ExerciseField, FieldRole } from "../types/workoutType";
 

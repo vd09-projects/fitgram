@@ -5,7 +5,7 @@ import {
   UIManager,
 } from "react-native";
 import { BORDER_RADIUS, SPACING } from "../constants/styles";
-import { WorkoutLog, SetsString, SetLog } from "../types/workoutLogs";
+import { WorkoutLog, SetLog } from "../types/workoutLogs";
 import { Column } from "./collapsible_table/CollapsibleTableParts";
 import CollapsibleSection from "./CollapsibleSection";
 import { TextBase } from "./TextBase";

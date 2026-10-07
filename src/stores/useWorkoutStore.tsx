@@ -3,7 +3,7 @@ import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WorkoutPlan, Exercise } from "../types/workoutType";
 import { ActiveWorkout, ExerciseSet } from "../types/zustandWorkoutType";
-import { saveActiveWorkoutLog } from "../services/db/userDB";
+import { saveWorkoutSession } from "../services/db/workoutSessions";
 import show from "../utils/toastUtils";
 import { normalizeExerciseFields } from "../utils/exerciseFields";
 
@@ -119,8 +119,13 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       const isOnline = true; // Replace with actual connectivity check
       if (isOnline) {
         console.log("Uploading workout to database:", activeWorkout);
-        await saveActiveWorkoutLog(userId, activeWorkout); // Replace with actual user ID
+        const { rollupApplied } = await saveWorkoutSession(userId, activeWorkout);
         show.success("Workout saved successfully!");
+        if (!rollupApplied) {
+          // Session data is safe; only the derived exercise_stats rollup is
+          // behind. src/scripts/rebuildExerciseStats.ts repairs it.
+          console.warn("Workout saved, history rollup pending.");
+        }
         await AsyncStorage.removeItem("activeWorkout"); // Clear local storage
         set({ activeWorkout: null });
       } else {
@@ -129,7 +134,13 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
         alert("No internet! Workout saved locally. Sync when online.");
       }
     } catch (error) {
+      // The workout is deliberately left active so nothing is lost, but a
+      // silent no-op on a button press is not acceptable — say what happened.
       console.error("Failed to persist workout:", error);
+      show.alert(
+        "Could not save workout",
+        error instanceof Error ? error.message : "Please try again."
+      );
     }
   },
 

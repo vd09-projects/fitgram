@@ -5,12 +5,38 @@ import useWorkoutPlans from "../hooks/useWorkoutPlans";
 import SearchableInputDropdown, { DropdownSelection } from "./SearchableInputDropdown";
 import { Exercise, WorkoutPlan } from "../types/workoutType";
 import show from "../utils/toastUtils";
-import { getWorkoutLogs } from "../services/db/userDB";
+import { getExerciseSessions } from "../services/db/workoutSessions";
 import { TextBase } from "./TextBase";
 import { BORDER_RADIUS, SPACING } from "../constants/styles";
 import { WorkoutLog } from "../types/workoutLogs";
+import { ExerciseSessionDoc } from "../types/workoutSession";
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
+
+/**
+ * Adapt stored, exercise-first sessions into the table view model. `SetLog.id`
+ * is filled with the set's 1-based position, which is what "set 3" means.
+ */
+const toWorkoutLogs = (
+  sessions: ExerciseSessionDoc[],
+  userId: string
+): WorkoutLog[] =>
+  sessions.map((session) => ({
+    id: session.sessionId,
+    workoutId: session.workoutId,
+    userId,
+    exercises: [
+      {
+        exerciseId: session.exerciseId,
+        exerciseName: session.exerciseName,
+        timestamp: session.performedAt,
+        sets: session.sets.map((fields, index) => ({
+          id: index + 1,
+          fields,
+        })),
+      },
+    ],
+  }));
 
 export type WorkoutHistoricalDisplayLog = {
   displayType: "SetData" | "ExerciseData";
@@ -64,22 +90,22 @@ export default function WorkoutHistoricalLogsFilter({
     }];
     if (!workoutLogs) return result;
 
-    const seen = new Set();
+    // Set number is the set's position. The old "Sets" field was never a set
+    // number — it was a per-set column that happened to be seeded into the
+    // exercise catalog.
+    let maxSets = 0;
     workoutLogs.forEach((log) => {
       log.exercises.forEach((exercise) => {
-        exercise.sets.forEach((set) => {
-          const setValue = set.fields["Sets"];
-          if (!seen.has(setValue)) {
-            seen.add(setValue);
-            result.push({
-              label: setValue,
-              value: setValue,
-              isCustom: false,
-            });
-          }
-        });
+        maxSets = Math.max(maxSets, exercise.sets.length);
       });
     });
+    for (let setNumber = 1; setNumber <= maxSets; setNumber += 1) {
+      result.push({
+        label: String(setNumber),
+        value: String(setNumber),
+        isCustom: false,
+      });
+    }
     return result;
   }, [workoutLogs]);
   const [selectedSetNumber, setSelectedSetNumber] = useState<DropdownSelection<string> | undefined>(convertedSetNumber[0]);
@@ -115,22 +141,31 @@ export default function WorkoutHistoricalLogsFilter({
     if (FetchNewData) {
       setLoadingLogs(true);
       try {
-        const logs = await getWorkoutLogs(
-          user?.uid,
-          selectedWorkout.value.id,
-          {
-            exerciseId: selectedExercises.value.id,
-            page: 1,
-            limit: 10,
-          }
+        const { sessions } = await getExerciseSessions(
+          user.uid,
+          selectedExercises.value.id,
+          50
         );
-        console.log("Fetched logs:", logs.length, logs);
+        // The query is cross-workout now. Narrowing to the selected plan keeps
+        // this screen's existing meaning; dropping that filter would show every
+        // workout this exercise was done in (TICKET-020's job).
+        const logs = toWorkoutLogs(
+          sessions.filter(
+            (session) => session.workoutId === selectedWorkout.value!.id
+          ),
+          user.uid
+        );
         setWorkoutLogs(logs);
         workoutLogsForDisplay = logs;
       } catch (error) {
         setWorkoutLogs(null);
         console.error("Error fetching logs:", error);
-        show.alert("Error fetching logs", "Please try again.");
+        // Surface the real message: a missing composite index is the likely
+        // cause and "Please try again" hides that forever.
+        show.alert(
+          "Error fetching logs",
+          error instanceof Error ? error.message : "Please try again."
+        );
       } finally {
         setLoadingLogs(false);
       }
@@ -157,8 +192,7 @@ export default function WorkoutHistoricalLogsFilter({
             ...exercise,
             sets: exercise.sets.filter(
               (set) =>
-                String(set.fields?.["Sets"]).trim() ===
-                String(selectedSetNumber.value).trim()
+                String(set.id) === String(selectedSetNumber.value).trim()
             ),
           })),
         }))

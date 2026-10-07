@@ -1,0 +1,31 @@
+// PROPOSAL — not reconciled with what is live.
+//
+// This project had no rules file; the deployed rules live only in the Firebase
+// console. Diff this against the console before deploying anything, because
+// deploying a narrower ruleset than the live one will break existing reads.
+//
+// What it covers: everything under users/{uid} is private to that user, which is
+// what the new exercise-first collections need (sessions, exercise_sessions,
+// exercise_stats). No collection-group queries are used, so no collection-group
+// rules are required.
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Shared exercise catalog. Seeded by src/scripts/uploadExercises.ts, which
+    // should run with admin credentials, not as a signed-in user.
+    match /predefined_exercises/{exerciseId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+  }
+}
