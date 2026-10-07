@@ -2,7 +2,7 @@ import React, { memo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BORDER_RADIUS, SPACING } from '../constants/styles';
-import EditableList from './EditableList';
+import ExerciseFieldEditor from './ExerciseFieldEditor';
 import { Exercise } from '../types/workoutType';
 import { TextBase } from './TextBase';
 import CollapsibleSection from './CollapsibleSection'; // ✅ make sure this is the reusable component you already created
@@ -38,7 +38,7 @@ const CollapsibleExerciseItem = memo(
         </TouchableOpacity>
       }
     >
-      <EditableList
+      <ExerciseFieldEditor
         title={`Edit "${exercise.name}" Fields`}
         items={exercise.fields}
         onItemsChange={(updatedFields) => {

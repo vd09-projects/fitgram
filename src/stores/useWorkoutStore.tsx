@@ -5,6 +5,7 @@ import { WorkoutPlan, Exercise } from "../types/workoutType";
 import { ActiveWorkout, ExerciseSet } from "../types/zustandWorkoutType";
 import { saveActiveWorkoutLog } from "../services/db/userDB";
 import show from "../utils/toastUtils";
+import { normalizeExerciseFields } from "../utils/exerciseFields";
 
 // Zustand Store Type
 interface WorkoutStoreState {
@@ -146,8 +147,20 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
   /** 🔹 Load Workout from AsyncStorage (For Offline Handling) */
   loadWorkoutFromStorage: async () => {
     const storedWorkout = await AsyncStorage.getItem("activeWorkout");
-    if (storedWorkout) {
-      set({ activeWorkout: JSON.parse(storedWorkout) });
-    }
+    if (!storedWorkout) return;
+
+    const parsed = JSON.parse(storedWorkout) as ActiveWorkout;
+    // A workout started before field roles existed has `fields: string[]` in
+    // storage. Normalising on the way in keeps a resumed session renderable
+    // instead of showing inputs labelled `undefined`.
+    set({
+      activeWorkout: {
+        ...parsed,
+        exercises: (parsed.exercises ?? []).map((exercise) => ({
+          ...exercise,
+          fields: normalizeExerciseFields(exercise.fields),
+        })),
+      },
+    });
   },
 }));

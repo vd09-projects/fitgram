@@ -1,7 +1,8 @@
 import { getAuth } from "firebase/auth";
 import { tables } from "../../constants/tables";
 import { ExerciseLog, SetLog, WorkoutLog } from "../../types/workoutLogs";
-import { WorkoutPlan, WorkoutPlanDB } from "../../types/workoutType";
+import { Exercise, WorkoutPlan, WorkoutPlanDB } from "../../types/workoutType";
+import { normalizeExerciseFields } from "../../utils/exerciseFields";
 import { ActiveWorkout } from "../../types/zustandWorkoutType";
 import { db } from "../firebase/firebase";
 import {
@@ -21,6 +22,16 @@ import {
   startAfter,
 } from "firebase/firestore";
 
+const normalizePlan = (plan: WorkoutPlan): WorkoutPlan => ({
+  ...plan,
+  exercises: (plan.exercises ?? []).map(
+    (exercise): Exercise => ({
+      ...exercise,
+      fields: normalizeExerciseFields(exercise.fields),
+    })
+  ),
+});
+
 export const getAllWorkoutPlans = async (
   userId: string
 ): Promise<WorkoutPlan[]> => {
@@ -35,10 +46,12 @@ export const getAllWorkoutPlans = async (
         tables.users.fields.workouts.collection
       )
     );
-    const plans = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as WorkoutPlan[];
+    const plans = (
+      querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as WorkoutPlan[]
+    ).map(normalizePlan);
 
     console.log("✅ Exercises fetched successfully:", plans);
     return plans;

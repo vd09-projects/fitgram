@@ -4,6 +4,7 @@ import { useWorkoutStore } from "../stores/useWorkoutStore";
 import { Ionicons } from "@expo/vector-icons";
 import { BORDER_RADIUS, SPACING } from "../constants/styles";
 import { LoggedExercise } from "../types/zustandWorkoutType";
+import { fieldNames } from "../utils/exerciseFields";
 import { TextBase } from "./TextBase";
 import { getClearIcon, PrimaryInputField } from "./PrimaryInputField";
 import ActiveExerciseLogHistory from "./ActiveExerciseLogHistory";
@@ -38,7 +39,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
 
       <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.LOG_FIELDS}>
         <View style={styles.inputContainer}>
-          {exercise.fields.map((field, index) => (
+          {fieldNames(exercise.fields).map((field, index) => (
             <PrimaryInputField
               key={index}
               label={inputValues[field] ? field : ""}

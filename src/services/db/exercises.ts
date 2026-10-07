@@ -1,4 +1,5 @@
 import { Exercise } from '../../types/workoutType';
+import { normalizeExerciseFields } from '../../utils/exerciseFields';
 import { db } from '../firebase/firebase';
 import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
 
@@ -20,7 +21,13 @@ export const getAllPredefinedExercises = async (): Promise<Exercise[]> => {
 
         return snapshot.docs.map(doc => {
             const data = doc.data() as Omit<Exercise, 'id'>; // Exclude 'id' to avoid duplication
-            return { id: doc.id, ...data }; // Ensure 'id' is added once
+            // Catalog docs seeded before field roles existed carry `string[]`.
+            // Re-run src/scripts/uploadExercises.ts to replace them.
+            return {
+                id: doc.id,
+                ...data,
+                fields: normalizeExerciseFields(data.fields),
+            };
         });
     } catch (error) {
         console.error('❌ Error fetching predefined exercises:', error);

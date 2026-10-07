@@ -1,5 +1,5 @@
 import { DropdownSelection } from "../components/SearchableInputDropdown";
-import { Exercise, WorkoutPlan } from "../types/workoutType";
+import { Exercise, ExerciseField, WorkoutPlan } from "../types/workoutType";
 import {
   isValidId,
   findDuplicate,
@@ -35,13 +35,20 @@ export const validateExerciseSelection = (
   if (existingExerciseIds.has(ex.id))
     return `Exercise "${exercise.label}" already exists in this workout.`;
 
-  return validateCustomFields(ex.fields);
+  // Fields are deliberately NOT checked here. For a custom exercise the
+  // selection carries `fields: []` (AddExerciseScreen builds it that way) while
+  // the fields the user actually typed live in the screen's `customFields`
+  // state, which is validated separately. Checking `ex.fields` here rejected
+  // every new custom exercise with "At least one field is required".
+  return null;
 };
 
-export const validateCustomFields = (fields: string[]): string | null => {
+export const validateCustomFields = (
+  fields: ExerciseField[]
+): string | null => {
   if (fields.length === 0) return "At least one field is required.";
 
-  const trimmed = fields.map((f) => f.trim());
+  const trimmed = fields.map((f) => f.name.trim());
   if (trimmed.some((f) => f === "")) return "Fields cannot be empty.";
 
   for (const field of trimmed) {
@@ -52,6 +59,12 @@ export const validateCustomFields = (fields: string[]): string | null => {
 
   const duplicate = findDuplicate(trimmed);
   if (duplicate) return `Field "${duplicate}" is duplicated.`;
+
+  // weight and reps drive every numeric comparison, so each must be unambiguous.
+  for (const role of ["weight", "reps"] as const) {
+    const count = fields.filter((f) => f.role === role).length;
+    if (count > 1) return `Only one field can be the ${role} field.`;
+  }
 
   return null;
 };

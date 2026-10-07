@@ -1,3 +1,5 @@
+import { ExerciseField } from "./workoutType";
+
 // Type for a single set in an exercise
 export interface ExerciseSet {
   id: number;
@@ -8,7 +10,8 @@ export interface ExerciseSet {
 export interface LoggedExercise {
   id: string;
   name: string;
-  fields: string[];
+  /** Carried from the plan's `Exercise.fields`, roles included. */
+  fields: ExerciseField[];
   sets: ExerciseSet[];
 }
 
