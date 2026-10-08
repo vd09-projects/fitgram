@@ -3,8 +3,11 @@ import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WorkoutPlan, Exercise } from "../types/workoutType";
 import { ActiveWorkout, ExerciseSet } from "../types/zustandWorkoutType";
-import { saveActiveWorkoutLog } from "../services/db/userDB";
+import { saveWorkoutSession } from "../services/db/workoutSessions";
 import show from "../utils/toastUtils";
+import { normalizeExerciseFields } from "../utils/exerciseFields";
+import { useAuthStore } from "./authStore";
+import { useExerciseHistoryStore } from "./useExerciseHistoryStore";
 
 // Zustand Store Type
 interface WorkoutStoreState {
@@ -24,6 +27,19 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
 
   /** 🔹 Start a Workout */
   startWorkout: async (workout: WorkoutPlan) => {
+    // Prefetch history for every exercise in the plan, first, so it overlaps the
+    // local writes below and the first set is logged against a warm cache. One
+    // batched query, one document per exercise. Deliberately not awaited and
+    // never allowed to reject: history is an enhancement, so a slow or failed
+    // fetch must not delay or block starting the workout.
+    useExerciseHistoryStore
+      .getState()
+      .prefetchExerciseHistory(
+        useAuthStore.getState().user?.uid,
+        workout.exercises.map((exercise) => exercise.id)
+      )
+      .catch(() => {});
+
     const startTime = Date.now();
     const newWorkout: ActiveWorkout = {
       id: workout.id,
@@ -118,8 +134,18 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       const isOnline = true; // Replace with actual connectivity check
       if (isOnline) {
         console.log("Uploading workout to database:", activeWorkout);
-        await saveActiveWorkoutLog(userId, activeWorkout); // Replace with actual user ID
+        const { rollupApplied } = await saveWorkoutSession(userId, activeWorkout);
+        // Cached history predates the session just saved. Drop it so the next
+        // read refetches.
+        useExerciseHistoryStore
+          .getState()
+          .invalidateExercises(activeWorkout.exercises.map((e) => e.id));
         show.success("Workout saved successfully!");
+        if (!rollupApplied) {
+          // Session data is safe; only the derived exercise_stats rollup is
+          // behind. src/scripts/rebuildExerciseStats.ts repairs it.
+          console.warn("Workout saved, history rollup pending.");
+        }
         await AsyncStorage.removeItem("activeWorkout"); // Clear local storage
         set({ activeWorkout: null });
       } else {
@@ -128,7 +154,13 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
         alert("No internet! Workout saved locally. Sync when online.");
       }
     } catch (error) {
+      // The workout is deliberately left active so nothing is lost, but a
+      // silent no-op on a button press is not acceptable — say what happened.
       console.error("Failed to persist workout:", error);
+      show.alert(
+        "Could not save workout",
+        error instanceof Error ? error.message : "Please try again."
+      );
     }
   },
 
@@ -146,8 +178,20 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
   /** 🔹 Load Workout from AsyncStorage (For Offline Handling) */
   loadWorkoutFromStorage: async () => {
     const storedWorkout = await AsyncStorage.getItem("activeWorkout");
-    if (storedWorkout) {
-      set({ activeWorkout: JSON.parse(storedWorkout) });
-    }
+    if (!storedWorkout) return;
+
+    const parsed = JSON.parse(storedWorkout) as ActiveWorkout;
+    // A workout started before field roles existed has `fields: string[]` in
+    // storage. Normalising on the way in keeps a resumed session renderable
+    // instead of showing inputs labelled `undefined`.
+    set({
+      activeWorkout: {
+        ...parsed,
+        exercises: (parsed.exercises ?? []).map((exercise) => ({
+          ...exercise,
+          fields: normalizeExerciseFields(exercise.fields),
+        })),
+      },
+    });
   },
 }));

@@ -21,7 +21,10 @@ interface PrimaryInputFieldProps {
   labelColor?: string;
   left?: React.ReactNode;
   right?: React.ReactNode;
-  disabled?: boolean
+  disabled?: boolean;
+  /** Fired by the keyboard's return key. */
+  onSubmitEditing?: () => void;
+  returnKeyType?: 'done' | 'go' | 'next' | 'search' | 'send';
 }
 
 export const PrimaryInputField = React.forwardRef<RNTextInput, PrimaryInputFieldProps>(({
@@ -40,6 +43,8 @@ export const PrimaryInputField = React.forwardRef<RNTextInput, PrimaryInputField
   disabled = false,
   left,
   right,
+  onSubmitEditing,
+  returnKeyType,
 }, ref) => {
   const { styles, t } = useThemeStyles(createStyles);
   labelColor = labelColor || t.colors.textPrimary;
@@ -58,6 +63,8 @@ export const PrimaryInputField = React.forwardRef<RNTextInput, PrimaryInputField
 
       keyboardType={secureTextEntry ? undefined : keyboardType}
       secureTextEntry={secureEntry}
+      onSubmitEditing={onSubmitEditing}
+      returnKeyType={returnKeyType}
       right={
         right ? right :
           secureTextEntry ? (

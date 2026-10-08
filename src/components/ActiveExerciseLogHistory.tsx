@@ -9,6 +9,7 @@ import { LoggedExercise } from "../types/zustandWorkoutType";
 import { Column } from "./collapsible_table/CollapsibleTableParts";
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
+import { fieldNames } from "../utils/exerciseFields";
 
 interface ActiveExerciseLogHistoryProps {
   exercise: LoggedExercise;
@@ -18,7 +19,7 @@ export default function ActiveExerciseLogHistory({
   exercise,
 }: ActiveExerciseLogHistoryProps) {
   const { styles, t } = useThemeStyles(createStyles);
-  const [visibleHeaders, setVisibleHeaders] = useState<string[]>(exercise.fields);
+  const [visibleHeaders, setVisibleHeaders] = useState<string[]>(fieldNames(exercise.fields));
 
   const toggleHeader = (header: string) => {
     setVisibleHeaders((prev) =>
@@ -36,7 +37,7 @@ export default function ActiveExerciseLogHistory({
     </View>
   );
 
-  const columns: Column<Record<string, any>>[] = exercise.fields.map((header) => ({
+  const columns: Column<Record<string, any>>[] = fieldNames(exercise.fields).map((header) => ({
     key: header,
     label: header.charAt(0).toUpperCase() + header.slice(1),
     align: "center",
@@ -58,7 +59,7 @@ export default function ActiveExerciseLogHistory({
         <TableControls
           selectedFields={visibleHeaders}
           onSelectFields={setVisibleHeaders}
-          headers={exercise.fields}
+          headers={fieldNames(exercise.fields)}
           toggleFieldSelection={toggleHeader}
         />
 

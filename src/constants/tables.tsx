@@ -30,6 +30,21 @@ export const tables = {
                 },
             },
 
+            // Exercise-first history (supersedes workout_logs). The active
+            // workout flow asks "what did I do last time on THIS exercise, in
+            // any workout", so exercise id is the primary key.
+            sessions: {
+                collection: "sessions",
+            },
+            exercise_sessions: {
+                collection: "exercise_sessions",
+            },
+            exercise_stats: {
+                collection: "exercise_stats",
+            },
+
+            // Legacy: written by the removed saveActiveWorkoutLog, read by
+            // nothing. Kept for reference only; no code path touches it.
             workout_logs: {
                 collection: "workout_logs",
                 fields: {

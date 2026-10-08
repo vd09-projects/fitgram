@@ -1,22 +1,36 @@
-export const SetsString = "Sets";
+// src/types/workoutLogs.ts
+//
+// VIEW MODELS for the log tables on WorkoutLogsScreen — not storage shapes.
+// Storage lives in `src/types/workoutSession.ts` and is exercise-first.
+// `WorkoutHistoricalLogsFilter` adapts `ExerciseSessionDoc` into these so the
+// existing tables keep working unchanged.
+//
+// `SetsString = "Sets"` used to live here. It was never a schema contract — the
+// catalog seeded "Sets" as a per-set field, which is meaningless when each
+// logged row *is* a set. Set number is now the array position.
+
 export type SetLog = {
+  /**
+   * 1-based set number. In this view model the id IS the set's position, filled
+   * in by the adapter. Stored data carries no set id at all.
+   */
   id: number;
-  fields: {
-    [key: string]: string; // e.g., "Reps", "Sets", "Weight (kg)"
-  };
+  /** Values as logged. A number can arrive here despite any narrower typing. */
+  fields: Record<string, string | number>;
 };
 
 export type ExerciseLog = {
-  exerciseId: string; // Unique Exercise ID
-  exerciseName: string; // Exercise Name
-  timestamp: number; // Timestamp when the exercise was logged
-  sets: SetLog[]; // Array of sets with dynamic key-value attributes
+  exerciseId: string;
+  exerciseName: string;
+  /** ms epoch of the session this exercise was performed in. */
+  timestamp: number;
+  sets: SetLog[];
 };
 
 export type WorkoutLog = {
-  id: string; // Unique Log ID (e.g., `log_${workout.id}_${Date.now()}`)
-  workoutId: string; // ID of the workout being logged
-  userId: string; // User performing the workout
-  exercises: ExerciseLog[]; // List of exercises within this workout session
+  /** sessionId. */
+  id: string;
+  workoutId: string;
+  userId: string;
+  exercises: ExerciseLog[];
 };
-

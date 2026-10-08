@@ -10,16 +10,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { BORDER_RADIUS, SPACING } from '../../constants/styles';
 import ScrollableScreen from '../../components/ScrollableScreen';
 import SearchableInputDropdown, { DropdownSelection } from '../../components/SearchableInputDropdown';
-import EditableList from '../../components/EditableList';
+import ExerciseFieldEditor from '../../components/ExerciseFieldEditor';
 import usePredefinedExercises from '../../hooks/usePredefinedExercises';
 import useWorkoutPlans from '../../hooks/useWorkoutPlans';
 import show from '../../utils/toastUtils';
 import { overrideWorkoutDetails } from '../../services/db/userDB';
 import { useAuthUser } from '../../hooks/useAuthUser';
 import CollapsibleExerciseList from '../../components/CollapsibleExerciseList';
-import { Exercise, WorkoutPlan } from '../../types/workoutType';
+import { Exercise, ExerciseField, WorkoutPlan } from '../../types/workoutType';
 import { TextBase } from '../../components/TextBase';
 import { validateCustomFields, validateExerciseSelection, validateWorkoutAndExercises, validateWorkoutSelection } from '../../utils/exerciseValidations';
+import { toExerciseId } from '../../utils/validation';
 import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
 import { MANAGE_WOURKOUT_STEP_NAMES } from '../../tour_steps/manageWorkout';
@@ -31,7 +32,9 @@ export default function AddExerciseScreen() {
 
   const [selectedExercise, setSelectedExercise] = useState<DropdownSelection<Exercise> | undefined>(undefined);
   const [selectedWorkout, setSelectedWorkout] = useState<DropdownSelection<WorkoutPlan> | undefined>(undefined);
-  const [customFields, setCustomFields] = useState<string[]>([]);
+  const [customFields, setCustomFields] = useState<ExerciseField[]>([]);
+  // Text typed into the field editor's add box but not committed with +.
+  const [pendingFieldName, setPendingFieldName] = useState<string>('');
   const [workoutDetailsUpdated, setWorkoutDetailsUpdated] = useState<boolean>(false);
 
   const [reload, setReload] = useState<boolean>(false);
@@ -44,13 +47,24 @@ export default function AddExerciseScreen() {
   const handleSelectExercise = (exercise: DropdownSelection<Exercise>) => {
     if (exercise.isCustom) {
       exercise.value = {
-        id: exercise.label.replace(/\s+/g, '_'),
+        // Canonical, so a typed name always maps to the same exercise — and to
+        // the catalog's id when one exists. See toExerciseId.
+        id: toExerciseId(exercise.label),
         name: exercise.label,
         fields: []
       };
     }
     setWorkoutDetailsUpdated(true);
-    setCustomFields(exercise.value?.fields || []);
+    // A custom exercise is built with `fields: []`, so re-confirming the same
+    // name would wipe the fields already typed for it. Only adopt the
+    // selection's own fields when the selection actually changed.
+    const sameExercise =
+      selectedExercise?.value?.id !== undefined &&
+      selectedExercise.value.id === exercise.value?.id;
+    if (!sameExercise) {
+      setCustomFields(exercise.value?.fields || []);
+      setPendingFieldName('');
+    }
     setSelectedExercise(exercise);
   };
 
@@ -63,6 +77,7 @@ export default function AddExerciseScreen() {
       };
     }
     setCustomFields([]);
+    setPendingFieldName('');
     setSelectedExercise(undefined);
     setSelectedWorkout(workout);
   };
@@ -89,13 +104,21 @@ export default function AddExerciseScreen() {
       const exerciseError = validateExerciseSelection(selectedExercise, exerciseIds);
       if (exerciseError) return show.alert("Exercise Invalid", exerciseError);
 
-      const fieldError = validateCustomFields(customFields);
+      // Accept a field that was typed but never committed with +, rather than
+      // rejecting the exercise as fieldless over a missed tap.
+      const pending = pendingFieldName.trim();
+      const fieldsToSave: ExerciseField[] =
+        pending !== '' && !customFields.some((f) => f.name.trim() === pending)
+          ? [...customFields, { name: pending, role: 'other' }]
+          : customFields;
+
+      const fieldError = validateCustomFields(fieldsToSave);
       if (fieldError) return show.alert("Fields Invalid", fieldError);
 
       wk.exercises.push({
         id: selectedExercise.value.id,
         name: selectedExercise.label,
-        fields: customFields.map(f => f.trim()),
+        fields: fieldsToSave.map((f) => ({ ...f, name: f.name.trim() })),
       });
     }
 
@@ -161,10 +184,11 @@ export default function AddExerciseScreen() {
 
       {/* 🔹 Input Fields for Selected or Custom Exercise */}
       {selectedExercise && (
-        <EditableList
+        <ExerciseFieldEditor
           title={"Select `" + selectedExercise.label + "` Fields"}
           items={customFields}
           onItemsChange={setCustomFields}
+          onPendingTextChange={setPendingFieldName}
           tourStepPrefix={MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_EDITABLE_LIST}
           positionType="above"
         />
