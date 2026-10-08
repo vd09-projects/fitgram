@@ -119,6 +119,8 @@ const { useAuthStore } =
   require("../stores/authStore") as typeof import("../stores/authStore");
 const { deriveExerciseHistory } =
   require("../utils/exerciseHistory") as typeof import("../utils/exerciseHistory");
+const { toExerciseId } =
+  require("../utils/validation") as typeof import("../utils/validation");
 /* eslint-enable @typescript-eslint/no-var-requires */
 
 // ---------------------------------------------------------------------------
@@ -623,6 +625,25 @@ const run = async () => {
   check("status stays ready", stale.status === "ready", stale.status);
   check("failure still reported", stale.error !== null);
   fetchBehaviour = "ok";
+
+  // -- 12b. Exercise identity is the join key -------------------------------
+  section("12b. A typed exercise name maps to one canonical id");
+  check(
+    "case and spacing variants collapse to one id",
+    toExerciseId("Cable Fly") === "cable_fly" &&
+      toExerciseId("cable fly") === "cable_fly" &&
+      toExerciseId("  Cable   Fly  ") === "cable_fly",
+    [toExerciseId("Cable Fly"), toExerciseId("cable fly")].join(",")
+  );
+  check(
+    "a typed name lands on the catalog's id, so the two share one history",
+    toExerciseId("Bench Press") === BENCH,
+    toExerciseId("Bench Press")
+  );
+  check(
+    "ids stay valid for Firestore and for isValidId",
+    /^[a-z0-9_]+$/.test(toExerciseId("Barbell Row"))
+  );
 
   // -- 13. The hook cannot fetch -------------------------------------------
   section("13. useExerciseHistory has no path to a fetch");

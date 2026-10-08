@@ -20,6 +20,7 @@ import CollapsibleExerciseList from '../../components/CollapsibleExerciseList';
 import { Exercise, ExerciseField, WorkoutPlan } from '../../types/workoutType';
 import { TextBase } from '../../components/TextBase';
 import { validateCustomFields, validateExerciseSelection, validateWorkoutAndExercises, validateWorkoutSelection } from '../../utils/exerciseValidations';
+import { toExerciseId } from '../../utils/validation';
 import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
 import { MANAGE_WOURKOUT_STEP_NAMES } from '../../tour_steps/manageWorkout';
@@ -46,7 +47,9 @@ export default function AddExerciseScreen() {
   const handleSelectExercise = (exercise: DropdownSelection<Exercise>) => {
     if (exercise.isCustom) {
       exercise.value = {
-        id: exercise.label.replace(/\s+/g, '_'),
+        // Canonical, so a typed name always maps to the same exercise — and to
+        // the catalog's id when one exists. See toExerciseId.
+        id: toExerciseId(exercise.label),
         name: exercise.label,
         fields: []
       };

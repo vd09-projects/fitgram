@@ -44,6 +44,22 @@ export const getInvalidUserNameCharacter = (name: string): string | null => {
   return null;
 };
 
+/**
+ * The id an exercise name maps to.
+ *
+ * Exercise identity is the join key for cross-workout history: "my last bench
+ * press" only works if bench press carries one id in every plan. Catalog ids are
+ * lowercase_snake, and names are letters and whitespace only, so lowercasing and
+ * collapsing whitespace reproduces that convention exactly — a custom
+ * "Bench Press" lands on `bench_press`, the same id the catalog uses, and the
+ * two share one history instead of silently splitting.
+ *
+ * Case and spacing variants ("Cable Fly", "cable  fly") collapse to one id for
+ * the same reason.
+ */
+export const toExerciseId = (name: string): string =>
+  name.trim().toLowerCase().replace(/\s+/g, "_");
+
 export const getInvalidExerciseNameCharacter = (name: string): string | null => {
   const trimmed = name.trim();
   const validPattern = /^[a-zA-Z\s]$/;
