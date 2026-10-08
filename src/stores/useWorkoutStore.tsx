@@ -6,6 +6,8 @@ import { ActiveWorkout, ExerciseSet } from "../types/zustandWorkoutType";
 import { saveWorkoutSession } from "../services/db/workoutSessions";
 import show from "../utils/toastUtils";
 import { normalizeExerciseFields } from "../utils/exerciseFields";
+import { useAuthStore } from "./authStore";
+import { useExerciseHistoryStore } from "./useExerciseHistoryStore";
 
 // Zustand Store Type
 interface WorkoutStoreState {
@@ -25,6 +27,19 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
 
   /** 🔹 Start a Workout */
   startWorkout: async (workout: WorkoutPlan) => {
+    // Prefetch history for every exercise in the plan, first, so it overlaps the
+    // local writes below and the first set is logged against a warm cache. One
+    // batched query, one document per exercise. Deliberately not awaited and
+    // never allowed to reject: history is an enhancement, so a slow or failed
+    // fetch must not delay or block starting the workout.
+    useExerciseHistoryStore
+      .getState()
+      .prefetchExerciseHistory(
+        useAuthStore.getState().user?.uid,
+        workout.exercises.map((exercise) => exercise.id)
+      )
+      .catch(() => {});
+
     const startTime = Date.now();
     const newWorkout: ActiveWorkout = {
       id: workout.id,
@@ -120,6 +135,11 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       if (isOnline) {
         console.log("Uploading workout to database:", activeWorkout);
         const { rollupApplied } = await saveWorkoutSession(userId, activeWorkout);
+        // Cached history predates the session just saved. Drop it so the next
+        // read refetches.
+        useExerciseHistoryStore
+          .getState()
+          .invalidateExercises(activeWorkout.exercises.map((e) => e.id));
         show.success("Workout saved successfully!");
         if (!rollupApplied) {
           // Session data is safe; only the derived exercise_stats rollup is

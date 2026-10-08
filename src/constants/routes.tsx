@@ -17,4 +17,6 @@ export const WorkoutRoutes = {
     StartWorkout: "StartWorkout",
     LogWorkout: "LogWorkout",
     WorkoutHome: "WorkoutHome",
+    // TEMPORARY — remove with ExerciseHistoryDebugScreen.
+    HistoryDebug: "HistoryDebug",
 } as const;

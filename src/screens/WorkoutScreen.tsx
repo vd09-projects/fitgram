@@ -49,6 +49,13 @@ const workoutOptions = [
     // tous: ACTIVE_WORKOUT_STEP_NAMES.LOG_ACTIVE_WORKOUT_BUTTON,
     // action: (navigation: workoutScreenNavigationProp) => console.log('Navigating to Start Workout'), 
     action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.LogWorkout),
+  },
+  // TEMPORARY — remove with ExerciseHistoryDebugScreen.
+  {
+    title: 'History Debug',
+    description: 'Temporary: inspect useExerciseHistory and the fetch counter.',
+    icon: 'bug-outline',
+    action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.HistoryDebug),
   }
 ];
 
