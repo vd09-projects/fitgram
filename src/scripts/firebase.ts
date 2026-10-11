@@ -6,6 +6,7 @@
 // straight from .env.
 import "dotenv/config";
 import { initializeApp } from "firebase/app";
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -25,3 +26,26 @@ if (!firebaseConfig.projectId) {
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+export const auth = getAuth(app);
+
+/**
+ * Sign in before writing.
+ *
+ * Scripts run unauthenticated by default, so `request.auth` is null and any rule
+ * requiring a signed-in user rejects the write with PERMISSION_DENIED. Reads
+ * credentials from the environment — never hardcode them, and never log them.
+ *
+ *   FS_SEED_EMAIL=you@example.com FS_SEED_PASSWORD=... npx tsx <script>
+ *
+ * Returns false when no credentials are set, so a script can continue
+ * unauthenticated where the rules permit it.
+ */
+export const signInForScripts = async (): Promise<boolean> => {
+  const email = process.env.FS_SEED_EMAIL;
+  const password = process.env.FS_SEED_PASSWORD;
+  if (!email || !password) return false;
+
+  await signInWithEmailAndPassword(auth, email, password);
+  console.log(`Signed in as ${email}.`);
+  return true;
+};

@@ -1,5 +1,14 @@
 // src/scripts/uploadExercises.ts
-import { addPredefinedExercise } from "../services/db/exercises";
+//
+//   npx tsx src/scripts/uploadExercises.ts --dry-run   # print, write nothing
+//   npx tsx src/scripts/uploadExercises.ts             # write the catalog
+//
+// Writes through ./firebase, the node-side Firestore init, and deliberately not
+// through services/db/exercises: that module pulls in the app's Firebase init,
+// which imports AsyncStorage and therefore react-native, neither of which can
+// load outside the RN runtime.
+import { collection, doc, setDoc } from "firebase/firestore";
+import { db, signInForScripts } from "./firebase";
 import { Exercise } from "../types/workoutType";
 
 // Extended predefined exercises data.
@@ -293,19 +302,46 @@ const predefinedExercises: Exercise[] = [
   },
 ];
 
-// Function to upload exercises to Firestore
-const uploadExercises = async () => {
-  try {
-    for (const exercise of predefinedExercises) {
-      await addPredefinedExercise(exercise);
-      console.log(`Uploaded: ${exercise.name}`);
-    }
+const DRY_RUN = process.argv.includes("--dry-run");
 
-    console.log("✅ All exercises have been uploaded successfully!");
-  } catch (error) {
-    console.error("❌ Error uploading exercises:", error);
+const uploadExercises = async () => {
+  console.log(
+    `${predefinedExercises.length} exercises to upload${DRY_RUN ? " (dry run)" : ""}.`
+  );
+
+  if (DRY_RUN) {
+    for (const exercise of predefinedExercises) {
+      const roles = exercise.fields
+        .map((f) => `${f.name}=${f.role}${f.unit ? `/${f.unit}` : ""}`)
+        .join(", ");
+      console.log(`  ${exercise.id.padEnd(28)} ${roles}`);
+    }
+    console.log("Dry run — nothing written.");
+    return;
   }
+
+  // Rules that require a signed-in user reject an anonymous script write.
+  const signedIn = await signInForScripts();
+  if (!signedIn) {
+    console.log(
+      "Running unauthenticated — set FS_SEED_EMAIL and FS_SEED_PASSWORD if this is rejected."
+    );
+  }
+
+  const exercises = collection(db, "predefined_exercises");
+
+  let written = 0;
+  for (const exercise of predefinedExercises) {
+    await setDoc(doc(exercises, exercise.id), exercise);
+    written += 1;
+    console.log(`Uploaded: ${exercise.name} (${exercise.id})`);
+  }
+  console.log(`\u2705 ${written} exercises uploaded.`);
 };
 
-// Run the upload function
-uploadExercises();
+uploadExercises()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error("\u274c Error uploading exercises:", error);
+    process.exit(1);
+  });

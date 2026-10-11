@@ -1,5 +1,7 @@
 import { getDocs, collectionGroup, doc, setDoc, getDoc } from "firebase/firestore";
-import { db } from "../services/firebase/firebase";
+// ./firebase, not services/firebase/firebase: the app's init imports
+// AsyncStorage and therefore react-native, which cannot load in node.
+import { db } from "./firebase";
 
 const patchMissingUserDocs = async () => {
   const infoDocsSnapshot = await getDocs(collectionGroup(db, "info"));

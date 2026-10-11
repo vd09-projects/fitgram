@@ -617,38 +617,76 @@ number. Tokens only — no screen layout changes land in this ticket.
 
 ---
 
-### TICKET-016: Previous-Session Lookup for the Active Exercise
+### ~~TICKET-016: Previous-Session Lookup for the Active Exercise~~ ✅ DONE
 
-**Priority:** High | **Effort:** Medium | **Status: OPEN**
+**Priority:** High | **Effort:** Medium | **Status: COMPLETED**
 
 **Description:**
-Nothing in the active workout flow can see what the user did last time. Add one hook
-that answers, for the exercise being logged: what did I do last session set by set,
-what were my last few sessions, what is my best set at each rep count, and how has
-volume trended. Four later tickets read from it.
+Nothing in the active workout flow could see what the user did last time. Add one
+hook that answers, for the exercise being logged: what did I do last session set by
+set, what were my last few sessions, what is my best set at each rep count, and how
+has volume trended. Four later tickets read from it.
 
-**Acceptance Criteria:**
-- [ ] `useExerciseHistory(workoutId, exerciseId)` returning `lastSession` (sets keyed by set index), `sessions` (last 3 with dates), `best` (heaviest set per rep count), `volumeTrend` (last 6 sessions)
-- [ ] Prefetch on workout start so logging a set never waits on a network round trip
-- [ ] Cache per workout for the session's lifetime — one fetch, many readers
-- [ ] Handle the no-history case explicitly: consumers must render when an exercise has never been done
-- [ ] Offline, fall back to whatever is cached rather than failing the logging flow
-- [ ] Types live in `src/types/`, not inline
+**What was done:**
+- Re-keyed workout history from workout to **exercise**. The old
+  `workout_logs/{workoutId}/logs/{logId}/exercises/{exerciseId}` tree could only
+  answer "what did I do last time *in this plan*", so bench press in two plans was
+  two histories with no way to join them. Storage is now
+  `users/{uid}/sessions`, `users/{uid}/exercise_sessions` (canonical) and
+  `users/{uid}/exercise_stats` (derived rollup)
+- `useExerciseHistory(exerciseId)` returning `lastSession` addressable by set
+  number, `sessions` (last 3, each naming the workout it was done in), `best`
+  (all-time, per rep count), `volumeTrend` (last 6) and `loading`
+- Session-lifetime cache keyed by exercise. `startWorkout` issues one batched
+  prefetch for the whole plan; readers cannot fetch at all
+- Replaced name-guessing with declared semantics: `Exercise.fields` is now
+  `ExerciseField { name, role, unit? }`, set in Manage Workout
+- Canonical exercise ids, so a typed "Bench Press" lands on the catalog's
+  `bench_press` instead of shadowing it with `Bench_Press`
+- No backfill: pre-launch, so `workout_logs` is abandoned in place
 
-**Technical Notes:**
-- Built on the existing `getLatestWorkoutLogExercises` (`src/services/db/userDB.ts:205`),
-  which runs one ordered query then a `getDocs` per log — N+1 reads. Acceptable as a
-  prefetch, far too expensive per set, which is why the cache is in the acceptance criteria
-- Set index is the join key: `lastSession.sets[3]` is what "set 4" compares against
-- `SetLog.fields` is `Record<string, string>`, so weight and reps arrive as strings and
-  need parsing before any arithmetic
-- Field names are dynamic per exercise (`LoggedExercise.fields`), so do not hardcode
-  "Weight (kg)" or "Reps" — resolve against the exercise's own field list and degrade
-  when a field is absent
-- `getWorkoutLogsPaginated` already exists if the trend needs more history than the
-  last-3 query returns
+**Decisions pinned:**
+- **best** = heaviest weight at equal reps, all-time, keyed per (reps, unit)
+- **volume** = sum of weight x reps, **all or nothing**: one unparseable set yields
+  null rather than a partial sum that would understate the session
+- Units are reported, never converted. A kg session and an lb session of the same
+  exercise are marked not comparable
 
-**Dependencies:** None. Runs in parallel with TICKET-015. Blocks 018, 019, 020, 021, 022.
+**Deviations from the original plan:**
+- Signature is `useExerciseHistory(exerciseId)`, not `(workoutId, exerciseId)`.
+  Keying by workout would have reproduced the bug this ticket exists to fix;
+  `lastSession.workoutName` carries the plan instead
+- The field resolver was replaced by typed roles rather than built. Guessing
+  semantics from user-authored strings degrades silently and cannot tell kg from lb
+- Scope grew to UI. Changing `Exercise.fields` forced Manage Workout, the logger
+  and the log tables. `EditableList` became `ExerciseFieldEditor`
+
+**Files:** `types/{exerciseHistory,workoutSession,workoutType}.ts`,
+`utils/{exerciseFields,exerciseStats,exerciseHistory}.ts`,
+`services/db/workoutSessions.ts`, `stores/useExerciseHistoryStore.ts`,
+`hooks/useExerciseHistory.ts`, `components/ExerciseFieldEditor.tsx`,
+`scripts/{verifyHistoryReads,rebuildExerciseStats}.ts`, `firestore.indexes.json`
+
+**Verification:** `npx tsx src/scripts/verifyHistoryReads.ts` — 77 checks, counting
+reads at the Firestore boundary rather than asserting the cache works. Starting a
+workout issues one fetch; 300 exercise reads and 100 logged sets issue zero.
+
+**Operational:** one composite index, `exercise_sessions` on (exerciseId ASC,
+performedAt DESC). `firestore.rules` is a proposal, never reconciled with the
+console. Re-run `scripts/uploadExercises.ts` to put roles on the catalog; it drops
+`"Sets"` from all 42 entries.
+
+**Known gaps, deferred to the optimisation pass:**
+- Resuming a workout after an app restart does not prefetch — needs an auth-ready
+  trigger, belongs with TICKET-017's resume path
+- Firestore has no `persistentLocalCache`, so write promises never resolve offline
+  and pending writes die with the app. Pre-existing
+- The rollup only raises records; editing a set downward needs
+  `scripts/rebuildExerciseStats.ts`. Ties into open decision 2 on `removeSet`
+- `ExerciseHistoryDebugScreen` is temporary, kept until 018-022 build the real UI.
+  Every piece is marked `TEMPORARY`; removal is four edits
+
+**Dependencies:** None. Ran in parallel with TICKET-015. Unblocks 018, 019, 020, 021, 022.
 
 ---
 
@@ -781,7 +819,7 @@ exercise and a volume trend. Available during the exercise, never on screen by d
 - [ ] Logging is not blocked while the sheet is open; dismissing returns to the same set in progress
 
 **Technical Notes:**
-- Reads the same `useExerciseHistory` data as 018 and 019. No new fetching
+- Reads the same `useExerciseHistory(exerciseId)` data as 018 and 019. No new fetching
 - This is the in-flow replacement for navigating to `WorkoutLogsScreen` mid-set. That
   screen stays as the full browser
 - `WorkoutHistoricalLogsFilter` is not reused: its filter state is for browsing, not for a
@@ -849,7 +887,8 @@ resume banner.
   `useEffect`, so the user is met by a modal before seeing the screen. The banner carries the
   same information without the interruption
 - Per-exercise last top sets for a whole plan means history for every exercise in it. Batch
-  through TICKET-016's cache rather than one fetch per row
+  through TICKET-016's cache rather than one fetch per row. `prefetchExerciseHistory`
+  takes a list of exercise ids and batches them into one query
 - The list currently reflows between 2-column grid and horizontal when a plan is selected
   (`numColumns` keyed off `selectedWorkout`), which remounts it. Rows avoid that entirely
 - Overlaps TICKET-011 (active workout indicator): the banner is the in-screen case, the
@@ -879,7 +918,7 @@ resume banner.
 
 --- Phase 3: workout flow redesign ---
 12. TICKET-015 (Workout flow tokens)      — Blocks the rest of Phase 3
-12. TICKET-016 (Exercise history hook)    — Parallel with 015
+12. ~~TICKET-016 (Exercise history hook)~~ — DONE
 13. TICKET-017 (Active workout pager)
 14. TICKET-018 (Set logger card)
 15. TICKET-019 (Today's sets + deltas)    — Flow is whole and better here
