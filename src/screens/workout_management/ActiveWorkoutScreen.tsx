@@ -167,16 +167,20 @@ export default function ActiveWorkoutScreen() {
 
       <View style={styles.footer}>
         <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.SAVE_CURRENT_WORKOUT_LOGER} positionType="above">
-          {/* Outlined on purpose: the screen's one accent fill belongs to Log set. */}
-          <TouchableOpacity
-            style={[styles.finishButton, finishing && styles.finishButtonBusy]}
-            onPress={handleFinish}
-            disabled={finishing}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: finishing, busy: finishing }}
-          >
-            <TextBase style={styles.finishText}>{finishing ? "Saving…" : "Finish workout"}</TextBase>
-          </TouchableOpacity>
+          {/* Plain View: MultiTourSteps splits its child's style, which left the
+              touchable shrink-wrapped to its label so off-centre taps missed. */}
+          <View>
+            {/* Outlined on purpose: the screen's one accent fill belongs to Log set. */}
+            <TouchableOpacity
+              style={[styles.finishButton, finishing && styles.finishButtonBusy]}
+              onPress={handleFinish}
+              disabled={finishing}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: finishing, busy: finishing }}
+            >
+              <TextBase style={styles.finishText}>{finishing ? "Saving…" : "Finish workout"}</TextBase>
+            </TouchableOpacity>
+          </View>
         </MaybeTourStep>
       </View>
 

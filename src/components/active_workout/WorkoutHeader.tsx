@@ -64,14 +64,18 @@ export default function WorkoutHeader({ workoutName, startTime, onBack, onOpenMe
       </View>
 
       <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.CANCEL_CURRENT_WORKOUT_LOGER}>
-        <TouchableOpacity
-          style={styles.iconButton}
-          onPress={onOpenMenu}
-          accessibilityRole="button"
-          accessibilityLabel="Workout options"
-        >
-          <Ionicons name="ellipsis-horizontal" size={22} color={t.colors.role.textSecondary} />
-        </TouchableOpacity>
+        {/* Plain View: MultiTourSteps splits its child's style, which cut this
+            44px target down to the icon's width. */}
+        <View>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={onOpenMenu}
+            accessibilityRole="button"
+            accessibilityLabel="Workout options"
+          >
+            <Ionicons name="ellipsis-horizontal" size={22} color={t.colors.role.textSecondary} />
+          </TouchableOpacity>
+        </View>
       </MaybeTourStep>
     </View>
   );
