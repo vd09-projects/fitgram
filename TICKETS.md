@@ -722,6 +722,40 @@ out of the main action row.
   accidental tap loses the session
 - One accent fill per screen: `Log set` owns it, so `Finish workout` is outlined
 
+**Implementation notes (deviations and decisions):**
+- **Progress fill has no denominator in the data model.** The ticket says "partially
+  filled by sets logged", but nothing records a planned set count (`Exercise` is id,
+  name, fields). Fill is `setsLogged / last session's set count` for the exercise, read
+  from the history cache via `useExerciseHistory` (zero network reads). When that is
+  unknown — a new exercise or a cold cache, which is most exercises pre-launch — the
+  current segment shows one tick per logged set instead of an invented ratio. If a
+  planned set count is wanted, it is a new field on `Exercise`, not more inference
+- **"Done" means "not in view and at least one set logged"**, not "before the current
+  index". A skipped exercise stays untouched; one logged out of order shows done.
+  Definitions are pinned on `ProgressSegment` in `src/utils/workoutProgress.ts`
+- **Swipe: gesture-handler `Fling`, no new dependency.** A discrete left/right fling
+  changes the index; content swaps, it does not slide (no animation library). A fling
+  does not compete with the vertical ScrollView or with 018's text inputs, which a
+  tracked pan or a horizontal `FlatList` would. `react-native-pager-view` was rejected
+  for now: best feel, but a native dependency for one screen whose content 018 is about
+  to rebuild. Revisit if the swap feels abrupt on device
+- **`ExerciseLogger` is keyed by exercise id from the screen.** Pre-existing bug (the
+  dropdown version had it too): typed-but-unlogged values survived an exercise switch
+  and would be logged against the new exercise, since field names like "Reps" repeat.
+  Keying from outside keeps the component's internals untouched; cost is that unlogged
+  input is dropped on navigation
+- **Finish is guarded against a double tap** while `endWorkout` is in flight, which
+  would otherwise save the session twice
+- **`WorkoutNavigator.tsx` was not edited** (the brief assumed it would be), so
+  `ExerciseHistoryDebugScreen` is left as is: still `TEMPORARY`, still reachable, removal
+  stays with 018-022 as TICKET-016 planned
+- Shell uses role tokens only. `ExerciseLogger` internals still use legacy flat
+  tokens; those belong to 018, which rebuilds that card. Its hardcoded `#ddd` bottom
+  border was removed here: a divider left over from the dropdown layout, separating nothing
+- **Verification:** a local harness (not committed yet) ran 54 checks on the
+  index setter, progress segments, elapsed time and source constraints. Rendering,
+  swipe, the menu/confirm flow and tour anchoring need a device run
+
 **Dependencies:** TICKET-015.
 
 ---

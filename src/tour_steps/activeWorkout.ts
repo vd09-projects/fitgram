@@ -1,4 +1,4 @@
-import { SCREEN_NAMES, SEARCHABLE_INPUT_STEP_NAMES } from "./commonStepNames";
+import { SCREEN_NAMES } from "./commonStepNames";
 import { generateStepsFromMap } from "./utils";
 
 export const ACTIVE_WORKOUT_STEP_NAMES = {
@@ -11,22 +11,20 @@ export const ACTIVE_WORKOUT_STEP_NAMES = {
   SAVE_CURRENT_WORKOUT_LOGER: "ACTIVE_WORKOUT_SAVE_CURRENT_WORKOUT_LOGER",
 };
 
-const EXERCISE_SEARCHABLE_TOUR_STEPS = {
-  [SEARCHABLE_INPUT_STEP_NAMES.DROPDOWN_BUTTON]: {
-    title: "Select an Exercise",
-    description: "Open the list to choose an exercise you want to log.",
-    screen: SCREEN_NAMES.SEARCHABLE_INPUT_DROPDOWN,
-  },
-};
-
 const ACTIVE_WORKOUT_TOUR_STEPS = {
   [ACTIVE_WORKOUT_STEP_NAMES.LOG_ACTIVE_WORKOUT_BUTTON]: {
     title: "Start Logging Your Workout",
     description: "Tap this button to begin recording your workout session.",
     screen: SCREEN_NAMES.FOOTER,
   },
-  [ACTIVE_WORKOUT_STEP_NAMES.SELECTED_WORKOUT_EXERCISE]:
-    EXERCISE_SEARCHABLE_TOUR_STEPS,
+  // Anchors the exercise header (arrows, name, "Exercise N of M"). It used to
+  // anchor the exercise dropdown, which TICKET-017 removed.
+  [ACTIVE_WORKOUT_STEP_NAMES.SELECTED_WORKOUT_EXERCISE]: {
+    title: "Move Between Exercises",
+    description:
+      "Use the arrows, or swipe left and right, to move through the exercises in this workout. The bar below shows where you are.",
+    screen: SCREEN_NAMES.ACTIVE_WORKOUT,
+  },
   [ACTIVE_WORKOUT_STEP_NAMES.LOG_HISTORY]: {
     title: "View Workout History",
     description:
@@ -46,15 +44,15 @@ const ACTIVE_WORKOUT_TOUR_STEPS = {
     screen: SCREEN_NAMES.ACTIVE_WORKOUT,
   },
   [ACTIVE_WORKOUT_STEP_NAMES.CANCEL_CURRENT_WORKOUT_LOGER]: {
-    title: "Cancel Workout Logging",
+    title: "Workout Options",
     description:
-      "Click this button to cancel logging your current workout and discard any unsaved changes.",
+      "Discard workout lives in this menu. It asks before deleting anything.",
     screen: SCREEN_NAMES.ACTIVE_WORKOUT,
   },
   [ACTIVE_WORKOUT_STEP_NAMES.SAVE_CURRENT_WORKOUT_LOGER]: {
-    title: "Save Workout Log",
+    title: "Finish Workout",
     description:
-      "Press this button to save all exercises and sets recorded in this workout session.",
+      "Tap here when you are done to save every exercise and set from this session.",
     screen: SCREEN_NAMES.ACTIVE_WORKOUT,
   },
 };

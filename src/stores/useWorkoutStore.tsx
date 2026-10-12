@@ -6,6 +6,7 @@ import { ActiveWorkout, ExerciseSet } from "../types/zustandWorkoutType";
 import { saveWorkoutSession } from "../services/db/workoutSessions";
 import show from "../utils/toastUtils";
 import { normalizeExerciseFields } from "../utils/exerciseFields";
+import { clampExerciseIndex } from "../utils/workoutProgress";
 import { useAuthStore } from "./authStore";
 import { useExerciseHistoryStore } from "./useExerciseHistoryStore";
 
@@ -17,6 +18,7 @@ interface WorkoutStoreState {
   startWorkout: (workout: WorkoutPlan) => Promise<void>;
   addSetToExercise: (exerciseId: string, newSet: ExerciseSet) => Promise<void>;
   updateSet: (exerciseId: string, setId: number, updatedFields: Record<string, string | number>) => Promise<void>;
+  setCurrentExerciseIndex: (index: number) => Promise<void>;
   endWorkout: (userId : string | undefined) => Promise<void>;
   cancelWorkout: () => Promise<void>;
   loadWorkoutFromStorage: () => Promise<void>;
@@ -117,6 +119,33 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
 
     await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
     set({ activeWorkout: updatedWorkout });
+  },
+
+  /**
+   * 🔹 Point the session at the exercise the user is looking at.
+   *
+   * This is the only write that means "viewing". `addSetToExercise` and
+   * `updateSet` also write `currentExerciseIndex`, as "I just logged here"; in
+   * the paged screen that is always the exercise on screen, so the two agree.
+   *
+   * Out-of-range input is clamped rather than rejected, so a stale index from a
+   * double-tapped arrow lands on the last exercise instead of on nothing. An
+   * empty workout keeps `null`. Persisted so a resumed session reopens on the
+   * same exercise.
+   */
+  setCurrentExerciseIndex: async (index) => {
+    const { activeWorkout } = get();
+    if (!activeWorkout) return;
+
+    const clamped = clampExerciseIndex(index, activeWorkout.exercises.length);
+    if (clamped === activeWorkout.currentExerciseIndex) return;
+
+    // `lastUpdated` is left alone: it tracks logged data, and paging is not data.
+    const updatedWorkout: ActiveWorkout = { ...activeWorkout, currentExerciseIndex: clamped };
+
+    // Update memory first so the screen moves on the tap, not after the disk write.
+    set({ activeWorkout: updatedWorkout });
+    await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
   },
 
   /** 🔹 End Workout & Persist Data */

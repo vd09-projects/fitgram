@@ -70,8 +70,6 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
 const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
     paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderColor: "#ddd"
   },
   inputContainer: { marginBottom: SPACING.medium },
   logButton: {
