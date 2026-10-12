@@ -15,7 +15,8 @@ import { useExerciseHistory } from "../../hooks/useExerciseHistory";
 import show from "../../utils/toastUtils";
 import { buildProgressSegments, resolveCurrentIndex } from "../../utils/workoutProgress";
 import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
-import { WorkoutRoutes } from "../../constants/routes";
+import { LayoutScreenNavigationProp } from "../../navigation/LayoutNavigator";
+import { LayoutRoutes, WorkoutRoutes } from "../../constants/routes";
 import { useNavigation } from "@react-navigation/native";
 import { TextBase } from "../../components/TextBase";
 import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
@@ -24,12 +25,14 @@ import { MaybeTourStep } from "../../components/guide_tour/MaybeTourStep";
 import { ACTIVE_WORKOUT_STEP_NAMES } from "../../tour_steps/activeWorkout";
 
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.LogWorkout>;
+type layoutScreenNavigationProp = LayoutScreenNavigationProp<typeof LayoutRoutes.LogWorkout>;
 
 const HIT = 44;
 
 export default function ActiveWorkoutScreen() {
   const { styles, t } = useThemeStyles(createStyles);
   const navigation = useNavigation<workoutScreenNavigationProp>();
+  const layoutNavigation = useNavigation<layoutScreenNavigationProp>();
 
   const { user } = useAuthUser();
   const { activeWorkout, endWorkout, cancelWorkout, setCurrentExerciseIndex } = useWorkoutStore();
@@ -64,9 +67,18 @@ export default function ActiveWorkoutScreen() {
     Gesture.Fling().direction(Directions.RIGHT).runOnJS(true).onEnd(goPrevious),
   );
 
+  // This screen is registered in two stacks: Workout (reached from the workout
+  // home or Start Workout) and Layout (the Log Workout footer tab, which resets
+  // the Layout stack so nothing sits behind it). A Workout-stack route name is
+  // unknown to the Layout stack, so anything that leaves this screen goes via
+  // the Layout `Workout` route with a nested target. Called from the Workout
+  // stack, that action bubbles up to the Layout stack and resolves the same way.
+  const openWorkoutScreen = (screen: typeof WorkoutRoutes.WorkoutHome | typeof WorkoutRoutes.StartWorkout) =>
+    layoutNavigation.navigate(LayoutRoutes.Workout, { screen });
+
   const handleBack = () => {
     if (navigation.canGoBack()) navigation.goBack();
-    else navigation.navigate(WorkoutRoutes.WorkoutHome);
+    else openWorkoutScreen(WorkoutRoutes.WorkoutHome);
   };
 
   const handleFinish = async () => {
@@ -95,7 +107,7 @@ export default function ActiveWorkoutScreen() {
         <TextBase style={styles.noWorkoutText}>No active workout</TextBase>
         <TouchableOpacity
           style={styles.noWorkoutLink}
-          onPress={() => navigation.navigate(WorkoutRoutes.StartWorkout)}>
+          onPress={() => openWorkoutScreen(WorkoutRoutes.StartWorkout)}>
           <TextBase style={styles.switchText}>click to select a new one</TextBase>
         </TouchableOpacity>
       </View>
