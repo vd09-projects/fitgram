@@ -32,6 +32,18 @@ export function resolveCurrentIndex(stored: number | null, count: number): numbe
 }
 
 /**
+ * Planned set count assumed for an exercise with no usable history. The plan
+ * records no set count, so without last session to go on this is a guess —
+ * chosen deliberately over showing nothing. 3 is the common default; at 2 sets
+ * the segment reads 67%, at 3 it is full.
+ *
+ * Rejected, after a device test: one 3px tick per set with no target. It was
+ * honest (a count, not a ratio) but any mark inside a bar reads as a
+ * percentage, so 2 logged sets looked like 3% progress.
+ */
+export const DEFAULT_TARGET_SETS = 3;
+
+/**
  * One segment of the progress bar.
  *
  * Definitions, pinned because each has a defensible alternative:
@@ -45,12 +57,10 @@ export function resolveCurrentIndex(stored: number | null, count: number): numbe
  * - `untouched` — not in view, no sets logged. Skipped and not-yet-reached look
  *   the same, deliberately: both have nothing logged.
  *
- * The current segment's fill needs a denominator and the plan does not have
- * one. Last session's set count for the exercise is used when it is known
- * (`fill`, capped at 1 — beating last time does not overflow the segment).
- * When it is not known — a new exercise, or a cold cache — `fill` is `null` and
- * the screen shows one tick per logged set instead. Rejected: a fixed guess of
- * the target (3, 4, 5 sets), which renders a plausible ratio of nothing.
+ * The current segment fills `setsLogged / targetSets`, capped at 1 (beating the
+ * target does not overflow the segment). `targetSets` is last session's set
+ * count when known, else `DEFAULT_TARGET_SETS`; `targetSource` says which, so
+ * a caller can tell a measured target from an assumed one.
  */
 export type ProgressSegment =
   | { state: "done"; setsLogged: number }
@@ -58,23 +68,26 @@ export type ProgressSegment =
   | {
       state: "current";
       setsLogged: number;
-      /** Last session's set count, or null when unknown. Never 0. */
-      targetSets: number | null;
-      /** setsLogged / targetSets capped at 1; null whenever targetSets is. */
-      fill: number | null;
+      /** Always >= 1. */
+      targetSets: number;
+      targetSource: "lastSession" | "default";
+      /** setsLogged / targetSets, capped at 1. */
+      fill: number;
     };
 
 export function buildProgressSegments(
   exercises: Pick<LoggedExercise, "sets">[],
   currentIndex: number | null,
-  currentTargetSets: number | null
+  lastSessionSetCount: number | null
 ): ProgressSegment[] {
-  const target =
-    currentTargetSets !== null &&
-    Number.isFinite(currentTargetSets) &&
-    currentTargetSets > 0
-      ? Math.floor(currentTargetSets)
+  const measured =
+    lastSessionSetCount !== null &&
+    Number.isFinite(lastSessionSetCount) &&
+    lastSessionSetCount >= 1
+      ? Math.floor(lastSessionSetCount)
       : null;
+  const targetSets = measured ?? DEFAULT_TARGET_SETS;
+  const targetSource = measured === null ? "default" : "lastSession";
 
   return exercises.map((exercise, index): ProgressSegment => {
     const setsLogged = exercise.sets.length;
@@ -82,8 +95,9 @@ export function buildProgressSegments(
       return {
         state: "current",
         setsLogged,
-        targetSets: target,
-        fill: target === null ? null : Math.min(setsLogged / target, 1),
+        targetSets,
+        targetSource,
+        fill: Math.min(setsLogged / targetSets, 1),
       };
     }
     return setsLogged > 0 ? { state: "done", setsLogged } : { state: "untouched" };

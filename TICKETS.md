@@ -726,10 +726,10 @@ out of the main action row.
 - **Progress fill has no denominator in the data model.** The ticket says "partially
   filled by sets logged", but nothing records a planned set count (`Exercise` is id,
   name, fields). Fill is `setsLogged / last session's set count` for the exercise, read
-  from the history cache via `useExerciseHistory` (zero network reads). When that is
-  unknown — a new exercise or a cold cache, which is most exercises pre-launch — the
-  current segment shows one tick per logged set instead of an invented ratio. If a
-  planned set count is wanted, it is a new field on `Exercise`, not more inference
+  from the history cache via `useExerciseHistory` (zero network reads). With no
+  history it assumes `DEFAULT_TARGET_SETS` = 3. The first build drew one 3px tick per
+  set instead, to avoid a guessed target; on device 2 sets read as ~3% progress, so
+  the guess won. A real planned set count would be a new field on `Exercise`
 - **"Done" means "not in view and at least one set logged"**, not "before the current
   index". A skipped exercise stays untouched; one logged out of order shows done.
   Definitions are pinned on `ProgressSegment` in `src/utils/workoutProgress.ts`

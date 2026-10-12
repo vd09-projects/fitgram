@@ -48,7 +48,8 @@ export default function ActiveWorkoutScreen() {
   const currentExercise = currentIndex === null ? null : exercises[currentIndex];
 
   // Cache-only read: this hook issues no network request (see its doc). Last
-  // session's set count is the denominator for the current progress segment.
+  // session's set count is the denominator for the current progress segment;
+  // without it the bar assumes DEFAULT_TARGET_SETS.
   const history = useExerciseHistory(currentExercise?.id);
   const lastSessionSetCount = history.lastSession?.sets.length ?? null;
 
