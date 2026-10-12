@@ -1,0 +1,318 @@
+diff --git a/src/components/guide_tour/MultiTourSteps.tsx b/src/components/guide_tour/MultiTourSteps.tsx
+index f24e2f8..da37396 100644
+--- a/src/components/guide_tour/MultiTourSteps.tsx
++++ b/src/components/guide_tour/MultiTourSteps.tsx
+@@ -1,5 +1,5 @@
+ import React, { useEffect, useRef, isValidElement, cloneElement, ReactElement } from 'react';
+-import { View, StyleSheet, StyleProp, ViewStyle, TouchableOpacity, InteractionManager } from 'react-native';
++import { View, StyleSheet, StyleProp, ViewStyle, TouchableOpacity, InteractionManager, GestureResponderEvent } from 'react-native';
+ import { PositionType, useTour } from './TourGuideProvider';
+ 
+ type StepData = {
+@@ -9,6 +9,7 @@ type StepData = {
+   description: string;
+   positionType?: PositionType;
+   screen?: string;
++  waitForPress?: boolean;
+ };
+ 
+ type Props = {
+@@ -23,14 +24,36 @@ export const MultiTourSteps: React.FC<Props> = ({
+   stylePropName = 'style',
+ }) => {
+   const measureRef = useRef<any>(null);
+-  const { registerStep, currentStepId, isTourActive, triggerMeasureRefresh, buttonPressed } = useTour();
++  const { registerStep, unregisterStep, stepPressed, currentStepId, isTourActive, triggerMeasureRefresh } = useTour();
++  const touchStart = useRef<{ x: number; y: number } | null>(null);
+ 
+   useEffect(() => {
+     for (const step of steps) {
+       registerStep({ ...step, ref: measureRef });
+     }
++    return () => {
++      for (const step of steps) {
++        unregisterStep(step.id, measureRef);
++      }
++    };
+   }, []);
+ 
++  // Tap detection for press-to-continue steps. Raw touch events bubble from any
++  // child, so this sees a press on the wrapped element whatever it is built
++  // from, without replacing its onPress. A touch that travels is a scroll or a
++  // swipe, not a press.
++  const TAP_SLOP = 10;
++  const onTouchStart = (e: GestureResponderEvent) => {
++    touchStart.current = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY };
++  };
++  const onTouchEnd = (e: GestureResponderEvent) => {
++    const start = touchStart.current;
++    touchStart.current = null;
++    if (!start) return;
++    const moved = Math.hypot(e.nativeEvent.pageX - start.x, e.nativeEvent.pageY - start.y);
++    if (moved <= TAP_SLOP) stepPressed(steps.map((step) => step.id));
++  };
++
+   const activeStep = steps.find((step) => isTourActive && step.id === currentStepId);
+   const positionType = activeStep?.positionType || 'below';
+ 
+@@ -65,6 +88,9 @@ export const MultiTourSteps: React.FC<Props> = ({
+         ref={measureRef}
+         collapsable={false}
+         style={spacingStyle}
++        onTouchStart={onTouchStart}
++        onTouchEnd={onTouchEnd}
++        onTouchCancel={() => { touchStart.current = null; }}
+         onLayout={() => {
+           InteractionManager.runAfterInteractions(() => {
+             triggerMeasureRefresh();
+diff --git a/src/components/guide_tour/TourGuideProvider.tsx b/src/components/guide_tour/TourGuideProvider.tsx
+index 9c8400e..e4c3cff 100644
+--- a/src/components/guide_tour/TourGuideProvider.tsx
++++ b/src/components/guide_tour/TourGuideProvider.tsx
+@@ -12,10 +12,14 @@ export type Step = {
+   description: string;
+   positionType?: PositionType;
+   screen?: string;
++  /** See `TourStepDefinition.waitForPress`. */
++  waitForPress?: boolean;
+ };
+ 
+ type TourGuideContextType = {
+   registerStep: (step: Step) => void;
++  unregisterStep: (id: string, ref: React.RefObject<any>) => void;
++  stepPressed: (stepIds: string[]) => void;
+   startTour: (firstStepId: string, tourId?: string, force?: boolean) => void;
+   nextStep: () => void;
+   skipTour: () => void;
+@@ -60,6 +64,17 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
+     setSteps({ ...stepsRef.current });
+   };
+ 
++  // Called when a step's element unmounts. Only removes the registration that
++  // element made, so an instance that mounted later under the same id keeps its
++  // own. Without this a step stayed "present" forever once rendered, e.g. the
++  // Log Workout tab after the workout ended.
++  const unregisterStep = (id: string, ref: React.RefObject<any>) => {
++    if (stepsRef.current[id]?.ref !== ref) return;
++    const { [id]: _removed, ...rest } = stepsRef.current;
++    stepsRef.current = rest;
++    setSteps({ ...rest });
++  };
++
+   const clearStepsForStart = () => {
+     const filteredSteps = Object.fromEntries(
+       Object.entries(stepsRef.current).filter(([_, step]) =>
+@@ -135,15 +150,37 @@ export const TourGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
+     if (!isTourActive) {
+       return;
+     }
++    // A press-to-continue step advances only when its own element is pressed
++    // (`stepPressed`), not on any TouchableOpacityBase press anywhere.
++    if (currentStepId && stepsRef.current[currentStepId]?.waitForPress) {
++      return;
++    }
+     setTimeout(() => {
+       nextStep()
+     }, 0);
+   };
+ 
++  // The highlighted element of a press-to-continue step was tapped. Delayed like
++  // TouchableOpacityBase's press so a navigation the press started can mount
++  // the next step's screen first; re-checked so a double tap advances once.
++  const stepPressed = (stepIds: string[]) => {
++    if (!isTourActive || !currentStepId || !stepIds.includes(currentStepId)) return;
++    const pressedId = currentStepId;
++    if (!stepsRef.current[pressedId]?.waitForPress) return;
++    setTimeout(() => {
++      if (useTourStore.getState().currentStepId !== pressedId) return;
++      const nextId = stepsRef.current[pressedId]?.nextStepId;
++      if (nextId) setCurrentStepId(nextId);
++      else endTour();
++    }, 500);
++  };
++
+   return (
+     <TourGuideContext.Provider
+       value={{
+         registerStep,
++        unregisterStep,
++        stepPressed,
+         startTour,
+         nextStep,
+         skipTour,
+diff --git a/src/components/guide_tour/TourStepOverlay.tsx b/src/components/guide_tour/TourStepOverlay.tsx
+index 68b6628..70ec62b 100644
+--- a/src/components/guide_tour/TourStepOverlay.tsx
++++ b/src/components/guide_tour/TourStepOverlay.tsx
+@@ -84,7 +84,10 @@ export const TooltipOverlay = () => {
+     );
+   }
+ 
+-  const isNextStepDefinedButMissing = step?.nextStepId && !steps[step.nextStepId];
++  // An explicit press-to-continue step never offers Next. Unmarked steps keep
++  // the older inference: wait while the next step is not on screen yet.
++  const waitsForPress = !!step?.waitForPress;
++  const isNextStepDefinedButMissing = !waitsForPress && step?.nextStepId && !steps[step.nextStepId];
+ 
+   const tooltipX = Math.min(x, screen.width - TOOLTIP_WIDTH);
+   const tooltipY =
+@@ -125,6 +128,12 @@ export const TooltipOverlay = () => {
+         <TextBase style={styles.title}>{step.title}</TextBase>
+         <TextBase style={styles.desc}>{step.description}</TextBase>
+ 
++        {waitsForPress && (
++          <TextBase style={styles.waitingMsg}>
++            Tap the highlighted button to continue.
++          </TextBase>
++        )}
++
+         {isNextStepDefinedButMissing && (
+           <TextBase style={styles.waitingMsg}>
+             Hang tight! Tap a button or switch pages to keep the tour going.
+@@ -135,12 +144,14 @@ export const TooltipOverlay = () => {
+           <TouchableOpacity style={styles.button} onPress={skipTour} >
+             <TextBase style={styles.buttonText}> Skip </TextBase>
+           </TouchableOpacity>
+-          <TouchableOpacity
+-            style={[styles.button, isNextStepDefinedButMissing && { backgroundColor: t.colors.buttonDisabled }]}
+-            onPress={nextStep}
+-            disabled={isNextStepDefinedButMissing} >
+-            <TextBase style={styles.buttonText}> {step.nextStepId ? 'Next' : 'Finish'} </TextBase>
+-          </TouchableOpacity>
++          {!waitsForPress && (
++            <TouchableOpacity
++              style={[styles.button, isNextStepDefinedButMissing && { backgroundColor: t.colors.buttonDisabled }]}
++              onPress={nextStep}
++              disabled={isNextStepDefinedButMissing} >
++              <TextBase style={styles.buttonText}> {step.nextStepId ? 'Next' : 'Finish'} </TextBase>
++            </TouchableOpacity>
++          )}
+         </View>
+       </View>
+     </View>
+diff --git a/src/tour_steps/activeWorkout.ts b/src/tour_steps/activeWorkout.ts
+index 95d048d..9f1a32b 100644
+--- a/src/tour_steps/activeWorkout.ts
++++ b/src/tour_steps/activeWorkout.ts
+@@ -16,6 +16,7 @@ const ACTIVE_WORKOUT_TOUR_STEPS = {
+     title: "Start Logging Your Workout",
+     description: "Tap this button to begin recording your workout session.",
+     screen: SCREEN_NAMES.FOOTER,
++    waitForPress: true,
+   },
+   // Anchors the exercise header (arrows, name, "Exercise N of M"). It used to
+   // anchor the exercise dropdown, which TICKET-017 removed.
+diff --git a/src/tour_steps/index.ts b/src/tour_steps/index.ts
+index 63e6fb3..332f13e 100644
+--- a/src/tour_steps/index.ts
++++ b/src/tour_steps/index.ts
+@@ -13,6 +13,7 @@ export const TOUR_STEPS = {
+     nextStepId: START_WOURKOUT_STEP_NAMES.START_WORKOUT_BUTTON,
+     // nextStepId: ACTIVE_WORKOUT_STEP_NAMES.LOG_ACTIVE_WORKOUT_BUTTON,
+     screen: "Footer",
++    waitForPress: true,
+   },
+   ...FOOTER_GENERATED_TOUR_STEPS,
+   ...PROFILE_GENERATED_TOUR_STEPS,
+diff --git a/src/tour_steps/manageWorkout.ts b/src/tour_steps/manageWorkout.ts
+index 35c5e69..3cd00b6 100644
+--- a/src/tour_steps/manageWorkout.ts
++++ b/src/tour_steps/manageWorkout.ts
+@@ -58,12 +58,14 @@ const TOUR_STEPS = {
+     description:
+       "Tap this button to explore other available workout options and start the guided tour.",
+     screen: SCREEN_NAMES.FOOTER,
++    waitForPress: true,
+   },
+   [MANAGE_WOURKOUT_STEP_NAMES.NEW_AND_UPDATE_BUTTON]: {
+     title: "Add or Update a Workout",
+     description:
+       "Tap this button to create a new workout or update an existing one.",
+     screen: SCREEN_NAMES.WORKOUT_SCREEN,
++    waitForPress: true,
+   },
+   [MANAGE_WOURKOUT_STEP_NAMES.WORKOUT_SEARCHABLE]:
+     WORKOUT_SEARCHABLE_TOUR_STEPS,
+diff --git a/src/tour_steps/profile.ts b/src/tour_steps/profile.ts
+index 0b322ad..20dd8dd 100644
+--- a/src/tour_steps/profile.ts
++++ b/src/tour_steps/profile.ts
+@@ -31,6 +31,7 @@ const PROFILE_TOUR_STEPS = {
+     title: "Open Your Profile",
+     description: "Tap this button to view and manage your profile.",
+     screen: SCREEN_NAMES.HEADER,
++    waitForPress: true,
+   },
+   [PROFILE_STEP_NAMES.DETAILS]: {
+     title: "Profile Details",
+@@ -66,6 +67,7 @@ const HOME_TOUR_STEPS = {
+     description:
+       "Tap here to return to the home screen and start exploring the app.",
+     screen: SCREEN_NAMES.HEADER,
++    waitForPress: true,
+   },
+   [HOME_STEP_NAMES.HOME_PAGE]: {
+     title: "Your Home Dashboard",
+diff --git a/src/tour_steps/startWorkout.ts b/src/tour_steps/startWorkout.ts
+index 0ff9d33..b23e15e 100644
+--- a/src/tour_steps/startWorkout.ts
++++ b/src/tour_steps/startWorkout.ts
+@@ -26,11 +26,13 @@ const START_WOURKOUT_TOUR_STEPS = {
+     description:
+       "Tap this button to explore other available workout options and start the guided tour.",
+     screen: SCREEN_NAMES.FOOTER,
++    waitForPress: true,
+   },
+   [START_WOURKOUT_STEP_NAMES.START_WORKOUT_BUTTON]: {
+     title: "Start a Workout",
+     description: "Tap this button to begin a new workout session.",
+     screen: SCREEN_NAMES.WORKOUT_SCREEN,
++    waitForPress: true,
+   },
+   [START_WOURKOUT_STEP_NAMES.SEARCH_BOX]: SEARCH_BOX_TOUR_STEPS,
+   [START_WOURKOUT_STEP_NAMES.SEARCHED_WORKOUT_ITEMS]: {
+@@ -50,6 +52,7 @@ const START_WOURKOUT_TOUR_STEPS = {
+     description: "Press this button to start tracking your workout session.",
+     screen: SCREEN_NAMES.START_WORKOUT_SCREEN,
+     nextStepId: ACTIVE_WORKOUT_STEP_NAMES.LOG_ACTIVE_WORKOUT_BUTTON,
++    waitForPress: true,
+   },
+ };
+ 
+diff --git a/src/tour_steps/utils.ts b/src/tour_steps/utils.ts
+index a7cb374..124dfaf 100644
+--- a/src/tour_steps/utils.ts
++++ b/src/tour_steps/utils.ts
+@@ -2,7 +2,15 @@ export type TourStepDefinition = {
+   title: string;
+   description: string;
+   screen: string;
+-  nextStepId?: string
++  nextStepId?: string;
++  /**
++   * The tour waits for the highlighted element to be pressed and hides Next.
++   * Set it on steps whose press is what reaches the next step (it navigates
++   * there). Without it the tour used to infer "wait" from the next step not
++   * being registered yet, which broke whenever that step was still mounted
++   * lower in a stack or had been registered earlier.
++   */
++  waitForPress?: boolean;
+ };
+ 
+ export type GeneratedTourStep = {
+@@ -11,6 +19,7 @@ export type GeneratedTourStep = {
+   description: string;
+   screen: string;
+   nextStepId: string | null;
++  waitForPress?: boolean;
+ };
+ 
+ export const makeStepId = (key: string, prefix?: string) =>
+@@ -51,6 +60,7 @@ export function generateStepsFromMap(
+       description: step.description,
+       screen: step.screen,
+       nextStepId: step.nextStepId ?? fallbackNext,
++      ...(step.waitForPress ? { waitForPress: true } : {}),
+     };
+   }
+ 

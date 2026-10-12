@@ -932,6 +932,68 @@ resume banner.
 
 ---
 
+### TICKET-023: Guided Tour — Explicit Press-to-Continue Steps and Full-Width Targets
+
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — after Phase 3 work is done
+
+**Description:**
+Tour steps that say "tap/press this button" should wait for that button to be pressed
+instead of offering Next. Today the tour has no field for this. It infers "wait" from
+the next step not being registered yet (`TourStepOverlay.tsx`, `isNextStepDefinedButMissing`),
+and any `TouchableOpacityBase` press anywhere advances it (`buttonPressed`). Both are
+guesses that hold only in the screen layouts they were written against.
+
+**Two device reports this must fix (found during TICKET-017):**
+- "Explore Workout Options" (footer Workout tab, seen from Manage Workout) offers Next.
+  Workout home is still mounted under Manage Workout, so its next step counts as present
+- "Begin Workout" offers Next. The Log Workout tab's step stayed registered after an
+  earlier workout ended: `MultiTourSteps` registers on mount and never unregisters
+
+**Tried and reverted in TICKET-017:** registering a step only while its screen is
+focused (`useIsFocused` in `MultiTourSteps`) and unregistering on blur/unmount. It
+introduced another bug on device and was removed; the regression was not captured in
+detail. Any unregister-on-unmount/blur approach in the patch below needs the same
+device scrutiny.
+
+**Already in TICKET-017:** three tour-wrapped buttons (Save Set, Finish workout, `···`)
+got an unstyled `View` between the wrapper and the touchable to dodge the style-split
+bug below.
+
+**What remains (this ticket):**
+- [ ] Fix both device reports above
+- [ ] `waitForPress` on step definitions; overlay hides Next and shows "Tap the highlighted
+      button to continue" on those steps
+- [ ] Advance only when the highlighted element is pressed, not on any
+      `TouchableOpacityBase` press; no double advance where both fire
+- [ ] Mark the navigation-handoff steps: footer Workout tab (manage and start chains),
+      Log Workout tab, Add/Update, Start a Workout, Begin, header Home and Profile.
+      Leave in-place actions (Save Set, Finish, Save Workout) and Feed with Next
+- [ ] Decide the search box and the dropdown New button (reveal, not navigate) explicitly
+- [ ] Fix the `MultiTourSteps` style split at the source: it moves background, padding,
+      border and `justifyContent` (plus a copy of `alignItems`) to an outer measuring View,
+      so a wrapped touchable shrinks to its content and off-centre taps miss. 63 call sites;
+      then remove the three `View` workarounds from TICKET-017
+- [ ] Device-test the full tour on both chains, including a waiting step where an
+      unrelated button is tapped (must not advance)
+
+**Reference implementation — `docs/patches/tour-wait-for-press.patch`:**
+A complete first pass written during TICKET-017 and shelved as too large for that ticket.
+Covers `waitForPress`, press-only advance, the step marks, and unregister-on-unmount;
+not the style split, not device-tested. Applies cleanly on the TICKET-017 branch head:
+`git apply docs/patches/tour-wait-for-press.patch`. Design notes:
+- Press detection uses `onTouchStart`/`onTouchEnd` on the measuring View (raw touch events
+  bubble from children) with a 10px slop, so it works for any wrapped element without
+  replacing its `onPress`. Unverified on device that the events bubble as expected
+- Advance is delayed 500ms like `TouchableOpacityBase`, so the screen a press navigates to
+  can mount the next step first; re-checks the current step so a double tap advances once
+- `buttonPressed` returns early on a `waitForPress` step to avoid a second advance
+- Unregisters a step when its element unmounts (ref-checked so a newer instance keeps its
+  registration). Untested on device; see the reverted focus attempt above
+
+**Dependencies:** TICKET-017.
+
+---
+
 ## Recommended Execution Order
 
 ```
@@ -959,6 +1021,7 @@ resume banner.
 16. TICKET-022 (Start Workout redesign)
 17. TICKET-020 (History sheet)
 17. TICKET-021 (Rest timer + PR banner)   — Parallel with 020
+18. TICKET-023 (Tour press-to-continue)   — After Phase 3; patch in docs/patches/
 ```
 
 ---
