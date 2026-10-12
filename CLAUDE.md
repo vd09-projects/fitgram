@@ -123,6 +123,17 @@ cases: empty, one element, duplicates, mixed units, unparseable input, ties.
 > This caught a real bug: a record keyed by rep count alone let a value in one
 > unit silently overwrite a record in another. No screen would ever have shown it.
 
+**Test what the change touched, and stop there.** This applies whenever you write
+tests, at any tier. A test earns its place by covering behaviour this change added
+or a bug it fixed — not coverage for its own sake, not every branch of every helper.
+For a screen, 4 or 5 tests covering its main behaviours is enough. For a pure
+function, pick the degenerate cases above that can actually occur, not all of them.
+A test file too long to read gets skimmed, then ignored, then deleted; a short one
+gets maintained.
+
+> TICKET-017's harness grew to 58 checks for one screen, including a check that
+> could never fail. Five well-chosen tests would have said more.
+
 **3.3 Build a disposable instrument when the work is invisible.** A data layer
 with no UI cannot be judged by the user. Build the temporary screen, counter or
 dump that makes it observable, mark every part `TEMPORARY` with removal

@@ -994,6 +994,59 @@ not the style split, not device-tested. Applies cleanly on the TICKET-017 branch
 
 ---
 
+### TICKET-024: Test Runner — Jest for Workout Logic and the Active Workout Screen
+
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — after TICKET-021
+
+**Description:**
+The repo has no test runner. Two hand-rolled harnesses stand in for one:
+`src/scripts/verifyHistoryReads.ts` (77 checks, committed, TICKET-016) and
+`src/scripts/verifyWorkoutShell.ts` (58 checks, TICKET-017, deliberately left
+uncommitted on that branch). Both stub modules through `require.cache`, count their
+own pass/fail, and run with `npx tsx`. Replace them with Jest so checks run with
+`npm test`, report readable diffs, run in watch mode and can run in CI.
+
+Deferred until after TICKET-021 because 018-021 keep rebuilding the active workout
+screen; screen tests written earlier would be rewritten each ticket.
+
+**Acceptance Criteria:**
+- [ ] `jest`, `jest-expo` (matching Expo SDK 52), `@types/jest` as dev dependencies; a
+      jest config using the `jest-expo` preset; `babel.config.js` with
+      `babel-preset-expo` (none exists today); `npm test` script
+- [ ] Logic tests, chosen not ported wholesale (CLAUDE.md 3.2: test what the change
+      touched, and stop there). From `verifyWorkoutShell`, roughly: progress fill with
+      and without history incl. the cap; index clamp at both ends and the empty
+      workout; a logged set lands on the viewed exercise; elapsed time across the hour
+- [ ] From `verifyHistoryReads`, keep the claims it exists for (cross-workout lookup;
+      one fetch on start, zero for later reads) and the kg/lb overwrite regression;
+      then delete both scripts
+- [ ] 4-5 screen tests for `ActiveWorkoutScreen` with React Native Testing Library,
+      covering behaviour that broke or is easy to break: arrows change the exercise;
+      back with nothing behind it opens the Workout tab instead of throwing (the
+      `WorkoutHome` navigate bug from TICKET-017); Discard asks before deleting; Finish
+      ignores a second tap while saving
+- [ ] Shared test wrapper providing theme and tour contexts (both crash without a
+      provider: theme defaults to `null`, tour to `{}`), plus mocks for navigation,
+      AsyncStorage, gesture handler and the history/auth hooks
+
+**Technical Notes — carry over from the harness review in TICKET-017:**
+- Drop "paging and logging issued no history fetch": it is vacuous, since
+  `prefetchExerciseHistory` returns at once without a user id
+  (`useExerciseHistoryStore.ts:67`) and the harness never sets one. Either sign in a
+  test user so the count can move, or delete it
+- Drop the regex source checks ("no `SearchableInputDropdown`", "role tokens only");
+  they match text, not behaviour. The token rule belongs in ESLint (TICKET-001)
+- Layout and touch bugs (off-centre taps, segment rendering) are out of reach of unit
+  and component tests; those stay with device runs, or a device-flow tool such as
+  Maestro later
+- If `verifyWorkoutShell.ts` is no longer on disk, its checks are fully described
+  above and in the TICKET-017 notes; the functions it tested are all in
+  `src/utils/workoutProgress.ts` and `useWorkoutStore.tsx`
+
+**Dependencies:** TICKET-021.
+
+---
+
 ## Recommended Execution Order
 
 ```
@@ -1022,6 +1075,7 @@ not the style split, not device-tested. Applies cleanly on the TICKET-017 branch
 17. TICKET-020 (History sheet)
 17. TICKET-021 (Rest timer + PR banner)   — Parallel with 020
 18. TICKET-023 (Tour press-to-continue)   — After Phase 3; patch in docs/patches/
+18. TICKET-024 (Jest + screen tests)      — After 021; replaces both harness scripts
 ```
 
 ---
