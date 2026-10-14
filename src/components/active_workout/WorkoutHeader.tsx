@@ -29,7 +29,7 @@ function ElapsedTime({ startTime }: { startTime: number }) {
   if (elapsed === null) return null;
 
   return (
-    <View style={styles.elapsedRow} accessibilityLabel={`${elapsed} elapsed`}>
+    <View style={styles.elapsedRow} accessible accessibilityLabel={`${elapsed} elapsed`}>
       <View style={styles.liveDot} />
       <NumericText style={styles.elapsedValue}>{elapsed}</NumericText>
       <TextBase style={styles.elapsedLabel}>elapsed</TextBase>

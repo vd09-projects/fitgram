@@ -63,9 +63,13 @@ export default function ActiveWorkoutScreen() {
   // and does not compete with the vertical ScrollView or with text inputs, since
   // neither recognises a horizontal fling. Content swaps rather than slides.
   // Finger right-to-left (LEFT) is "next", matching a book.
+  // `onEnd` also fires, with success false, when a fling that activated is then
+  // cancelled (e.g. the ScrollView takes the touch), so only page on success.
   const swipe = Gesture.Exclusive(
-    Gesture.Fling().direction(Directions.LEFT).runOnJS(true).onEnd(goNext),
-    Gesture.Fling().direction(Directions.RIGHT).runOnJS(true).onEnd(goPrevious),
+    Gesture.Fling().direction(Directions.LEFT).runOnJS(true)
+      .onEnd((_event, success) => { if (success) goNext(); }),
+    Gesture.Fling().direction(Directions.RIGHT).runOnJS(true)
+      .onEnd((_event, success) => { if (success) goPrevious(); }),
   );
 
   // This screen is registered in two stacks: Workout (reached from the workout

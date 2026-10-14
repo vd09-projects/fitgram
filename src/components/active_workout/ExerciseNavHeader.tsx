@@ -55,7 +55,7 @@ export default function ExerciseNavHeader({
 
       <View style={styles.titleBlock}>
         <TextBase style={styles.exerciseName} numberOfLines={2}>{exerciseName}</TextBase>
-        <View style={styles.positionRow} accessibilityLabel={`Exercise ${index + 1} of ${count}`}>
+        <View style={styles.positionRow} accessible accessibilityLabel={`Exercise ${index + 1} of ${count}`}>
           <TextBase style={styles.positionLabel}>EXERCISE </TextBase>
           <NumericText style={styles.positionLabel}>{index + 1}</NumericText>
           <TextBase style={styles.positionLabel}> OF </TextBase>

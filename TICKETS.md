@@ -759,9 +759,9 @@ out of the main action row.
 - Shell uses role tokens only. `ExerciseLogger` internals still use legacy flat
   tokens; those belong to 018, which rebuilds that card. Its hardcoded `#ddd` bottom
   border was removed here: a divider left over from the dropdown layout, separating nothing
-- **Verification:** a local harness (not committed yet) ran 54 checks on the
-  index setter, progress segments, elapsed time and source constraints. Rendering,
-  swipe, the menu/confirm flow and tour anchoring need a device run
+- **Verification:** typecheck plus device testing during review. A throwaway local
+  harness was used while building and then deleted; no committed test covers this
+  ticket. TICKET-024 adds a test runner and lists the cases to cover
 
 **Dependencies:** TICKET-015.
 

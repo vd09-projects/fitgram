@@ -2,8 +2,9 @@
 //
 // The derived values behind the active-workout shell: which exercise is in
 // view, how far through the workout the user is, and how long they have been
-// at it. Pure, so the maths is exercised directly by
-// `src/scripts/verifyWorkoutShell.ts` instead of being judged off a screen.
+// at it. Kept pure so the maths can be tested directly rather than judged off
+// a screen. No test covers it yet: the repo has no test runner until
+// TICKET-024, which lists the cases to cover.
 
 import { LoggedExercise } from "../types/zustandWorkoutType";
 
