@@ -761,7 +761,7 @@ out of the main action row.
   border was removed here: a divider left over from the dropdown layout, separating nothing
 - **Verification:** typecheck plus device testing during review. A throwaway local
   harness was used while building and then deleted; no committed test covers this
-  ticket. TICKET-024 adds a test runner and lists the cases to cover
+  ticket. TICKET-024, next after this one, adds a test runner and these tests
 
 **Dependencies:** TICKET-015.
 
@@ -1001,56 +1001,55 @@ not the style split, not device-tested. Applies cleanly on the TICKET-017 branch
 
 ---
 
-### TICKET-024: Test Runner — Jest for Workout Logic and the Active Workout Screen
+### TICKET-024: Test Runner — Set Up Jest and Write the Example Tests
 
-**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — after TICKET-021
+**Priority:** High | **Effort:** Small-Medium | **Status: OPEN** — next, ahead of TICKET-018
 
 **Description:**
-The repo has no test runner. Two hand-rolled harnesses stand in for one:
-`src/scripts/verifyHistoryReads.ts` (77 checks, committed, TICKET-016) and
-`src/scripts/verifyWorkoutShell.ts` (58 checks, TICKET-017, deliberately left
-uncommitted on that branch). Both stub modules through `require.cache`, count their
-own pass/fail, and run with `npx tsx`. Replace them with Jest so checks run with
-`npm test`, report readable diffs, run in watch mode and can run in CI.
+The repo has no test runner; TICKET-016 and TICKET-017 verified with hand-rolled
+scripts instead. Set up Jest so tests are cheap to write, then write tests for one or
+two screens as the worked example every later screen copies.
 
-Deferred until after TICKET-021 because 018-021 keep rebuilding the active workout
-screen; screen tests written earlier would be rewritten each ticket.
+This is not "test every screen". It goes first so that 018-021 and later screens are
+built with their tests from the start, rather than having tests added after the fact.
+Each later ticket adds its own few tests (CLAUDE.md 3.2: test what the change touched,
+4-5 per screen).
 
 **Acceptance Criteria:**
-- [ ] `jest`, `jest-expo` (matching Expo SDK 52), `@types/jest` as dev dependencies; a
-      jest config using the `jest-expo` preset; `babel.config.js` with
-      `babel-preset-expo` (none exists today); `npm test` script
-- [ ] Logic tests, chosen not ported wholesale (CLAUDE.md 3.2: test what the change
-      touched, and stop there). From `verifyWorkoutShell`, roughly: progress fill with
-      and without history incl. the cap; index clamp at both ends and the empty
-      workout; a logged set lands on the viewed exercise; elapsed time across the hour
-- [ ] From `verifyHistoryReads`, keep the claims it exists for (cross-workout lookup;
-      one fetch on start, zero for later reads) and the kg/lb overwrite regression;
-      then delete both scripts
-- [ ] 4-5 screen tests for `ActiveWorkoutScreen` with React Native Testing Library,
-      covering behaviour that broke or is easy to break: arrows change the exercise;
+- [ ] `jest`, `jest-expo` (matching Expo SDK 52), `@types/jest`,
+      `@testing-library/react-native` as dev dependencies; a jest config with the
+      `jest-expo` preset; `babel.config.js` with `babel-preset-expo` (none exists
+      today); `npm test` and watch scripts
+- [ ] One shared render helper that supplies what every screen needs, so a new screen
+      test is a few lines: theme and tour providers (both crash without one: theme
+      defaults to `null`, tour to `{}`), navigation, and mocks for AsyncStorage,
+      gesture handler and the history/auth hooks
+- [ ] Example logic tests for `src/utils/workoutProgress.ts`, chosen not exhaustive:
+      progress fill with and without history incl. the cap; index clamp at both ends
+      and the empty workout; elapsed time past the hour
+- [ ] Example screen tests for `ActiveWorkoutScreen`, 4-5: arrows change the exercise;
       back with nothing behind it opens the Workout tab instead of throwing (the
       `WorkoutHome` navigate bug from TICKET-017); Discard asks before deleting; Finish
-      ignores a second tap while saving
-- [ ] Shared test wrapper providing theme and tour contexts (both crash without a
-      provider: theme defaults to `null`, tour to `{}`), plus mocks for navigation,
-      AsyncStorage, gesture handler and the history/auth hooks
+      ignores a second tap while saving; a logged set lands on the exercise in view
+- [ ] Optionally a second, simpler screen if `ActiveWorkoutScreen` turns out to be a
+      poor first example (it needs the most mocks)
+- [ ] A short "how to add a test" note next to the helper: where test files go, how to
+      render a screen with the helper, what to mock
 
-**Technical Notes — carry over from the harness review in TICKET-017:**
-- Drop "paging and logging issued no history fetch": it is vacuous, since
-  `prefetchExerciseHistory` returns at once without a user id
-  (`useExerciseHistoryStore.ts:67`) and the harness never sets one. Either sign in a
-  test user so the count can move, or delete it
-- Drop the regex source checks ("no `SearchableInputDropdown`", "role tokens only");
-  they match text, not behaviour. The token rule belongs in ESLint (TICKET-001)
-- Layout and touch bugs (off-centre taps, segment rendering) are out of reach of unit
-  and component tests; those stay with device runs, or a device-flow tool such as
-  Maestro later
-- If `verifyWorkoutShell.ts` is no longer on disk, its checks are fully described
-  above and in the TICKET-017 notes; the functions it tested are all in
-  `src/utils/workoutProgress.ts` and `useWorkoutStore.tsx`
+**Out of scope:** porting `src/scripts/verifyHistoryReads.ts` (TICKET-016, 77 checks).
+It keeps working as is; move it into Jest when a ticket next changes the history layer.
 
-**Dependencies:** TICKET-021.
+**Technical Notes — from the TICKET-017 review:**
+- Do not carry over the old harness's weak checks: "no history fetch" was vacuous
+  (`prefetchExerciseHistory` returns at once without a user id,
+  `useExerciseHistoryStore.ts:67`), and the regex source checks matched text, not
+  behaviour. The role-token rule belongs in ESLint (TICKET-001)
+- Layout and touch bugs (off-centre taps, uneven borders, segment rendering) are out
+  of reach of component tests; those stay with device runs
+- Review the working rules in `CLAUDE.md` alongside this MR (requested on PR #4); the
+  testing rule there is what this ticket puts into practice
+
+**Dependencies:** TICKET-017.
 
 ---
 
@@ -1140,13 +1139,13 @@ while reviewing TICKET-017's resume prefetch.
 12. TICKET-015 (Workout flow tokens)      — Blocks the rest of Phase 3
 12. ~~TICKET-016 (Exercise history hook)~~ — DONE
 13. TICKET-017 (Active workout pager)
-14. TICKET-018 (Set logger card)
-15. TICKET-019 (Today's sets + deltas)    — Flow is whole and better here
-16. TICKET-022 (Start Workout redesign)
-17. TICKET-020 (History sheet)
-17. TICKET-021 (Rest timer + PR banner)   — Parallel with 020
-18. TICKET-023 (Tour press-to-continue)   — After Phase 3; patch in docs/patches/
-18. TICKET-024 (Jest + screen tests)      — After 021; replaces both harness scripts
+14. TICKET-024 (Jest setup + example tests) — First, so later screens ship with tests
+15. TICKET-018 (Set logger card)
+16. TICKET-019 (Today's sets + deltas)    — Flow is whole and better here
+17. TICKET-022 (Start Workout redesign)
+18. TICKET-020 (History sheet)
+18. TICKET-021 (Rest timer + PR banner)   — Parallel with 020
+19. TICKET-023 (Tour press-to-continue)   — After Phase 3; patch in docs/patches/
 --. TICKET-025 (Footer highlight)         — Small, independent; any time
 --. TICKET-026 (Clear state on sign-out)  — Privacy; small; before launch
 ```
