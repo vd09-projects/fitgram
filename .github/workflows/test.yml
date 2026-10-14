@@ -1,0 +1,43 @@
+# Typecheck and unit tests on every PR and every push to main.
+#
+# Needs no secrets: tests never reach Firebase (src/test/jest.setup.ts replaces
+# the init module), so no .env or Firebase config is read.
+#
+# To make a red run block merging: Settings -> Branches -> main -> Require
+# status checks -> "typecheck and test". Until then a failure is advisory.
+
+name: test
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# A new push to the same PR makes the previous run's result irrelevant.
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: typecheck and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 20: an LTS line Expo SDK 52 supports. Local dev runs newer; the
+      # suite was checked passing on 20 before this was pinned.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck (includes test files)
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npm test -- --ci
