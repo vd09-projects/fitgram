@@ -1003,51 +1003,88 @@ not the style split, not device-tested. Applies cleanly on the TICKET-017 branch
 
 ### TICKET-024: Test Runner — Set Up Jest and Write the Example Tests
 
-**Priority:** High | **Effort:** Small-Medium | **Status: OPEN** — next, ahead of TICKET-018
+**Priority:** High | **Effort:** Small-Medium | **Status: IN REVIEW** — next, ahead of TICKET-018
 
 **Description:**
-The repo has no test runner; TICKET-016 and TICKET-017 verified with hand-rolled
-scripts instead. Set up Jest so tests are cheap to write, then write tests for one or
-two screens as the worked example every later screen copies.
-
-This is not "test every screen". It goes first so that 018-021 and later screens are
-built with their tests from the start, rather than having tests added after the fact.
-Each later ticket adds its own few tests (CLAUDE.md 3.2: test what the change touched,
-4-5 per screen).
+The repo had no test runner; TICKET-016 and TICKET-017 verified with hand-rolled
+scripts instead. Set up Jest so tests are cheap to write, then write one screen's tests
+as the worked example that 018-022 copy. Not "test every screen": the point is the
+harness plus a pattern, proven on real code.
 
 **Acceptance Criteria:**
-- [ ] `jest`, `jest-expo` (matching Expo SDK 52), `@types/jest`,
-      `@testing-library/react-native` as dev dependencies; a jest config with the
-      `jest-expo` preset; `babel.config.js` with `babel-preset-expo` (none exists
-      today); `npm test` and watch scripts
-- [ ] One shared render helper that supplies what every screen needs, so a new screen
-      test is a few lines: theme and tour providers (both crash without one: theme
-      defaults to `null`, tour to `{}`), navigation, and mocks for AsyncStorage,
-      gesture handler and the history/auth hooks
-- [ ] Example logic tests for `src/utils/workoutProgress.ts`, chosen not exhaustive:
-      progress fill with and without history incl. the cap; index clamp at both ends
-      and the empty workout; elapsed time past the hour
-- [ ] Example screen tests for `ActiveWorkoutScreen`, 4-5: arrows change the exercise;
-      back with nothing behind it opens the Workout tab instead of throwing (the
-      `WorkoutHome` navigate bug from TICKET-017); Discard asks before deleting; Finish
-      ignores a second tap while saving; a logged set lands on the exercise in view
-- [ ] Optionally a second, simpler screen if `ActiveWorkoutScreen` turns out to be a
-      poor first example (it needs the most mocks)
-- [ ] A short "how to add a test" note next to the helper: where test files go, how to
-      render a screen with the helper, what to mock
+- [x] `jest`, `jest-expo` ~52, `@types/jest`, `@testing-library/react-native`,
+      `react-test-renderer` 18.3.1 (exact) as dev dependencies; `jest.config.js` on the
+      `jest-expo` preset with the gesture-handler and AsyncStorage mocks the libraries
+      ship; `babel.config.js` with `babel-preset-expo`; `npm test` and `npm run test:watch`
+- [x] One render helper, `src/test/renderScreen.tsx`: theme and tour providers, a real
+      navigator, store reset plus seeding (auth `initialized: true`, workout, history),
+      and per-test replacement of store actions
+- [x] Logic tests for `src/utils/workoutProgress.ts`, written first as the runner smoke
+      test: current-segment fill with and without history, the cap at 1, `targetSource`,
+      `clampExerciseIndex` at both ends and the empty workout, `formatElapsed` across the
+      hour and from a future start
+- [x] Five `ActiveWorkoutScreen` tests: next then previous returns and the store index
+      follows; arrows disabled at each end via `accessibilityState`; back with nothing
+      behind opens the Workout tab (the TICKET-017 `WorkoutHome` bug); Discard deletes
+      only after the confirmation's Discard; a second Finish tap while saving does not
+      call `endWorkout` again
+- [x] `src/test/README.md`: where files go, how to render a screen, what to seed
+- [x] `npm test` passes from a clean `npm ci`; `npx tsc --noEmit` clean with the test
+      files present (and proven to typecheck them)
+- [x] Every test seen to fail: one one-line regression per test, all red
 
-**Out of scope:** porting `src/scripts/verifyHistoryReads.ts` (TICKET-016, 77 checks).
-It keeps working as is; move it into Jest when a ticket next changes the history layer.
+**Decisions pinned:**
+- **Navigation is real, not a fake object.** The screen is the only route on a real
+  stack; every other route is a stub rendering its own path. Back is asserted by where
+  it lands (`route:Workout/WorkoutHome`), not by the arguments passed to `navigate`
+- **Store actions that reach Firestore are replaced per test** (`workoutActions`), not
+  Firebase. Everything else runs for real, including `setCurrentExerciseIndex` and
+  AsyncStorage through the library's mock
+- **Fake timers in every test file.** A stack card's open animation ends on a timer
+  that otherwise fires after the test returns, outside `act()`
 
-**Technical Notes — from the TICKET-017 review:**
-- Do not carry over the old harness's weak checks: "no history fetch" was vacuous
-  (`prefetchExerciseHistory` returns at once without a user id,
-  `useExerciseHistoryStore.ts:67`), and the regex source checks matched text, not
-  behaviour. The role-token rule belongs in ESLint (TICKET-001)
-- Layout and touch bugs (off-centre taps, uneven borders, segment rendering) are out
-  of reach of component tests; those stay with device runs
-- Review the working rules in `CLAUDE.md` alongside this MR (requested on PR #4); the
-  testing rule there is what this ticket puts into practice
+**Deviations from the original plan:**
+- **Firebase's init module is replaced, despite "do not mock Firebase".** That
+  instruction was about `useAuthUser` initialising auth during render, which seeding
+  `initialized: true` handles. It did not cover import time:
+  `services/firebase/firebase.ts` calls `initializeAuth` on import, and under Jest the
+  config is empty, so importing any store threw `auth/invalid-api-key` before a test
+  ran. Only that module is replaced; the SDK still loads, and the replacement's handles
+  throw "Test reached Firebase …" on first use, so nothing can pass by touching it
+- **`AppControlProvider` is left out of the helper's provider stack.** Nothing calls
+  `useAppControl`, and its mount effect runs `loadWorkoutFromStorage()`, which would
+  race the seeded workout
+- **`expo-font` reports fonts as loaded.** jest-expo 52's native mock returns undefined
+  from `getLoadedFonts`, which crashed every icon
+- `@testing-library/react-native` is 13.x, not the current 14, which needs React 19
+- Firebase is added to the preset's `transformIgnorePatterns`, plus a `.mjs` transform;
+  the pattern is copied from jest-expo and has to be kept in sync by hand
+
+**Files:** `babel.config.js`, `jest.config.js`, `src/test/{jest.setup.ts,renderScreen.tsx,
+fixtures.ts,README.md}`, `src/utils/workoutProgress.test.ts`,
+`src/screens/workout_management/ActiveWorkoutScreen.test.tsx`
+
+**Verification:**
+- 12 tests (7 logic, 5 screen), 0 console warnings, ~2 s warm
+- Mutation run, one one-line regression per test: 5/5 screen tests and 5/5 logic tests
+  red, each on the assertion it names. One expected survivor: deleting only
+  `if (finishing) return` leaves the Finish test green, because `disabled={finishing}`
+  also blocks the tap. The test pins the behaviour, not which of the two guards gives it
+- A sixth screen test (a logged set lands on the exercise in view) was written and
+  passed with no new mocking, then removed
+- `babel.config.js` changes nothing for the app: `expo export --platform android
+  --no-bytecode` produces a byte-identical bundle with and without it
+
+**Known gaps:**
+- The helper's `history` option seeds the cache but no test reads it back through a
+  screen: nothing on `ActiveWorkoutScreen` exposes history except the progress fill,
+  which is layout. TICKET-018 is its first consumer and should add a stats-doc builder
+  to `fixtures.ts` then
+- `renderScreen` only places the screen with nothing behind it. The canGoBack-true
+  path (opened from the Workout stack) is untested; add a `behind` option when a
+  test needs it
+- Not ported: `src/scripts/verifyHistoryReads.ts` (77 checks). It works; move it when
+  a ticket next touches the history layer
 
 **Dependencies:** TICKET-017.
 
