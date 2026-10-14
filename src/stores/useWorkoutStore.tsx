@@ -187,6 +187,10 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
 
     const run = persistWorkout(userId, activeWorkout, set).finally(() => {
       // Identity check: only remove our own entry, never a later save's.
+      // Unreachable today, since the join above allows one save per session, so
+      // no test covers it. Kept deliberately: it is what stays correct if a
+      // `force` path that bypasses the join is ever added, as the history
+      // store's prefetch has.
       if (savesInFlight.get(sessionId) === run) savesInFlight.delete(sessionId);
     });
     savesInFlight.set(sessionId, run);

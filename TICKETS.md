@@ -89,6 +89,14 @@ Errors are handled via `console.error` with no user-facing feedback in many plac
 
 **Files Affected:** All files with `console.*` calls (spread across services, stores, components)
 
+**Concrete case:** `persistWorkout` in `src/stores/useWorkoutStore.tsx` logs a failed
+save with `console.log`, not `console.error` (TICKET-027). In a dev build,
+`console.error` opened LogBox's red banner on top of the "Could not save workout" toast.
+That also removed the only error-level record of a genuinely failed save. The logger
+here should report it to the user *and* record it at error severity without the LogBox
+double-up. Don't revert it to `console.error` blindly, and don't copy the `log` pattern
+for errors that aren't expected.
+
 ---
 
 ### TICKET-005: Centralize AsyncStorage Access
@@ -1345,6 +1353,11 @@ on this phone, not uploaded yet" until they do.
   `ActiveWorkout`, the `useSyncWorkout` hook (not used by any screen), and the
   offline branch in `persistWorkout`, which never runs because `isOnline` is
   hard-coded `true`. Reuse or delete each, but do not leave them half-alive
+- **`endWorkout` cannot report failure today.** `persistWorkout` never rejects, so
+  `endWorkout` always resolves, and a caller cannot tell a saved workout from a failed
+  one except by watching `activeWorkout` go null. The queue needs a result to branch
+  on: change it to return something like `Promise<{ saved: boolean }>` at the start of
+  this ticket, before writing the queue against it (PR #6 review)
 - With Finish completing on the local write, the window where TICKET-027 refuses
   Discard shrinks to the local write itself, which closes its offline gap
 - Out of scope unless needed: editing or deleting a pending workout before it uploads
