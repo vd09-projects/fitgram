@@ -1,12 +1,22 @@
-import { fireEvent, screen } from "@testing-library/react-native";
+import { act, fireEvent, screen } from "@testing-library/react-native";
 import ActiveWorkoutScreen from "./ActiveWorkoutScreen";
 import { renderScreen } from "../../test/renderScreen";
 import { buildWorkout } from "../../test/fixtures";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
+import { saveWorkoutSession } from "../../services/db/workoutSessions";
+
+// Only the Finish tests reach it, through the real `endWorkout`.
+jest.mock("../../services/db/workoutSessions", () => ({
+  ...jest.requireActual("../../services/db/workoutSessions"),
+  saveWorkoutSession: jest.fn(),
+}));
 
 const previousArrow = () => screen.getByRole("button", { name: /^Previous exercise/ });
 const nextArrow = () => screen.getByRole("button", { name: /^Next exercise/ });
 const storedIndex = () => useWorkoutStore.getState().activeWorkout?.currentExerciseIndex;
+// Found by role, not label: the label changes to "Saving…", and a lookup by the
+// new label would fail for the wrong reason when the relabel broke.
+const finishButton = () => screen.getByRole("button", { name: /Finish workout|Saving…/ });
 
 describe("ActiveWorkoutScreen", () => {
   it("next then previous returns to the same exercise, and the store follows", () => {
@@ -64,10 +74,7 @@ describe("ActiveWorkoutScreen", () => {
     expect(cancelWorkout).toHaveBeenCalledTimes(1);
   });
 
-  // Covers a second tap after the screen has re-rendered as busy. Not covered: two
-  // taps inside one frame, which every guard here misses and which saves twice
-  // today. That fix and its test belong in the store: TICKET-027.
-  it("ignores a second Finish tap while the first is still saving", () => {
+  it("disables and relabels Finish while a save is in flight", () => {
     // Never resolves, so the first save is still in flight for the second tap.
     const endWorkout = jest.fn(() => new Promise<void>(() => {}));
     renderScreen(ActiveWorkoutScreen, {
@@ -75,13 +82,30 @@ describe("ActiveWorkoutScreen", () => {
       workoutActions: { endWorkout },
     });
 
-    // Found by role, not label: the label changes to "Saving…", and a lookup by
-    // the new label would fail when the guard broke, for the wrong reason.
-    const finishButton = () => screen.getByRole("button", { name: /Finish workout|Saving…/ });
     fireEvent.press(finishButton());
+    expect(finishButton()).toHaveTextContent("Saving…");
+    expect(finishButton()).toBeDisabled();
     fireEvent.press(finishButton());
 
     expect(endWorkout).toHaveBeenCalledTimes(1);
     expect(endWorkout).toHaveBeenCalledWith("test-user");
+  });
+
+  // TICKET-027: both taps land before React re-renders, so no screen guard can
+  // see the first. The store's in-flight save is what stops the second.
+  it("two Finish taps inside one frame save once", async () => {
+    const save = saveWorkoutSession as jest.Mock;
+    save.mockResolvedValue({ sessionId: "s", rollupApplied: true });
+    const log = jest.spyOn(console, "log").mockImplementation(() => {});
+    renderScreen(ActiveWorkoutScreen, { workout: buildWorkout(["Bench Press"]) });
+
+    await act(async () => {
+      fireEvent.press(finishButton());
+      fireEvent.press(finishButton());
+    });
+
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(useWorkoutStore.getState().activeWorkout).toBeNull();
+    log.mockRestore();
   });
 });

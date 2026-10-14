@@ -89,6 +89,14 @@ Errors are handled via `console.error` with no user-facing feedback in many plac
 
 **Files Affected:** All files with `console.*` calls (spread across services, stores, components)
 
+**Concrete case:** `persistWorkout` in `src/stores/useWorkoutStore.tsx` logs a failed
+save with `console.log`, not `console.error` (TICKET-027). In a dev build,
+`console.error` opened LogBox's red banner on top of the "Could not save workout" toast.
+That also removed the only error-level record of a genuinely failed save. The logger
+here should report it to the user *and* record it at error severity without the LogBox
+double-up. Don't revert it to `console.error` blindly, and don't copy the `log` pattern
+for errors that aren't expected.
+
 ---
 
 ### TICKET-005: Centralize AsyncStorage Access
@@ -1167,37 +1175,199 @@ while reviewing TICKET-017's resume prefetch.
 
 ---
 
-### TICKET-027: Make `endWorkout` Idempotent in the Store
+### ~~TICKET-027: One Save per Session, and Discard Cannot Race a Save~~ ✅ DONE
 
-**Priority:** High | **Effort:** Small | **Status: OPEN**
+**Priority:** High overall: Medium for the double save, High for the discard race.
+Filed as High for "a double save is a data bug", which was wrong. See below.
+**Effort:** Small
 
-**Description:**
-Two Finish taps inside one frame save the session twice. Found in the TICKET-024
-review: with both presses in one `act()`, `endWorkout` is called twice. The screen's
-guards (`if (finishing) return`, `disabled`, `accessibilityState.disabled`) all read
-`finishing` from the last render, so before React re-renders none of them can see the
-first tap. A double save is a data bug, and 021's rest timer and 022's resume banner
-will be further callers of the same path, so the guard belongs in the store rather
-than in each screen.
+Filed as one bug, delivered as two. The filed premise came from the TICKET-024 review
+without being checked, and the filed note "`cancelWorkout` racing a save is the same
+shape" undersold the worse one.
 
-**Acceptance Criteria:**
-- [ ] `endWorkout` returns the in-flight promise to a caller that arrives while a save
-      for the same session is running, instead of saving again
-- [ ] Unit test with no React: two calls without awaiting, one `saveWorkoutSession`
-- [ ] The guard clears on failure, so a failed save can be retried
-- [ ] Screen test: two Finish taps inside one `act()` call `saveWorkoutSession` once
-      (currently fails; the probe is in the TICKET-024 review)
-- [ ] Rename the existing Finish screen test to what it proves: the button disables
-      and relabels while a save is in flight
-- [ ] Decide whether the screen's `if (finishing) return` stays. It cannot stop the race
-      it was written for; keep it only if it still documents something
+#### A. Double save (Medium)
 
-**Technical Notes:**
-- An in-flight promise held outside zustand state (as `useExerciseHistoryStore` does
-  with `inFlight`), so the check is synchronous and survives within one frame
-- `cancelWorkout` racing an in-flight save is the same shape; check it while there
+Two Finish taps inside one frame called `endWorkout` twice. The screen's guards all
+read `finishing` from the last render, so none could see the first tap.
+
+**Corrected premise:** this was **not** data corruption. The write path is idempotent
+by construction: `buildSessionId` derives from `workoutId` + `startTime`, not
+`endedAt`, so both saves write the same doc ids; `applySessionToStats` folds by
+replacement (`recentSessions` and `volumeHistory` filter the session out before
+prepending, `lastPerformedAt` is a max, `applyBest` only raises); there is no running
+total. The real cost was a duplicate batch commit, a duplicate rollup transaction, and
+two "Workout saved successfully!" toasts.
+
+**Why it was still worth doing:** that idempotency is accidental, and no test asserted
+it. A future `totalSessions + 1` or `lifetimeVolume +=` in the rollup would turn the
+double save into silent corruption. The guard makes one save per session a property of
+the store, whatever the rollup does.
+
+#### B. Discard during an in-flight save (High)
+
+`cancelWorkout` only cleared AsyncStorage and nulled `activeWorkout`. It never touched
+Firestore. While a save was in flight, Finish read "Saving…" but the `···` menu was
+still live: Discard → confirm cleared local state, then the save resolved against the
+workout it had captured, wrote it to history, and toasted success. **A workout the user
+explicitly discarded ended up in their history.** The window is a server round trip (the
+rollup is a transaction), not one frame. This is a separate bug from A, not "the same
+shape": A wastes writes, B produces the wrong outcome.
+
+#### Decisions pinned
+
+- **Guard:** `savesInFlight`, a `Map<sessionId, Promise<void>>` at module scope in
+  `useWorkoutStore.tsx`, outside zustand state. A zustand update is invisible to a
+  second caller in the same frame, and that was the bug. A caller arriving mid-save
+  gets the same promise back. Cleared in `finally` with an identity check (the
+  `useExerciseHistoryStore` `inFlight` pattern), so a failed save can be retried
+- **Discard semantics: Finish wins.** `cancelWorkout` is refused while a save for the
+  current session is in flight, with a "Still saving" toast. Rejected, "discard wins":
+  phase 1 is a `writeBatch` that queues in Firestore's cache and cannot be recalled
+  once started, and compensating means deleting the session docs *and* rebuilding
+  `exercise_stats`, because `applySessionToStats` cannot un-fold a session. Both touch
+  `saveWorkoutSession` and the rollup, which are non-goals. The refusal also covers
+  StartWorkoutScreen's "Cancel Workout", which calls the same action
+- **Screen guard `if (finishing) return` deleted.** It could not stop the same-frame
+  race, `disabled` already blocks a cross-frame tap, and its comment ("would write the
+  session twice") was no longer true. `finishing` now only drives the busy look
+- The save body moved unchanged into `persistWorkout`, which never rejects. That is
+  what lets the guard clear and accept a retry
+
+- **Save failure logged with `console.log`, not `console.error`** (found in the device
+  test). In a dev build, `console.error` opens LogBox's red banner over the "Could not
+  save workout" toast: two messages for one expected failure. The toast is the user's
+  message. The line was already on `main`; changed here because it got in the way of
+  this ticket's retry test
+
+**Deviation:** the store test mocks `saveWorkoutSession` at its module, against
+README's "replace the store action". That rule is for screens; when the action under
+test is `endWorkout`, replacing it tests nothing. README now says when this applies.
+
+**Files:** `src/stores/useWorkoutStore.tsx`, `src/stores/useWorkoutStore.test.ts` (new),
+`src/screens/workout_management/ActiveWorkoutScreen.tsx` (comment + guard removal),
+`ActiveWorkoutScreen.test.tsx`, `src/test/README.md`
+
+**Verification:**
+- `npx tsc --noEmit` clean; `npm test` 16/16 (was 12), 0 console output
+- New: store, two unawaited calls → 1 save, 1 success toast; store, failed save then
+  retry → 2 saves, 1 success; store, discard refused mid-save, allowed after the
+  save fails; screen, two Finish taps in one `act()` → 1 save
+- Renamed: "ignores a second Finish tap…" → "disables and relabels Finish while a save
+  is in flight", now also asserting the "Saving…" label and the disabled state
+- Mutation runs, each red for the reason named:
+  - drop the join (`return pending`): unawaited-calls + same-frame screen tests
+  - never clear the entry: retry test (1 save, not 2) + discard test
+  - never refuse discard / always refuse discard: discard test, each half
+  - never register the save: three tests
+  - drop the "Saving…" relabel: renamed test
+  - drop `disabled` alone: **green**, because `accessibilityState.disabled` is
+    `TouchableOpacity`'s fallback. Dropping both: red
+  - the new tests against `main`'s store: same-frame, unawaited-calls and discard all red
+
+**Known gaps:**
+- **Offline: Discard stays refused until the save settles, and that can take a long
+  time.** `batch.commit()` resolves on server ack, and `db` uses the default memory
+  cache. Offline, Finish already showed "Saving…" until reconnect (pre-existing). Now
+  Discard is refused for the same stretch. That is honest, since the queued write
+  will land, but the user has no way out short of reconnecting or killing the app.
+  Not tested: needs a device with networking off. Deferred because the fix lives in
+  `saveWorkoutSession` (resolve after phase 1's local write, not the server ack),
+  which is a non-goal here. Filed as **TICKET-028** and sequenced next, so the dead
+  end is fixed before any other ticket builds on it (TICKET-022's resume banner adds a
+  second Discard that would inherit it)
+- The "Still saving" toast is the only feedback for a refused discard. The confirm
+  dialog has already closed. Adequate for a rare race, and a disabled menu item would
+  be a UI change outside scope
+- Rollup idempotency is still untested directly. This ticket protects it, it does not
+  assert it. A test on `applySessionToStats` applied twice belongs with the next change
+  to that function
 
 **Dependencies:** TICKET-024.
+
+---
+
+### TICKET-028: Offline Finish — Save on the Phone, Upload Later, Show What Is Pending
+
+**Priority:** High | **Effort:** Medium-Large | **Status: OPEN**
+
+Sequenced next after TICKET-027 (PR #6 review). In a gym, having no signal is the
+normal case, and TICKET-027 left offline Finish with no way out.
+
+**Description:**
+Finishing a workout offline does not lose data today, but it leaves the user stuck.
+`endWorkout` awaits `saveWorkoutSession`, whose `batch.commit()` resolves only when the
+server acknowledges the write. So with no connection:
+
+- Finish sits on "Saving…" until the connection returns
+- Discard is refused for that whole time (TICKET-027's "Finish wins")
+- the workout stays the active one, so the next workout cannot be started
+- nothing tells the user what is waiting to upload
+
+The data itself is safe: the workout stays in AsyncStorage (`activeWorkout`) until a
+save succeeds, and survives an app restart. Firestore's own queued copy does not
+survive one: `db` uses the default memory cache.
+
+Wanted (from the TICKET-027 device test): **Finish always completes once the workout is
+saved on the phone.** Finished workouts that have not reached the server wait in a
+local queue, upload when the connection returns, and are visible in the app as "saved
+on this phone, not uploaded yet" until they do.
+
+**Acceptance Criteria:**
+- [ ] Finish completes on a local write: offline, the workout leaves the active slot,
+      the user gets a "saved on this phone, will upload when online" message, and a
+      new workout can be started
+- [ ] Finished-but-not-uploaded workouts are kept in a local queue that survives an app
+      restart, separate from the single `activeWorkout`
+- [ ] The queue uploads on its own when the connection returns and on app start, in
+      finish order, and an entry is removed only after its upload succeeds
+- [ ] The user can see pending workouts: at least a count ("2 workouts waiting to
+      upload") and a list. Where it lives is decided in this ticket
+- [ ] A failed upload stays queued and is retried, and repeated failure is visible,
+      not silent
+- [ ] Tests (store-level, no React, as in TICKET-027): finish offline → queued, not
+      lost; upload succeeds → removed; upload fails → kept and retried; restart →
+      queue reloaded. Each seen failing first
+
+**Verify first (load-bearing, all unconfirmed):**
+- **`batch.commit()` hangs offline rather than rejecting.** Inferred from the SDK's
+  semantics and TICKET-027's code reading; confirm with TICKET-027's device step D
+- **Firestore's persistent (on-disk) cache is unavailable in React Native** (it relies
+  on IndexedDB). If true, the queue has to be ours, in AsyncStorage. If false, the
+  design may shrink to "resolve Finish after the local write" plus a pending view
+- How connectivity is detected. No connectivity library is installed
+  (`@react-native-community/netinfo` is the usual choice and is a native dependency,
+  so the dev client needs a rebuild). Alternative: no detection at all, just retry the
+  queue on app start, on foreground, and after each successful save
+
+**Technical Notes:**
+- **Uploading the same entry twice is safe.** `buildSessionId(workoutId, startTime)`
+  fixes the session's ids when the workout starts, and the rollup folds by
+  replacement, so a retried upload overwrites rather than duplicates. TICKET-027 keeps
+  one upload per session in flight; the queue should reuse that guard, not add a
+  second one
+- **The queue must be per account.** An upload must use the uid of the user who did
+  the workout, not whoever is signed in when the connection returns. Store the uid on
+  each entry, and decide with TICKET-026 what sign-out does to someone else's pending
+  workouts
+- **History will be stale for pending workouts.** "Last time" and ghost targets
+  (TICKET-016/018) read the server rollup, so a workout still in the queue is missing
+  from them. Decide whether to fold pending entries into the cache locally or accept
+  the gap and say so on screen
+- Groundwork already in the code, none of it working: `isPersisted` on
+  `ActiveWorkout`, the `useSyncWorkout` hook (not used by any screen), and the
+  offline branch in `persistWorkout`, which never runs because `isOnline` is
+  hard-coded `true`. Reuse or delete each, but do not leave them half-alive
+- **`endWorkout` cannot report failure today.** `persistWorkout` never rejects, so
+  `endWorkout` always resolves, and a caller cannot tell a saved workout from a failed
+  one except by watching `activeWorkout` go null. The queue needs a result to branch
+  on: change it to return something like `Promise<{ saved: boolean }>` at the start of
+  this ticket, before writing the queue against it (PR #6 review)
+- With Finish completing on the local write, the window where TICKET-027 refuses
+  Discard shrinks to the local write itself, which closes its offline gap
+- Out of scope unless needed: editing or deleting a pending workout before it uploads
+
+**Dependencies:** TICKET-027. Coordinate with TICKET-026 (account scoping) and
+TICKET-011 (a cross-screen pending indicator may be the same component).
 
 ---
 
@@ -1224,13 +1394,14 @@ than in each screen.
 12. ~~TICKET-016 (Exercise history hook)~~ — DONE
 13. TICKET-017 (Active workout pager)
 14. TICKET-024 (Jest setup + example tests) — First, so later screens ship with tests
-15. TICKET-027 (endWorkout idempotent)    — Live double-save; before 021/022 add callers
-16. TICKET-018 (Set logger card)
-17. TICKET-019 (Today's sets + deltas)    — Flow is whole and better here
-18. TICKET-022 (Start Workout redesign)
-19. TICKET-020 (History sheet)
-19. TICKET-021 (Rest timer + PR banner)   — Parallel with 020
-20. TICKET-023 (Tour press-to-continue)   — After Phase 3; patch in docs/patches/
+15. ~~TICKET-027 (one save per session)~~ — DONE
+16. TICKET-028 (Offline finish + pending) — Next: 027 left offline Finish a dead end
+17. TICKET-018 (Set logger card)
+18. TICKET-019 (Today's sets + deltas)    — Flow is whole and better here
+19. TICKET-022 (Start Workout redesign)
+20. TICKET-020 (History sheet)
+20. TICKET-021 (Rest timer + PR banner)   — Parallel with 020
+21. TICKET-023 (Tour press-to-continue)   — After Phase 3; patch in docs/patches/
 --. TICKET-025 (Footer highlight)         — Small, independent; any time
 --. TICKET-026 (Clear state on sign-out)  — Privacy; small; before launch
 ```
