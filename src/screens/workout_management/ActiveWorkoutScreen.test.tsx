@@ -64,6 +64,9 @@ describe("ActiveWorkoutScreen", () => {
     expect(cancelWorkout).toHaveBeenCalledTimes(1);
   });
 
+  // Covers a second tap after the screen has re-rendered as busy. Not covered: two
+  // taps inside one frame, which every guard here misses and which saves twice
+  // today. That fix and its test belong in the store: TICKET-027.
   it("ignores a second Finish tap while the first is still saving", () => {
     // Never resolves, so the first save is still in flight for the second tap.
     const endWorkout = jest.fn(() => new Promise<void>(() => {}));

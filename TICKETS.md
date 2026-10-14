@@ -1031,7 +1031,10 @@ harness plus a pattern, proven on real code.
 - [x] `src/test/README.md`: where files go, how to render a screen, what to seed
 - [x] `npm test` passes from a clean `npm ci`; `npx tsc --noEmit` clean with the test
       files present (and proven to typecheck them)
-- [x] Every test seen to fail: one one-line regression per test, all red
+- [x] Every logic test seen to fail (7/7). Screen tests: 4/5 seen red on a regression
+      of their own guard; the Finish test goes red only when the busy flag is never set
+      or all three of its guards are removed (see Verification). Its same-frame race is
+      uncovered and fails today: TICKET-027
 
 **Decisions pinned:**
 - **Navigation is real, not a fake object.** The screen is the only route on a real
@@ -1066,10 +1069,20 @@ fixtures.ts,README.md}`, `src/utils/workoutProgress.test.ts`,
 
 **Verification:**
 - 12 tests (7 logic, 5 screen), 0 console warnings, ~2 s warm
-- Mutation run, one one-line regression per test: 5/5 screen tests and 5/5 logic tests
-  red, each on the assertion it names. One expected survivor: deleting only
-  `if (finishing) return` leaves the Finish test green, because `disabled={finishing}`
-  also blocks the tap. The test pins the behaviour, not which of the two guards gives it
+- Mutation runs, one regression at a time, each red on the assertion it names unless
+  stated:
+  - Logic tests: 7/7 red
+  - Screen tests 1-4 (paging, arrows, back, discard): red
+  - Finish test: Finish has **three** guards, `if (finishing) return`,
+    `disabled={finishing}`, and `accessibilityState.disabled`, which
+    `TouchableOpacity` also reads as disabled (RN `TouchableOpacity.js:141-144`).
+    Removing any one or two leaves the test green; removing all three, or deleting
+    `setFinishing(true)` which feeds them all, turns it red. It pins "a second tap
+    after a re-render is ignored", not any single guard
+- Two Finish taps inside one frame (both presses in one `act()`) call `endWorkout`
+  **twice**. All three guards read `finishing` from the last render, so none can stop
+  it, including the in-handler check that exists for exactly this race. Present
+  since TICKET-017 (`dbaa0a0`); fix belongs in the store, TICKET-027
 - A sixth screen test (a logged set lands on the exercise in view) was written and
   passed with no new mocking, then removed
 - `babel.config.js` changes nothing for the app: `expo export --platform android
@@ -1151,6 +1164,40 @@ while reviewing TICKET-017's resume prefetch.
 
 **Dependencies:** None. Touches the resume prefetch from TICKET-017
 (`prefetchHistoryOnResume` in `useWorkoutStore.tsx`), which subscribes to the auth store.
+
+---
+
+### TICKET-027: Make `endWorkout` Idempotent in the Store
+
+**Priority:** High | **Effort:** Small | **Status: OPEN**
+
+**Description:**
+Two Finish taps inside one frame save the session twice. Found in the TICKET-024
+review: with both presses in one `act()`, `endWorkout` is called twice. The screen's
+guards (`if (finishing) return`, `disabled`, `accessibilityState.disabled`) all read
+`finishing` from the last render, so before React re-renders none of them can see the
+first tap. A double save is a data bug, and 021's rest timer and 022's resume banner
+will be further callers of the same path, so the guard belongs in the store rather
+than in each screen.
+
+**Acceptance Criteria:**
+- [ ] `endWorkout` returns the in-flight promise to a caller that arrives while a save
+      for the same session is running, instead of saving again
+- [ ] Unit test with no React: two calls without awaiting, one `saveWorkoutSession`
+- [ ] The guard clears on failure, so a failed save can be retried
+- [ ] Screen test: two Finish taps inside one `act()` call `saveWorkoutSession` once
+      (currently fails; the probe is in the TICKET-024 review)
+- [ ] Rename the existing Finish screen test to what it proves: the button disables
+      and relabels while a save is in flight
+- [ ] Decide whether the screen's `if (finishing) return` stays. It cannot stop the race
+      it was written for; keep it only if it still documents something
+
+**Technical Notes:**
+- An in-flight promise held outside zustand state (as `useExerciseHistoryStore` does
+  with `inFlight`), so the check is synchronous and survives within one frame
+- `cancelWorkout` racing an in-flight save is the same shape; check it while there
+
+**Dependencies:** TICKET-024.
 
 ---
 
