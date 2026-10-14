@@ -324,23 +324,23 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   alertMessage: {
     color: t.colors.role.textSecondary,
   },
+  // Dialog buttons are filled, not outlined. A 1dp outline on a button laid out
+  // at a fractional pixel position renders some edges thinner than others on
+  // Android; a bright danger outline made that obvious. Fills have no such edge.
   alertKeep: {
     minHeight: HIT,
     backgroundColor: t.colors.role.raised,
-    borderWidth: 1,
-    borderColor: t.colors.role.hairlineStrong,
   },
   alertKeepText: {
     color: t.colors.role.textPrimary,
   },
+  // Solid danger: the one irreversible action on this screen.
   alertDiscard: {
     minHeight: HIT,
-    backgroundColor: t.colors.role.surface,
-    borderWidth: 1,
-    borderColor: t.colors.role.danger,
+    backgroundColor: t.colors.role.danger,
   },
   alertDiscardText: {
-    color: t.colors.role.danger,
+    color: t.colors.role.ground,
   },
   noWorkoutContainer: {
     flex: 1,
