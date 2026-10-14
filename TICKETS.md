@@ -1272,8 +1272,9 @@ test is `endWorkout`, replacing it tests nothing. README now says when this appl
   will land, but the user has no way out short of reconnecting or killing the app.
   Not tested: needs a device with networking off. Deferred because the fix lives in
   `saveWorkoutSession` (resolve after phase 1's local write, not the server ack),
-  which is a non-goal here. Filed as **TICKET-028**, sequenced after TICKET-021.
-  TICKET-022's resume banner ships first, so its Discard will be refused offline too
+  which is a non-goal here. Filed as **TICKET-028** and sequenced next, so the dead
+  end is fixed before any other ticket builds on it (TICKET-022's resume banner adds a
+  second Discard that would inherit it)
 - The "Still saving" toast is the only feedback for a refused discard. The confirm
   dialog has already closed. Adequate for a rare race, and a disabled menu item would
   be a UI change outside scope
@@ -1287,7 +1288,10 @@ test is `endWorkout`, replacing it tests nothing. README now says when this appl
 
 ### TICKET-028: Offline Finish — Save on the Phone, Upload Later, Show What Is Pending
 
-**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN**
+**Priority:** High | **Effort:** Medium-Large | **Status: OPEN**
+
+Sequenced next after TICKET-027 (PR #6 review). In a gym, having no signal is the
+normal case, and TICKET-027 left offline Finish with no way out.
 
 **Description:**
 Finishing a workout offline does not lose data today, but it leaves the user stuck.
@@ -1391,12 +1395,12 @@ TICKET-011 (a cross-screen pending indicator may be the same component).
 13. TICKET-017 (Active workout pager)
 14. TICKET-024 (Jest setup + example tests) — First, so later screens ship with tests
 15. ~~TICKET-027 (one save per session)~~ — DONE
-16. TICKET-018 (Set logger card)
-17. TICKET-019 (Today's sets + deltas)    — Flow is whole and better here
-18. TICKET-022 (Start Workout redesign)
-19. TICKET-020 (History sheet)
-19. TICKET-021 (Rest timer + PR banner)   — Parallel with 020
-20. TICKET-028 (Offline finish + pending) — After the Phase 3 screens
+16. TICKET-028 (Offline finish + pending) — Next: 027 left offline Finish a dead end
+17. TICKET-018 (Set logger card)
+18. TICKET-019 (Today's sets + deltas)    — Flow is whole and better here
+19. TICKET-022 (Start Workout redesign)
+20. TICKET-020 (History sheet)
+20. TICKET-021 (Rest timer + PR banner)   — Parallel with 020
 21. TICKET-023 (Tour press-to-continue)   — After Phase 3; patch in docs/patches/
 --. TICKET-025 (Footer highlight)         — Small, independent; any time
 --. TICKET-026 (Clear state on sign-out)  — Privacy; small; before launch
