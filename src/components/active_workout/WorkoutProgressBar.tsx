@@ -11,6 +11,14 @@ import { ProgressSegment } from "../../utils/workoutProgress";
  * accent showing how far through it the user is.
  *
  * What "done" and the current fill mean is pinned on `ProgressSegment`.
+ *
+ * The current fill is drawn dimmer while its target is assumed
+ * (`targetSource: "default"`, no history known yet). History can arrive after
+ * sets are logged — on resume the fetch waits for sign-in — and the target then
+ * changes, say from 3 to 5, so 2 sets go from 67% to 40%. The fill switching to
+ * full strength at that moment shows the target became known, instead of
+ * looking like lost progress. Rejected: holding or only-growing the target,
+ * which would keep showing a ratio against a number now known to be wrong.
  */
 export default function WorkoutProgressBar({ segments }: { segments: ProgressSegment[] }) {
   const { styles } = useThemeStyles(createStyles);
@@ -31,7 +39,13 @@ export default function WorkoutProgressBar({ segments }: { segments: ProgressSeg
 
         return (
           <View key={index} style={[styles.segment, styles.currentTrack]}>
-            <View style={[styles.fill, { width: `${segment.fill * 100}%` }]} />
+            <View
+              style={[
+                styles.fill,
+                segment.targetSource === "default" && styles.fillAssumed,
+                { width: `${segment.fill * 100}%` },
+              ]}
+            />
           </View>
         );
       })}
@@ -62,5 +76,9 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   fill: {
     height: "100%",
     backgroundColor: t.colors.role.accent,
+  },
+  // Same hue, lower lightness: reads as "estimated" without relying on colour.
+  fillAssumed: {
+    opacity: 0.55,
   },
 });
