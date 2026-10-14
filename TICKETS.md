@@ -677,8 +677,8 @@ console. Re-run `scripts/uploadExercises.ts` to put roles on the catalog; it dro
 `"Sets"` from all 42 entries.
 
 **Known gaps, deferred to the optimisation pass:**
-- Resuming a workout after an app restart does not prefetch — needs an auth-ready
-  trigger, belongs with TICKET-017's resume path
+- ~~Resuming a workout after an app restart does not prefetch — needs an auth-ready
+  trigger, belongs with TICKET-017's resume path~~ Fixed in TICKET-017
 - Firestore has no `persistentLocalCache`, so write promises never resolve offline
   and pending writes die with the app. Pre-existing
 - The rollup only raises records; editing a set downward needs
@@ -738,12 +738,19 @@ out of the main action row.
   does not compete with the vertical ScrollView or with 018's text inputs, which a
   tracked pan or a horizontal `FlatList` would. `react-native-pager-view` was rejected
   for now: best feel, but a native dependency for one screen whose content 018 is about
-  to rebuild. Revisit if the swap feels abrupt on device
+  to rebuild. Device-checked: the instant swap is accepted. A sliding pager is an
+  optimisation, not ticketed; pick it up only if the swap becomes a real problem
 - **`ExerciseLogger` is keyed by exercise id from the screen.** Pre-existing bug (the
   dropdown version had it too): typed-but-unlogged values survived an exercise switch
   and would be logged against the new exercise, since field names like "Reps" repeat.
   Keying from outside keeps the component's internals untouched; cost is that unlogged
   input is dropped on navigation
+- **Resumed sessions now prefetch history** (closes TICKET-016's known gap).
+  `loadWorkoutFromStorage` runs at app start, before `initAuth` has set the user, so a
+  plain prefetch there would see no uid and do nothing. It prefetches immediately if
+  the user is known, otherwise on the first user to appear, then stops watching.
+  Rejected: fetching from the screen on mount, which breaks "screens never fetch" and
+  makes the progress bar jump from the default target to the real one
 - **Finish is guarded against a double tap** while `endWorkout` is in flight, which
   would otherwise save the session twice
 - **`WorkoutNavigator.tsx` was not edited** (the brief assumed it would be), so
@@ -1047,6 +1054,30 @@ screen; screen tests written earlier would be rewritten each ticket.
 
 ---
 
+### TICKET-025: Footer Highlight Follows the Current Screen
+
+**Priority:** Low | **Effort:** Small | **Status: OPEN**
+
+**Description:**
+The footer highlights the last tab TAPPED, not the screen being shown. `LayoutScreen`
+keeps `activeTab` in local state and updates it only in `onChangeTab` (footer) and
+`onPressTab` (header). Any other navigation leaves it stale: Workout → Start → begin a
+workout lands on the active workout screen with "Workout" still highlighted; the
+active workout's back button (TICKET-017) can open the Workout tab with "Log Workout"
+still highlighted. Pre-existing; surfaced while testing TICKET-017.
+
+**Acceptance Criteria:**
+- [ ] The highlighted tab is derived from navigation state (the focused Layout route),
+      not stored separately, so every navigation path updates it
+- [ ] Entering the active workout from the Workout stack highlights "Log Workout", or
+      the rule for which tab owns that screen is decided and written down — it is
+      registered in both the Layout and Workout stacks
+- [ ] Header Home/Profile and footer taps still highlight correctly
+
+**Dependencies:** None.
+
+---
+
 ## Recommended Execution Order
 
 ```
@@ -1076,6 +1107,7 @@ screen; screen tests written earlier would be rewritten each ticket.
 17. TICKET-021 (Rest timer + PR banner)   — Parallel with 020
 18. TICKET-023 (Tour press-to-continue)   — After Phase 3; patch in docs/patches/
 18. TICKET-024 (Jest + screen tests)      — After 021; replaces both harness scripts
+--. TICKET-025 (Footer highlight)         — Small, independent; any time
 ```
 
 ---

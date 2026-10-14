@@ -210,17 +210,57 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     if (!storedWorkout) return;
 
     const parsed = JSON.parse(storedWorkout) as ActiveWorkout;
-    // A workout started before field roles existed has `fields: string[]` in
-    // storage. Normalising on the way in keeps a resumed session renderable
-    // instead of showing inputs labelled `undefined`.
-    set({
-      activeWorkout: {
-        ...parsed,
-        exercises: (parsed.exercises ?? []).map((exercise) => ({
-          ...exercise,
-          fields: normalizeExerciseFields(exercise.fields),
-        })),
-      },
-    });
+    const exercises = (parsed.exercises ?? []).map((exercise) => ({
+      ...exercise,
+      // A workout started before field roles existed has `fields: string[]` in
+      // storage. Normalising on the way in keeps a resumed session renderable
+      // instead of showing inputs labelled `undefined`.
+      fields: normalizeExerciseFields(exercise.fields),
+    }));
+    set({ activeWorkout: { ...parsed, exercises } });
+
+    prefetchHistoryOnResume(exercises.map((exercise) => exercise.id));
   },
 }));
+
+/** Cancels a resume prefetch still waiting for sign-in, if any. */
+let stopResumePrefetchWatch: (() => void) | null = null;
+
+/**
+ * Warm the history cache for a resumed session, as `startWorkout` does for a
+ * new one. History is only ever fetched at session moments, never by a screen.
+ *
+ * Restore runs once at app start, before auth has settled: `initAuth` sets the
+ * user only after a session check and a server write. Prefetching there would
+ * see no uid and silently return. So fetch now if the user is known, otherwise
+ * on the first user to appear. Repeat calls are free — the history store skips
+ * ready entries and joins in-flight requests — and a failure is swallowed,
+ * leaving the progress bar on its default target, as on start.
+ */
+function prefetchHistoryOnResume(exerciseIds: string[]) {
+  stopResumePrefetchWatch?.();
+  stopResumePrefetchWatch = null;
+  if (exerciseIds.length === 0) return;
+
+  const prefetch = (uid: string) =>
+    useExerciseHistoryStore
+      .getState()
+      .prefetchExerciseHistory(uid, exerciseIds)
+      .catch(() => {});
+
+  const uid = useAuthStore.getState().user?.uid;
+  if (uid) {
+    prefetch(uid);
+    return;
+  }
+
+  const stop = useAuthStore.subscribe((state) => {
+    const signedIn = state.user?.uid;
+    if (!signedIn) return;
+    stop();
+    stopResumePrefetchWatch = null;
+    prefetch(signedIn);
+  });
+  stopResumePrefetchWatch = stop;
+}
+
