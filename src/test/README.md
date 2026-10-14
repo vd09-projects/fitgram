@@ -65,6 +65,10 @@ timers, and the Firebase init module.
   with `workoutActions`. Do not mock Firebase. If a test reaches Firebase, it
   fails with "Test reached Firebase …" — that is the signal to replace the
   action, not to widen the mock.
+- **A store action that itself calls Firestore** (testing `endWorkout`, not a
+  screen that calls it): replace the service function it calls, with
+  `jest.mock` and `jest.requireActual` for the rest of the module. See
+  `src/stores/useWorkoutStore.test.ts`.
 - **Time:** timers are fake. `jest.advanceTimersByTime(ms)` moves them.
 - **A new provider** a screen needs: add it to `renderScreen`, once, not in the
   test.

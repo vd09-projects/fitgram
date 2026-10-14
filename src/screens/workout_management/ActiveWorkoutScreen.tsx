@@ -91,8 +91,10 @@ export default function ActiveWorkoutScreen() {
       show.alert("No active workout to save.");
       return;
     }
-    // A second tap while the save is in flight would write the session twice.
-    if (finishing) return;
+    // `finishing` only drives the busy look. A second save is prevented in the
+    // store (`endWorkout` joins an in-flight save), which also covers two taps
+    // inside one frame — a check on `finishing` here could not, since it reads
+    // the value from the last render.
     setFinishing(true);
     try {
       await endWorkout(user?.uid);
