@@ -1224,12 +1224,13 @@ than in each screen.
 12. ~~TICKET-016 (Exercise history hook)~~ — DONE
 13. TICKET-017 (Active workout pager)
 14. TICKET-024 (Jest setup + example tests) — First, so later screens ship with tests
-15. TICKET-018 (Set logger card)
-16. TICKET-019 (Today's sets + deltas)    — Flow is whole and better here
-17. TICKET-022 (Start Workout redesign)
-18. TICKET-020 (History sheet)
-18. TICKET-021 (Rest timer + PR banner)   — Parallel with 020
-19. TICKET-023 (Tour press-to-continue)   — After Phase 3; patch in docs/patches/
+15. TICKET-027 (endWorkout idempotent)    — Live double-save; before 021/022 add callers
+16. TICKET-018 (Set logger card)
+17. TICKET-019 (Today's sets + deltas)    — Flow is whole and better here
+18. TICKET-022 (Start Workout redesign)
+19. TICKET-020 (History sheet)
+19. TICKET-021 (Rest timer + PR banner)   — Parallel with 020
+20. TICKET-023 (Tour press-to-continue)   — After Phase 3; patch in docs/patches/
 --. TICKET-025 (Footer highlight)         — Small, independent; any time
 --. TICKET-026 (Clear state on sign-out)  — Privacy; small; before launch
 ```
