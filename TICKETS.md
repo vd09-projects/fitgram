@@ -1003,51 +1003,101 @@ not the style split, not device-tested. Applies cleanly on the TICKET-017 branch
 
 ### TICKET-024: Test Runner — Set Up Jest and Write the Example Tests
 
-**Priority:** High | **Effort:** Small-Medium | **Status: OPEN** — next, ahead of TICKET-018
+**Priority:** High | **Effort:** Small-Medium | **Status: IN REVIEW** — next, ahead of TICKET-018
 
 **Description:**
-The repo has no test runner; TICKET-016 and TICKET-017 verified with hand-rolled
-scripts instead. Set up Jest so tests are cheap to write, then write tests for one or
-two screens as the worked example every later screen copies.
-
-This is not "test every screen". It goes first so that 018-021 and later screens are
-built with their tests from the start, rather than having tests added after the fact.
-Each later ticket adds its own few tests (CLAUDE.md 3.2: test what the change touched,
-4-5 per screen).
+The repo had no test runner; TICKET-016 and TICKET-017 verified with hand-rolled
+scripts instead. Set up Jest so tests are cheap to write, then write one screen's tests
+as the worked example that 018-022 copy. Not "test every screen": the point is the
+harness plus a pattern, proven on real code.
 
 **Acceptance Criteria:**
-- [ ] `jest`, `jest-expo` (matching Expo SDK 52), `@types/jest`,
-      `@testing-library/react-native` as dev dependencies; a jest config with the
-      `jest-expo` preset; `babel.config.js` with `babel-preset-expo` (none exists
-      today); `npm test` and watch scripts
-- [ ] One shared render helper that supplies what every screen needs, so a new screen
-      test is a few lines: theme and tour providers (both crash without one: theme
-      defaults to `null`, tour to `{}`), navigation, and mocks for AsyncStorage,
-      gesture handler and the history/auth hooks
-- [ ] Example logic tests for `src/utils/workoutProgress.ts`, chosen not exhaustive:
-      progress fill with and without history incl. the cap; index clamp at both ends
-      and the empty workout; elapsed time past the hour
-- [ ] Example screen tests for `ActiveWorkoutScreen`, 4-5: arrows change the exercise;
-      back with nothing behind it opens the Workout tab instead of throwing (the
-      `WorkoutHome` navigate bug from TICKET-017); Discard asks before deleting; Finish
-      ignores a second tap while saving; a logged set lands on the exercise in view
-- [ ] Optionally a second, simpler screen if `ActiveWorkoutScreen` turns out to be a
-      poor first example (it needs the most mocks)
-- [ ] A short "how to add a test" note next to the helper: where test files go, how to
-      render a screen with the helper, what to mock
+- [x] `jest`, `jest-expo` ~52, `@types/jest`, `@testing-library/react-native`,
+      `react-test-renderer` 18.3.1 (exact) as dev dependencies; `jest.config.js` on the
+      `jest-expo` preset with the gesture-handler and AsyncStorage mocks the libraries
+      ship; `babel.config.js` with `babel-preset-expo`; `npm test` and `npm run test:watch`
+- [x] One render helper, `src/test/renderScreen.tsx`: theme and tour providers, a real
+      navigator, store reset plus seeding (auth `initialized: true`, workout, history),
+      and per-test replacement of store actions
+- [x] Logic tests for `src/utils/workoutProgress.ts`, written first as the runner smoke
+      test: current-segment fill with and without history, the cap at 1, `targetSource`,
+      `clampExerciseIndex` at both ends and the empty workout, `formatElapsed` across the
+      hour and from a future start
+- [x] Five `ActiveWorkoutScreen` tests: next then previous returns and the store index
+      follows; arrows disabled at each end via `accessibilityState`; back with nothing
+      behind opens the Workout tab (the TICKET-017 `WorkoutHome` bug); Discard deletes
+      only after the confirmation's Discard; a second Finish tap while saving does not
+      call `endWorkout` again
+- [x] `src/test/README.md`: where files go, how to render a screen, what to seed
+- [x] `npm test` passes from a clean `npm ci`; `npx tsc --noEmit` clean with the test
+      files present (and proven to typecheck them)
+- [x] Every logic test seen to fail (7/7). Screen tests: 4/5 seen red on a regression
+      of their own guard; the Finish test goes red only when the busy flag is never set
+      or all three of its guards are removed (see Verification). Its same-frame race is
+      uncovered and fails today: TICKET-027
 
-**Out of scope:** porting `src/scripts/verifyHistoryReads.ts` (TICKET-016, 77 checks).
-It keeps working as is; move it into Jest when a ticket next changes the history layer.
+**Decisions pinned:**
+- **Navigation is real, not a fake object.** The screen is the only route on a real
+  stack; every other route is a stub rendering its own path. Back is asserted by where
+  it lands (`route:Workout/WorkoutHome`), not by the arguments passed to `navigate`
+- **Store actions that reach Firestore are replaced per test** (`workoutActions`), not
+  Firebase. Everything else runs for real, including `setCurrentExerciseIndex` and
+  AsyncStorage through the library's mock
+- **Fake timers in every test file.** A stack card's open animation ends on a timer
+  that otherwise fires after the test returns, outside `act()`
 
-**Technical Notes — from the TICKET-017 review:**
-- Do not carry over the old harness's weak checks: "no history fetch" was vacuous
-  (`prefetchExerciseHistory` returns at once without a user id,
-  `useExerciseHistoryStore.ts:67`), and the regex source checks matched text, not
-  behaviour. The role-token rule belongs in ESLint (TICKET-001)
-- Layout and touch bugs (off-centre taps, uneven borders, segment rendering) are out
-  of reach of component tests; those stay with device runs
-- Review the working rules in `CLAUDE.md` alongside this MR (requested on PR #4); the
-  testing rule there is what this ticket puts into practice
+**Deviations from the original plan:**
+- **Firebase's init module is replaced, despite "do not mock Firebase".** That
+  instruction was about `useAuthUser` initialising auth during render, which seeding
+  `initialized: true` handles. It did not cover import time:
+  `services/firebase/firebase.ts` calls `initializeAuth` on import, and under Jest the
+  config is empty, so importing any store threw `auth/invalid-api-key` before a test
+  ran. Only that module is replaced; the SDK still loads, and the replacement's handles
+  throw "Test reached Firebase …" on first use, so nothing can pass by touching it
+- **`AppControlProvider` is left out of the helper's provider stack.** Nothing calls
+  `useAppControl`, and its mount effect runs `loadWorkoutFromStorage()`, which would
+  race the seeded workout
+- **`expo-font` reports fonts as loaded.** jest-expo 52's native mock returns undefined
+  from `getLoadedFonts`, which crashed every icon
+- `@testing-library/react-native` is 13.x, not the current 14, which needs React 19
+- Firebase is added to the preset's `transformIgnorePatterns`, plus a `.mjs` transform;
+  the pattern is copied from jest-expo and has to be kept in sync by hand
+
+**Files:** `babel.config.js`, `jest.config.js`, `src/test/{jest.setup.ts,renderScreen.tsx,
+fixtures.ts,README.md}`, `src/utils/workoutProgress.test.ts`,
+`src/screens/workout_management/ActiveWorkoutScreen.test.tsx`
+
+**Verification:**
+- 12 tests (7 logic, 5 screen), 0 console warnings, ~2 s warm
+- Mutation runs, one regression at a time, each red on the assertion it names unless
+  stated:
+  - Logic tests: 7/7 red
+  - Screen tests 1-4 (paging, arrows, back, discard): red
+  - Finish test: Finish has **three** guards, `if (finishing) return`,
+    `disabled={finishing}`, and `accessibilityState.disabled`, which
+    `TouchableOpacity` also reads as disabled (RN `TouchableOpacity.js:141-144`).
+    Removing any one or two leaves the test green; removing all three, or deleting
+    `setFinishing(true)` which feeds them all, turns it red. It pins "a second tap
+    after a re-render is ignored", not any single guard
+- Two Finish taps inside one frame (both presses in one `act()`) call `endWorkout`
+  **twice**. All three guards read `finishing` from the last render, so none can stop
+  it, including the in-handler check that exists for exactly this race. Present
+  since TICKET-017 (`dbaa0a0`); fix belongs in the store, TICKET-027
+- A sixth screen test (a logged set lands on the exercise in view) was written and
+  passed with no new mocking, then removed
+- `babel.config.js` changes nothing for the app: `expo export --platform android
+  --no-bytecode` produces a byte-identical bundle with and without it
+
+**Known gaps:**
+- The helper's `history` option seeds the cache but no test reads it back through a
+  screen: nothing on `ActiveWorkoutScreen` exposes history except the progress fill,
+  which is layout. TICKET-018 is its first consumer and should add a stats-doc builder
+  to `fixtures.ts` then
+- `renderScreen` only places the screen with nothing behind it. The canGoBack-true
+  path (opened from the Workout stack) is untested; add a `behind` option when a
+  test needs it
+- Not ported: `src/scripts/verifyHistoryReads.ts` (77 checks). It works; move it when
+  a ticket next touches the history layer
 
 **Dependencies:** TICKET-017.
 
@@ -1117,6 +1167,40 @@ while reviewing TICKET-017's resume prefetch.
 
 ---
 
+### TICKET-027: Make `endWorkout` Idempotent in the Store
+
+**Priority:** High | **Effort:** Small | **Status: OPEN**
+
+**Description:**
+Two Finish taps inside one frame save the session twice. Found in the TICKET-024
+review: with both presses in one `act()`, `endWorkout` is called twice. The screen's
+guards (`if (finishing) return`, `disabled`, `accessibilityState.disabled`) all read
+`finishing` from the last render, so before React re-renders none of them can see the
+first tap. A double save is a data bug, and 021's rest timer and 022's resume banner
+will be further callers of the same path, so the guard belongs in the store rather
+than in each screen.
+
+**Acceptance Criteria:**
+- [ ] `endWorkout` returns the in-flight promise to a caller that arrives while a save
+      for the same session is running, instead of saving again
+- [ ] Unit test with no React: two calls without awaiting, one `saveWorkoutSession`
+- [ ] The guard clears on failure, so a failed save can be retried
+- [ ] Screen test: two Finish taps inside one `act()` call `saveWorkoutSession` once
+      (currently fails; the probe is in the TICKET-024 review)
+- [ ] Rename the existing Finish screen test to what it proves: the button disables
+      and relabels while a save is in flight
+- [ ] Decide whether the screen's `if (finishing) return` stays. It cannot stop the race
+      it was written for; keep it only if it still documents something
+
+**Technical Notes:**
+- An in-flight promise held outside zustand state (as `useExerciseHistoryStore` does
+  with `inFlight`), so the check is synchronous and survives within one frame
+- `cancelWorkout` racing an in-flight save is the same shape; check it while there
+
+**Dependencies:** TICKET-024.
+
+---
+
 ## Recommended Execution Order
 
 ```
@@ -1140,12 +1224,13 @@ while reviewing TICKET-017's resume prefetch.
 12. ~~TICKET-016 (Exercise history hook)~~ — DONE
 13. TICKET-017 (Active workout pager)
 14. TICKET-024 (Jest setup + example tests) — First, so later screens ship with tests
-15. TICKET-018 (Set logger card)
-16. TICKET-019 (Today's sets + deltas)    — Flow is whole and better here
-17. TICKET-022 (Start Workout redesign)
-18. TICKET-020 (History sheet)
-18. TICKET-021 (Rest timer + PR banner)   — Parallel with 020
-19. TICKET-023 (Tour press-to-continue)   — After Phase 3; patch in docs/patches/
+15. TICKET-027 (endWorkout idempotent)    — Live double-save; before 021/022 add callers
+16. TICKET-018 (Set logger card)
+17. TICKET-019 (Today's sets + deltas)    — Flow is whole and better here
+18. TICKET-022 (Start Workout redesign)
+19. TICKET-020 (History sheet)
+19. TICKET-021 (Rest timer + PR banner)   — Parallel with 020
+20. TICKET-023 (Tour press-to-continue)   — After Phase 3; patch in docs/patches/
 --. TICKET-025 (Footer highlight)         — Small, independent; any time
 --. TICKET-026 (Clear state on sign-out)  — Privacy; small; before launch
 ```

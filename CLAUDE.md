@@ -131,6 +131,10 @@ function, pick the degenerate cases above that can actually occur, not all of th
 A test file too long to read gets skimmed, then ignored, then deleted; a short one
 gets maintained.
 
+Keep a test only once you have seen it fail: break the line it covers, watch it go
+red for the reason it names, restore. Negative assertions — "not called twice",
+"does not delete" — are the ones that pass against broken code.
+
 > TICKET-017's harness grew to 58 checks for one screen, including a check that
 > could never fail. Five well-chosen tests would have said more.
 
