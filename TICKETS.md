@@ -1078,6 +1078,46 @@ still highlighted. Pre-existing; surfaced while testing TICKET-017.
 
 ---
 
+### TICKET-026: Clear Account-Scoped State on Sign-Out and Account Switch
+
+**Priority:** High | **Effort:** Small | **Status: OPEN** — privacy; do before launch
+
+**Description:**
+Signing out leaves the previous account's data in memory, and a different account
+signing in without an app restart can see it. Pre-existing since TICKET-016; found
+while reviewing TICKET-017's resume prefetch.
+
+- `useExerciseHistoryStore` holds `exercise_stats` keyed by exercise id only, with no
+  record of whose they are. `clearExerciseHistory()` exists (`useExerciseHistoryStore.ts:164`)
+  but nothing calls it. Sign-out (`ProfileScreen.tsx:29`) runs only `signOut(auth)`
+- `prefetchExerciseHistory` skips any entry already `ready`, regardless of user. So after
+  A signs out and B signs in, B's start or resume prefetch skips A's cached exercises
+  and B's progress bar, and from 018-020 the ghost targets, deltas and history sheet,
+  show A's numbers
+- The same class applies to the saved active workout: AsyncStorage key `activeWorkout`
+  is not per account. B signing in on A's device resumes A's in-progress workout, and
+  Finish saves it under B's uid
+
+**Acceptance Criteria:**
+- [ ] The history cache is cleared whenever the signed-in uid changes, including to
+      `null`. Hook it to the auth state (`initAuth`'s `onAuthStateChanged`, or a
+      `useAuthStore` subscription), not only to the Profile logout button, so session
+      expiry (`initAuth.ts:72`) and any future sign-out path are covered
+- [ ] An in-flight prefetch for the old uid cannot write into the cache after the
+      switch (`clearExerciseHistory` already clears `inFlight`, but a request already
+      awaiting `getExerciseStats` still calls `set` when it resolves — guard on uid)
+- [ ] Decide what happens to an active workout on sign-out or account switch: discard,
+      keep only for the same uid (store the uid with it), or ask. Overlaps TICKET-022's
+      resume banner, so decide the rule once
+- [ ] Device check: log in as A, start a workout with an exercise that has history, sign
+      out, sign in as B without restarting; B sees no A data on the progress bar or the
+      History Debug screen (fetch counter goes up for B's prefetch)
+
+**Dependencies:** None. Touches the resume prefetch from TICKET-017
+(`prefetchHistoryOnResume` in `useWorkoutStore.tsx`), which subscribes to the auth store.
+
+---
+
 ## Recommended Execution Order
 
 ```
@@ -1108,6 +1148,7 @@ still highlighted. Pre-existing; surfaced while testing TICKET-017.
 18. TICKET-023 (Tour press-to-continue)   — After Phase 3; patch in docs/patches/
 18. TICKET-024 (Jest + screen tests)      — After 021; replaces both harness scripts
 --. TICKET-025 (Footer highlight)         — Small, independent; any time
+--. TICKET-026 (Clear state on sign-out)  — Privacy; small; before launch
 ```
 
 ---
