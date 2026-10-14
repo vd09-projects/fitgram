@@ -1,15 +1,18 @@
 import React from 'react';
 import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack';
+import { NavigatorScreenParams } from '@react-navigation/native';
 import FeedScreen from '../screens/FeedScreen';
 import { LayoutRoutes } from '../constants/routes';
 import HomeScreen from '../screens/HomeScreen';
-import WorkoutNavigator from './WorkoutNavigator';  // ✅ Import WorkoutNavigator
+import WorkoutNavigator, { WorkoutStackParamList } from './WorkoutNavigator';  // ✅ Import WorkoutNavigator
 import ActiveWorkoutScreen from '../screens/workout_management/ActiveWorkoutScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
 export type LayoutStackParamList = {
   Feed: undefined;
-  Workout: undefined;
+  // Optional nested target, so a screen outside the Workout stack can open a
+  // specific screen inside it: navigate('Workout', { screen: 'StartWorkout' }).
+  Workout: NavigatorScreenParams<WorkoutStackParamList> | undefined;
   Home: undefined;
   Profile: undefined;
   LogWorkout: undefined;

@@ -677,8 +677,8 @@ console. Re-run `scripts/uploadExercises.ts` to put roles on the catalog; it dro
 `"Sets"` from all 42 entries.
 
 **Known gaps, deferred to the optimisation pass:**
-- Resuming a workout after an app restart does not prefetch — needs an auth-ready
-  trigger, belongs with TICKET-017's resume path
+- ~~Resuming a workout after an app restart does not prefetch — needs an auth-ready
+  trigger, belongs with TICKET-017's resume path~~ Fixed in TICKET-017
 - Firestore has no `persistentLocalCache`, so write promises never resolve offline
   and pending writes die with the app. Pre-existing
 - The rollup only raises records; editing a set downward needs
@@ -721,6 +721,47 @@ out of the main action row.
 - Discard currently sits beside Save at equal weight in the footer button row, so an
   accidental tap loses the session
 - One accent fill per screen: `Log set` owns it, so `Finish workout` is outlined
+
+**Implementation notes (deviations and decisions):**
+- **Progress fill has no denominator in the data model.** The ticket says "partially
+  filled by sets logged", but nothing records a planned set count (`Exercise` is id,
+  name, fields). Fill is `setsLogged / last session's set count` for the exercise, read
+  from the history cache via `useExerciseHistory` (zero network reads). With no
+  history it assumes `DEFAULT_TARGET_SETS` = 3. The first build drew one 3px tick per
+  set instead, to avoid a guessed target; on device 2 sets read as ~3% progress, so
+  the guess won. A real planned set count would be a new field on `Exercise`
+- **"Done" means "not in view and at least one set logged"**, not "before the current
+  index". A skipped exercise stays untouched; one logged out of order shows done.
+  Definitions are pinned on `ProgressSegment` in `src/utils/workoutProgress.ts`
+- **Swipe: gesture-handler `Fling`, no new dependency.** A discrete left/right fling
+  changes the index; content swaps, it does not slide (no animation library). A fling
+  does not compete with the vertical ScrollView or with 018's text inputs, which a
+  tracked pan or a horizontal `FlatList` would. `react-native-pager-view` was rejected
+  for now: best feel, but a native dependency for one screen whose content 018 is about
+  to rebuild. Device-checked: the instant swap is accepted. A sliding pager is an
+  optimisation, not ticketed; pick it up only if the swap becomes a real problem
+- **`ExerciseLogger` is keyed by exercise id from the screen.** Pre-existing bug (the
+  dropdown version had it too): typed-but-unlogged values survived an exercise switch
+  and would be logged against the new exercise, since field names like "Reps" repeat.
+  Keying from outside keeps the component's internals untouched; cost is that unlogged
+  input is dropped on navigation
+- **Resumed sessions now prefetch history** (closes TICKET-016's known gap).
+  `loadWorkoutFromStorage` runs at app start, before `initAuth` has set the user, so a
+  plain prefetch there would see no uid and do nothing. It prefetches immediately if
+  the user is known, otherwise on the first user to appear, then stops watching.
+  Rejected: fetching from the screen on mount, which breaks "screens never fetch" and
+  makes the progress bar jump from the default target to the real one
+- **Finish is guarded against a double tap** while `endWorkout` is in flight, which
+  would otherwise save the session twice
+- **`WorkoutNavigator.tsx` was not edited** (the brief assumed it would be), so
+  `ExerciseHistoryDebugScreen` is left as is: still `TEMPORARY`, still reachable, removal
+  stays with 018-022 as TICKET-016 planned
+- Shell uses role tokens only. `ExerciseLogger` internals still use legacy flat
+  tokens; those belong to 018, which rebuilds that card. Its hardcoded `#ddd` bottom
+  border was removed here: a divider left over from the dropdown layout, separating nothing
+- **Verification:** typecheck plus device testing during review. A throwaway local
+  harness was used while building and then deleted; no committed test covers this
+  ticket. TICKET-024, next after this one, adds a test runner and these tests
 
 **Dependencies:** TICKET-015.
 
@@ -898,6 +939,184 @@ resume banner.
 
 ---
 
+### TICKET-023: Guided Tour — Explicit Press-to-Continue Steps and Full-Width Targets
+
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — after Phase 3 work is done
+
+**Description:**
+Tour steps that say "tap/press this button" should wait for that button to be pressed
+instead of offering Next. Today the tour has no field for this. It infers "wait" from
+the next step not being registered yet (`TourStepOverlay.tsx`, `isNextStepDefinedButMissing`),
+and any `TouchableOpacityBase` press anywhere advances it (`buttonPressed`). Both are
+guesses that hold only in the screen layouts they were written against.
+
+**Two device reports this must fix (found during TICKET-017):**
+- "Explore Workout Options" (footer Workout tab, seen from Manage Workout) offers Next.
+  Workout home is still mounted under Manage Workout, so its next step counts as present
+- "Begin Workout" offers Next. The Log Workout tab's step stayed registered after an
+  earlier workout ended: `MultiTourSteps` registers on mount and never unregisters
+
+**Tried and reverted in TICKET-017:** registering a step only while its screen is
+focused (`useIsFocused` in `MultiTourSteps`) and unregistering on blur/unmount. It
+introduced another bug on device and was removed; the regression was not captured in
+detail. Any unregister-on-unmount/blur approach in the patch below needs the same
+device scrutiny.
+
+**Already in TICKET-017:** three tour-wrapped buttons (Save Set, Finish workout, `···`)
+got an unstyled `View` between the wrapper and the touchable to dodge the style-split
+bug below.
+
+**What remains (this ticket):**
+- [ ] Fix both device reports above
+- [ ] `waitForPress` on step definitions; overlay hides Next and shows "Tap the highlighted
+      button to continue" on those steps
+- [ ] Advance only when the highlighted element is pressed, not on any
+      `TouchableOpacityBase` press; no double advance where both fire
+- [ ] Mark the navigation-handoff steps: footer Workout tab (manage and start chains),
+      Log Workout tab, Add/Update, Start a Workout, Begin, header Home and Profile.
+      Leave in-place actions (Save Set, Finish, Save Workout) and Feed with Next
+- [ ] Decide the search box and the dropdown New button (reveal, not navigate) explicitly
+- [ ] Fix the `MultiTourSteps` style split at the source: it moves background, padding,
+      border and `justifyContent` (plus a copy of `alignItems`) to an outer measuring View,
+      so a wrapped touchable shrinks to its content and off-centre taps miss. 63 call sites;
+      then remove the three `View` workarounds from TICKET-017
+- [ ] Device-test the full tour on both chains, including a waiting step where an
+      unrelated button is tapped (must not advance)
+
+**Reference implementation — `docs/patches/tour-wait-for-press.patch`:**
+A complete first pass written during TICKET-017 and shelved as too large for that ticket.
+Covers `waitForPress`, press-only advance, the step marks, and unregister-on-unmount;
+not the style split, not device-tested. Applies cleanly on the TICKET-017 branch head:
+`git apply docs/patches/tour-wait-for-press.patch`. Design notes:
+- Press detection uses `onTouchStart`/`onTouchEnd` on the measuring View (raw touch events
+  bubble from children) with a 10px slop, so it works for any wrapped element without
+  replacing its `onPress`. Unverified on device that the events bubble as expected
+- Advance is delayed 500ms like `TouchableOpacityBase`, so the screen a press navigates to
+  can mount the next step first; re-checks the current step so a double tap advances once
+- `buttonPressed` returns early on a `waitForPress` step to avoid a second advance
+- Unregisters a step when its element unmounts (ref-checked so a newer instance keeps its
+  registration). Untested on device; see the reverted focus attempt above
+
+**Dependencies:** TICKET-017.
+
+---
+
+### TICKET-024: Test Runner — Set Up Jest and Write the Example Tests
+
+**Priority:** High | **Effort:** Small-Medium | **Status: OPEN** — next, ahead of TICKET-018
+
+**Description:**
+The repo has no test runner; TICKET-016 and TICKET-017 verified with hand-rolled
+scripts instead. Set up Jest so tests are cheap to write, then write tests for one or
+two screens as the worked example every later screen copies.
+
+This is not "test every screen". It goes first so that 018-021 and later screens are
+built with their tests from the start, rather than having tests added after the fact.
+Each later ticket adds its own few tests (CLAUDE.md 3.2: test what the change touched,
+4-5 per screen).
+
+**Acceptance Criteria:**
+- [ ] `jest`, `jest-expo` (matching Expo SDK 52), `@types/jest`,
+      `@testing-library/react-native` as dev dependencies; a jest config with the
+      `jest-expo` preset; `babel.config.js` with `babel-preset-expo` (none exists
+      today); `npm test` and watch scripts
+- [ ] One shared render helper that supplies what every screen needs, so a new screen
+      test is a few lines: theme and tour providers (both crash without one: theme
+      defaults to `null`, tour to `{}`), navigation, and mocks for AsyncStorage,
+      gesture handler and the history/auth hooks
+- [ ] Example logic tests for `src/utils/workoutProgress.ts`, chosen not exhaustive:
+      progress fill with and without history incl. the cap; index clamp at both ends
+      and the empty workout; elapsed time past the hour
+- [ ] Example screen tests for `ActiveWorkoutScreen`, 4-5: arrows change the exercise;
+      back with nothing behind it opens the Workout tab instead of throwing (the
+      `WorkoutHome` navigate bug from TICKET-017); Discard asks before deleting; Finish
+      ignores a second tap while saving; a logged set lands on the exercise in view
+- [ ] Optionally a second, simpler screen if `ActiveWorkoutScreen` turns out to be a
+      poor first example (it needs the most mocks)
+- [ ] A short "how to add a test" note next to the helper: where test files go, how to
+      render a screen with the helper, what to mock
+
+**Out of scope:** porting `src/scripts/verifyHistoryReads.ts` (TICKET-016, 77 checks).
+It keeps working as is; move it into Jest when a ticket next changes the history layer.
+
+**Technical Notes — from the TICKET-017 review:**
+- Do not carry over the old harness's weak checks: "no history fetch" was vacuous
+  (`prefetchExerciseHistory` returns at once without a user id,
+  `useExerciseHistoryStore.ts:67`), and the regex source checks matched text, not
+  behaviour. The role-token rule belongs in ESLint (TICKET-001)
+- Layout and touch bugs (off-centre taps, uneven borders, segment rendering) are out
+  of reach of component tests; those stay with device runs
+- Review the working rules in `CLAUDE.md` alongside this MR (requested on PR #4); the
+  testing rule there is what this ticket puts into practice
+
+**Dependencies:** TICKET-017.
+
+---
+
+### TICKET-025: Footer Highlight Follows the Current Screen
+
+**Priority:** Low | **Effort:** Small | **Status: OPEN**
+
+**Description:**
+The footer highlights the last tab TAPPED, not the screen being shown. `LayoutScreen`
+keeps `activeTab` in local state and updates it only in `onChangeTab` (footer) and
+`onPressTab` (header). Any other navigation leaves it stale: Workout → Start → begin a
+workout lands on the active workout screen with "Workout" still highlighted; the
+active workout's back button (TICKET-017) can open the Workout tab with "Log Workout"
+still highlighted. Pre-existing; surfaced while testing TICKET-017.
+
+**Acceptance Criteria:**
+- [ ] The highlighted tab is derived from navigation state (the focused Layout route),
+      not stored separately, so every navigation path updates it
+- [ ] Entering the active workout from the Workout stack highlights "Log Workout", or
+      the rule for which tab owns that screen is decided and written down — it is
+      registered in both the Layout and Workout stacks
+- [ ] Header Home/Profile and footer taps still highlight correctly
+
+**Dependencies:** None.
+
+---
+
+### TICKET-026: Clear Account-Scoped State on Sign-Out and Account Switch
+
+**Priority:** High | **Effort:** Small | **Status: OPEN** — privacy; do before launch
+
+**Description:**
+Signing out leaves the previous account's data in memory, and a different account
+signing in without an app restart can see it. Pre-existing since TICKET-016; found
+while reviewing TICKET-017's resume prefetch.
+
+- `useExerciseHistoryStore` holds `exercise_stats` keyed by exercise id only, with no
+  record of whose they are. `clearExerciseHistory()` exists (`useExerciseHistoryStore.ts:164`)
+  but nothing calls it. Sign-out (`ProfileScreen.tsx:29`) runs only `signOut(auth)`
+- `prefetchExerciseHistory` skips any entry already `ready`, regardless of user. So after
+  A signs out and B signs in, B's start or resume prefetch skips A's cached exercises
+  and B's progress bar, and from 018-020 the ghost targets, deltas and history sheet,
+  show A's numbers
+- The same class applies to the saved active workout: AsyncStorage key `activeWorkout`
+  is not per account. B signing in on A's device resumes A's in-progress workout, and
+  Finish saves it under B's uid
+
+**Acceptance Criteria:**
+- [ ] The history cache is cleared whenever the signed-in uid changes, including to
+      `null`. Hook it to the auth state (`initAuth`'s `onAuthStateChanged`, or a
+      `useAuthStore` subscription), not only to the Profile logout button, so session
+      expiry (`initAuth.ts:72`) and any future sign-out path are covered
+- [ ] An in-flight prefetch for the old uid cannot write into the cache after the
+      switch (`clearExerciseHistory` already clears `inFlight`, but a request already
+      awaiting `getExerciseStats` still calls `set` when it resolves — guard on uid)
+- [ ] Decide what happens to an active workout on sign-out or account switch: discard,
+      keep only for the same uid (store the uid with it), or ask. Overlaps TICKET-022's
+      resume banner, so decide the rule once
+- [ ] Device check: log in as A, start a workout with an exercise that has history, sign
+      out, sign in as B without restarting; B sees no A data on the progress bar or the
+      History Debug screen (fetch counter goes up for B's prefetch)
+
+**Dependencies:** None. Touches the resume prefetch from TICKET-017
+(`prefetchHistoryOnResume` in `useWorkoutStore.tsx`), which subscribes to the auth store.
+
+---
+
 ## Recommended Execution Order
 
 ```
@@ -920,11 +1139,15 @@ resume banner.
 12. TICKET-015 (Workout flow tokens)      — Blocks the rest of Phase 3
 12. ~~TICKET-016 (Exercise history hook)~~ — DONE
 13. TICKET-017 (Active workout pager)
-14. TICKET-018 (Set logger card)
-15. TICKET-019 (Today's sets + deltas)    — Flow is whole and better here
-16. TICKET-022 (Start Workout redesign)
-17. TICKET-020 (History sheet)
-17. TICKET-021 (Rest timer + PR banner)   — Parallel with 020
+14. TICKET-024 (Jest setup + example tests) — First, so later screens ship with tests
+15. TICKET-018 (Set logger card)
+16. TICKET-019 (Today's sets + deltas)    — Flow is whole and better here
+17. TICKET-022 (Start Workout redesign)
+18. TICKET-020 (History sheet)
+18. TICKET-021 (Rest timer + PR banner)   — Parallel with 020
+19. TICKET-023 (Tour press-to-continue)   — After Phase 3; patch in docs/patches/
+--. TICKET-025 (Footer highlight)         — Small, independent; any time
+--. TICKET-026 (Clear state on sign-out)  — Privacy; small; before launch
 ```
 
 ---

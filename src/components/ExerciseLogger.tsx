@@ -57,11 +57,16 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
       </MaybeTourStep>
 
       <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.SAVE_EXERCISE_SET}>
-        <TouchableOpacity style={styles.logButton} onPress={logSet} accessibilityLabel="Log Set">
-          <Ionicons name="barbell-outline" size={24} color={t.colors.textSecondary} style={{ marginRight: SPACING.small }} />
-          <TextBase style={styles.logButtonText}>Save Set</TextBase>
-          <Ionicons name="checkmark-done" size={20} color={t.colors.textSecondary} style={{ marginLeft: SPACING.small }} />
-        </TouchableOpacity>
+        {/* Plain View between the tour wrapper and the button: MultiTourSteps
+           splits its child's style and would leave the touchable shrink-wrapped
+           to its content, so taps off-centre missed. */}
+        <View>
+          <TouchableOpacity style={styles.logButton} onPress={logSet} accessibilityLabel="Log Set">
+            <Ionicons name="barbell-outline" size={24} color={t.colors.textSecondary} style={{ marginRight: SPACING.small }} />
+            <TextBase style={styles.logButtonText}>Save Set</TextBase>
+            <Ionicons name="checkmark-done" size={20} color={t.colors.textSecondary} style={{ marginLeft: SPACING.small }} />
+          </TouchableOpacity>
+        </View>
       </MaybeTourStep>
     </View>
   );
@@ -70,8 +75,6 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
 const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
     paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderColor: "#ddd"
   },
   inputContainer: { marginBottom: SPACING.medium },
   logButton: {
