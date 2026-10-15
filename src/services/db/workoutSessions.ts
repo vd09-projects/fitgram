@@ -74,11 +74,16 @@ const exerciseStatsRef = (userId: string) =>
  */
 export const saveWorkoutSession = async (
   userId: string,
-  workout: ActiveWorkout
+  workout: ActiveWorkout,
+  /**
+   * When the user tapped Finish. Passed in, not read from the clock here: an
+   * upload can run hours after the workout ended (TICKET-028's queue), and the
+   * session must record the end, not the upload.
+   */
+  endedAt: number
 ): Promise<{ sessionId: string; rollupApplied: boolean }> => {
   if (!userId || !workout) throw new Error("Missing userId or workout.");
 
-  const endedAt = Date.now();
   const { session, exerciseSessions } = buildSessionDocs(workout, endedAt);
 
   if (exerciseSessions.length === 0) {

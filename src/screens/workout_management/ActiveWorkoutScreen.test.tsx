@@ -2,7 +2,7 @@ import { act, fireEvent, screen } from "@testing-library/react-native";
 import ActiveWorkoutScreen from "./ActiveWorkoutScreen";
 import { renderScreen } from "../../test/renderScreen";
 import { buildWorkout } from "../../test/fixtures";
-import { useWorkoutStore } from "../../stores/useWorkoutStore";
+import { EndWorkoutResult, useWorkoutStore } from "../../stores/useWorkoutStore";
 import { saveWorkoutSession } from "../../services/db/workoutSessions";
 
 // Only the Finish tests reach it, through the real `endWorkout`.
@@ -76,7 +76,7 @@ describe("ActiveWorkoutScreen", () => {
 
   it("disables and relabels Finish while a save is in flight", () => {
     // Never resolves, so the first save is still in flight for the second tap.
-    const endWorkout = jest.fn(() => new Promise<void>(() => {}));
+    const endWorkout = jest.fn(() => new Promise<EndWorkoutResult>(() => {}));
     renderScreen(ActiveWorkoutScreen, {
       workout: buildWorkout(["Bench Press"]),
       workoutActions: { endWorkout },

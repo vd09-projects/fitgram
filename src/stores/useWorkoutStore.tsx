@@ -22,10 +22,20 @@ import { useExerciseHistoryStore } from "./useExerciseHistoryStore";
  * rollup folds by replacement — but nothing enforces that. This guard keeps one
  * save per session regardless of what the rollup does next.
  */
-const savesInFlight = new Map<string, Promise<void>>();
+const savesInFlight = new Map<string, Promise<EndWorkoutResult>>();
 
 const isSaving = (workout: ActiveWorkout | null) =>
   !!workout && savesInFlight.has(buildSessionId(workout.id, workout.startTime));
+
+/**
+ * What Finish did. Callers branch on this instead of watching `activeWorkout` go
+ * null. `refused`: nothing was saved and the workout is still active.
+ */
+export type EndWorkoutResult =
+  | { status: "uploaded" }
+  | { status: "refused"; reason: string };
+
+const refused = (reason: string): EndWorkoutResult => ({ status: "refused", reason });
 
 // Zustand Store Type
 interface WorkoutStoreState {
@@ -36,7 +46,7 @@ interface WorkoutStoreState {
   addSetToExercise: (exerciseId: string, newSet: ExerciseSet) => Promise<void>;
   updateSet: (exerciseId: string, setId: number, updatedFields: Record<string, string | number>) => Promise<void>;
   setCurrentExerciseIndex: (index: number) => Promise<void>;
-  endWorkout: (userId : string | undefined) => Promise<void>;
+  endWorkout: (userId : string | undefined) => Promise<EndWorkoutResult>;
   cancelWorkout: () => Promise<void>;
   loadWorkoutFromStorage: () => Promise<void>;
 }
@@ -71,7 +81,6 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
         fields: ex.fields,
         sets: [], // Empty sets initially
       })),
-      isPersisted: false,
       currentExerciseIndex: workout.exercises.length > 0 ? 0 : null,
     };
 
@@ -175,11 +184,11 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
   endWorkout: (userId : string | undefined) => {
     if (!userId) {
       show.alert("User is not logined in.");
-      return Promise.resolve();
+      return Promise.resolve(refused("Not signed in."));
     }
 
     const { activeWorkout } = get();
-    if (!activeWorkout) return Promise.resolve();
+    if (!activeWorkout) return Promise.resolve(refused("No active workout."));
 
     const sessionId = buildSessionId(activeWorkout.id, activeWorkout.startTime);
     const pending = savesInFlight.get(sessionId);
@@ -241,39 +250,32 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
 }));
 
 /**
- * The save itself, unchanged by TICKET-027. Never rejects: a failure is reported
- * and the workout left active, which is what lets `endWorkout` clear its
- * in-flight entry and accept a retry.
+ * The save itself. Never rejects: a failure is reported and the workout left
+ * active, which is what lets `endWorkout` clear its in-flight entry and accept a
+ * retry.
  */
 async function persistWorkout(
   userId: string,
   activeWorkout: ActiveWorkout,
   set: (partial: Partial<WorkoutStoreState>) => void
-): Promise<void> {
+): Promise<EndWorkoutResult> {
   try {
-    // 🔄 Simulating data persistence (Replace with actual API call)
-    const isOnline = true; // Replace with actual connectivity check
-    if (isOnline) {
-      console.log("Uploading workout to database:", activeWorkout);
-      const { rollupApplied } = await saveWorkoutSession(userId, activeWorkout);
-      // Cached history predates the session just saved. Drop it so the next
-      // read refetches.
-      useExerciseHistoryStore
-        .getState()
-        .invalidateExercises(activeWorkout.exercises.map((e) => e.id));
-      show.success("Workout saved successfully!");
-      if (!rollupApplied) {
-        // Session data is safe; only the derived exercise_stats rollup is
-        // behind. src/scripts/rebuildExerciseStats.ts repairs it.
-        console.warn("Workout saved, history rollup pending.");
-      }
-      await AsyncStorage.removeItem("activeWorkout"); // Clear local storage
-      set({ activeWorkout: null });
-    } else {
-      // ❌ No internet - Store offline and mark as not persisted
-      await AsyncStorage.setItem("activeWorkout", JSON.stringify({ ...activeWorkout, isPersisted: false }));
-      alert("No internet! Workout saved locally. Sync when online.");
+    console.log("Uploading workout to database:", activeWorkout);
+    const { rollupApplied } = await saveWorkoutSession(userId, activeWorkout, Date.now());
+    // Cached history predates the session just saved. Drop it so the next
+    // read refetches.
+    useExerciseHistoryStore
+      .getState()
+      .invalidateExercises(activeWorkout.exercises.map((e) => e.id));
+    show.success("Workout saved successfully!");
+    if (!rollupApplied) {
+      // Session data is safe; only the derived exercise_stats rollup is
+      // behind. src/scripts/rebuildExerciseStats.ts repairs it.
+      console.warn("Workout saved, history rollup pending.");
     }
+    await AsyncStorage.removeItem("activeWorkout"); // Clear local storage
+    set({ activeWorkout: null });
+    return { status: "uploaded" };
   } catch (error) {
     // The workout is deliberately left active so nothing is lost, but a
     // silent no-op on a button press is not acceptable — say what happened.
@@ -281,10 +283,9 @@ async function persistWorkout(
     // build that opens LogBox's red banner on top of the toast, a second message
     // for one expected failure (e.g. "no sets were logged").
     console.log("Failed to persist workout:", error);
-    show.alert(
-      "Could not save workout",
-      error instanceof Error ? error.message : "Please try again."
-    );
+    const message = error instanceof Error ? error.message : "Please try again.";
+    show.alert("Could not save workout", message);
+    return refused(message);
   }
 }
 

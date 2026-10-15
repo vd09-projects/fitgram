@@ -22,6 +22,5 @@ export interface ActiveWorkout {
   startTime: number;
   lastUpdated: number;
   exercises: LoggedExercise[];
-  isPersisted: boolean;
   currentExerciseIndex: number | null; // Track the current exercise index
 }

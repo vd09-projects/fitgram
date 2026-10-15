@@ -71,8 +71,8 @@ stubModule(path.join(__dirname, "../services/db/workoutSessions"), {
     for (const id of exerciseIds) out[id] = backend.stats[id] ?? null;
     return out;
   },
-  saveWorkoutSession: async (_userId: string, workout: ActiveWorkout) => {
-    const { exerciseSessions } = buildSessionDocs(workout, Date.now());
+  saveWorkoutSession: async (_userId: string, workout: ActiveWorkout, endedAt: number) => {
+    const { exerciseSessions } = buildSessionDocs(workout, endedAt);
     for (const exerciseSession of exerciseSessions) {
       backend.sessions.push(exerciseSession);
       backend.stats[exerciseSession.exerciseId] = applySessionToStats(
@@ -196,7 +196,6 @@ const seedSession = (
     name: workout.name,
     startTime: performedAt,
     lastUpdated: performedAt,
-    isPersisted: false,
     currentExerciseIndex: 0,
     exercises: [
       {

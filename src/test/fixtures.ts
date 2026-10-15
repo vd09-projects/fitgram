@@ -30,7 +30,6 @@ export function buildWorkout(
     startTime: Date.now(),
     lastUpdated: Date.now(),
     exercises: exerciseNames.map((name) => buildExercise(name)),
-    isPersisted: false,
     currentExerciseIndex: exerciseNames.length > 0 ? 0 : null,
     ...overrides,
   };
