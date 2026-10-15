@@ -2,37 +2,51 @@
 import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WorkoutPlan, Exercise } from "../types/workoutType";
-import { ActiveWorkout, ExerciseSet } from "../types/zustandWorkoutType";
+import { ActiveWorkout, ExerciseSet, PendingUpload } from "../types/zustandWorkoutType";
 import { saveWorkoutSession } from "../services/db/workoutSessions";
 import show from "../utils/toastUtils";
 import { normalizeExerciseFields } from "../utils/exerciseFields";
 import { clampExerciseIndex } from "../utils/workoutProgress";
-import { buildSessionId } from "../utils/exerciseStats";
+import { buildSessionDocs, buildSessionId } from "../utils/exerciseStats";
 import { useAuthStore } from "./authStore";
 import { useExerciseHistoryStore } from "./useExerciseHistoryStore";
 
 /**
- * In-flight saves per session (`buildSessionId`), outside the store for the same
- * reason as `useExerciseHistoryStore`'s `inFlight`: a zustand update is not
- * visible to a second caller in the same frame, and that second caller is the
- * bug (TICKET-027). A Map lookup is synchronous, so the second Finish tap, a
- * sync hook, or any later caller joins the running save instead of starting one.
+ * In-flight uploads per session (`buildSessionId`), outside the store for the
+ * same reason as `useExerciseHistoryStore`'s `inFlight`: a zustand update is not
+ * visible to a second caller in the same frame (TICKET-027). A Map lookup is
+ * synchronous, so Finish, a queue drain, or any later caller joins the running
+ * upload instead of starting one. Resolves true if the upload succeeded.
  *
- * Today a double save is harmless — ids derive from the start time and the
+ * Today a double upload is harmless — ids derive from the start time and the
  * rollup folds by replacement — but nothing enforces that. This guard keeps one
- * save per session regardless of what the rollup does next.
+ * upload per session regardless of what the rollup does next.
  */
-const savesInFlight = new Map<string, Promise<EndWorkoutResult>>();
+const savesInFlight = new Map<string, Promise<boolean>>();
 
-const isSaving = (workout: ActiveWorkout | null) =>
-  !!workout && savesInFlight.has(buildSessionId(workout.id, workout.startTime));
+/** AsyncStorage key of the upload queue, separate from `activeWorkout`. */
+const PENDING_UPLOADS_KEY = "pendingUploads";
+
+/**
+ * How long Finish waits on the upload before telling the user it will upload
+ * later. Only picks the message: the workout has already left the active slot.
+ * Offline, `batch.commit()` does not reject — it stays pending until the
+ * connection returns (TICKET-028 step 0) — so without a bound Finish would wait
+ * as long as the user is offline.
+ */
+export const UPLOAD_GRACE_MS = 3000;
 
 /**
  * What Finish did. Callers branch on this instead of watching `activeWorkout` go
- * null. `refused`: nothing was saved and the workout is still active.
+ * null.
+ * - `uploaded`: on the server.
+ * - `queued`: saved on the phone and out of the active slot; the upload is still
+ *   pending (offline) or was rejected, and will be retried.
+ * - `refused`: nothing was saved and the workout is still active.
  */
 export type EndWorkoutResult =
   | { status: "uploaded" }
+  | { status: "queued" }
   | { status: "refused"; reason: string };
 
 const refused = (reason: string): EndWorkoutResult => ({ status: "refused", reason });
@@ -40,6 +54,8 @@ const refused = (reason: string): EndWorkoutResult => ({ status: "refused", reas
 // Zustand Store Type
 interface WorkoutStoreState {
   activeWorkout: ActiveWorkout | null;
+  /** Finished workouts waiting to upload, in finish order. Mirrors `PENDING_UPLOADS_KEY`. */
+  pendingUploads: PendingUpload[];
 
   // Actions
   startWorkout: (workout: WorkoutPlan) => Promise<void>;
@@ -53,6 +69,7 @@ interface WorkoutStoreState {
 
 export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
   activeWorkout: null,
+  pendingUploads: [],
 
   /** 🔹 Start a Workout */
   startWorkout: async (workout: WorkoutPlan) => {
@@ -175,52 +192,110 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
   },
 
   /**
-   * 🔹 End Workout & Persist Data
+   * 🔹 End Workout: save on the phone, then upload
    *
-   * At most one save per session runs at a time: a caller arriving while one is
-   * in flight gets that save's promise back. The entry is cleared when the save
-   * settles, success or failure, so a failed save can be retried.
+   * Finish completes on a local write, never on the server (TICKET-028).
+   * Offline, `batch.commit()` stays pending until the connection returns, so
+   * awaiting it left the user stuck on "Saving…" with the workout still active.
+   *
+   * The workout moves from the active slot to the upload queue synchronously,
+   * before any await. A second Finish tap in the same frame therefore finds no
+   * active workout and does nothing, and Discard has no in-flight save to race:
+   * by the time anything else runs, the workout is no longer the active one.
+   * If the queue cannot be written to disk, the move is undone and the workout
+   * stays active.
+   *
+   * Validation happens here, before queueing: a workout with no sets would be
+   * rejected by every upload and retried forever.
    */
-  endWorkout: (userId : string | undefined) => {
+  endWorkout: async (userId : string | undefined) => {
     if (!userId) {
       show.alert("User is not logined in.");
-      return Promise.resolve(refused("Not signed in."));
+      return refused("Not signed in.");
     }
 
     const { activeWorkout } = get();
-    if (!activeWorkout) return Promise.resolve(refused("No active workout."));
+    if (!activeWorkout) return refused("No active workout.");
 
-    const sessionId = buildSessionId(activeWorkout.id, activeWorkout.startTime);
-    const pending = savesInFlight.get(sessionId);
-    if (pending) return pending;
+    const endedAt = Date.now();
+    if (buildSessionDocs(activeWorkout, endedAt).exerciseSessions.length === 0) {
+      const reason = "Nothing to save — no sets were logged.";
+      show.alert("Could not save workout", reason);
+      return refused(reason);
+    }
 
-    const run = persistWorkout(userId, activeWorkout, set).finally(() => {
-      // Identity check: only remove our own entry, never a later save's.
-      // Unreachable today, since the join above allows one save per session, so
-      // no test covers it. Kept deliberately: it is what stays correct if a
-      // `force` path that bypasses the join is ever added, as the history
-      // store's prefetch has.
-      if (savesInFlight.get(sessionId) === run) savesInFlight.delete(sessionId);
-    });
-    savesInFlight.set(sessionId, run);
-    return run;
+    const entry: PendingUpload = {
+      sessionId: buildSessionId(activeWorkout.id, activeWorkout.startTime),
+      uid: userId,
+      workout: activeWorkout,
+      endedAt,
+      failedAttempts: 0,
+      lastError: null,
+    };
+    set((state) => ({
+      activeWorkout: null,
+      // Replace, not append, if this session is somehow queued already: one
+      // entry per session.
+      pendingUploads: [
+        ...state.pendingUploads.filter((e) => e.sessionId !== entry.sessionId),
+        entry,
+      ],
+    }));
+
+    try {
+      await writePendingUploads();
+    } catch (error) {
+      console.log("Failed to queue workout:", error);
+      set((state) => ({
+        activeWorkout,
+        pendingUploads: state.pendingUploads.filter((e) => e.sessionId !== entry.sessionId),
+      }));
+      show.alert("Could not save workout", "It could not be stored on this phone. Please try again.");
+      return refused("Could not write the upload queue.");
+    }
+    // Queue first, then clear the slot. A crash between the two leaves the
+    // workout in both; `loadWorkoutFromStorage` drops the active copy.
+    await AsyncStorage.removeItem("activeWorkout").catch((error) =>
+      console.log("Failed to clear active workout:", error)
+    );
+
+    const upload = uploadPendingWorkout(entry);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const uploaded = await Promise.race([
+      upload,
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), UPLOAD_GRACE_MS);
+      }),
+    ]);
+    clearTimeout(timer);
+
+    if (uploaded) return { status: "uploaded" };
+    if (uploaded === null) {
+      // Still pending: offline, or a slow connection. The success toast follows
+      // if it lands. The history caveat is the accepted TICKET-028 gap: "last
+      // time" and ghost targets read the server rollup, which a queued workout
+      // has not reached.
+      show.info(
+        "Saved on this phone",
+        "It will upload when you're back online. Until then it won't show in your history."
+      );
+    } else {
+      show.alert(
+        "Saved on this phone, upload failed",
+        `${get().pendingUploads.find((e) => e.sessionId === entry.sessionId)?.lastError ?? "Unknown error."} It will be retried.`
+      );
+    }
+    return { status: "queued" };
   },
 
   /**
    * 🔹 Cancel Workout (Discard Without Saving)
    *
-   * Refused while a save for this session is in flight: Finish wins. Rejected,
-   * "discard wins": phase 1 of `saveWorkoutSession` is a batch that queues in
-   * Firestore's offline cache, so it cannot be abandoned once started, and
-   * undoing it means deleting the session docs and rebuilding exercise_stats —
-   * `applySessionToStats` cannot un-fold a session. Without this refusal the
-   * save lands after the user was told the workout was discarded (TICKET-027).
+   * No longer refused during a save (TICKET-027's "Finish wins"): since
+   * TICKET-028 a finished workout leaves the active slot before its upload
+   * starts, so the active workout never has one in flight.
    */
   cancelWorkout: async () => {
-    if (isSaving(get().activeWorkout)) {
-      show.warn("Still saving", "This workout is being saved and can't be discarded now.");
-      return;
-    }
     try {
       await AsyncStorage.removeItem("activeWorkout"); // Remove stored workout
       set({ activeWorkout: null });
@@ -230,12 +305,26 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     }
   },
 
-  /** 🔹 Load Workout from AsyncStorage (For Offline Handling) */
+  /**
+   * 🔹 Restore the active workout and the upload queue at app start, then start
+   * uploading the queue (it waits for each entry's user to be signed in).
+   */
   loadWorkoutFromStorage: async () => {
+    // A queue that cannot be read must not also cost the active workout.
+    await loadPendingUploads().catch((error) => console.log("Failed to load upload queue:", error));
+    watchSignInForUploads();
+    drainPendingUploads();
+
     const storedWorkout = await AsyncStorage.getItem("activeWorkout");
     if (!storedWorkout) return;
 
     const parsed = JSON.parse(storedWorkout) as ActiveWorkout;
+    const sessionId = buildSessionId(parsed.id, parsed.startTime);
+    if (get().pendingUploads.some((e) => e.sessionId === sessionId)) {
+      // Finished, and the app died before the slot was cleared. The queue has it.
+      await AsyncStorage.removeItem("activeWorkout");
+      return;
+    }
     const exercises = (parsed.exercises ?? []).map((exercise) => ({
       ...exercise,
       // A workout started before field roles existed has `fields: string[]` in
@@ -249,44 +338,191 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
   },
 }));
 
+// ---------------------------------------------------------------------------
+// Upload queue (TICKET-028)
+// ---------------------------------------------------------------------------
+
+/** Serialises queue writes so the disk ends on the latest state, never an older one. */
+let queueWrite: Promise<void> = Promise.resolve();
+
 /**
- * The save itself. Never rejects: a failure is reported and the workout left
- * active, which is what lets `endWorkout` clear its in-flight entry and accept a
- * retry.
+ * Write the in-memory queue to disk. Each write snapshots the queue when it
+ * runs, not when it was requested, so overlapping writes converge on the latest
+ * state. Rejects if this write failed; later writes still run.
  */
-async function persistWorkout(
-  userId: string,
-  activeWorkout: ActiveWorkout,
-  set: (partial: Partial<WorkoutStoreState>) => void
-): Promise<EndWorkoutResult> {
+function writePendingUploads(): Promise<void> {
+  const write = queueWrite.then(() =>
+    AsyncStorage.setItem(
+      PENDING_UPLOADS_KEY,
+      JSON.stringify(useWorkoutStore.getState().pendingUploads)
+    )
+  );
+  queueWrite = write.catch(() => {});
+  return write;
+}
+
+const writePendingUploadsOrLog = () =>
+  writePendingUploads().catch((error) => console.log("Failed to write upload queue:", error));
+
+const updateEntry = (sessionId: string, update: (e: PendingUpload) => PendingUpload | null) =>
+  useWorkoutStore.setState((state) => ({
+    pendingUploads: state.pendingUploads.flatMap((e) => {
+      if (e.sessionId !== sessionId) return [e];
+      const next = update(e);
+      return next ? [next] : [];
+    }),
+  }));
+
+/**
+ * Read the queue from disk. Entries already in memory (a Finish that beat the
+ * load) are kept after the stored ones.
+ *
+ * An unreadable queue is copied aside, not overwritten: the next write would
+ * otherwise replace finished workouts with an empty list.
+ */
+async function loadPendingUploads(): Promise<void> {
+  const raw = await AsyncStorage.getItem(PENDING_UPLOADS_KEY);
+  if (!raw) return;
+  let stored: PendingUpload[];
   try {
-    console.log("Uploading workout to database:", activeWorkout);
-    const { rollupApplied } = await saveWorkoutSession(userId, activeWorkout, Date.now());
+    stored = JSON.parse(raw);
+    if (!Array.isArray(stored)) throw new Error("not an array");
+  } catch (error) {
+    console.log("Upload queue unreadable, kept as pendingUploads.corrupt:", error);
+    await AsyncStorage.setItem(`${PENDING_UPLOADS_KEY}.corrupt.${Date.now()}`, raw);
+    return;
+  }
+  useWorkoutStore.setState((state) => ({
+    pendingUploads: [
+      ...stored,
+      ...state.pendingUploads.filter((e) => !stored.some((s) => s.sessionId === e.sessionId)),
+    ],
+  }));
+}
+
+/**
+ * Upload one queued workout. Resolves true on success, false on rejection, and
+ * stays pending while offline. Never rejects.
+ *
+ * Joins an upload already running for the same session (`savesInFlight`). The
+ * entry is removed only after the upload succeeds; a rejection keeps it, counts
+ * the failure and records the message.
+ */
+function uploadPendingWorkout(entry: PendingUpload): Promise<boolean> {
+  const pending = savesInFlight.get(entry.sessionId);
+  if (pending) return pending;
+
+  const run = attemptUpload(entry).finally(() => {
+    // Identity check: only remove our own entry, never a later upload's.
+    // Unreachable today, since the join above allows one upload per session, so
+    // no test covers it. Kept deliberately: it is what stays correct if a
+    // `force` path that bypasses the join is ever added, as the history
+    // store's prefetch has.
+    if (savesInFlight.get(entry.sessionId) === run) savesInFlight.delete(entry.sessionId);
+  });
+  savesInFlight.set(entry.sessionId, run);
+  return run;
+}
+
+async function attemptUpload(entry: PendingUpload): Promise<boolean> {
+  try {
+    console.log("Uploading workout to database:", entry.sessionId);
+    const { rollupApplied } = await saveWorkoutSession(entry.uid, entry.workout, entry.endedAt);
     // Cached history predates the session just saved. Drop it so the next
     // read refetches.
     useExerciseHistoryStore
       .getState()
-      .invalidateExercises(activeWorkout.exercises.map((e) => e.id));
-    show.success("Workout saved successfully!");
+      .invalidateExercises(entry.workout.exercises.map((e) => e.id));
     if (!rollupApplied) {
       // Session data is safe; only the derived exercise_stats rollup is
       // behind. src/scripts/rebuildExerciseStats.ts repairs it.
       console.warn("Workout saved, history rollup pending.");
     }
-    await AsyncStorage.removeItem("activeWorkout"); // Clear local storage
-    set({ activeWorkout: null });
-    return { status: "uploaded" };
+    updateEntry(entry.sessionId, () => null);
+    // If this write fails the entry comes back on restart and uploads again,
+    // which is safe: same ids, and the rollup folds by replacement.
+    await writePendingUploadsOrLog();
+    show.success("Workout saved successfully!");
+    // A successful upload is the best evidence the connection is back.
+    drainPendingUploads();
+    return true;
   } catch (error) {
-    // The workout is deliberately left active so nothing is lost, but a
-    // silent no-op on a button press is not acceptable — say what happened.
-    // The toast is the user's message. Logged, not `console.error`: in a dev
-    // build that opens LogBox's red banner on top of the toast, a second message
-    // for one expected failure (e.g. "no sets were logged").
-    console.log("Failed to persist workout:", error);
-    const message = error instanceof Error ? error.message : "Please try again.";
-    show.alert("Could not save workout", message);
-    return refused(message);
+    // Logged, not `console.error`: in a dev build that opens LogBox's red
+    // banner on top of the toast the caller shows.
+    console.log("Failed to upload workout:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    updateEntry(entry.sessionId, (e) => ({
+      ...e,
+      failedAttempts: e.failedAttempts + 1,
+      lastError: message,
+    }));
+    await writePendingUploadsOrLog();
+    return false;
   }
+}
+
+let draining: Promise<void> | null = null;
+
+/**
+ * Upload every queued workout of the signed-in user, one at a time, in finish
+ * order. Called at app start, on sign-in, on return to the foreground, and after
+ * each successful upload. No connectivity check: none is installed, and an
+ * attempt costs nothing offline — it stays pending until the connection
+ * returns, then completes. Repeat calls join the running drain.
+ *
+ * A rejected entry does not block the ones after it: they are independent
+ * sessions, and one bad entry would otherwise hold the whole queue hostage.
+ * Each entry is tried once per drain, so a failing entry is retried on the next
+ * trigger, not in a loop. Rejections are reported once per drain, with the
+ * count still waiting.
+ *
+ * Entries of other users are skipped, not attempted: the rules would reject
+ * them. They upload when their user signs in again. What sign-out should do to
+ * them is TICKET-026's question.
+ */
+export function drainPendingUploads(): Promise<void> {
+  if (draining) return draining;
+  draining = (async () => {
+    const tried = new Set<string>();
+    let failed = 0;
+    let lastError = "Unknown error.";
+    for (;;) {
+      const uid = useAuthStore.getState().user?.uid;
+      if (!uid) break;
+      const next = useWorkoutStore
+        .getState()
+        .pendingUploads.find((e) => e.uid === uid && !tried.has(e.sessionId));
+      if (!next) break;
+      tried.add(next.sessionId);
+      if (await uploadPendingWorkout(next)) continue;
+      failed++;
+      lastError =
+        useWorkoutStore.getState().pendingUploads.find((e) => e.sessionId === next.sessionId)
+          ?.lastError ?? lastError;
+    }
+    if (failed > 0) {
+      const uid = useAuthStore.getState().user?.uid;
+      const waiting = useWorkoutStore.getState().pendingUploads.filter((e) => e.uid === uid).length;
+      show.alert(
+        "Upload failed",
+        `${waiting} workout${waiting === 1 ? "" : "s"} waiting to upload. ${lastError} Will retry.`
+      );
+    }
+  })().finally(() => {
+    draining = null;
+  });
+  return draining;
+}
+
+let stopSignInWatch: (() => void) | null = null;
+
+/** Drain whenever the signed-in user changes to someone. Installed once. */
+function watchSignInForUploads() {
+  if (stopSignInWatch) return;
+  stopSignInWatch = useAuthStore.subscribe((state, previous) => {
+    const uid = state.user?.uid;
+    if (uid && uid !== previous.user?.uid) drainPendingUploads();
+  });
 }
 
 /** Cancels a resume prefetch still waiting for sign-in, if any. */

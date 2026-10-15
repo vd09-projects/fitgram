@@ -1,7 +1,7 @@
 import { act, fireEvent, screen } from "@testing-library/react-native";
 import ActiveWorkoutScreen from "./ActiveWorkoutScreen";
 import { renderScreen } from "../../test/renderScreen";
-import { buildWorkout } from "../../test/fixtures";
+import { buildExercise, buildWorkout } from "../../test/fixtures";
 import { EndWorkoutResult, useWorkoutStore } from "../../stores/useWorkoutStore";
 import { saveWorkoutSession } from "../../services/db/workoutSessions";
 
@@ -97,7 +97,11 @@ describe("ActiveWorkoutScreen", () => {
     const save = saveWorkoutSession as jest.Mock;
     save.mockResolvedValue({ sessionId: "s", rollupApplied: true });
     const log = jest.spyOn(console, "log").mockImplementation(() => {});
-    renderScreen(ActiveWorkoutScreen, { workout: buildWorkout(["Bench Press"]) });
+    // One set logged: a workout with none is refused before it reaches the save.
+    const workout = buildWorkout([], {
+      exercises: [buildExercise("Bench Press", { sets: [{ id: 1, fields: { Weight: 60, Reps: 5 } }] })],
+    });
+    renderScreen(ActiveWorkoutScreen, { workout });
 
     await act(async () => {
       fireEvent.press(finishButton());
