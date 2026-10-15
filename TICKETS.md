@@ -1464,10 +1464,11 @@ toast says so. Not folded into the history cache.
 2. Airplane mode: log a set, Finish → "Saved on this phone" within ~3 s, screen shows
    no active workout, Start a new workout works. **Note whether Finish showed
    "Saving…" for ~3 s (= commit hung) or failed fast (= rejected)** — that is step 0
-3. Still offline: kill the app, reopen → no active workout; queue still there
-   (`pendingUploads` in AsyncStorage; no UI until TICKET-029)
-4. Airplane off, background then foreground the app → "Workout saved"; session visible
-   in history
+   Workout → **Pending Uploads** (temporary screen) shows 1, on disk 1
+3. Still offline: kill the app, reopen → no active workout; Pending Uploads still
+   shows 1, on disk 1
+4. Airplane off, background then foreground the app (or "Retry uploads now") →
+   "Workout saved"; Pending Uploads shows 0; session visible in history
 5. Two queued workouts → both upload, older first
 
 ---
@@ -1480,6 +1481,8 @@ Split from TICKET-028. The queue exists (`useWorkoutStore.pendingUploads`, each 
 with `failedAttempts` and `lastError`); nothing shows it.
 
 **Acceptance Criteria:**
+- [ ] Replace TICKET-028's TEMPORARY `PendingUploadsDebugScreen` (delete the file, its
+      route, Stack.Screen and Workout tile — all marked `TEMPORARY`)
 - [ ] A count ("2 workouts waiting to upload") visible outside the workout screens
 - [ ] A list: workout name, date, and for a failing entry its last error
 - [ ] Repeated failure shown here, so drain toasts can stop repeating

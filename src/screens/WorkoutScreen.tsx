@@ -56,6 +56,13 @@ const workoutOptions = [
     description: 'Temporary: inspect useExerciseHistory and the fetch counter.',
     icon: 'bug-outline',
     action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.HistoryDebug),
+  },
+  // TEMPORARY — remove with PendingUploadsDebugScreen.
+  {
+    title: 'Pending Uploads',
+    description: 'Temporary: finished workouts not uploaded yet (TICKET-028).',
+    icon: 'cloud-upload-outline',
+    action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.PendingUploadsDebug),
   }
 ];
 
