@@ -8,7 +8,10 @@ import AddExerciseScreen from '../screens/workout_management/AddExerciseScreen';
 import WorkoutLogsScreen from '../screens/workout_management/WorkoutLogsScreen';
 // TEMPORARY — remove with ExerciseHistoryDebugScreen.
 import ExerciseHistoryDebugScreen from '../screens/workout_management/ExerciseHistoryDebugScreen';
+// TEMPORARY — remove with PendingUploadsDebugScreen.
+import PendingUploadsDebugScreen from '../screens/workout_management/PendingUploadsDebugScreen';
 import { useThemeTokens } from '../components/app_manager/ThemeContext';
+import { showDebugScreens } from '../config/envConfig';
 
 export type WorkoutStackParamList = {
   WorkoutLogs: undefined;
@@ -17,6 +20,7 @@ export type WorkoutStackParamList = {
   WorkoutHome: undefined;
   LogWorkout: undefined;
   HistoryDebug: undefined;
+  PendingUploadsDebug: undefined;
 };
 
 const Stack = createStackNavigator<WorkoutStackParamList>();
@@ -63,12 +67,25 @@ export default function WorkoutNavigator() {
         options={{ headerShown: false }}
       />
 
-      {/* TEMPORARY — remove with ExerciseHistoryDebugScreen. */}
-      <Stack.Screen
-        name={WorkoutRoutes.HistoryDebug}
-        component={ExerciseHistoryDebugScreen}
-        options={{ headerShown: false }}
-      />
+      {/* Debug screens: registered only when the flag is on, so a build
+          without it has no route to them. */}
+      {showDebugScreens && (
+        <>
+          {/* TEMPORARY — remove with ExerciseHistoryDebugScreen. */}
+          <Stack.Screen
+            name={WorkoutRoutes.HistoryDebug}
+            component={ExerciseHistoryDebugScreen}
+            options={{ headerShown: false }}
+          />
+
+          {/* TEMPORARY — remove with PendingUploadsDebugScreen. */}
+          <Stack.Screen
+            name={WorkoutRoutes.PendingUploadsDebug}
+            component={PendingUploadsDebugScreen}
+            options={{ headerShown: false }}
+          />
+        </>
+      )}
     </Stack.Navigator>
   );
 }

@@ -92,9 +92,10 @@ export default function ActiveWorkoutScreen() {
       return;
     }
     // `finishing` only drives the busy look. A second save is prevented in the
-    // store (`endWorkout` joins an in-flight save), which also covers two taps
-    // inside one frame — a check on `finishing` here could not, since it reads
-    // the value from the last render.
+    // store (`endWorkout` takes the workout out of the active slot before its
+    // first await, and uploads join an in-flight one), which also covers two
+    // taps inside one frame — a check on `finishing` here could not, since it
+    // reads the value from the last render.
     setFinishing(true);
     try {
       await endWorkout(user?.uid);

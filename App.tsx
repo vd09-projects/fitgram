@@ -14,6 +14,7 @@ import { TourGuideProvider } from './src/components/guide_tour/TourGuideProvider
 import { TooltipOverlay } from './src/components/guide_tour/TourStepOverlay';
 import { AppControlProvider } from './src/components/app_manager/AppControlProvider';
 import { refreshLastActive } from './src/services/initAuth';
+import { drainPendingUploads } from './src/stores/useWorkoutStore';
 
 export default function App() {
   const [fontLoaded, setFontLoaded] = useState(false);
@@ -30,6 +31,8 @@ export default function App() {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (appState.current.match(/inactive|background/) && nextState === 'active') {
         refreshLastActive();
+        // Back in the foreground is a likely moment to have a connection again.
+        drainPendingUploads();
       }
       appState.current = nextState;
     });

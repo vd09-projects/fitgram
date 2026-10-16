@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BORDER_RADIUS, SPACING } from '../constants/styles';
 import { WorkoutScreenNavigationProp } from '../navigation/WorkoutNavigator';
 import { WorkoutRoutes } from '../constants/routes';
+import { showDebugScreens } from '../config/envConfig';
 import { useNavigation } from '@react-navigation/native';
 import { TextBase } from '../components/TextBase';
 import { ReturnTypeUseThemeTokens } from '../components/app_manager/ThemeContext';
@@ -50,14 +51,27 @@ const workoutOptions = [
     // action: (navigation: workoutScreenNavigationProp) => console.log('Navigating to Start Workout'), 
     action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.LogWorkout),
   },
+];
+
+// Debug tiles, shown only when the flag is on (config/envConfig.ts).
+const debugOptions: (typeof workoutOptions)[number][] = [
   // TEMPORARY — remove with ExerciseHistoryDebugScreen.
   {
     title: 'History Debug',
     description: 'Temporary: inspect useExerciseHistory and the fetch counter.',
     icon: 'bug-outline',
     action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.HistoryDebug),
+  },
+  // TEMPORARY — remove with PendingUploadsDebugScreen.
+  {
+    title: 'Pending Uploads',
+    description: 'Temporary: finished workouts not uploaded yet (TICKET-028).',
+    icon: 'cloud-upload-outline',
+    action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.PendingUploadsDebug),
   }
 ];
+
+const visibleOptions = showDebugScreens ? [...workoutOptions, ...debugOptions] : workoutOptions;
 
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.WorkoutHome>;
 
@@ -74,7 +88,7 @@ export default function WorkoutScreen() {
 
         {/* 🔹 Workout Options (Dynamic Buttons) */}
         <View style={styles.buttonContainer}>
-          {workoutOptions.map((option, index) => {
+          {visibleOptions.map((option, index) => {
             return (
               <MaybeTourStep stepId={option.tous} key={index} >
                 <TouchableOpacityBase

@@ -1288,7 +1288,7 @@ test is `endWorkout`, replacing it tests nothing. README now says when this appl
 
 ### TICKET-028: Offline Finish — Save on the Phone, Upload Later, Show What Is Pending
 
-**Priority:** High | **Effort:** Medium-Large | **Status: OPEN**
+**Priority:** High | **Effort:** Medium-Large | **Status: IN REVIEW — device test pending**
 
 Sequenced next after TICKET-027 (PR #6 review). In a gym, having no signal is the
 normal case, and TICKET-027 left offline Finish with no way out.
@@ -1369,6 +1369,141 @@ on this phone, not uploaded yet" until they do.
 **Dependencies:** TICKET-027. Coordinate with TICKET-026 (account scoping) and
 TICKET-011 (a cross-screen pending indicator may be the same component).
 
+#### Delivery (branch `TICKET-028`)
+
+**Split.** This ticket ships the dead-end fix and the queue. The pending count and
+list moved to **TICKET-029**, because it may be TICKET-011's cross-screen indicator
+and building it here risks building it twice. The "user can see pending workouts"
+criterion is TICKET-029's.
+
+**Step 0 — what `batch.commit()` does offline.** Measured with the app's
+`firebase@11.4.0`, memory cache, from Node, **not on a device**:
+
+| Run | `batch.commit()` | `runTransaction` |
+|---|---|---|
+| `disableNetwork` | pending at 60 s | rejected, 1.1 s |
+| backend unreachable (connection refused) | pending at 60 s | rejected `unavailable`, 8.5 s |
+| control: emulator, online | resolved, 496 ms | — |
+| control: offline 10 s, then `enableNetwork` | resolved on reconnect | — |
+
+So it **hangs**, and the ticket's large design holds. The write-ack path
+(`__PRIVATE_syncEngineWrite`) is the same code in the React Native bundle
+(`dist/index.rn.js`), but RN uses the WebChannel transport where Node uses gRPC.
+**Still owed: the same observation on a device in airplane mode.**
+
+**Design:**
+- `endWorkout` validates (≥ 1 set), then moves the workout from the active slot to
+  the queue **synchronously, before its first await**. Disk write of the queue first,
+  then `activeWorkout` is removed; a failed queue write rolls back. It then waits up to
+  `UPLOAD_GRACE_MS` (3 s) on the upload, only to pick the message: "Workout saved",
+  "Saved on this phone… won't show in your history until it uploads", or "upload
+  failed, will be retried"
+- Returns `EndWorkoutResult`: `uploaded` | `queued` | `refused` (still active)
+- Queue: `pendingUploads` in `useWorkoutStore`, mirrored to AsyncStorage key
+  `pendingUploads`, writes serialised. An unreadable stored queue is copied to
+  `pendingUploads.corrupt.<ts>`, never overwritten
+- Drain (`drainPendingUploads`): app start, sign-in, foreground, after every successful
+  upload. Sequential in finish order; each entry once per drain; one toast per drain
+  with the count still waiting. Entry removed only after its upload succeeds. No
+  netinfo: an offline attempt just stays pending and completes on reconnect
+- `savesInFlight` (TICKET-027) now guards uploads; Finish and drain join each other
+- `saveWorkoutSession` takes `endedAt` from the entry: an upload hours later must not
+  record the upload time as the end of the workout
+
+**Deviations:**
+- **Per-account: an entry is attempted only while its own uid is signed in.** The
+  ticket asks for "upload under the entry's uid, not the signed-in one". The rules
+  (`request.auth.uid == userId`) make that impossible, so tagging alone would fail on
+  every retry. Other users' entries wait, untouched. Sign-out behaviour is TICKET-026's
+- **Discard refusal removed** (TICKET-027's "Finish wins"). The active workout can no
+  longer have an upload in flight, so the guard was unreachable. Removed rather than
+  left half-alive, with its test
+- A workout with no sets is refused **before** queueing. Queued, it would be rejected
+  on every retry forever
+- A crash between queue write and slot clear leaves the workout in both;
+  `loadWorkoutFromStorage` drops the active copy if its session is queued
+
+**Accepted gap, said on screen:** a queued workout is missing from "last time" and
+ghost targets until it uploads (they read the server rollup). The "Saved on this phone"
+toast says so. Not folded into the history cache.
+
+**Removed:** `useSyncWorkout` (gated on `navigator.onLine`, which RN never defines),
+`isPersisted`, `persistWorkout`'s dead offline branch, and firebase.ts's
+`cacheSizeBytes` (never enabled persistence; now `memoryLocalCache()`, stated).
+
+**Verification:**
+- `npx tsc --noEmit` clean; `npm test` 20/20 (was 16)
+- Store tests: offline Finish → queued, on disk, slot cleared; success → removed;
+  failure → kept with count, next drain retries; drain during Finish's upload → one
+  save; another user's entry not attempted, uploads when its user signs in; restart →
+  reloaded from disk, uploads on sign-in
+- Mutation runs, each red for the reason named: no queue write at Finish; no removal
+  on success (4 red); failure drops entry (3 red); no join (1 red); drain ignores uid
+  (1 red); queue not loaded at start (1 red). Moving the slot clear after an await is
+  **green** alone because the join still catches the second call; with the join also
+  removed, red. Uploading under the signed-in uid instead of the entry's is
+  **green**, and cannot be otherwise: the drain gate makes the two equal. The test
+  pins the gate
+- **Untested, needs a device:** commit hang over WebChannel; airplane-mode Finish →
+  new workout starts; kill and reopen keeps the queue; reconnect + foreground uploads
+  and empties the queue; Firestore's own memory-queued write and our retry landing
+  together (expected harmless: same ids, same `endedAt`)
+
+**Known gaps:**
+- No retry timer. A workout stays queued until start, sign-in, foreground or another
+  upload. Deferred: reachable only if the app stays foregrounded across a whole
+  reconnect, and the next foreground fixes it
+- A rejected upload toasts once per drain, and drains are infrequent, so a
+  permanently-rejected entry nags at each foreground. Acceptable until TICKET-029 gives
+  it a place to live
+- Rollup idempotency is relied on more now (every retry re-folds), still asserted
+  nowhere. Same note as TICKET-027
+
+**Device test plan** (corrected after the first device run):
+1. Online: log a set, Finish → "Workout saved", Pending Uploads 0
+2. Online: start, log a set, **airplane mode on**, Finish → slot cleared at once,
+   "Saved on this phone" after ~3 s, Pending Uploads 1 (on disk 1)
+3. Still offline: kill and reopen → Pending Uploads still 1. On the emulator, load the
+   bundle over adb so airplane mode does not cut Metro:
+   `adb reverse tcp:8081 tcp:8081` + `npx expo start -c --localhost`, open
+   `http://localhost:8081`
+4. Airplane off, touch nothing for 2 min → "Workout saved" on its own, count 0. The
+   waiting upload completes when Firestore's own reconnect (backoff up to ~90 s)
+   gets through; Retry/foreground is only needed after a *rejected* upload
+5. Finish with no sets → refused, workout stays active
+
+Not testable today: starting a workout offline (plans are read from Firestore and not
+kept on the phone), so in practice the queue holds at most one workout per account
+unless an upload was rejected. Offline plans would be their own ticket.
+
+**Device result (Android emulator, 2026-10-17):** user reports every scenario above
+passes.
+
+**Debug screens behind a build flag.** History Debug and Pending Uploads (tiles and
+routes) show only when `SHOW_DEBUG_SCREENS=true` at bundle time (`.env` locally, an
+EAS environment variable for a build). Unset means hidden, so a build that forgets it
+ships without them. Read once at bundle time; there is no runtime toggle.
+
+---
+
+### TICKET-029: Pending Uploads — Show What Is Waiting to Upload
+
+**Priority:** Medium | **Effort:** Small-Medium | **Status: OPEN**
+
+Split from TICKET-028. The queue exists (`useWorkoutStore.pendingUploads`, each entry
+with `failedAttempts` and `lastError`); nothing shows it.
+
+**Acceptance Criteria:**
+- [ ] Replace TICKET-028's TEMPORARY `PendingUploadsDebugScreen` (delete the file, its
+      route, Stack.Screen and Workout tile — all marked `TEMPORARY`)
+- [ ] A count ("2 workouts waiting to upload") visible outside the workout screens
+- [ ] A list: workout name, date, and for a failing entry its last error
+- [ ] Repeated failure shown here, so drain toasts can stop repeating
+- [ ] Decide where it lives, with TICKET-011
+
+**Dependencies:** TICKET-028. Coordinate with TICKET-011 (may be the same component)
+and TICKET-026 (whose entries show after an account switch).
+
 ---
 
 ## Recommended Execution Order
@@ -1395,7 +1530,8 @@ TICKET-011 (a cross-screen pending indicator may be the same component).
 13. TICKET-017 (Active workout pager)
 14. TICKET-024 (Jest setup + example tests) — First, so later screens ship with tests
 15. ~~TICKET-027 (one save per session)~~ — DONE
-16. TICKET-028 (Offline finish + pending) — Next: 027 left offline Finish a dead end
+16. TICKET-028 (Offline finish + queue)   — Next: 027 left offline Finish a dead end
+16. TICKET-029 (Pending uploads view)     — Split from 028; with or after TICKET-011
 17. TICKET-018 (Set logger card)
 18. TICKET-019 (Today's sets + deltas)    — Flow is whole and better here
 19. TICKET-022 (Start Workout redesign)
