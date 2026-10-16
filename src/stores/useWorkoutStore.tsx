@@ -349,6 +349,12 @@ let queueWrite: Promise<void> = Promise.resolve();
  * Write the in-memory queue to disk. Each write snapshots the queue when it
  * runs, not when it was requested, so overlapping writes converge on the latest
  * state. Rejects if this write failed; later writes still run.
+ *
+ * The chain is deliberately redundant, and no test covers it: removing it
+ * leaves every test green. Without it, each write snapshots at call time and
+ * starts at once, so the disk is only current if AsyncStorage finishes writes in
+ * the order they were issued. That is likely, but nothing here asserts it, and
+ * the chain makes it unnecessary to rely on.
  */
 function writePendingUploads(): Promise<void> {
   const write = queueWrite.then(() =>
@@ -481,6 +487,10 @@ let draining: Promise<void> | null = null;
  * them is TICKET-026's question.
  */
 export function drainPendingUploads(): Promise<void> {
+  // Deliberately redundant behind `savesInFlight`, and no test covers it:
+  // without it two drains run side by side, but both pick the same entry and
+  // the upload join collapses them into one save. What it saves is a second
+  // loop and a duplicate "Upload failed" toast, not a double upload.
   if (draining) return draining;
   draining = (async () => {
     const tried = new Set<string>();

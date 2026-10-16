@@ -166,7 +166,8 @@ describe("upload queue", () => {
     expect(save.mock.calls[0][0]).toBe("u1");
   });
 
-  // Last in the file: loading installs the sign-in watch for the rest of the run.
+  // Tests that call `loadWorkoutFromStorage` stay last: loading installs the
+  // sign-in watch for the rest of the run.
   it("survives a restart: the queue is reloaded from disk and uploads on sign-in", async () => {
     seedWorkout();
     save.mockRejectedValueOnce(new Error("offline"));
@@ -182,5 +183,36 @@ describe("upload queue", () => {
     await jest.advanceTimersByTimeAsync(0);
     expect(save).toHaveBeenCalledTimes(2);
     expect(queue()).toEqual([]);
+  });
+
+  // The crash window in `endWorkout`: queue written, slot not yet cleared. Left
+  // active, the user would keep logging into a finished workout whose older copy
+  // uploads, and the next Finish would overwrite it under the same session id.
+  it("drops an active workout that is already queued (app died between queue write and slot clear)", async () => {
+    const workout = seedWorkout();
+    save.mockRejectedValueOnce(new Error("offline"));
+    await store().endWorkout("u1");
+    // The crash: the slot clear never reached disk, and memory is gone.
+    await AsyncStorage.setItem("activeWorkout", JSON.stringify(workout));
+    useWorkoutStore.setState({ activeWorkout: null, pendingUploads: [] });
+
+    await store().loadWorkoutFromStorage();
+
+    expect(store().activeWorkout).toBeNull();
+    expect(await AsyncStorage.getItem("activeWorkout")).toBeNull();
+    expect(queue()).toHaveLength(1);
+  });
+
+  // Overwritten instead, the next queue write would replace every
+  // finished-but-not-uploaded workout with an empty list.
+  it("copies an unreadable queue aside intact instead of losing it", async () => {
+    await AsyncStorage.setItem("pendingUploads", "{ not json");
+
+    await store().loadWorkoutFromStorage();
+
+    const keys = await AsyncStorage.getAllKeys();
+    const sidecar = keys.find((key) => key.startsWith("pendingUploads.corrupt."));
+    expect(sidecar).toBeDefined();
+    expect(await AsyncStorage.getItem(sidecar!)).toBe("{ not json");
   });
 });
