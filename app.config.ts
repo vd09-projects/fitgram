@@ -31,6 +31,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       MESSAGING_SENDER_ID: process.env.FS_DB_MESSAGING_SENDER_ID,
       API_ID: process.env.FS_DB_API_ID,
       GOOGLE_WEB_CLIENT_ID: process.env.GOOGLE_WEB_CLIENT_ID,
+      // Debug screens (History Debug, Pending Uploads). Off unless set to "true".
+      SHOW_DEBUG_SCREENS: process.env.SHOW_DEBUG_SCREENS,
     },
   };
 };

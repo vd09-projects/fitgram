@@ -1459,17 +1459,30 @@ toast says so. Not folded into the history cache.
 - Rollup idempotency is relied on more now (every retry re-folds), still asserted
   nowhere. Same note as TICKET-027
 
-**Device test plan:**
-1. Online: log a set, Finish → "Workout saved", slot empty
-2. Airplane mode: log a set, Finish → "Saved on this phone" within ~3 s, screen shows
-   no active workout, Start a new workout works. **Note whether Finish showed
-   "Saving…" for ~3 s (= commit hung) or failed fast (= rejected)** — that is step 0
-   Workout → **Pending Uploads** (temporary screen) shows 1, on disk 1
-3. Still offline: kill the app, reopen → no active workout; Pending Uploads still
-   shows 1, on disk 1
-4. Airplane off, background then foreground the app (or "Retry uploads now") →
-   "Workout saved"; Pending Uploads shows 0; session visible in history
-5. Two queued workouts → both upload, older first
+**Device test plan** (corrected after the first device run):
+1. Online: log a set, Finish → "Workout saved", Pending Uploads 0
+2. Online: start, log a set, **airplane mode on**, Finish → slot cleared at once,
+   "Saved on this phone" after ~3 s, Pending Uploads 1 (on disk 1)
+3. Still offline: kill and reopen → Pending Uploads still 1. On the emulator, load the
+   bundle over adb so airplane mode does not cut Metro:
+   `adb reverse tcp:8081 tcp:8081` + `npx expo start -c --localhost`, open
+   `http://localhost:8081`
+4. Airplane off, touch nothing for 2 min → "Workout saved" on its own, count 0. The
+   waiting upload completes when Firestore's own reconnect (backoff up to ~90 s)
+   gets through; Retry/foreground is only needed after a *rejected* upload
+5. Finish with no sets → refused, workout stays active
+
+Not testable today: starting a workout offline (plans are read from Firestore and not
+kept on the phone), so in practice the queue holds at most one workout per account
+unless an upload was rejected. Offline plans would be their own ticket.
+
+**Device result (Android emulator, 2026-10-17):** user reports every scenario above
+passes.
+
+**Debug screens behind a build flag.** History Debug and Pending Uploads (tiles and
+routes) show only when `SHOW_DEBUG_SCREENS=true` at bundle time (`.env` locally, an
+EAS environment variable for a build). Unset means hidden, so a build that forgets it
+ships without them. Read once at bundle time; there is no runtime toggle.
 
 ---
 
