@@ -134,6 +134,15 @@ $(echo "$dirty" | sed 's/^/        /')"
   for v in $REQUIRED_ENV; do
     echo "$listed" | grep -q "^$v=" && ok "$v" || bad "$v not set in EAS $BUILD_PROFILE — .env is gitignored and never reaches the builder"
   done
+  # Debug screens ship only when this is exactly "true" (src/config/envConfig.ts).
+  # Unset is fine and means hidden; "true" in production is the failure.
+  local dbg
+  dbg=$(echo "$listed" | grep "^SHOW_DEBUG_SCREENS=" | cut -d= -f2- | tr -d ' \r' || true)
+  if [ "$dbg" = "true" ]; then
+    bad "SHOW_DEBUG_SCREENS=true in EAS $BUILD_PROFILE — debug screens would ship to users"
+  else
+    ok "SHOW_DEBUG_SCREENS=${dbg:-<unset>} (debug screens hidden)"
+  fi
 
   head_ "eas.json"
   node -e '
@@ -195,6 +204,7 @@ cmd_verify() {
         out.push((e.GOOGLE_WEB_CLIENT_ID===want?"OK:":"FAIL:")+"GOOGLE_WEB_CLIENT_ID matches .env");
         out.push((e.PROJECT_ID?"OK:":"FAIL:")+"PROJECT_ID = "+(e.PROJECT_ID||"undefined"));
         out.push((e.API_KEY?"OK:":"FAIL:")+"API_KEY present");
+        out.push((e.SHOW_DEBUG_SCREENS==="true"?"FAIL:debug screens ENABLED":"OK:debug screens hidden")+" (SHOW_DEBUG_SCREENS = "+e.SHOW_DEBUG_SCREENS+")");
         out.push("INFO:version name "+c.version);
         out.push("NOTE:app.config versionCode "+(c.android&&c.android.versionCode)+" — ignored when appVersionSource is remote; EAS sets the real manifest value");
         console.log(out.join("\n"));

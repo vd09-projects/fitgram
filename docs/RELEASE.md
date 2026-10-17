@@ -65,6 +65,7 @@ EAS overwrites it. Leave it or delete it; it has no effect.
 | both `google-services.json` copies identical | Gradle reads `android/app/`, `app.config.ts` points at root — see [AUTH_DEBUGGING.md](AUTH_DEBUGGING.md) |
 | all 3 fingerprints + web client present | missing Play fingerprint = broken Google Sign-In in production |
 | 7 env vars exist in EAS `production` | `.env` never reaches the builder |
+| `SHOW_DEBUG_SCREENS` is not `"true"` in EAS `production` | debug screens (History Debug, Pending Uploads) must not reach users; unset is fine and means hidden |
 | `eas.json` sane | `environment` pinned, `appVersionSource: remote`, submit configured |
 
 Preflight exits non-zero on failure and `build` will not proceed.
@@ -92,6 +93,7 @@ Reports:
 
 - `GOOGLE_WEB_CLIENT_ID` baked into the artifact vs. the value in `.env`
 - `PROJECT_ID` and `API_KEY` present (not `undefined`)
+- `SHOW_DEBUG_SCREENS` baked into the artifact is not `"true"` (debug screens hidden)
 - version name and versionCode actually built
 - signing key, matched against the known fingerprints
 
