@@ -2,6 +2,16 @@ import { ExerciseField } from "./workoutType";
 
 // Type for a single set in an exercise
 export interface ExerciseSet {
+  /**
+   * AN ORDINAL, NOT AN IDENTITY. The set's 1-based position in its exercise:
+   * `addSetToExercise` appends at `last + 1`, and `removeSet` / `restoreSet`
+   * renumber the rest to 1..n (TICKET-019). That is what lets set id, list
+   * position and `ExerciseHistory.setAt(n)` agree.
+   *
+   * So an id held across a removal is stale: after removing set 2, "set 3" is
+   * a different set. `updateSet(exerciseId, setId, …)` keys on it — read the id
+   * fresh from the store, never from something captured before a removal.
+   */
   id: number;
   fields: Record<string, string | number>; // Dynamic fields (e.g., reps, weight, time)
 }

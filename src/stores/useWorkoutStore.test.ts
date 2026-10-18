@@ -216,3 +216,40 @@ describe("upload queue", () => {
     expect(await AsyncStorage.getItem(sidecar!)).toBe("{ not json");
   });
 });
+
+// TICKET-019: removing a mistyped set before Finish, and undoing that.
+describe("removeSet and restoreSet", () => {
+  const sets = (weights: number[]) => weights.map((Weight, i) => ({ id: i + 1, fields: { Weight, Reps: 8 } }));
+  const seedSets = (weights: number[]) => {
+    const workout = buildWorkout([], { exercises: [buildExercise("Bench Press", { sets: sets(weights) })] });
+    useWorkoutStore.setState({ activeWorkout: workout });
+  };
+  const benchSets = () => store().activeWorkout!.exercises[0].sets;
+  const storedSets = async () =>
+    JSON.parse((await AsyncStorage.getItem("activeWorkout")) ?? "null").exercises[0].sets;
+
+  it("renumbers the rest, so the next set's id is its position", async () => {
+    seedSets([60, 650, 62.5, 62.5]);
+    await store().removeSet("bench-press", 2);
+    expect(benchSets().map((s) => [s.id, s.fields.Weight])).toEqual([[1, 60], [2, 62.5], [3, 62.5]]);
+
+    await store().addSetToExercise("bench-press", { id: 4, fields: { Weight: 60, Reps: 8 } });
+    expect(benchSets().map((s) => s.id)).toEqual([1, 2, 3, 4]);
+  });
+
+  it("commits the removal to storage at once, not pending the undo", async () => {
+    seedSets([60, 650]);
+    await store().removeSet("bench-press", 2);
+    expect(await storedSets()).toEqual(sets([60]));
+  });
+
+  it("undo puts the set back at its position, renumbered, and stores it", async () => {
+    seedSets([60, 650, 62.5]);
+    const removed = await store().removeSet("bench-press", 2);
+    expect(removed).toEqual({ set: sets([60, 650])[1], index: 1 });
+
+    await store().restoreSet("bench-press", removed!);
+    expect(benchSets()).toEqual(sets([60, 650, 62.5]));
+    expect(await storedSets()).toEqual(sets([60, 650, 62.5]));
+  });
+});
