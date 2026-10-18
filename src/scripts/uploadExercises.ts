@@ -17,6 +17,10 @@ import { Exercise } from "../types/workoutType";
 // semantics from the name. "Sets" was removed from every exercise: it counted
 // sets inside a per-set row, which cannot mean anything now that a set's
 // number is its position in the array.
+//
+// Field names are storage keys, not labels: renaming one here orphans the
+// values every past session logged under the old name. See the warning on
+// `ExerciseField.name` and TICKET-030 before changing any.
 const predefinedExercises: Exercise[] = [
   {
     name: "Bicep Curls",

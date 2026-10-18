@@ -93,7 +93,15 @@ export const LDeathNoteColors = {
     surface: "#1A1D1F",        // cards, bottom bar
     raised: "#222628",         // inputs, pills
     hairline: "#2A2F31",       // card edges, dividers
-    hairlineStrong: "#3A4245", // input edges
+    hairlineStrong: "#3A4245", // dividers that must read, progress track
+    // Resting edge of a text input. The one hairline held to WCAG 1.4.11's 3:1
+    // for a control boundary: 3.17 on raised, 3.52 on surface. hairlineStrong
+    // is 1.49 on raised and a raised fill is only 1.11 on surface, so without
+    // this an input had no visible edge. Accent is reserved for focus.
+    // Contrast is asserted for every schema in colors.test.ts.
+    // Not named `inputBorder`: that flat legacy key exists above with a
+    // different value, and `t.colors.inputBorder` would compile and be wrong.
+    fieldEdge: "#6A7474",
 
     accent: "#5FA8B8",         // primary action, progress, live dot
     accentDeep: "#1E3A41",     // selected chip fill
@@ -197,7 +205,10 @@ export const HinataHyugaColors = {
     surface: "#1E1B30",        // cards, bottom bar
     raised: "#272340",         // inputs, pills
     hairline: "#322C4A",       // card edges, dividers
-    hairlineStrong: "#473F66", // input edges
+    hairlineStrong: "#473F66", // dividers that must read, progress track
+    // Resting input edge, 3:1 for WCAG 1.4.11: 3.28 on raised, 3.66 on
+    // surface. See L: Death Note for why it exists.
+    fieldEdge: "#797192",
 
     accent: "#B6A4E8",         // primary action, progress, live dot
     accentDeep: "#2E2654",     // selected chip fill

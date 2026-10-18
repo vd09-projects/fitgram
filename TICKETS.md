@@ -814,6 +814,32 @@ where the target came from.
 
 **Dependencies:** TICKET-015, TICKET-016.
 
+**Implementation decisions and deviations (branch `TICKET-018`):**
+- Two technical notes above are stale: `exercise.fields` is `ExerciseField[]`
+  since TICKET-016, and ghosts come from `useExerciseHistory().setAt(sets.length + 1)`
+- An untouched field is **incomplete**, not "log the ghost". Log set refuses and
+  names the missing fields; the repeat control is the explicit way to take the
+  target. Fields with role `other` are optional and never block logging
+- Deviation: "no ghost on unit mismatch" is decided by `lastSession.comparable`,
+  not `history.unitMismatch`. The latter is true when any session in the window
+  mismatched, and would hide a valid ghost from a same-unit last session
+- Boundary: new `role.fieldEdge` token, ≥3:1 against `raised` and `surface` in
+  both schemas (asserted in `colors.test.ts`). Not named `inputBorder`: a flat
+  legacy key of that name exists with another value. Focus is 2px `accent`;
+  accent is under 3:1 against `fieldEdge`, so the width change carries focus too
+- Steppers: 2.5 kg, 5 lb, reps 1. Unitless weight, time, distance and other get
+  no stepper. An empty field steps from its ghost (60 → 62.5 / 57.5); taking the
+  ghost exactly is repeat's job. Steps that would go below 0 or start from
+  unparseable text are disabled rather than writing 0
+- Only weight and reps fields get a ghost; raw values of other roles are not
+  shown as targets
+- "Last time" pill is inert until TICKET-020: no button role, and the design's
+  chevron is omitted so it offers no action that does nothing
+- Repeat is hidden, not dimmed, when there is nothing to repeat: a dimmed
+  icon-only button gave no reason, and the notice line already says why
+- When there is no ghost the card says why: not loaded / loading / failed,
+  first time, no weight+reps, different unit, or "last time stopped at N sets"
+
 ---
 
 ### TICKET-019: Today's Sets with Per-Set Deltas
@@ -876,6 +902,79 @@ exercise and a volume trend. Available during the exercise, never on screen by d
 - Needs a real focus trap and a labelled close control, not just a tappable backdrop
 
 **Dependencies:** TICKET-015, TICKET-016, TICKET-018.
+
+---
+
+### TICKET-030: Drop Unit Suffixes from Catalogue Field Names
+
+**Priority:** Medium | **Effort:** Small | **Status: OPEN**
+
+**Description:**
+Catalogue exercises carry the unit twice: in the field name ("Weight (kg)") and in
+`ExerciseField.unit`. TICKET-018's set card labels a field `name · unit`, so every catalogue
+exercise reads **"WEIGHT (KG) · KG"**. Make `unit` the only home of the unit and rename the
+catalogue fields to plain names, without losing the history already logged under the old ones.
+
+**Acceptance Criteria:**
+- [ ] Past sessions are read by role from their own field snapshot, so a renamed field keeps its history (see notes — this lands first)
+- [ ] `src/scripts/uploadExercises.ts` field names carry no unit: "Weight (kg)" → "Weight", "Total Time (min)" → "Total Time", "Total Distance (m)" → "Total Distance"
+- [ ] "Box Height (cm)" is decided explicitly: it is role `other` with no `unit` (and `FieldUnit` has no `cm`), so stripping the suffix would lose the unit entirely. Either keep the name or add `cm` to `FieldUnit`
+- [ ] Re-upload run with `--dry-run` first and its output shown; the real upload is triggered by the user
+- [ ] A test: a session logged as "Weight (kg)" still gives a ghost, volume and best when the exercise's field is now "Weight"
+- [ ] The set card shows "WEIGHT · KG" for a newly added catalogue exercise
+
+**Technical Notes:**
+- Load-bearing: set values are keyed by field **name**, and `buildHistorySession`
+  (`src/utils/exerciseHistory.ts`) parses every past session with the **current** field
+  names (`numeric` comes from today's definition). After a rename, every earlier session's
+  weight parses to `null` — no ghost, no volume — and nothing reports it. Fix by resolving
+  the numeric pair from that session's own `entry.fields` (role-based, already stored per
+  session) when the session is comparable. This also covers a user renaming a custom field
+- Why it is silent (PR #9 review, confirmed with a probe): `areFieldsComparable` compares
+  only the unit, so a renamed session stays `comparable: true` and `unitMismatch` false.
+  `resolveGhostTarget` returns `available` with `weight: null, reps: 8`; the card shows a
+  reps ghost, no weight ghost, no pill and no notice. None of TICKET-018's "say why" cases fire
+- The read-side fix is real, not just a write-side guard: the probe's session snapshot still
+  names "Weight (kg)", and `parseSet` with `resolveNumericFields(entry.fields)` returns
+  `{ weight: 60, reps: 8 }`. It does not cover a set keyed by a name its own session's
+  snapshot does not contain (a field renamed mid-workout); that is the write-side case
+- Until this lands, the warning lives at the rename sites: `ExerciseField.name` in
+  `workoutType.ts` and the catalogue in `uploadExercises.ts`
+- `bestByReps` stores values, not names, so records survive the rename unaffected
+- Plans copy an exercise's fields when it is added, so existing plans keep "Weight (kg)"
+  until the exercise is re-added. Pre-launch: no migration or backfill of plans or sessions
+- Do not strip suffixes in the label by matching on the name ("ends with (kg)"); that is
+  inferring meaning from user-authored text. The data is what is wrong
+- Found during TICKET-018 device testing
+
+**Dependencies:** TICKET-016, TICKET-018.
+
+---
+
+### TICKET-031: Contrast Guards for the Rest of the Role Palette
+
+**Priority:** Low | **Effort:** Small | **Status: OPEN**
+
+**Description:**
+TICKET-015's role palette was contrast-checked by hand across three reviews, and only
+`fieldEdge` and `textGhost` are asserted (`src/constants/colors.test.ts`, TICKET-018). A
+future token tweak can break any other pair silently. Extend the same `describe.each` over
+`AllColorSchemas` so the checks stop living only in review comments.
+
+**Acceptance Criteria:**
+- [ ] `textPrimary` and `textSecondary` ≥ 4.5 on `ground`, `surface` and `raised`
+- [ ] `ground` text on an `accent` fill (Log set) ≥ 4.5
+- [ ] `signal` and `danger` ≥ 4.5 on `surface` (they carry small text: deltas, Discard)
+- [ ] Each assertion states the rule (threshold and why) in a comment, not the measured number
+- [ ] Each new assertion seen red with its token dimmed, then restored
+
+**Technical Notes:**
+- Measured at filing (L / Hinata), all passing: textSecondary on raised 4.94 / 5.12, on
+  surface 5.49 / 5.72; ground on accent 6.85 / 8.15; signal on surface 7.33 / 7.24; danger
+  on surface 5.36 / 5.30. textSecondary on raised has the least headroom
+- Raised in PR #9 review
+
+**Dependencies:** TICKET-015.
 
 ---
 
@@ -1536,6 +1635,8 @@ and TICKET-026 (whose entries show after an account switch).
 18. TICKET-019 (Today's sets + deltas)    — Flow is whole and better here
 19. TICKET-022 (Start Workout redesign)
 20. TICKET-020 (History sheet)
+20. TICKET-030 (Catalogue field names)    — After 020, which also renders field labels
+--. TICKET-031 (Palette contrast guards)  — Small, independent; any time
 20. TICKET-021 (Rest timer + PR banner)   — Parallel with 020
 21. TICKET-023 (Tour press-to-continue)   — After Phase 3; patch in docs/patches/
 --. TICKET-025 (Footer highlight)         — Small, independent; any time
