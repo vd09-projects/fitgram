@@ -556,9 +556,9 @@ installed and authenticated; neither is present on this machine.
 > 1. Rest duration has no home. `WorkoutPlan` and `Exercise` in
 >    `src/types/workoutType.ts` carry no rest field — per exercise, per workout,
 >    or one global setting?
-> 2. A mistyped set cannot be removed. `useWorkoutStore` has `addSetToExercise`
->    and `updateSet` but no `removeSet`, so a fat-fingered `650 kg` is permanent.
->    Fold delete into TICKET-019, or give it its own ticket?
+> 2. ~~A mistyped set cannot be removed.~~ **Resolved in TICKET-019:**
+>    `removeSet` / `restoreSet` on the active workout, before Finish, with an
+>    inline undo. Deleting or editing an *uploaded* set is TICKET-032.
 > 3. Rest timer while the app is backgrounded. Resume-from-timestamp is cheap; a
 >    local notification when rest ends is a separate dependency.
 >
@@ -844,7 +844,7 @@ where the target came from.
 
 ### TICKET-019: Today's Sets with Per-Set Deltas
 
-**Priority:** High | **Effort:** Small-Medium | **Status: OPEN**
+**Priority:** High | **Effort:** Small-Medium | **Status: OPEN** (implemented on branch `TICKET-019`)
 
 **Description:**
 Make this session's sets permanently visible under the input card, each row carrying how
@@ -872,6 +872,43 @@ Replaces the collapsed log-history table.
 
 **Dependencies:** TICKET-015, TICKET-016.
 
+
+**Implementation decisions and deviations (branch `TICKET-019`):**
+- Four verdicts per set. `improved` / `down` from set volume (weight × reps);
+  `even` when volume is equal but the numbers differ (60×10 → 50×12), labelled
+  with both changes; `matched` only when weight and reps are both identical.
+  When volume ties at a 0 factor (0 kg bodyweight), the dimension that moved
+  decides. The label names what moved: "+1 rep", "+2.5 kg", or both,
+  "+2.5 kg · −1 rep". Rejected: comparing weight and ignoring reps (calls
+  67.5×8 an improvement on 65×12), and any composite score
+- Colour: improved is `signal`; down, even and matched are `textSecondary`,
+  told apart by glyph (caret down, equals bar, none) and text. **Measured:**
+  signal is lighter than textSecondary by only 1.34:1 (L) / 1.27:1 (Hinata), so
+  lightness by itself is a weak cue. The caret and the +/− sign carry the
+  colour-blind case. `colors.test.ts` pins the direction and 4.5:1 on surface
+- Deviation from "percentage against the previous session": compared with last
+  session's **first N** sets while today has fewer sets, and full totals once
+  today has as many. Today's running total against a finished session reads as
+  −60% until the last set. The footer names its base: "vs first 2 sets" or
+  "vs 26 Sep"
+- Gating shares `resolveGhostTarget` with the card, so a row has a delta exactly
+  when the card would have a ghost. Gated on `lastSession.comparable`, not
+  `unitMismatch`. A past set with null weight or reps gets no delta, not 0
+- Today's volume reads the live exercise's fields, not `history.numericFields`
+- No volume line for an exercise with no weight+reps pair. "volume unavailable
+  (N of M sets)" when a set does not parse, never a partial sum
+- Open decision 2 resolved here: `removeSet` / `restoreSet` on the active
+  workout. Committed at once to store and AsyncStorage; undo re-adds by
+  position. Sets are renumbered 1..n, so `ExerciseSet.id` is now documented as
+  an ordinal, not an identity
+- Remove is a 44px × per row, not a swipe (it would fight the pager's
+  horizontal fling). Undo is an inline row in the removed set's place, not a
+  toast. One at a time. Cleared by logging a set, and by changing exercise or a
+  successful Finish (both unmount the logger). A refused Finish keeps the undo,
+  because nothing was saved
+- The list is below the card. `LOG_HISTORY`'s tour step is re-anchored, and
+  moved after Save set to match. `ActiveExerciseLogHistory` is deleted (its only
+  caller was the logger); `TableControls` stays on `WorkoutLogsScreen`
 ---
 
 ### TICKET-020: Exercise History Sheet
@@ -975,6 +1012,34 @@ future token tweak can break any other pair silently. Extend the same `describe.
 - Raised in PR #9 review
 
 **Dependencies:** TICKET-015.
+
+---
+
+### TICKET-032: Edit or Delete a Set That Has Already Uploaded
+
+**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN**
+
+**Description:**
+TICKET-019 lets a mistyped set be removed before Finish. After Finish, the set
+is in `workout_sessions` and folded into `exercise_stats`, and there is no way
+to correct it from the app.
+
+**Why it matters:** `applyBest` is a strict max. A `650 kg` typo becomes a
+`bestByReps` entry that no later real set displaces, and it feeds every future
+ghost target, "last time" pill and volume trend for that exercise. Today the
+only repair is running `rebuildExerciseStats.ts` by hand.
+
+**Acceptance Criteria:**
+- [ ] A logged set in a past session can be edited or deleted from history
+- [ ] The exercise's `exercise_stats` rollup is rebuilt from its sessions after
+      the change (`rebuildStatsFromSessions`), not patched incrementally:
+      `bestByReps` cannot be decremented
+- [ ] The cached history for that exercise is invalidated, so the set card
+      stops ghosting the old value
+- [ ] Offline behaviour decided: queue the edit, or refuse it while offline
+
+**Dependencies:** TICKET-019, TICKET-020 (the history sheet is where a past set
+is visible).
 
 ---
 
