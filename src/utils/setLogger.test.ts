@@ -1,6 +1,8 @@
 import {
+  ghostNotice,
   ghostValues,
   missingFields,
+  missingFieldsMessage,
   repeatValues,
   resolveGhostTarget,
   stepFieldValue,
@@ -130,11 +132,33 @@ describe("ghostValues and repeatValues", () => {
 });
 
 describe("missingFields", () => {
-  it("names every blank field in definition order, whatever its role", () => {
+  it("names every blank measured field in definition order", () => {
     const fields = buildExercise("Bench Press").fields;
     expect(missingFields(fields, {})).toEqual(["Weight", "Reps"]);
     expect(missingFields(fields, { Weight: "60", Reps: "  " })).toEqual(["Reps"]);
     expect(missingFields(fields, { Weight: "60", Reps: "8" })).toEqual([]);
-    expect(missingFields(PLANK, { Time: "60" })).toEqual(["Notes"]);
+  });
+
+  it("treats role other as optional", () => {
+    expect(missingFields(PLANK, { Time: "60" })).toEqual([]);
+    expect(missingFields(PLANK, { Notes: "felt easy" })).toEqual(["Time"]);
+  });
+});
+
+describe("ghostNotice and missingFieldsMessage", () => {
+  it("tells apart the three ways history can be unavailable", () => {
+    const notLoaded = { kind: "notLoaded" } as const;
+    expect(ghostNotice(notLoaded, "idle")).toBe("Last session not loaded");
+    expect(ghostNotice(notLoaded, "loading")).toBe("Loading last session…");
+    expect(ghostNotice(notLoaded, "error")).toBe("Couldn't load last session");
+    expect(ghostNotice({ kind: "setNotReached", lastSessionSetCount: 1 }, "ready")).toBe(
+      "Last time stopped at 1 set"
+    );
+  });
+
+  it("names every missing field", () => {
+    expect(missingFieldsMessage(["Weight", "Reps", "Time"], 2)).toBe(
+      "Enter Weight, Reps and Time to log set 2"
+    );
   });
 });

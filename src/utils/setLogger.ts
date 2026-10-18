@@ -168,13 +168,69 @@ export function repeatValues(
  * "Missing" means blank after trimming. An untouched field is missing even when
  * it shows a ghost: the ghost is a placeholder, not a value, and logging it on
  * a stray tap would record a set the user never did. Accepting the target is
- * the repeat control, which is explicit. Every field counts, whatever its role.
+ * the repeat control, which is explicit.
+ *
+ * Fields with role `other` are optional and never missing: they hold notes,
+ * RPE, a band colour — things a set is complete without. Every measured role
+ * (weight, reps, time, distance) is required.
  */
 export function missingFields(
   fields: ExerciseField[],
   values: Record<string, string>
 ): string[] {
   return fields
+    .filter((field) => field.role !== "other")
     .filter((field) => (values[field.name] ?? "").trim() === "")
     .map((field) => field.name);
+}
+
+/** "Weight", "Weight and Reps", "Weight, Reps and Time". */
+function joinNames(names: string[]): string {
+  if (names.length <= 1) return names.join("");
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+/** What a refused Log set tap says. Names every missing field. */
+export function missingFieldsMessage(missing: string[], setNumber: number): string {
+  return `Enter ${joinNames(missing)} to log set ${setNumber}`;
+}
+
+/**
+ * The "Last time" pill's numbers, `65 × 8`, or `null` when either side did not
+ * parse last time — the pill then is not shown, rather than reading `65 × —`.
+ */
+export function lastTimeText(target: GhostTarget): string | null {
+  if (target.kind !== "available") return null;
+  const { weight, reps } = target.set;
+  if (weight === null || reps === null) return null;
+  return `${formatStepValue(weight)} × ${formatStepValue(reps)}`;
+}
+
+/**
+ * The line shown in place of ghost targets, saying why there are none.
+ * `null` when targets are available. `status` splits `notLoaded`, which covers
+ * three different situations a user would want told apart.
+ */
+export function ghostNotice(
+  target: GhostTarget,
+  status: ExerciseHistory["status"]
+): string | null {
+  switch (target.kind) {
+    case "available":
+      return null;
+    case "notLoaded":
+      if (status === "loading") return "Loading last session…";
+      if (status === "error") return "Couldn't load last session";
+      return "Last session not loaded";
+    case "firstTime":
+      return "First time on this exercise";
+    case "noComparison":
+      return "No weight and reps to target";
+    case "unitChanged":
+      return "Last time used a different unit, so no targets";
+    case "setNotReached":
+      return `Last time stopped at ${target.lastSessionSetCount} ${
+        target.lastSessionSetCount === 1 ? "set" : "sets"
+      }`;
+  }
 }
