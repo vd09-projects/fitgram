@@ -1670,6 +1670,76 @@ and TICKET-026 (whose entries show after an account switch).
 
 ---
 
+## PHASE 4: Later — after the Phase 3 UI is complete
+
+Reminders, not next up. Nothing here starts until the Phase 3 workout flow is
+finished end to end.
+
+---
+
+### TICKET-033: Drop Sets — Log a Weight Change Within One Set
+
+**Priority:** Low | **Effort:** Medium-Large | **Status: OPEN** — after Phase 3
+
+**Description:**
+A set sometimes cannot be finished at the planned weight. Example: set 3 starts
+at 15 kg, only 5 reps go up, and the remaining reps are done at 12.5 kg. Today
+that can only be logged as one weight, or as two separate sets, and both
+misstate what happened. The log should show that the set was split and that
+the first weight was not completed.
+
+**Acceptance Criteria:**
+- [ ] One set can hold more than one weight × reps segment (15 kg × 5, then 12.5 kg × N)
+- [ ] The set reads as a drop or split in the Today list and in history, so the
+      user can see next time that the weight was not completed
+- [ ] Volume counts every segment
+- [ ] Decided and documented: how a split set compares with the same set last
+      time (TICKET-019's deltas), which segment the next ghost target comes from,
+      and whether a split segment can become a `bestByReps` record
+
+**Technical Notes:**
+- This is a data-model change. `ExerciseSet.fields` holds one value per field,
+  and `StoredSetFields`, `computeSessionVolume`, `applyBest`, `setAt` and the
+  delta maths all assume one weight and one rep count per set. Settle the stored
+  shape first. The app is pre-launch, so no migration is needed
+- Not an extra free-text field: deltas and records would have to guess its
+  meaning, which is the inference the field-role model exists to avoid
+
+**Dependencies:** Phase 3 complete (TICKET-019, TICKET-020, TICKET-021).
+
+---
+
+### TICKET-034: Rate an Exercise Easy or Hard
+
+**Priority:** Low | **Effort:** Small-Medium | **Status: OPEN** — after Phase 3
+
+**Description:**
+After an exercise, the user marks how it felt. Next time it shows next to
+last session's numbers. Easy means push slightly more; hard means hold the
+weight, save energy, or rest longer.
+
+**Acceptance Criteria:**
+- [ ] One control per exercise per session to mark it easy or hard. Optional,
+      never required to log or finish
+- [ ] Stored with that exercise's session and carried into history
+- [ ] Shown next time alongside "last time" (set card and/or history sheet),
+      e.g. "Last time: hard"
+- [ ] Decided: two values (easy / hard) or three (easy / ok / hard), and
+      whether "not rated" is distinct from "ok"
+
+**Technical Notes:**
+- A typed field on the exercise session (e.g. `effort: "easy" | "hard" | null`),
+  not a role-`other` set field: it describes the exercise, not one set, and
+  later features (target suggestions, rest length with TICKET-021) need to read
+  it reliably
+- Suggesting a heavier target from "easy" is a separate decision. This ticket
+  records and shows the rating; it does not change ghost targets
+
+**Dependencies:** Phase 3 complete. TICKET-020 (history sheet) is a natural
+place to show it.
+
+---
+
 ## Recommended Execution Order
 
 ```
@@ -1706,6 +1776,11 @@ and TICKET-026 (whose entries show after an account switch).
 21. TICKET-023 (Tour press-to-continue)   — After Phase 3; patch in docs/patches/
 --. TICKET-025 (Footer highlight)         — Small, independent; any time
 --. TICKET-026 (Clear state on sign-out)  — Privacy; small; before launch
+--. TICKET-032 (Edit/delete uploaded set) — After TICKET-020
+
+--- Phase 4: later, after the Phase 3 UI is complete ---
+22. TICKET-033 (Drop sets)                — Data-model change; reminder only
+22. TICKET-034 (Easy / hard rating)       — Reminder only
 ```
 
 ---
