@@ -246,10 +246,25 @@ describe("removeSet and restoreSet", () => {
   it("undo puts the set back at its position, renumbered, and stores it", async () => {
     seedSets([60, 650, 62.5]);
     const removed = await store().removeSet("bench-press", 2);
-    expect(removed).toEqual({ set: sets([60, 650])[1], index: 1 });
+    expect(removed).toEqual({ exerciseId: "bench-press", set: sets([60, 650])[1], index: 1 });
 
     await store().restoreSet("bench-press", removed!);
     expect(benchSets()).toEqual(sets([60, 650, 62.5]));
     expect(await storedSets()).toEqual(sets([60, 650, 62.5]));
+  });
+
+  it("refuses to restore a set into an exercise it was not removed from", async () => {
+    const workout = buildWorkout([], {
+      exercises: [
+        buildExercise("Bench Press", { sets: sets([60, 650]) }),
+        buildExercise("Squat", { sets: sets([100]) }),
+      ],
+    });
+    useWorkoutStore.setState({ activeWorkout: workout });
+    const removed = await store().removeSet("bench-press", 2);
+
+    await store().restoreSet("squat", removed!);
+    expect(store().activeWorkout!.exercises[1].sets).toEqual(sets([100]));
+    expect(benchSets()).toEqual(sets([60]));
   });
 });

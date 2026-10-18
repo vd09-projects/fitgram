@@ -117,4 +117,29 @@ describe("TodaySets", () => {
     await press(/^Log set \d+$/);
     expect(screen.queryByRole("button", { name: /^Undo/ })).toBeNull();
   });
+
+  // Covers TICKET-018 and TICKET-019 together: both rely on ExerciseLogger being
+  // keyed by exercise to drop typed values and a pending undo on navigation.
+  it("leaving an exercise drops its typed values and its pending undo", async () => {
+    const workout = buildWorkout([], {
+      exercises: [
+        buildExercise("Bench Press", { sets: sets(["60", "8"], ["650", "8"]) }),
+        buildExercise("Squat", { sets: sets(["100", "5"]) }),
+      ],
+    });
+    renderScreen(ActiveWorkoutScreen, { workout, history: historyOf(["60", "8"]) });
+
+    fireEvent.changeText(screen.getByLabelText("Weight · kg"), "62.5");
+    await press("Remove set 2: 650 kg by 8");
+    expect(screen.getByRole("button", { name: /^Undo/ })).toBeOnTheScreen();
+
+    await press("Next exercise: Squat");
+    expect(screen.getByLabelText("Weight · kg").props.value).toBe("");
+    expect(screen.queryByRole("button", { name: /^Undo/ })).toBeNull();
+
+    await press("Previous exercise: Bench Press");
+    expect(screen.getByLabelText("Weight · kg").props.value).toBe("");
+    expect(screen.queryByRole("button", { name: /^Undo/ })).toBeNull();
+    expect(useWorkoutStore.getState().activeWorkout!.exercises[0].sets).toHaveLength(1);
+  });
 });

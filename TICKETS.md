@@ -900,7 +900,9 @@ Replaces the collapsed log-history table.
 - Open decision 2 resolved here: `removeSet` / `restoreSet` on the active
   workout. Committed at once to store and AsyncStorage; undo re-adds by
   position. Sets are renumbered 1..n, so `ExerciseSet.id` is now documented as
-  an ordinal, not an identity
+  an ordinal, not an identity. `RemovedSet` carries its `exerciseId` and
+  `restoreSet` refuses a mismatch, so a wrong-exercise restore is impossible
+  even if the logger stops being keyed by exercise (PR #10 review)
 - Remove is a 44px × per row, not a swipe (it would fight the pager's
   horizontal fling). Undo is an inline row in the removed set's place, not a
   toast. One at a time. Cleared by logging a set, and by changing exercise or a

@@ -52,11 +52,15 @@ export type EndWorkoutResult =
 const refused = (reason: string): EndWorkoutResult => ({ status: "refused", reason });
 
 /**
- * A set taken out by `removeSet`, with the 0-based position it held. Undo puts
- * it back by `index`, never by `set.id`: ids are renumbered on removal, so the
- * captured id may now belong to another set.
+ * A set taken out by `removeSet`, with the exercise it came from and the 0-based
+ * position it held. Undo puts it back by `index`, never by `set.id`: ids are
+ * renumbered on removal, so the captured id may now belong to another set.
+ *
+ * `exerciseId` travels with it so `restoreSet` can refuse a mismatch. Without
+ * it, an undo fired after the screen moved to another exercise would insert the
+ * set into an exercise it was never done in, renumbered to fit, silently.
  */
-export type RemovedSet = { set: ExerciseSet; index: number };
+export type RemovedSet = { exerciseId: string; set: ExerciseSet; index: number };
 
 /**
  * Ids 1..n in array order. `ExerciseSet.id` is an ordinal — see its type — and
@@ -209,7 +213,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       if (exercise.id !== exerciseId) return exercise;
       const index = exercise.sets.findIndex((set) => set.id === setId);
       if (index === -1) return exercise;
-      removed = { set: exercise.sets[index], index };
+      removed = { exerciseId, set: exercise.sets[index], index };
       return { ...exercise, sets: renumberSets(exercise.sets.filter((_, i) => i !== index)) };
     });
     if (!removed) return null;
@@ -230,10 +234,16 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
    * renumber. Clamped to the end if the list has since shrunk. The UI allows
    * one pending undo and clears it when a set is logged, so in practice the
    * list is exactly as `removeSet` left it.
+   *
+   * No-op unless `exerciseId` is the exercise the set was removed from. The
+   * logger is keyed by exercise, which clears a pending undo on navigation, but
+   * that is a UI nicety; this check is what makes a wrong-exercise restore
+   * impossible by any route.
    */
   restoreSet: async (exerciseId, removed) => {
     const { activeWorkout } = get();
     if (!activeWorkout) return;
+    if (removed.exerciseId !== exerciseId) return;
 
     const updatedExercises = activeWorkout.exercises.map((exercise) => {
       if (exercise.id !== exerciseId) return exercise;
