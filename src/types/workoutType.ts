@@ -17,7 +17,17 @@ export type FieldRole = "weight" | "reps" | "time" | "distance" | "other";
 export type FieldUnit = "kg" | "lb" | "s" | "min" | "m" | "km";
 
 export interface ExerciseField {
-  /** Display name, still free text and still what set `fields` is keyed by. */
+  /**
+   * Display name, still free text and still what set `fields` is keyed by.
+   *
+   * RENAMING IS NOT COSMETIC. Every logged set stores its values under this
+   * name, and history (`buildHistorySession`) looks past sessions up by the
+   * exercise's *current* name. Rename "Weight (kg)" to "Weight" and every
+   * earlier session's weight parses to null — while the session stays
+   * `comparable` (same unit), so nothing flags it and the set card shows no
+   * reason. TICKET-030 makes history resolve by role from each session's own
+   * field snapshot; until it lands, do not rename a field that has history.
+   */
   name: string;
   role: FieldRole;
   /** Omitted for `other`, and for roles where a unit is meaningless. */

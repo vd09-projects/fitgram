@@ -23,4 +23,11 @@ describe.each(Object.entries(AllColorSchemas))("%s", (_name, schema) => {
     expect(contrast(fieldEdge, raised)).toBeGreaterThanOrEqual(3);
     expect(contrast(fieldEdge, surface)).toBeGreaterThanOrEqual(3);
   });
+
+  // The set card's ghost placeholder, at 30px. Cleared only at the 3:1
+  // large-text threshold (3.43 / 3.46 today), the least headroom in the palette:
+  // dim it and the ghost becomes unreadable while every screen test stays green.
+  it("textGhost is legible on raised at large-text contrast", () => {
+    expect(contrast(schema.role.textGhost, raised)).toBeGreaterThanOrEqual(3);
+  });
 });

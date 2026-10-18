@@ -930,6 +930,16 @@ catalogue fields to plain names, without losing the history already logged under
   weight parses to `null` — no ghost, no volume — and nothing reports it. Fix by resolving
   the numeric pair from that session's own `entry.fields` (role-based, already stored per
   session) when the session is comparable. This also covers a user renaming a custom field
+- Why it is silent (PR #9 review, confirmed with a probe): `areFieldsComparable` compares
+  only the unit, so a renamed session stays `comparable: true` and `unitMismatch` false.
+  `resolveGhostTarget` returns `available` with `weight: null, reps: 8`; the card shows a
+  reps ghost, no weight ghost, no pill and no notice. None of TICKET-018's "say why" cases fire
+- The read-side fix is real, not just a write-side guard: the probe's session snapshot still
+  names "Weight (kg)", and `parseSet` with `resolveNumericFields(entry.fields)` returns
+  `{ weight: 60, reps: 8 }`. It does not cover a set keyed by a name its own session's
+  snapshot does not contain (a field renamed mid-workout); that is the write-side case
+- Until this lands, the warning lives at the rename sites: `ExerciseField.name` in
+  `workoutType.ts` and the catalogue in `uploadExercises.ts`
 - `bestByReps` stores values, not names, so records survive the rename unaffected
 - Plans copy an exercise's fields when it is added, so existing plans keep "Weight (kg)"
   until the exercise is re-added. Pre-launch: no migration or backfill of plans or sessions
@@ -938,6 +948,33 @@ catalogue fields to plain names, without losing the history already logged under
 - Found during TICKET-018 device testing
 
 **Dependencies:** TICKET-016, TICKET-018.
+
+---
+
+### TICKET-031: Contrast Guards for the Rest of the Role Palette
+
+**Priority:** Low | **Effort:** Small | **Status: OPEN**
+
+**Description:**
+TICKET-015's role palette was contrast-checked by hand across three reviews, and only
+`fieldEdge` and `textGhost` are asserted (`src/constants/colors.test.ts`, TICKET-018). A
+future token tweak can break any other pair silently. Extend the same `describe.each` over
+`AllColorSchemas` so the checks stop living only in review comments.
+
+**Acceptance Criteria:**
+- [ ] `textPrimary` and `textSecondary` ≥ 4.5 on `ground`, `surface` and `raised`
+- [ ] `ground` text on an `accent` fill (Log set) ≥ 4.5
+- [ ] `signal` and `danger` ≥ 4.5 on `surface` (they carry small text: deltas, Discard)
+- [ ] Each assertion states the rule (threshold and why) in a comment, not the measured number
+- [ ] Each new assertion seen red with its token dimmed, then restored
+
+**Technical Notes:**
+- Measured at filing (L / Hinata), all passing: textSecondary on raised 4.94 / 5.12, on
+  surface 5.49 / 5.72; ground on accent 6.85 / 8.15; signal on surface 7.33 / 7.24; danger
+  on surface 5.36 / 5.30. textSecondary on raised has the least headroom
+- Raised in PR #9 review
+
+**Dependencies:** TICKET-015.
 
 ---
 
@@ -1599,6 +1636,7 @@ and TICKET-026 (whose entries show after an account switch).
 19. TICKET-022 (Start Workout redesign)
 20. TICKET-020 (History sheet)
 20. TICKET-030 (Catalogue field names)    — After 020, which also renders field labels
+--. TICKET-031 (Palette contrast guards)  — Small, independent; any time
 20. TICKET-021 (Rest timer + PR banner)   — Parallel with 020
 21. TICKET-023 (Tour press-to-continue)   — After Phase 3; patch in docs/patches/
 --. TICKET-025 (Footer highlight)         — Small, independent; any time
