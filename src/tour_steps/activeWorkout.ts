@@ -25,12 +25,6 @@ const ACTIVE_WORKOUT_TOUR_STEPS = {
       "Use the arrows, or swipe left and right, to move through the exercises in this workout. The bar below shows where you are.",
     screen: SCREEN_NAMES.ACTIVE_WORKOUT,
   },
-  [ACTIVE_WORKOUT_STEP_NAMES.LOG_HISTORY]: {
-    title: "View Workout History",
-    description:
-      "See all the sets and exercises you’ve previously logged during this workout.",
-    screen: SCREEN_NAMES.ACTIVE_WORKOUT,
-  },
   [ACTIVE_WORKOUT_STEP_NAMES.LOG_FIELDS]: {
     title: "Enter Exercise Details",
     description:
@@ -41,6 +35,15 @@ const ACTIVE_WORKOUT_TOUR_STEPS = {
     title: "Save This Exercise Set",
     description:
       "Tap here to save the details of the current set you’ve entered.",
+    screen: SCREEN_NAMES.ACTIVE_WORKOUT,
+  },
+  // Anchors the Today list under the set card. It used to anchor the collapsed
+  // log-history table above the card, which TICKET-019 replaced. Comes after
+  // Save set, matching where the list now sits.
+  [ACTIVE_WORKOUT_STEP_NAMES.LOG_HISTORY]: {
+    title: "Today's Sets",
+    description:
+      "Every set you log appears here, compared with the same set last time. Tap × to remove a mistake; Undo puts it back.",
     screen: SCREEN_NAMES.ACTIVE_WORKOUT,
   },
   [ACTIVE_WORKOUT_STEP_NAMES.CANCEL_CURRENT_WORKOUT_LOGER]: {

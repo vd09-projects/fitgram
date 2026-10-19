@@ -556,9 +556,9 @@ installed and authenticated; neither is present on this machine.
 > 1. Rest duration has no home. `WorkoutPlan` and `Exercise` in
 >    `src/types/workoutType.ts` carry no rest field — per exercise, per workout,
 >    or one global setting?
-> 2. A mistyped set cannot be removed. `useWorkoutStore` has `addSetToExercise`
->    and `updateSet` but no `removeSet`, so a fat-fingered `650 kg` is permanent.
->    Fold delete into TICKET-019, or give it its own ticket?
+> 2. ~~A mistyped set cannot be removed.~~ **Resolved in TICKET-019:**
+>    `removeSet` / `restoreSet` on the active workout, before Finish, with an
+>    inline undo. Deleting or editing an *uploaded* set is TICKET-032.
 > 3. Rest timer while the app is backgrounded. Resume-from-timestamp is cheap; a
 >    local notification when rest ends is a separate dependency.
 >
@@ -844,7 +844,7 @@ where the target came from.
 
 ### TICKET-019: Today's Sets with Per-Set Deltas
 
-**Priority:** High | **Effort:** Small-Medium | **Status: OPEN**
+**Priority:** High | **Effort:** Small-Medium | **Status: OPEN** (implemented on branch `TICKET-019`)
 
 **Description:**
 Make this session's sets permanently visible under the input card, each row carrying how
@@ -872,6 +872,45 @@ Replaces the collapsed log-history table.
 
 **Dependencies:** TICKET-015, TICKET-016.
 
+
+**Implementation decisions and deviations (branch `TICKET-019`):**
+- Four verdicts per set. `improved` / `down` from set volume (weight × reps);
+  `even` when volume is equal but the numbers differ (60×10 → 50×12), labelled
+  with both changes; `matched` only when weight and reps are both identical.
+  When volume ties at a 0 factor (0 kg bodyweight), the dimension that moved
+  decides. The label names what moved: "+1 rep", "+2.5 kg", or both,
+  "+2.5 kg · −1 rep". Rejected: comparing weight and ignoring reps (calls
+  67.5×8 an improvement on 65×12), and any composite score
+- Colour: improved is `signal`; down, even and matched are `textSecondary`,
+  told apart by glyph (caret down, equals bar, none) and text. **Measured:**
+  signal is lighter than textSecondary by only 1.34:1 (L) / 1.27:1 (Hinata), so
+  lightness by itself is a weak cue. The caret and the +/− sign carry the
+  colour-blind case. `colors.test.ts` pins the direction and 4.5:1 on surface
+- Deviation from "percentage against the previous session": compared with last
+  session's **first N** sets while today has fewer sets, and full totals once
+  today has as many. Today's running total against a finished session reads as
+  −60% until the last set. The footer names its base: "vs first 2 sets" or
+  "vs 26 Sep"
+- Gating shares `resolveGhostTarget` with the card, so a row has a delta exactly
+  when the card would have a ghost. Gated on `lastSession.comparable`, not
+  `unitMismatch`. A past set with null weight or reps gets no delta, not 0
+- Today's volume reads the live exercise's fields, not `history.numericFields`
+- No volume line for an exercise with no weight+reps pair. "volume unavailable
+  (N of M sets)" when a set does not parse, never a partial sum
+- Open decision 2 resolved here: `removeSet` / `restoreSet` on the active
+  workout. Committed at once to store and AsyncStorage; undo re-adds by
+  position. Sets are renumbered 1..n, so `ExerciseSet.id` is now documented as
+  an ordinal, not an identity. `RemovedSet` carries its `exerciseId` and
+  `restoreSet` refuses a mismatch, so a wrong-exercise restore is impossible
+  even if the logger stops being keyed by exercise (PR #10 review)
+- Remove is a 44px × per row, not a swipe (it would fight the pager's
+  horizontal fling). Undo is an inline row in the removed set's place, not a
+  toast. One at a time. Cleared by logging a set, and by changing exercise or a
+  successful Finish (both unmount the logger). A refused Finish keeps the undo,
+  because nothing was saved
+- The list is below the card. `LOG_HISTORY`'s tour step is re-anchored, and
+  moved after Save set to match. `ActiveExerciseLogHistory` is deleted (its only
+  caller was the logger); `TableControls` stays on `WorkoutLogsScreen`
 ---
 
 ### TICKET-020: Exercise History Sheet
@@ -975,6 +1014,34 @@ future token tweak can break any other pair silently. Extend the same `describe.
 - Raised in PR #9 review
 
 **Dependencies:** TICKET-015.
+
+---
+
+### TICKET-032: Edit or Delete a Set That Has Already Uploaded
+
+**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN**
+
+**Description:**
+TICKET-019 lets a mistyped set be removed before Finish. After Finish, the set
+is in `workout_sessions` and folded into `exercise_stats`, and there is no way
+to correct it from the app.
+
+**Why it matters:** `applyBest` is a strict max. A `650 kg` typo becomes a
+`bestByReps` entry that no later real set displaces, and it feeds every future
+ghost target, "last time" pill and volume trend for that exercise. Today the
+only repair is running `rebuildExerciseStats.ts` by hand.
+
+**Acceptance Criteria:**
+- [ ] A logged set in a past session can be edited or deleted from history
+- [ ] The exercise's `exercise_stats` rollup is rebuilt from its sessions after
+      the change (`rebuildStatsFromSessions`), not patched incrementally:
+      `bestByReps` cannot be decremented
+- [ ] The cached history for that exercise is invalidated, so the set card
+      stops ghosting the old value
+- [ ] Offline behaviour decided: queue the edit, or refuse it while offline
+
+**Dependencies:** TICKET-019, TICKET-020 (the history sheet is where a past set
+is visible).
 
 ---
 
@@ -1605,6 +1672,76 @@ and TICKET-026 (whose entries show after an account switch).
 
 ---
 
+## PHASE 4: Later — after the Phase 3 UI is complete
+
+Reminders, not next up. Nothing here starts until the Phase 3 workout flow is
+finished end to end.
+
+---
+
+### TICKET-033: Drop Sets — Log a Weight Change Within One Set
+
+**Priority:** Low | **Effort:** Medium-Large | **Status: OPEN** — after Phase 3
+
+**Description:**
+A set sometimes cannot be finished at the planned weight. Example: set 3 starts
+at 15 kg, only 5 reps go up, and the remaining reps are done at 12.5 kg. Today
+that can only be logged as one weight, or as two separate sets, and both
+misstate what happened. The log should show that the set was split and that
+the first weight was not completed.
+
+**Acceptance Criteria:**
+- [ ] One set can hold more than one weight × reps segment (15 kg × 5, then 12.5 kg × N)
+- [ ] The set reads as a drop or split in the Today list and in history, so the
+      user can see next time that the weight was not completed
+- [ ] Volume counts every segment
+- [ ] Decided and documented: how a split set compares with the same set last
+      time (TICKET-019's deltas), which segment the next ghost target comes from,
+      and whether a split segment can become a `bestByReps` record
+
+**Technical Notes:**
+- This is a data-model change. `ExerciseSet.fields` holds one value per field,
+  and `StoredSetFields`, `computeSessionVolume`, `applyBest`, `setAt` and the
+  delta maths all assume one weight and one rep count per set. Settle the stored
+  shape first. The app is pre-launch, so no migration is needed
+- Not an extra free-text field: deltas and records would have to guess its
+  meaning, which is the inference the field-role model exists to avoid
+
+**Dependencies:** Phase 3 complete (TICKET-019, TICKET-020, TICKET-021).
+
+---
+
+### TICKET-034: Rate an Exercise Easy or Hard
+
+**Priority:** Low | **Effort:** Small-Medium | **Status: OPEN** — after Phase 3
+
+**Description:**
+After an exercise, the user marks how it felt. Next time it shows next to
+last session's numbers. Easy means push slightly more; hard means hold the
+weight, save energy, or rest longer.
+
+**Acceptance Criteria:**
+- [ ] One control per exercise per session to mark it easy or hard. Optional,
+      never required to log or finish
+- [ ] Stored with that exercise's session and carried into history
+- [ ] Shown next time alongside "last time" (set card and/or history sheet),
+      e.g. "Last time: hard"
+- [ ] Decided: two values (easy / hard) or three (easy / ok / hard), and
+      whether "not rated" is distinct from "ok"
+
+**Technical Notes:**
+- A typed field on the exercise session (e.g. `effort: "easy" | "hard" | null`),
+  not a role-`other` set field: it describes the exercise, not one set, and
+  later features (target suggestions, rest length with TICKET-021) need to read
+  it reliably
+- Suggesting a heavier target from "easy" is a separate decision. This ticket
+  records and shows the rating; it does not change ghost targets
+
+**Dependencies:** Phase 3 complete. TICKET-020 (history sheet) is a natural
+place to show it.
+
+---
+
 ## Recommended Execution Order
 
 ```
@@ -1641,6 +1778,11 @@ and TICKET-026 (whose entries show after an account switch).
 21. TICKET-023 (Tour press-to-continue)   — After Phase 3; patch in docs/patches/
 --. TICKET-025 (Footer highlight)         — Small, independent; any time
 --. TICKET-026 (Clear state on sign-out)  — Privacy; small; before launch
+--. TICKET-032 (Edit/delete uploaded set) — After TICKET-020
+
+--- Phase 4: later, after the Phase 3 UI is complete ---
+22. TICKET-033 (Drop sets)                — Data-model change; reminder only
+22. TICKET-034 (Easy / hard rating)       — Reminder only
 ```
 
 ---

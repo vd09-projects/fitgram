@@ -51,6 +51,24 @@ export type EndWorkoutResult =
 
 const refused = (reason: string): EndWorkoutResult => ({ status: "refused", reason });
 
+/**
+ * A set taken out by `removeSet`, with the exercise it came from and the 0-based
+ * position it held. Undo puts it back by `index`, never by `set.id`: ids are
+ * renumbered on removal, so the captured id may now belong to another set.
+ *
+ * `exerciseId` travels with it so `restoreSet` can refuse a mismatch. Without
+ * it, an undo fired after the screen moved to another exercise would insert the
+ * set into an exercise it was never done in, renumbered to fit, silently.
+ */
+export type RemovedSet = { exerciseId: string; set: ExerciseSet; index: number };
+
+/**
+ * Ids 1..n in array order. `ExerciseSet.id` is an ordinal — see its type — and
+ * this is what keeps it one after a set is removed or restored.
+ */
+const renumberSets = (sets: ExerciseSet[]): ExerciseSet[] =>
+  sets.map((set, index) => (set.id === index + 1 ? set : { ...set, id: index + 1 }));
+
 // Zustand Store Type
 interface WorkoutStoreState {
   activeWorkout: ActiveWorkout | null;
@@ -61,6 +79,8 @@ interface WorkoutStoreState {
   startWorkout: (workout: WorkoutPlan) => Promise<void>;
   addSetToExercise: (exerciseId: string, newSet: ExerciseSet) => Promise<void>;
   updateSet: (exerciseId: string, setId: number, updatedFields: Record<string, string | number>) => Promise<void>;
+  removeSet: (exerciseId: string, setId: number) => Promise<RemovedSet | null>;
+  restoreSet: (exerciseId: string, removed: RemovedSet) => Promise<void>;
   setCurrentExerciseIndex: (index: number) => Promise<void>;
   endWorkout: (userId : string | undefined) => Promise<EndWorkoutResult>;
   cancelWorkout: () => Promise<void>;
@@ -158,6 +178,84 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       exercises: updatedExercises,
       lastUpdated: Date.now(),
       currentExerciseIndex: exerciseIndex !== -1 ? exerciseIndex : null,
+    };
+
+    await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
+    set({ activeWorkout: updatedWorkout });
+  },
+
+  /**
+   * 🔹 Remove a set from the active workout (TICKET-019).
+   *
+   * Active workout only, before Finish: a set that has uploaded is in the
+   * rollup, and taking it out needs a rebuild — a different ticket.
+   *
+   * Committed at once, to memory and AsyncStorage. Undo is `restoreSet`, not a
+   * pending delete: held pending, a Finish or a crash during the undo window
+   * would save a set the user removed.
+   *
+   * The remaining sets are renumbered 1..n. Without that, removing set 2 of 4
+   * leaves ids [1,3,4] at positions [1,2,3]; the next append gets 5, and every
+   * comparison by set number (`setAt`, ghosts, deltas — all positional) lines
+   * today's second set up against last time's third.
+   *
+   * `currentExerciseIndex` is left alone: removing is not logging, and the row
+   * is only reachable on the exercise already on screen.
+   *
+   * Returns what was removed and where, or null when there was no such set.
+   */
+  removeSet: async (exerciseId, setId) => {
+    const { activeWorkout } = get();
+    if (!activeWorkout) return null;
+
+    let removed: RemovedSet | null = null;
+    const updatedExercises = activeWorkout.exercises.map((exercise) => {
+      if (exercise.id !== exerciseId) return exercise;
+      const index = exercise.sets.findIndex((set) => set.id === setId);
+      if (index === -1) return exercise;
+      removed = { exerciseId, set: exercise.sets[index], index };
+      return { ...exercise, sets: renumberSets(exercise.sets.filter((_, i) => i !== index)) };
+    });
+    if (!removed) return null;
+
+    const updatedWorkout: ActiveWorkout = {
+      ...activeWorkout,
+      exercises: updatedExercises,
+      lastUpdated: Date.now(),
+    };
+
+    await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
+    set({ activeWorkout: updatedWorkout });
+    return removed;
+  },
+
+  /**
+   * 🔹 Undo a `removeSet`: put the set back at the position it held, then
+   * renumber. Clamped to the end if the list has since shrunk. The UI allows
+   * one pending undo and clears it when a set is logged, so in practice the
+   * list is exactly as `removeSet` left it.
+   *
+   * No-op unless `exerciseId` is the exercise the set was removed from. The
+   * logger is keyed by exercise, which clears a pending undo on navigation, but
+   * that is a UI nicety; this check is what makes a wrong-exercise restore
+   * impossible by any route.
+   */
+  restoreSet: async (exerciseId, removed) => {
+    const { activeWorkout } = get();
+    if (!activeWorkout) return;
+    if (removed.exerciseId !== exerciseId) return;
+
+    const updatedExercises = activeWorkout.exercises.map((exercise) => {
+      if (exercise.id !== exerciseId) return exercise;
+      const sets = [...exercise.sets];
+      sets.splice(Math.min(removed.index, sets.length), 0, removed.set);
+      return { ...exercise, sets: renumberSets(sets) };
+    });
+
+    const updatedWorkout: ActiveWorkout = {
+      ...activeWorkout,
+      exercises: updatedExercises,
+      lastUpdated: Date.now(),
     };
 
     await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));

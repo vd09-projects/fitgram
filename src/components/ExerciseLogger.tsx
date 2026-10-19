@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useWorkoutStore } from "../stores/useWorkoutStore";
+import { RemovedSet, useWorkoutStore } from "../stores/useWorkoutStore";
 import { SPACING } from "../constants/styles";
 import { LoggedExercise } from "../types/zustandWorkoutType";
 import { useExerciseHistory } from "../hooks/useExerciseHistory";
@@ -16,7 +16,7 @@ import {
 } from "../utils/setLogger";
 import { TextBase, NumericText } from "./TextBase";
 import SetField from "./active_workout/SetField";
-import ActiveExerciseLogHistory from "./ActiveExerciseLogHistory";
+import TodaySets from "./active_workout/TodaySets";
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 import { MaybeTourStep } from "./guide_tour/MaybeTourStep";
@@ -39,13 +39,22 @@ const ACTION_HEIGHT = 56;
  * - Ghosts come from `setAt(sets.length + 1)`. Set ids are 1-based sequential
  *   (`addSetToExercise` assigns them), so the next set's number, its id and the
  *   `setAt` index all agree.
+ *
+ * Decisions (TICKET-019):
+ * - The Today list sits below the card, always visible, replacing the
+ *   collapsed log-history table that sat above it.
+ * - One undoable removal at a time, held here. It is cleared by logging a set
+ *   (the list has moved on), and by changing exercise or a successful Finish,
+ *   both of which unmount this component. A refused Finish keeps it: nothing
+ *   was saved and the workout is still open, so the undo is still accurate.
  */
 export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise }) {
   const { styles, t } = useThemeStyles(createStyles);
-  const { addSetToExercise } = useWorkoutStore();
+  const { addSetToExercise, removeSet, restoreSet } = useWorkoutStore();
   const history = useExerciseHistory(exercise.id);
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
   const [refusal, setRefusal] = useState<string | null>(null);
+  const [removed, setRemoved] = useState<RemovedSet | null>(null);
 
   const setNumber = exercise.sets.length + 1;
   const target = resolveGhostTarget(history, setNumber);
@@ -64,6 +73,18 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
     if (!repeat) return;
     setInputValues((prev) => ({ ...prev, ...repeat }));
     setRefusal(null);
+  };
+
+  // A second removal replaces the first: the first is already committed, and
+  // its undo is gone. That keeps the list to one undo row.
+  const onRemoveSet = async (setId: number) => {
+    setRemoved(await removeSet(exercise.id, setId));
+  };
+
+  const onUndoRemove = async () => {
+    if (!removed) return;
+    setRemoved(null);
+    await restoreSet(exercise.id, removed);
   };
 
   const logSet = () => {
@@ -85,16 +106,13 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
     // The store assigns the id; passing the set number keeps this call honest
     // about what that id will be.
     addSetToExercise(exercise.id, { id: setNumber, fields });
+    setRemoved(null);
     setInputValues({});
     setRefusal(null);
   };
 
   return (
     <View style={styles.container}>
-      <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.LOG_HISTORY}>
-        <ActiveExerciseLogHistory key={exercise.id} exercise={exercise} />
-      </MaybeTourStep>
-
       <View style={styles.card}>
         <View style={styles.header}>
           <View style={styles.setTitle} accessible accessibilityRole="header" accessibilityLabel={`Set ${setNumber}`}>
@@ -175,6 +193,19 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
           </MaybeTourStep>
         </View>
       </View>
+
+      <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.LOG_HISTORY}>
+        {/* Plain View: MultiTourSteps splits its child's style. */}
+        <View>
+          <TodaySets
+            exercise={exercise}
+            history={history}
+            removed={removed}
+            onRemove={onRemoveSet}
+            onUndo={onUndoRemove}
+          />
+        </View>
+      </MaybeTourStep>
     </View>
   );
 }

@@ -30,4 +30,14 @@ describe.each(Object.entries(AllColorSchemas))("%s", (_name, schema) => {
   it("textGhost is legible on raised at large-text contrast", () => {
     expect(contrast(schema.role.textGhost, raised)).toBeGreaterThanOrEqual(3);
   });
+
+  // TICKET-019's Today list: deltas and the footer at 12px on surface, so both
+  // need 4.5:1. Improved (signal) is the lighter of the pair, but only by
+  // 1.34 / 1.27 today — lightness alone does not carry the distinction; the
+  // caret and the +/− sign do. This pins the direction so it cannot invert.
+  it("signal and textSecondary are legible on surface, signal the lighter", () => {
+    expect(contrast(schema.role.signal, surface)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(schema.role.textSecondary, surface)).toBeGreaterThanOrEqual(4.5);
+    expect(luminance(schema.role.signal)).toBeGreaterThan(luminance(schema.role.textSecondary));
+  });
 });
