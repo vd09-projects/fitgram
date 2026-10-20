@@ -13,7 +13,7 @@ interface ScrollableScreenProps {
 
 const ScrollableScreen: React.FC<ScrollableScreenProps> = ({ children, style, title, innerContainerStyle }) => {
   const { styles, t } = useThemeStyles(createStyles);
-  const { triggerMeasureRefresh } = useTour();
+  const { triggerMeasureRefresh, isTourActive } = useTour();
 
   return (
     <View style={[styles.safeArea, style]}>
@@ -35,7 +35,15 @@ const ScrollableScreen: React.FC<ScrollableScreenProps> = ({ children, style, ti
           }}
         >
           <View style={[styles.innerContainer, innerContainerStyle]}>{children}</View>
-          <View style={{ marginVertical: t.space.ScrollingBuffer }}></View>
+          {/* Room to scroll a highlighted step near the bottom up above its
+              tooltip. Only while a tour runs: `ScrollingBuffer` is 20% of the
+              screen height, and as `marginVertical` it counted twice (~40%),
+              so every screen scrolled into empty space even with little
+              content. Without it, a screen scrolls only when its content is
+              taller than the viewport. */}
+          {isTourActive && (
+            <View style={{ marginVertical: t.space.ScrollingBuffer }} testID="tour-scroll-buffer" />
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
