@@ -5,7 +5,7 @@ import { Gesture, GestureDetector, Directions } from "react-native-gesture-handl
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
 import ExerciseLogger from "../../components/ExerciseLogger";
 import ScrollableScreen from "../../components/ScrollableScreen";
-import AlertBase from "../../components/AlertBase";
+import { DiscardWorkoutDialog } from "../../components/active_workout/DiscardWorkoutDialog";
 import WorkoutHeader from "../../components/active_workout/WorkoutHeader";
 import ExerciseNavHeader from "../../components/active_workout/ExerciseNavHeader";
 import WorkoutProgressBar from "../../components/active_workout/WorkoutProgressBar";
@@ -211,28 +211,11 @@ export default function ActiveWorkoutScreen() {
         </Pressable>
       </Modal>
 
-      <AlertBase
+      <DiscardWorkoutDialog
         visible={confirmDiscard}
-        title="Discard this workout?"
-        message="Every set logged in this session will be deleted. This cannot be undone."
-        onRequestClose={() => setConfirmDiscard(false)}
-        containerStyle={styles.alertCard}
-        titleStyle={styles.alertTitle}
-        messageStyle={styles.alertMessage}
-        buttons={[
-          {
-            text: "Keep logging",
-            onPress: () => setConfirmDiscard(false),
-            style: styles.alertKeep,
-            textStyle: styles.alertKeepText,
-          },
-          {
-            text: "Discard",
-            onPress: handleDiscard,
-            style: styles.alertDiscard,
-            textStyle: styles.alertDiscardText,
-          },
-        ]}
+        keepLabel="Keep logging"
+        onKeep={() => setConfirmDiscard(false)}
+        onDiscard={handleDiscard}
       />
     </View>
   );
@@ -315,35 +298,6 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     fontSize: t.fonts.xMedium,
     fontWeight: "bold",
     color: t.colors.role.danger,
-  },
-  alertCard: {
-    backgroundColor: t.colors.role.surface,
-    borderWidth: 1,
-    borderColor: t.colors.role.hairline,
-  },
-  alertTitle: {
-    color: t.colors.role.textPrimary,
-  },
-  alertMessage: {
-    color: t.colors.role.textSecondary,
-  },
-  // Dialog buttons are filled, not outlined. A 1dp outline on a button laid out
-  // at a fractional pixel position renders some edges thinner than others on
-  // Android; a bright danger outline made that obvious. Fills have no such edge.
-  alertKeep: {
-    minHeight: HIT,
-    backgroundColor: t.colors.role.raised,
-  },
-  alertKeepText: {
-    color: t.colors.role.textPrimary,
-  },
-  // Solid danger: the one irreversible action on this screen.
-  alertDiscard: {
-    minHeight: HIT,
-    backgroundColor: t.colors.role.danger,
-  },
-  alertDiscardText: {
-    color: t.colors.role.ground,
   },
   noWorkoutContainer: {
     flex: 1,

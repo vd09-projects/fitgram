@@ -13,7 +13,7 @@ import show from "../../utils/toastUtils";
 import { WorkoutRoutes } from "../../constants/routes";
 import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
 import { TextBase } from "../../components/TextBase";
-import AlertBase from "../../components/AlertBase";
+import { DiscardWorkoutDialog } from "../../components/active_workout/DiscardWorkoutDialog";
 import LoadingData from "../../components/LoadingData";
 import { ReturnTypeUseThemeTokens } from "../../components/app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
@@ -271,31 +271,14 @@ export default function StartWorkoutScreen() {
         </View>
       )}
 
-      <AlertBase
+      <DiscardWorkoutDialog
         visible={confirmDiscard}
-        title="Discard this workout?"
-        message="Every set logged in this session will be deleted. This cannot be undone."
-        onRequestClose={() => setConfirmDiscard(false)}
-        containerStyle={styles.alertCard}
-        titleStyle={styles.alertTitle}
-        messageStyle={styles.alertMessage}
-        buttons={[
-          {
-            text: "Keep it",
-            onPress: () => setConfirmDiscard(false),
-            style: styles.alertKeep,
-            textStyle: styles.alertKeepText,
-          },
-          {
-            text: "Discard",
-            onPress: async () => {
-              setConfirmDiscard(false);
-              await cancelWorkout();
-            },
-            style: styles.alertDiscard,
-            textStyle: styles.alertDiscardText,
-          },
-        ]}
+        keepLabel="Keep it"
+        onKeep={() => setConfirmDiscard(false)}
+        onDiscard={async () => {
+          setConfirmDiscard(false);
+          await cancelWorkout();
+        }}
       />
     </View>
   );
@@ -410,30 +393,5 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
     },
     primaryTextDisabled: {
       color: t.colors.role.textSecondary,
-    },
-    alertCard: {
-      backgroundColor: t.colors.role.surface,
-      borderWidth: 1,
-      borderColor: t.colors.role.hairline,
-    },
-    alertTitle: {
-      color: t.colors.role.textPrimary,
-    },
-    alertMessage: {
-      color: t.colors.role.textSecondary,
-    },
-    alertKeep: {
-      minHeight: HIT,
-      backgroundColor: t.colors.role.raised,
-    },
-    alertKeepText: {
-      color: t.colors.role.textPrimary,
-    },
-    alertDiscard: {
-      minHeight: HIT,
-      backgroundColor: t.colors.role.danger,
-    },
-    alertDiscardText: {
-      color: t.colors.role.ground,
     },
   });
