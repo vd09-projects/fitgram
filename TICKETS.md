@@ -1078,7 +1078,7 @@ target already shown, and a set that beats the user's previous best is called ou
 
 ### TICKET-022: Start Workout Redesign and Resume Banner
 
-**Priority:** High | **Effort:** Medium | **Status: OPEN**
+**Priority:** High | **Effort:** Medium | **Status: IN PROGRESS** — built on branch `TICKET-022`, awaiting device run
 
 **Description:**
 Rebuild the plan picker so a plan can be judged before it is started — exercise count, when
@@ -1087,15 +1087,15 @@ top set. Replace the modal alert that fires when a workout is already running wi
 resume banner.
 
 **Acceptance Criteria:**
-- [ ] Plan cards become rows showing name, exercise count, time since last performed, and recent volume
-- [ ] Selecting a plan expands it to list its exercises with each one's last top set
-- [ ] A trend indicator per plan
-- [ ] Search still filters plans
-- [ ] The blocking `AlertBase` on mount is replaced by an inline banner naming the in-progress workout, its elapsed time and sets logged, with Resume and Discard
-- [ ] Discard from the banner confirms first
-- [ ] Primary action is a single bottom-bar button naming the plan being started
-- [ ] Empty state for a user with no plans
-- [ ] Tour steps in `src/tour_steps/startWorkout.ts` still resolve, or are updated
+- [x] Plan cards become rows showing name, exercise count, time since last performed, and recent volume
+- [x] Selecting a plan expands it to list its exercises with each one's last top set
+- [ ] A trend indicator per plan — **deferred**, see Decisions
+- [x] Search still filters plans
+- [x] The blocking `AlertBase` on mount is replaced by an inline banner naming the in-progress workout, its elapsed time and sets logged, with Resume and Discard
+- [x] Discard from the banner confirms first
+- [x] Primary action is a single bottom-bar button naming the plan being started
+- [x] Empty state for a user with no plans
+- [x] Tour steps in `src/tour_steps/startWorkout.ts` still resolve, or are updated
 
 **Technical Notes:**
 - `StartWorkoutScreen.tsx:19` sets `showAlert` from `activeWorkout` in a mount-time
@@ -1110,6 +1110,56 @@ resume banner.
   indicator is the cross-screen case. Same state, so decide the split once
 
 **Dependencies:** TICKET-015, TICKET-016.
+
+**Decisions pinned:**
+- **Session volume is stored**, as `WorkoutSessionDoc.volume: SessionTotalVolume`,
+  computed in `buildSessionDocs`. Aggregating exercise stats on read would cost
+  one read per exercise per plan; adding the field after launch would mean migrating
+  every session. Pre-launch, it is free
+- **Mixed units null the total** (`unavailableReason: "mixed_units"`). "kg" next to
+  no unit counts as mixed, matching `areFieldsComparable`. Rejected: per-unit totals
+  (`{ kg, lb }`), which are more to store and render for a case the precedent
+  already answers with null
+- **An exercise with no weight+reps pair is excluded, not treated as a failure.** Under
+  strict all-or-nothing, any plan with a plank would never show a volume. Counted
+  in `exercisesTotal` and not in `exercisesWeighted`, and the row shows "1 not weighted"
+- **One unparseable lift nulls the total** (`"unparseable"`), with counts alongside
+  ("2 of 3 lifts readable"). Precedence when several apply: no weighted lifts,
+  then unparseable, then mixed units
+- **last done** = the newest session of the plan, from one recent-sessions query
+  (20) plus this user's pending uploads. Joined on `workoutId` and compared on
+  start time on both sides. On a tie the uploaded copy wins. The volume always
+  comes from the same session as the date. If the sessions query fails, no plan
+  shows a date, pending included. A pending date gets a "not uploaded yet" label
+- **last top set** = the heaviest weight in the last session, ties going to more
+  reps. An exercise without a weight+reps pair (a plank in minutes, reps-only
+  burpees) shows its highest value on its first measured field instead, e.g.
+  `1.5 min`. A session in a different unit than today's definition shows "unit
+  changed". This needed `ExerciseHistorySession.fields` (the session's own field
+  snapshot); the addition is additive, and `buildHistorySession` is its only producer
+- **Selection is derived**: a plan hidden by the search is not selected. It is not
+  cleared by remount or an effect, but it is cleared explicitly after Start
+
+**Deviations:**
+- Trend indicator deferred. The stored field now makes it possible, but plan
+  composition drifts between sessions ("volume up" can mean an exercise was added),
+  and most plans have fewer than 2 points in the 20-session window
+- Pending uploads count toward last-done. Not in the original ticket: without them,
+  a workout finished offline yesterday reads "8 days ago"
+- Banner adds Discard next to Resume (the design board shows Resume only), and both
+  are 44px (the board's 38px is under the target)
+- `START_WOURKOUT` misspelling left as is: `MANAGE_WOURKOUT` has the same typo, and
+  renaming one of them would be a half fix
+
+**Files:** `types/workoutSession.ts`, `utils/{exerciseStats,startWorkout}.ts`,
+`hooks/useRecentSessions.ts`, `components/start_workout/{PlanRow,ResumeBanner,PartsText}.tsx`,
+`screens/workout_management/StartWorkoutScreen.tsx`, `tour_steps/startWorkout.ts`
+
+**Verification:** 16 pure tests (`utils/startWorkout.test.ts`) and 5 screen tests.
+Every behaviour was mutated and watched to fail. Opening the screen issues one
+`getWorkoutSessions` and no history read; selecting a plan issues one
+`getExerciseStats` for its exercises. Untested: a real Firestore write of the new
+field, and either schema on a device.
 
 ---
 

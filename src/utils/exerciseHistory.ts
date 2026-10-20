@@ -57,6 +57,7 @@ export function buildHistorySession(
     workoutName: entry.workoutName,
     performedAt: entry.performedAt,
     sets,
+    fields: entry.fields,
     volume: computeSessionVolume(entry.sets, sessionNumeric),
     comparable,
   };
