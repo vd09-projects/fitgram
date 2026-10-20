@@ -17,6 +17,7 @@ import {
 import { TextBase, NumericText } from "./TextBase";
 import SetField from "./active_workout/SetField";
 import TodaySets from "./active_workout/TodaySets";
+import ExerciseHistorySheet from "./active_workout/ExerciseHistorySheet";
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 import { MaybeTourStep } from "./guide_tour/MaybeTourStep";
@@ -24,6 +25,8 @@ import { ACTIVE_WORKOUT_STEP_NAMES } from "../tour_steps/activeWorkout";
 
 const HIT = 44;
 const ACTION_HEIGHT = 56;
+const PILL_HEIGHT = 34;
+const PILL_HIT_SLOP = { top: (HIT - PILL_HEIGHT) / 2, bottom: (HIT - PILL_HEIGHT) / 2 };
 
 /**
  * The set card: one large field per exercise field, last session's matching
@@ -33,9 +36,8 @@ const ACTION_HEIGHT = 56;
  * - An untouched field is incomplete, not "log the ghost". Log set refuses and
  *   names the missing fields; repeat is the explicit way to take the target.
  *   Role `other` fields are optional (see `missingFields`).
- * - The "Last time" pill is inert until TICKET-020 builds the history sheet it
- *   opens. It is drawn without the design's chevron and without a button role,
- *   so it does not offer an action that does nothing.
+ * - The pill opens the history sheet (TICKET-020; was inert until then). See
+ *   the TICKET-020 notes below.
  * - Ghosts come from `setAt(sets.length + 1)`. Set ids are 1-based sequential
  *   (`addSetToExercise` assigns them), so the next set's number, its id and the
  *   `setAt` index all agree.
@@ -47,6 +49,17 @@ const ACTION_HEIGHT = 56;
  *   (the list has moved on), and by changing exercise or a successful Finish,
  *   both of which unmount this component. A refused Finish keeps it: nothing
  *   was saved and the workout is still open, so the undo is still accurate.
+ *
+ * Decisions (TICKET-020):
+ * - The pill is a button with the design's chevron, and it is always shown:
+ *   "LAST TIME 65 × 8" when there is a target, "HISTORY" otherwise. Shown only
+ *   with a target, a first-time exercise, a plank or a unit change could never
+ *   reach the sheet, whose empty state and notices exist for exactly those.
+ * - The sheet is a sibling overlay rendered here, not a screen: `inputValues`,
+ *   the set number and `removed` live in this component and survive it opening
+ *   and closing. It is modal; "logging is not blocked" means nothing is lost.
+ * - The pill's visual height stays 34; `hitSlop` takes its target to 44 without
+ *   moving the card's layout.
  */
 export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise }) {
   const { styles, t } = useThemeStyles(createStyles);
@@ -55,6 +68,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
   const [refusal, setRefusal] = useState<string | null>(null);
   const [removed, setRemoved] = useState<RemovedSet | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const setNumber = exercise.sets.length + 1;
   const target = resolveGhostTarget(history, setNumber);
@@ -119,12 +133,19 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
             <TextBase style={styles.setTitleText}>SET </TextBase>
             <NumericText style={styles.setTitleText}>{setNumber}</NumericText>
           </View>
-          {pillText !== null && (
-            <View style={styles.pill} accessible accessibilityLabel={`Last time ${pillText.replace("×", "by")}`}>
-              <TextBase style={styles.pillLabel}>LAST TIME</TextBase>
-              <NumericText style={styles.pillValue}>{pillText}</NumericText>
-            </View>
-          )}
+          <TouchableOpacity
+            style={styles.pill}
+            onPress={() => setHistoryOpen(true)}
+            hitSlop={PILL_HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityLabel={
+              pillText !== null ? `Last time ${pillText.replace("×", "by")}. Show history` : "Show history"
+            }
+          >
+            <TextBase style={styles.pillLabel}>{pillText !== null ? "LAST TIME" : "HISTORY"}</TextBase>
+            {pillText !== null && <NumericText style={styles.pillValue}>{pillText}</NumericText>}
+            <Ionicons name="chevron-up" size={14} color={t.colors.role.textSecondary} />
+          </TouchableOpacity>
         </View>
 
         {notice !== null && <TextBase style={styles.notice}>{notice}</TextBase>}
@@ -206,6 +227,14 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
           />
         </View>
       </MaybeTourStep>
+
+      <ExerciseHistorySheet
+        visible={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        exercise={exercise}
+        history={history}
+        setNumber={setNumber}
+      />
     </View>
   );
 }
@@ -246,7 +275,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
-    height: 34,
+    height: PILL_HEIGHT,
     paddingHorizontal: 11,
     borderRadius: 999,
     backgroundColor: t.colors.role.raised,

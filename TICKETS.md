@@ -942,6 +942,46 @@ exercise and a volume trend. Available during the exercise, never on screen by d
 
 **Dependencies:** TICKET-015, TICKET-016, TICKET-018.
 
+**Implementation decisions and deviations (branch `TICKET-020`):**
+- "Logging is not blocked while the sheet is open" is read as: dismissing returns
+  to the same set with nothing lost. The sheet is a modal RN `Modal`
+  (`animationType="slide"`), rendered as a sibling inside `ExerciseLogger`, so typed
+  values, the set number and the Today list survive it. A `Modal` sits outside the
+  pager's `GestureDetector`, so there is no fling conflict. No bottom-sheet library
+- Deviation from the design board: the volume trend is a row of `View` bars, not a
+  sparkline. A polyline needs `react-native-svg`, a native dependency and a
+  dev-client rebuild. A null volume is a dashed empty slot, never a 0-height bar
+- One delta vocabulary: every sheet delta comes from `setDelta`, with the selected
+  session standing in as "last session". For the actual last session that is the
+  Today list's exact call; `DeltaBadge` is extracted and shared by both
+- Past sessions are read through their own `fields` (`sessionSets`), so a renamed
+  field still shows its value, volume and delta in the sheet before TICKET-030
+  fixes the hook. Consequence: after a rename the sheet can show a delta for the
+  last session where the Today list shows none. Verdicts never disagree; the
+  sheet only has more of them
+- Comparability is per session (`session.comparable`), not `unitMismatch`. An
+  incomparable session shows its numbers in its own unit, no deltas, and says
+  "Logged in lb, today in kg, so not compared"
+- The pill is always shown: "LAST TIME 65 × 8" with a target, "HISTORY" without.
+  Shown only with a target, a first-time exercise, a plank or a unit change could
+  never reach the sheet. Target is 44px through `hitSlop`; visual height stays 34
+- "Best" = heaviest weight at one rep count: the reps of the set about to be
+  logged when last session gives a target, else the heaviest record at any reps
+  (ties to more reps, then more recent). Rejected: best volume set, estimated 1RM.
+  The design's "Target" button on the best card is not built
+- The trend is hidden while `unitMismatch` is set: `VolumePoint` carries no unit
+  and the hook does not say which point is the other-unit one. Over-cautious when
+  the mismatched session is outside the trend window; see known gaps
+- No tour step for the sheet: the existing steps still resolve
+
+**Known gaps:**
+- `VolumePoint` has no unit, so the trend cannot drop just the incomparable point.
+  Needs a hook/rollup change (out of scope here: "do not change the hook")
+- No drag-to-dismiss; close control, backdrop and Android back dismiss
+- Untested on a device: slide animation, VoiceOver focus trap
+  (`accessibilityViewIsModal`), safe-area padding, the table's horizontal scroll
+  at narrow widths
+
 ---
 
 ### TICKET-030: Drop Unit Suffixes from Catalogue Field Names
