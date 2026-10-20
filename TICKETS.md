@@ -976,7 +976,9 @@ exercise and a volume trend. Available during the exercise, never on screen by d
 
 **Known gaps:**
 - `VolumePoint` has no unit, so the trend cannot drop just the incomparable point.
-  Needs a hook/rollup change (out of scope here: "do not change the hook")
+  Needs a rollup change: TICKET-036. Until then `HISTORY_TREND_SESSION_COUNT` must not
+  exceed `STATS_RECENT_SESSION_CAP`; a comment and a test hold that
+- Two sessions on the same day show identical chips: TICKET-037
 - No drag-to-dismiss; close control, backdrop and Android back dismiss
 - Untested on a device: slide animation, VoiceOver focus trap
   (`accessibilityViewIsModal`), safe-area padding, the table's horizontal scroll
@@ -1164,6 +1166,63 @@ Farmer's Walk), and parallel objects multiply into special cases.
 - Raised in the PR #11 review (TICKET-022), when the plank top set showed "—"
 
 **Dependencies:** TICKET-016, TICKET-022. Coordinate with TICKET-030.
+
+---
+
+### TICKET-036: Put a Unit on Volume Trend Points
+
+**Priority:** Medium | **Effort:** Small-Medium | **Status: OPEN**
+
+**Description:**
+`VolumePoint` (and the stored `StatsVolumePoint`) carries a session's volume but not the
+unit it was computed in. A reader cannot tell a kg session's volume from an lb session's,
+so the history sheet hides the whole trend whenever `unitMismatch` is set. Store the unit
+per point so only the other-unit points drop out.
+
+**Acceptance Criteria:**
+- [ ] `StatsVolumePoint` and `VolumePoint` carry the weight unit the volume was computed in
+- [ ] `rebuildStatsFromSessions` and the incremental rollup write it
+- [ ] The sheet's trend shows same-unit points and leaves a gap, with a reason, for the
+      others, instead of hiding the trend
+- [ ] A test: one lb session among five kg sessions shows five bars and one gap
+- [ ] The invariant at `HISTORY_TREND_SESSION_COUNT` (must not exceed
+      `STATS_RECENT_SESSION_CAP`) and its test are removed, since it no longer protects anything
+
+**Technical Notes:**
+- Today's suppression over-hides: `unitMismatch` scans `recentSessions` (cap 10), so a
+  unit change in sessions 7–10 hides a trend whose six shown points are all one unit
+- And it only works because 6 ≤ 10. Raise the trend window past 10 and a shown point can
+  come from a session `unitMismatch` never scanned, mixing kg and lb bars with no notice.
+  Guarded for now by a comment and a test (PR #12 review)
+- Third appearance of the `unitMismatch`-versus-per-session class (018, 019, 020 all gate
+  per session); the trend is the one consumer that structurally cannot
+- Pre-launch: no backfill needed, rebuild the rollups
+
+**Dependencies:** TICKET-020.
+
+---
+
+### TICKET-037: Tell Apart Two Sessions on the Same Day in the History Sheet
+
+**Priority:** Medium | **Effort:** Small | **Status: OPEN**
+
+**Description:**
+The history sheet's chips are labelled with the date only, so two sessions on one day
+show as two identical "16 Oct" chips. In a picker that is not cosmetic: the user cannot
+tell which session they are selecting. Seen on the emulator during TICKET-020.
+
+**Acceptance Criteria:**
+- [ ] When two chips in the row share a date, each shows its time as well ("16 Oct · 18:05");
+      otherwise the date alone, as now
+- [ ] The chip's spoken label includes the time whenever the visible label does
+- [ ] A test with two sessions on one day: the chips' labels differ
+
+**Technical Notes:**
+- Time only on collision keeps the common case short in a 3-chip row at 390px
+- Format in local time, alongside `formatSessionDate` in `setDeltas.ts`
+- If the times also collide (a re-saved session), fall back to the workout name
+
+**Dependencies:** TICKET-020.
 
 ---
 

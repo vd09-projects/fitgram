@@ -237,7 +237,8 @@ export type SheetTrend =
  * hook does not say which points came from the other-unit session, so a bar
  * of 80 lb-volume beside kg-volume bars could not be told apart. Hiding it is
  * over-cautious when the mismatched session is outside the trend window; a
- * wrong bar is worse.
+ * wrong bar is worse. TICKET-036 puts a unit on `VolumePoint` so only the
+ * other-unit point drops out.
  *
  * `reason: null` — nothing to say (a plank: the sessions notice covers it).
  */

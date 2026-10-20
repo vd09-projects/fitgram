@@ -1,6 +1,7 @@
 import { sessionSets, sheetBest, sheetSession, sheetStatusMessage, sheetTrend } from "./historySheet";
 import { setDelta } from "./setDeltas";
-import { deriveExerciseHistory } from "./exerciseHistory";
+import { deriveExerciseHistory, HISTORY_TREND_SESSION_COUNT } from "./exerciseHistory";
+import { STATS_RECENT_SESSION_CAP } from "./exerciseStats";
 import { resolveNumericFields } from "./exerciseFields";
 import { buildStats, StatsSessionSpec } from "../test/fixtures";
 import { ExerciseHistoryStatus } from "../types/exerciseHistory";
@@ -106,14 +107,15 @@ describe("sheetSession", () => {
 });
 
 describe("sheetStatusMessage", () => {
-  it.each([
+  const cases: [ExerciseHistoryStatus, StatsSessionSpec[] | null, string | null][] = [
     ["idle", null, "History not loaded"],
     ["loading", null, "Loading history…"],
     ["error", null, "Couldn't load history"],
     ["ready", null, "No history yet. Sessions you finish will show here."],
     ["ready", [{ sets: [set("60", "8")] }], null],
-  ] as const)("%s, sessions %p", (status, sessions, message) => {
-    expect(sheetStatusMessage(historyOf(sessions ? [...sessions] : null, BENCH, status))).toBe(message);
+  ];
+  it.each(cases)("%s, sessions %p", (status, sessions, message) => {
+    expect(sheetStatusMessage(historyOf(sessions, BENCH, status))).toBe(message);
   });
 });
 
@@ -144,6 +146,12 @@ describe("sheetTrend", () => {
     if (trend.kind !== "bars") return;
     expect(trend.bars.map((bar) => bar.ratio)).toEqual([0.5, null, 1]);
     expect(trend.newest?.volume).toBe(500);
+  });
+
+  // `unitMismatch` scans only `recentSessions`. A wider trend could show a
+  // point from an other-unit session it never scanned (see the constant).
+  it("keeps the trend window inside the sessions unitMismatch scans", () => {
+    expect(HISTORY_TREND_SESSION_COUNT).toBeLessThanOrEqual(STATS_RECENT_SESSION_CAP);
   });
 
   it("hides the trend when a session used another unit, since points carry none", () => {
