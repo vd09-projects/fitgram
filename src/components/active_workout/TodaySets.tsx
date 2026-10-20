@@ -8,7 +8,6 @@ import { RemovedSet } from "../../stores/useWorkoutStore";
 import { resolveNumericFields } from "../../utils/exerciseFields";
 import {
   comparisonText,
-  SetDelta,
   setCountText,
   setDelta,
   setValuesText,
@@ -16,6 +15,7 @@ import {
   volumeText,
 } from "../../utils/setDeltas";
 import { TextBase, NumericText } from "../TextBase";
+import { DeltaBadge, deltaSpeech } from "./DeltaBadge";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 
@@ -37,10 +37,8 @@ type Props = {
  * volume with last session's (see `todaySummary` for the base).
  *
  * Decisions (TICKET-019):
- * - Colour: improved is `signal`; down, even and matched are `textSecondary`.
- *   Gold against grey is a lightness difference, so improved-vs-down survives
- *   colour-blind use. The three grey verdicts differ by glyph and text — a
- *   caret down, an equals bar, the word "matched" — not by a third colour.
+ * - Colour and glyph per verdict: see `DeltaBadge`, shared with the history
+ *   sheet (TICKET-020) so a verdict looks the same in both places.
  * - Remove is a small control per row, not a swipe: the pager body is wrapped
  *   in a horizontal fling (ActiveWorkoutScreen) that a row swipe would fight.
  *   Undo is an inline row in the removed set's place, not a toast: the thing
@@ -74,7 +72,7 @@ export default function TodaySets({ exercise, history, removed, onRemove, onUndo
           <NumericText style={styles.values} numberOfLines={1}>
             {values}
           </NumericText>
-          <DeltaBadge delta={delta} styles={styles} t={t} />
+          <DeltaBadge delta={delta} />
         </View>
         <TouchableOpacity
           style={styles.remove}
@@ -159,40 +157,6 @@ export default function TodaySets({ exercise, history, removed, onRemove, onUndo
   );
 }
 
-/** ", improved: +1 rep" for the row's spoken label; empty with no delta. */
-function deltaSpeech(delta: SetDelta): string {
-  if (delta.kind === "none") return "";
-  if (delta.verdict === "matched") return ", matched";
-  return `, ${delta.verdict}: ${delta.label}`;
-}
-
-function DeltaBadge({
-  delta,
-  styles,
-  t,
-}: {
-  delta: SetDelta;
-  styles: ReturnType<typeof createStyles>;
-  t: ReturnTypeUseThemeTokens;
-}) {
-  if (delta.kind === "none") return null;
-  const color = delta.verdict === "improved" ? t.colors.role.signal : t.colors.role.textSecondary;
-  const glyph =
-    delta.verdict === "improved"
-      ? "caret-up"
-      : delta.verdict === "down"
-        ? "caret-down"
-        : delta.verdict === "even"
-          ? "reorder-two"
-          : null;
-  return (
-    <View style={styles.delta} testID={`delta-${delta.verdict}`}>
-      {glyph !== null && <Ionicons name={glyph} size={11} color={color} />}
-      <NumericText style={[styles.deltaText, { color }]}>{delta.label}</NumericText>
-    </View>
-  );
-}
-
 const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   container: {
     gap: 9,
@@ -254,15 +218,6 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     flex: 1,
     fontSize: 15.5,
     color: t.colors.role.textPrimary,
-  },
-  delta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  deltaText: {
-    fontSize: 12,
-    fontWeight: "600",
   },
   remove: {
     width: HIT,
