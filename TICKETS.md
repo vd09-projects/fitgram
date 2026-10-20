@@ -1045,6 +1045,88 @@ is visible).
 
 ---
 
+### TICKET-035: Measures Beyond Weight × Reps — Time, Distance, and Which Way Is Better
+
+**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN**
+
+**Description:**
+Every derived number in the workout flow comes from one derived pair,
+`NumericFieldMap = { weight, reps }` (`resolveNumericFields`,
+`src/utils/exerciseFields.ts`). An exercise without that pair gets `null` everywhere:
+no ghost target, no per-set delta, no best, no volume. That is the correct absence
+for today's model, but 8 catalogue exercises measure time or distance (6 timed, 2
+weighted carries), and for them the workout flow shows nothing about last time.
+
+TICKET-022 needed a last top set for a plank and added a one-off:
+`bestOnFirstMeasuredField` in `src/utils/startWorkout.ts` takes the highest value of
+the first time / distance / reps field and checks its unit by name match. It is
+correct for the catalogue today, but it duplicates `areFieldsComparable` for one
+field, and a second consumer must not copy it. This ticket replaces it with a shared
+model.
+
+**Load-bearing fact:** which direction is better cannot be read from the role. More
+time is better on a plank and worse on a 5 km run; more distance is better on a
+throw and meaningless on a fixed course. Inferring it from role or field name is the
+guess CLAUDE.md 2.5 says to stop at. The definition needs to say it.
+
+**Proposed shape** (settle first; the rest depends on it):
+
+```ts
+// ExerciseField (the definition, set by the catalogue or the user)
+better?: "higher" | "lower";
+
+// derived; replaces NumericFieldMap
+type MeasureShape =
+  | { kind: "load"; weight: ExerciseField; reps: ExerciseField }   // today's pair
+  | { kind: "single"; field: ExerciseField; better: "higher" | "lower" }
+  | null;                                                          // nothing measurable
+```
+
+Rejected: separate parallel `timeFields` / `distanceFields` objects. Combinations
+exist (distance + time for a run, time + reps for an EMOM, weight + distance for
+Farmer's Walk), and parallel objects multiply into special cases.
+
+**Acceptance Criteria:**
+- [ ] Decided and written down before any code:
+      - where `better` comes from: catalogue defaults only, or also a control in
+        the plan editor (new UI); and what a field without `better` means
+        (recommend: no comparison, never a guessed direction)
+      - weight + distance with no reps (Farmer's Walk, Sled Push): a `load` variant,
+        or `single` on one field. Today TICKET-022's fallback shows the distance
+        and ignores the weight, because distance is listed first
+      - whether single-field exercises get logger deltas and ghosts
+      - whether single-field exercises get stored bests (a new rollup entry next to
+        `bestByReps`, and `rebuildExerciseStats` updated)
+- [ ] One comparability check: units match on every field of the shape. It replaces
+      `areFieldsComparable` and the name-match check in `bestOnFirstMeasuredField`
+- [ ] `lastTopSet` (TICKET-022) uses `MeasureShape`; `single` honours `better`;
+      `bestOnFirstMeasuredField` is deleted
+- [ ] Whatever the decisions above include, delivered in stages that each typecheck
+      and run (CLAUDE.md 3.4):
+      1. types, resolver and `lastTopSet` (no visible change for `load`)
+      2. logger: deltas (`setDeltas.ts`) and ghosts (`ghostValues`, `setLogger.ts`)
+         for `single`
+      3. rollup: single-field bests and their rebuild
+- [ ] Pure tests: `better: "lower"` picks the lowest; no `better` gives no
+      comparison; a unit change on a single field gives `unit_changed`; a `load`
+      exercise behaves exactly as before. Each seen red
+
+**Technical Notes:**
+- Consumers of `NumericFieldMap` today, all weight × reps by construction: session
+  and total volume (`exerciseStats.ts`), `bestByReps`, `setDeltas.ts`, `ghostValues`,
+  `TodaySets.tsx`, `areFieldsComparable`, `lastTopSet`, `verifyHistoryReads.ts`
+- Volume stays `load`-only. A sum of seconds or metres is not volume
+- `MeasureShape` is derived, not stored. `better` is stored on the field definition
+  and so on every session's field snapshot. The app is pre-launch, so no backfill
+- Coordinate with TICKET-030: it changes history to read each session's fields by
+  role from that session's own snapshot. The shape resolver should be the thing
+  both use
+- Raised in the PR #11 review (TICKET-022), when the plank top set showed "—"
+
+**Dependencies:** TICKET-016, TICKET-022. Coordinate with TICKET-030.
+
+---
+
 ### TICKET-021: Rest Timer, Personal-Best Banner, Next-Set Target
 
 **Priority:** Medium | **Effort:** Medium | **Status: OPEN**
@@ -1829,6 +1911,7 @@ place to show it.
 --. TICKET-025 (Footer highlight)         — Small, independent; any time
 --. TICKET-026 (Clear state on sign-out)  — Privacy; small; before launch
 --. TICKET-032 (Edit/delete uploaded set) — After TICKET-020
+--. TICKET-035 (Time/distance measures)   — After 022; with or before TICKET-030
 
 --- Phase 4: later, after the Phase 3 UI is complete ---
 22. TICKET-033 (Drop sets)                — Data-model change; reminder only
