@@ -1,255 +1,405 @@
-import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  Alert
-} from "react-native";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import React, { useMemo, useState } from "react";
+import { View, TouchableOpacity, StyleSheet } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 import useWorkoutPlans from "../../hooks/useWorkoutPlans";
-import { WorkoutPlan } from "../../types/workoutType";
-import { BORDER_RADIUS, SPACING } from "../../constants/styles";
+import { useAuthUser } from "../../hooks/useAuthUser";
+import { useRecentSessions } from "../../hooks/useRecentSessions";
+import { SPACING } from "../../constants/styles";
 import ScrollableScreen from "../../components/ScrollableScreen";
 import SearchBox from "../../components/SearchBox";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
+import { useExerciseHistoryStore } from "../../stores/useExerciseHistoryStore";
 import show from "../../utils/toastUtils";
 import { WorkoutRoutes } from "../../constants/routes";
 import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
-import { useNavigation } from "@react-navigation/native";
 import { TextBase } from "../../components/TextBase";
-import AlertBase from "../../components/AlertBase";
+import { DiscardWorkoutDialog } from "../../components/active_workout/DiscardWorkoutDialog";
 import LoadingData from "../../components/LoadingData";
-import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
-import { useThemeStyles } from '../../utils/useThemeStyles';
+import { ReturnTypeUseThemeTokens } from "../../components/app_manager/ThemeContext";
+import { useThemeStyles } from "../../utils/useThemeStyles";
 import { START_WOURKOUT_STEP_NAMES } from "../../tour_steps/startWorkout";
 import { MaybeTourStep } from "../../components/guide_tour/MaybeTourStep";
-import { TouchableOpacityBase } from "../../components/TouchableOpacityBase";
+import { ResumeBanner } from "../../components/start_workout/ResumeBanner";
+import { PlanRow } from "../../components/start_workout/PlanRow";
+import { buildPlanRows } from "../../utils/startWorkout";
 
-type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.StartWorkout>;
+type workoutScreenNavigationProp = WorkoutScreenNavigationProp<
+  typeof WorkoutRoutes.StartWorkout
+>;
+
+const HIT = 44;
 
 export default function StartWorkoutScreen() {
   const { styles, t } = useThemeStyles(createStyles);
   const navigation = useNavigation<workoutScreenNavigationProp>();
+  const { user } = useAuthUser();
+  const uid = user?.uid;
 
-  const [showAlert, setShowAlert] = useState(true);
-  const { startWorkout, cancelWorkout, activeWorkout } = useWorkoutStore();
-
-  useEffect(() => {
-    setShowAlert(activeWorkout !== null);
-  }, []);
-
+  const { startWorkout, cancelWorkout, activeWorkout, pendingUploads } =
+    useWorkoutStore();
   const { workoutPlans, loadingWorkoutPlans } = useWorkoutPlans(true);
-  const [selectedWorkout, setSelectedWorkout] = useState<WorkoutPlan | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
 
-  // Filter workouts based on search query
-  let filteredWorkouts = workoutPlans.filter((workout) =>
-    workout.name.trim().toLowerCase().includes(searchQuery.trim().toLowerCase())
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [starting, setStarting] = useState(false);
+
+  const myPendingCount = pendingUploads.filter(
+    (entry) => entry.uid === uid,
+  ).length;
+  const sessions = useRecentSessions(uid, myPendingCount);
+
+  const rows = useMemo(
+    () =>
+      buildPlanRows(workoutPlans, sessions, pendingUploads, uid, searchQuery),
+    [workoutPlans, sessions, pendingUploads, uid, searchQuery],
+  );
+  const plansById = useMemo(
+    () => new Map(workoutPlans.map((plan) => [plan.id, plan])),
+    [workoutPlans],
   );
 
-  if (selectedWorkout && filteredWorkouts.some(workout => workout.id === selectedWorkout.id)) {
-    filteredWorkouts = [
-      selectedWorkout,
-      ...filteredWorkouts.filter((workout) => workout.id !== selectedWorkout.id),
-    ];
-  }
+  // Selection is derived on every render, never cleared by a remount or an
+  // effect (TICKET-019's review): a plan hidden by the search, or deleted, is
+  // simply not selected, so the bottom bar can never name a plan the user cannot
+  // see. Rejected: clearing `selectedId` in an effect when the plan leaves the
+  // list — one more lifecycle rule to keep right, for the same visible result.
+  const selectedPlan =
+    selectedId !== null && rows.some((row) => row.id === selectedId)
+      ? (plansById.get(selectedId) ?? null)
+      : null;
 
-  const toggleWorkoutSelection = (workout: WorkoutPlan) => {
-    setSelectedWorkout((prevSelected) =>
-      prevSelected?.id === workout.id ? null : workout
-    );
+  const toggleSelection = (planId: string) => {
+    if (selectedId === planId) {
+      setSelectedId(null);
+      return;
+    }
+    setSelectedId(planId);
+    // The one history read for this plan: a batched query, one doc per
+    // exercise. The same prefetch `startWorkout` makes, so a plan started after
+    // selecting it begins with its ghost targets already warm. Never on mount —
+    // warming every plan is a large read for a screen the user may pass through.
+    const plan = plansById.get(planId);
+    useExerciseHistoryStore
+      .getState()
+      .prefetchExerciseHistory(
+        uid,
+        plan?.exercises.map((exercise) => exercise.id),
+      )
+      .catch(() => {});
   };
 
-  const handleStartWorkout = () => {
-    if (selectedWorkout) {
-      if (activeWorkout) {
-        show.alert("Workout In Progress", "Please complete or discard your current workout before starting a new one.");
+  const isResume =
+    !!activeWorkout && !!selectedPlan && activeWorkout.id === selectedPlan.id;
+  const blockedBy =
+    !!activeWorkout && !!selectedPlan && !isResume ? activeWorkout : null;
+
+  const handlePrimary = async () => {
+    if (!selectedPlan) return;
+    if (isResume) {
+      navigation.navigate(WorkoutRoutes.LogWorkout);
+      return;
+    }
+    // The button is disabled while blocked, and the store refuses regardless.
+    // `starting` reads the last render, so it cannot stop a same-frame double
+    // press. Not protection: two starts of the same plan in one frame both pass
+    // the store's check (it sets the workout after a storage write) and converge
+    // on one empty workout, which loses nothing.
+    if (blockedBy || starting) return;
+    setStarting(true);
+    try {
+      const result = await startWorkout(selectedPlan);
+      if (result.status === "refused") {
+        show.alert("Could not start workout", result.reason);
         return;
       }
-      startWorkout(selectedWorkout);
-      show.info("Starting workout", `${selectedWorkout.name}`);
-      navigation.navigate(WorkoutRoutes.LogWorkout)
+    } catch (error) {
+      console.error("Could not start workout:", error);
+      show.alert("Could not start workout", "Please try again.");
+      return;
+    } finally {
+      setStarting(false);
     }
+    // Cleared explicitly: coming back to this screen should not show a stale
+    // "Start" for the plan that is now the active workout.
+    setSelectedId(null);
+    show.info("Starting workout", selectedPlan.name);
+    navigation.navigate(WorkoutRoutes.LogWorkout);
   };
 
+  const setsLogged =
+    activeWorkout?.exercises.reduce(
+      (sum, exercise) => sum + exercise.sets.length,
+      0,
+    ) ?? 0;
+  const now = Date.now();
+
   return (
-    <ScrollableScreen
-      title={
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <MaterialCommunityIcons name="arm-flex-outline" size={24} color={t.colors.textPrimary} style={{ marginRight: 5 }} />
-          <TextBase style={{ fontSize: 22, fontWeight: 'bold', color: t.colors.textPrimary }}>Start Workout</TextBase>
-          <MaterialCommunityIcons name="arm-flex-outline" size={24} color={t.colors.textPrimary} style={{ marginLeft: 5, transform: [{ scaleX: -1 }] }} />
-        </View>
-      }
-    >
-      <AlertBase
-        visible={showAlert}
-        title="Workout In Progress"
-        message="Please complete or discard your current workout before starting a new one."
-        buttons={[
-          {
-            text: 'Cancel Workout',
-            onPress: () => {
-              setShowAlert(false);
-              cancelWorkout();
-            },
-            style: { backgroundColor: t.colors.cancelButton },
-          },
-          {
-            text: 'Go to Active Workout',
-            onPress: () => {
-              setShowAlert(false)
-              navigation.navigate(WorkoutRoutes.LogWorkout);
-            },
-          }
-        ]}
-      />
+    <View style={styles.screen}>
+      <ScrollableScreen
+        style={styles.scroll}
+        innerContainerStyle={styles.inner}
+      >
+        <TextBase style={styles.title}>Start workout</TextBase>
 
-      {/* 🔍 Search Box Component */}
-      <SearchBox
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        label="Search Workout"
-        placeholder="Workout name"
-        tourStepPrefix={START_WOURKOUT_STEP_NAMES.SEARCH_BOX}
-      />
+        {/* Unfinished-work banners. Only the resume banner is built here;
+            TICKET-029's pending-uploads count belongs beside it in this stack,
+            which is why this is a stack and not a single slot. */}
+        {activeWorkout && (
+          <View style={styles.bannerStack}>
+            <ResumeBanner
+              workoutName={activeWorkout.name}
+              startTime={activeWorkout.startTime}
+              setsLogged={setsLogged}
+              onResume={() => navigation.navigate(WorkoutRoutes.LogWorkout)}
+              onDiscard={() => setConfirmDiscard(true)}
+            />
+          </View>
+        )}
 
-      {/* 🏋️ Workout Grid Selection */}
-      <MaybeTourStep stepId={START_WOURKOUT_STEP_NAMES.SEARCHED_WORKOUT_ITEMS}>
-        {loadingWorkoutPlans ? (
-          <LoadingData
-            containerStyle={styles.loadingConatiner}
-            textStyle={{ fontSize: t.fonts.large, color: t.colors.textPrimary }}
-            dotStyle={{ fontSize: t.fonts.xLarge, color: t.colors.textPrimary }}
-          />
-        ) :
-          <FlatList
-            data={filteredWorkouts}
-            key={selectedWorkout ? "horizontal" : "grid"}
-            keyExtractor={(item) => item.id}
-            horizontal={!!selectedWorkout}
-            scrollEnabled={!!selectedWorkout}
-            showsHorizontalScrollIndicator={!!selectedWorkout}
-            numColumns={selectedWorkout ? undefined : 2}
-            columnWrapperStyle={!selectedWorkout ? styles.gridRow : undefined}
-            renderItem={({ item }) => (
+        <SearchBox
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          label="Search plans"
+          placeholder="Plan name"
+          tourStepPrefix={START_WOURKOUT_STEP_NAMES.SEARCH_BOX}
+        />
+
+        {/* Outer View is a plain anchor for the tour: MultiTourSteps moves every
+            style key but align/flexDirection/height onto its own wrapper, so a
+            `gap` set here directly would space the wrapper's single child and
+            leave the rows touching. */}
+        <MaybeTourStep
+          stepId={START_WOURKOUT_STEP_NAMES.SEARCHED_WORKOUT_ITEMS}
+        >
+          <View>
+            <View style={styles.plans}>
+              <View style={styles.plansHeader}>
+                <TextBase style={styles.sectionLabel}>YOUR PLANS</TextBase>
+                {!loadingWorkoutPlans && (
+                  <TextBase numeric style={styles.count}>
+                    {rows.length}
+                  </TextBase>
+                )}
+              </View>
+
+              {loadingWorkoutPlans ? (
+                <LoadingData
+                  containerStyle={styles.loading}
+                  textStyle={{
+                    fontSize: t.fonts.large,
+                    color: t.colors.role.textPrimary,
+                  }}
+                  dotStyle={{
+                    fontSize: t.fonts.xLarge,
+                    color: t.colors.role.textPrimary,
+                  }}
+                />
+              ) : workoutPlans.length === 0 ? (
+                <View style={styles.empty}>
+                  <TextBase style={styles.emptyTitle}>No plans yet</TextBase>
+                  <TextBase style={styles.emptyBody}>
+                    Build a plan in Manage Workout, then start it from here.
+                  </TextBase>
+                  <TouchableOpacity
+                    style={styles.secondaryButton}
+                    onPress={() =>
+                      navigation.navigate(WorkoutRoutes.AddExercise)
+                    }
+                    accessibilityRole="button"
+                  >
+                    <TextBase style={styles.secondaryButtonText}>
+                      Create a plan
+                    </TextBase>
+                  </TouchableOpacity>
+                </View>
+              ) : rows.length === 0 ? (
+                <TextBase style={styles.emptyBody}>
+                  No plans match “{searchQuery.trim()}”
+                </TextBase>
+              ) : (
+                rows.map((row) => (
+                  <PlanRow
+                    key={row.id}
+                    row={row}
+                    exercises={plansById.get(row.id)?.exercises ?? []}
+                    expanded={row.id === selectedPlan?.id}
+                    now={now}
+                    onPress={() => toggleSelection(row.id)}
+                    exerciseListTourStepId={
+                      START_WOURKOUT_STEP_NAMES.SELECTED_WORKOUT_EXERCISE_LIST
+                    }
+                  />
+                ))
+              )}
+            </View>
+          </View>
+        </MaybeTourStep>
+      </ScrollableScreen>
+
+      {selectedPlan && (
+        <View style={styles.footer}>
+          {blockedBy && (
+            <TextBase style={styles.blockedReason}>
+              {blockedBy.name} is still in progress. Resume or discard it before
+              starting another.
+            </TextBase>
+          )}
+          <MaybeTourStep
+            stepId={START_WOURKOUT_STEP_NAMES.START_SELECTED_WORKOUT_BUTTON}
+            positionType="above"
+          >
+            {/* Plain View: MultiTourSteps splits its child's style (see ActiveWorkoutScreen). */}
+            <View>
               <TouchableOpacity
                 style={[
-                  styles.workoutCard,
-                  selectedWorkout?.id === item.id && styles.selectedWorkout,
-                  selectedWorkout && { marginVertical: SPACING.small }
+                  styles.primary,
+                  (blockedBy || starting) && styles.primaryDisabled,
                 ]}
-                onPress={() => toggleWorkoutSelection(item)}
+                onPress={handlePrimary}
+                disabled={!!blockedBy || starting}
+                accessibilityRole="button"
+                accessibilityState={{
+                  disabled: !!blockedBy || starting,
+                  busy: starting,
+                }}
               >
-                <TextBase style={styles.workoutTitle}>{item.name}</TextBase>
+                <TextBase
+                  style={[
+                    styles.primaryText,
+                    (blockedBy || starting) && styles.primaryTextDisabled,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {isResume ? "Resume" : "Start"} {selectedPlan.name}
+                </TextBase>
               </TouchableOpacity>
-            )}
-            ListEmptyComponent={
-              <TextBase style={styles.noResultsText}>No workouts found</TextBase>
-            }
-          />
-        }
-      </MaybeTourStep>
-
-      {/* ▶️ Floating Start Workout Button */}
-      {selectedWorkout && (
-        <MaybeTourStep stepId={START_WOURKOUT_STEP_NAMES.START_SELECTED_WORKOUT_BUTTON} positionType='above'>
-          <TouchableOpacityBase style={styles.startWorkoutButton} onPress={handleStartWorkout}>
-            <TextBase style={styles.startWorkoutText}>Start {selectedWorkout.name}</TextBase>
-          </TouchableOpacityBase>
-        </MaybeTourStep>
+            </View>
+          </MaybeTourStep>
+        </View>
       )}
 
-      {/* 📜 Exercise List (Shown only when a workout is selected) */}
-      {selectedWorkout && (
-        <MaybeTourStep stepId={START_WOURKOUT_STEP_NAMES.SELECTED_WORKOUT_EXERCISE_LIST} positionType='above'>
-          <ScrollView style={styles.exerciseList}>
-            <TextBase style={styles.exerciseHeader}>Exercises in {selectedWorkout.name}</TextBase>
-            {selectedWorkout.exercises.map((exercise) => (
-              <View key={exercise.id} style={styles.exerciseCard}>
-                <Ionicons name="barbell-outline" size={20} color={t.colors.primary} />
-                <TextBase style={styles.exerciseText}>{exercise.name}</TextBase>
-              </View>
-            ))}
-          </ScrollView>
-        </MaybeTourStep>
-      )}
-    </ScrollableScreen>
+      <DiscardWorkoutDialog
+        visible={confirmDiscard}
+        keepLabel="Keep it"
+        onKeep={() => setConfirmDiscard(false)}
+        onDiscard={async () => {
+          setConfirmDiscard(false);
+          await cancelWorkout();
+        }}
+      />
+    </View>
   );
 }
 
-const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
-  loadingConatiner: { flex: 1, justifyContent: "center", alignItems: "center" },
-  noResultsText: {
-    justifyContent: 'center',
-    textAlign: "center",
-    fontSize: t.fonts.large,
-    color: t.colors.textPrimary,
-    marginVertical: SPACING.small,
-    fontWeight: "bold",
-    paddingLeft: SPACING.small,
-  },
-  gridRow: {
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-  workoutCard: {
-    flex: 1,
-    backgroundColor: t.colors.cardBackground,
-    padding: 20,
-    borderRadius: BORDER_RADIUS,
-    alignItems: "center",
-    justifyContent: "center",
-    marginHorizontal: 5,
-    ...t.shadows.shadowSmall,
-  },
-  selectedWorkout: {
-    borderColor: t.colors.border,
-    borderWidth: SPACING.xSmall,
-    ...t.shadows.shadowMedium,
-  },
-  workoutTitle: {
-    fontSize: t.fonts.large,
-    fontWeight: "bold",
-    color: t.colors.textSecondary,
-    textAlign: "center",
-  },
-  exerciseList: {
-    marginTop: 20,
-  },
-  exerciseHeader: {
-    fontSize: t.fonts.large,
-    fontWeight: "bold",
-    color: t.colors.textPrimary,
-    marginBottom: 10,
-  },
-  exerciseCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: SPACING.medium,
-    backgroundColor: t.colors.secondary,
-    borderRadius: BORDER_RADIUS,
-    marginBottom: SPACING.small,
-  },
-  exerciseText: {
-    fontSize: t.fonts.medium,
-    fontWeight: "bold",
-    marginLeft: SPACING.small,
-    color: t.colors.textPrimary,
-  },
-  startWorkoutButton: {
-    marginTop: SPACING.large,
-    paddingVertical: SPACING.large,
-    borderRadius: BORDER_RADIUS,
-    backgroundColor: t.colors.button,
-    alignItems: "center",
-  },
-  startWorkoutText: {
-    fontSize: t.fonts.large,
-    fontWeight: "bold",
-    color: t.colors.textSecondary,
-  },
-});
+const createStyles = (t: ReturnTypeUseThemeTokens) =>
+  StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: t.colors.role.ground,
+    },
+    scroll: {
+      backgroundColor: t.colors.role.ground,
+    },
+    inner: {
+      backgroundColor: t.colors.role.ground,
+      gap: SPACING.large,
+    },
+    title: {
+      fontSize: 26,
+      fontWeight: "bold",
+      color: t.colors.role.textPrimary,
+      textAlign: "center",
+    },
+    bannerStack: {
+      gap: SPACING.small,
+    },
+    plans: {
+      gap: SPACING.medium,
+    },
+    plansHeader: {
+      flexDirection: "row",
+      alignItems: "baseline",
+      justifyContent: "space-between",
+    },
+    sectionLabel: {
+      fontSize: t.fonts.xSmall,
+      fontWeight: "bold",
+      letterSpacing: 1.5,
+      color: t.colors.role.textSecondary,
+    },
+    count: {
+      fontSize: t.fonts.small,
+      color: t.colors.role.textSecondary,
+    },
+    loading: {
+      paddingVertical: SPACING.xxxLarge,
+      alignItems: "center",
+    },
+    empty: {
+      padding: SPACING.large,
+      gap: SPACING.small,
+      borderRadius: 16,
+      backgroundColor: t.colors.role.surface,
+      borderWidth: 1,
+      borderColor: t.colors.role.hairline,
+    },
+    emptyTitle: {
+      fontSize: t.fonts.medium,
+      fontWeight: "bold",
+      color: t.colors.role.textPrimary,
+    },
+    emptyBody: {
+      fontSize: t.fonts.xMedium,
+      color: t.colors.role.textSecondary,
+    },
+    secondaryButton: {
+      marginTop: SPACING.small,
+      minHeight: HIT,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: t.colors.role.hairlineStrong,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    secondaryButtonText: {
+      fontSize: t.fonts.xMedium,
+      fontWeight: "bold",
+      color: t.colors.role.textPrimary,
+    },
+    footer: {
+      gap: SPACING.small,
+      paddingTop: SPACING.medium,
+      paddingHorizontal: SPACING.large,
+      paddingBottom: SPACING.xxLarge,
+      backgroundColor: t.colors.role.surface,
+      borderTopWidth: 1,
+      borderTopColor: t.colors.role.hairline,
+    },
+    blockedReason: {
+      fontSize: t.fonts.small,
+      color: t.colors.role.textSecondary,
+      textAlign: "center",
+    },
+    primary: {
+      height: 56,
+      borderRadius: 15,
+      paddingHorizontal: SPACING.large,
+      backgroundColor: t.colors.role.accent,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    // Not just dimmed accent: a disabled control should not read as the primary
+    // action, and the reason above says why it is off.
+    primaryDisabled: {
+      backgroundColor: t.colors.role.raised,
+    },
+    primaryText: {
+      fontSize: t.fonts.medium,
+      fontWeight: "bold",
+      color: t.colors.role.ground,
+    },
+    primaryTextDisabled: {
+      color: t.colors.role.textSecondary,
+    },
+  });

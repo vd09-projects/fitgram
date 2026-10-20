@@ -173,3 +173,9 @@ Before saying it is done:
 - known gaps are listed, each with a reason it was deferred
 - nothing was pushed, merged or deployed that was not asked for
 - you named the rules above you skipped, and why
+
+When a review's findings are addressed, resolve the review threads as part of
+merging — a reply is not a resolution. A merged PR with open conversations reads
+later as unfinished work, and nobody can tell the addressed ones from the
+dropped ones. PRs #2, #4 and #5 were merged this way and left 16 open threads
+that were all already fixed.

@@ -51,6 +51,12 @@ export type ExerciseHistorySession = {
   workoutName: string;
   performedAt: number;
   sets: HistorySet[];
+  /**
+   * The field definitions this session was logged with (its own snapshot, not
+   * today's). Lets a reader check a single field's unit when the exercise has no
+   * weight+reps pair, which `comparable` cannot answer.
+   */
+  fields: ExerciseField[];
   volume: SessionVolume;
   /**
    * False when this session's weight unit differs from the exercise's current

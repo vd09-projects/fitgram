@@ -1045,6 +1045,88 @@ is visible).
 
 ---
 
+### TICKET-035: Measures Beyond Weight × Reps — Time, Distance, and Which Way Is Better
+
+**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN**
+
+**Description:**
+Every derived number in the workout flow comes from one derived pair,
+`NumericFieldMap = { weight, reps }` (`resolveNumericFields`,
+`src/utils/exerciseFields.ts`). An exercise without that pair gets `null` everywhere:
+no ghost target, no per-set delta, no best, no volume. That is the correct absence
+for today's model, but 8 catalogue exercises measure time or distance (6 timed, 2
+weighted carries), and for them the workout flow shows nothing about last time.
+
+TICKET-022 needed a last top set for a plank and added a one-off:
+`bestOnFirstMeasuredField` in `src/utils/startWorkout.ts` takes the highest value of
+the first time / distance / reps field and checks its unit by name match. It is
+correct for the catalogue today, but it duplicates `areFieldsComparable` for one
+field, and a second consumer must not copy it. This ticket replaces it with a shared
+model.
+
+**Load-bearing fact:** which direction is better cannot be read from the role. More
+time is better on a plank and worse on a 5 km run; more distance is better on a
+throw and meaningless on a fixed course. Inferring it from role or field name is the
+guess CLAUDE.md 2.5 says to stop at. The definition needs to say it.
+
+**Proposed shape** (settle first; the rest depends on it):
+
+```ts
+// ExerciseField (the definition, set by the catalogue or the user)
+better?: "higher" | "lower";
+
+// derived; replaces NumericFieldMap
+type MeasureShape =
+  | { kind: "load"; weight: ExerciseField; reps: ExerciseField }   // today's pair
+  | { kind: "single"; field: ExerciseField; better: "higher" | "lower" }
+  | null;                                                          // nothing measurable
+```
+
+Rejected: separate parallel `timeFields` / `distanceFields` objects. Combinations
+exist (distance + time for a run, time + reps for an EMOM, weight + distance for
+Farmer's Walk), and parallel objects multiply into special cases.
+
+**Acceptance Criteria:**
+- [ ] Decided and written down before any code:
+      - where `better` comes from: catalogue defaults only, or also a control in
+        the plan editor (new UI); and what a field without `better` means
+        (recommend: no comparison, never a guessed direction)
+      - weight + distance with no reps (Farmer's Walk, Sled Push): a `load` variant,
+        or `single` on one field. Today TICKET-022's fallback shows the distance
+        and ignores the weight, because distance is listed first
+      - whether single-field exercises get logger deltas and ghosts
+      - whether single-field exercises get stored bests (a new rollup entry next to
+        `bestByReps`, and `rebuildExerciseStats` updated)
+- [ ] One comparability check: units match on every field of the shape. It replaces
+      `areFieldsComparable` and the name-match check in `bestOnFirstMeasuredField`
+- [ ] `lastTopSet` (TICKET-022) uses `MeasureShape`; `single` honours `better`;
+      `bestOnFirstMeasuredField` is deleted
+- [ ] Whatever the decisions above include, delivered in stages that each typecheck
+      and run (CLAUDE.md 3.4):
+      1. types, resolver and `lastTopSet` (no visible change for `load`)
+      2. logger: deltas (`setDeltas.ts`) and ghosts (`ghostValues`, `setLogger.ts`)
+         for `single`
+      3. rollup: single-field bests and their rebuild
+- [ ] Pure tests: `better: "lower"` picks the lowest; no `better` gives no
+      comparison; a unit change on a single field gives `unit_changed`; a `load`
+      exercise behaves exactly as before. Each seen red
+
+**Technical Notes:**
+- Consumers of `NumericFieldMap` today, all weight × reps by construction: session
+  and total volume (`exerciseStats.ts`), `bestByReps`, `setDeltas.ts`, `ghostValues`,
+  `TodaySets.tsx`, `areFieldsComparable`, `lastTopSet`, `verifyHistoryReads.ts`
+- Volume stays `load`-only. A sum of seconds or metres is not volume
+- `MeasureShape` is derived, not stored. `better` is stored on the field definition
+  and so on every session's field snapshot. The app is pre-launch, so no backfill
+- Coordinate with TICKET-030: it changes history to read each session's fields by
+  role from that session's own snapshot. The shape resolver should be the thing
+  both use
+- Raised in the PR #11 review (TICKET-022), when the plank top set showed "—"
+
+**Dependencies:** TICKET-016, TICKET-022. Coordinate with TICKET-030.
+
+---
+
 ### TICKET-021: Rest Timer, Personal-Best Banner, Next-Set Target
 
 **Priority:** Medium | **Effort:** Medium | **Status: OPEN**
@@ -1078,7 +1160,7 @@ target already shown, and a set that beats the user's previous best is called ou
 
 ### TICKET-022: Start Workout Redesign and Resume Banner
 
-**Priority:** High | **Effort:** Medium | **Status: OPEN**
+**Priority:** High | **Effort:** Medium | **Status: IN PROGRESS** — built on branch `TICKET-022`, awaiting device run
 
 **Description:**
 Rebuild the plan picker so a plan can be judged before it is started — exercise count, when
@@ -1087,15 +1169,15 @@ top set. Replace the modal alert that fires when a workout is already running wi
 resume banner.
 
 **Acceptance Criteria:**
-- [ ] Plan cards become rows showing name, exercise count, time since last performed, and recent volume
-- [ ] Selecting a plan expands it to list its exercises with each one's last top set
-- [ ] A trend indicator per plan
-- [ ] Search still filters plans
-- [ ] The blocking `AlertBase` on mount is replaced by an inline banner naming the in-progress workout, its elapsed time and sets logged, with Resume and Discard
-- [ ] Discard from the banner confirms first
-- [ ] Primary action is a single bottom-bar button naming the plan being started
-- [ ] Empty state for a user with no plans
-- [ ] Tour steps in `src/tour_steps/startWorkout.ts` still resolve, or are updated
+- [x] Plan cards become rows showing name, exercise count, time since last performed, and recent volume
+- [x] Selecting a plan expands it to list its exercises with each one's last top set
+- [ ] A trend indicator per plan — **deferred**, see Decisions
+- [x] Search still filters plans
+- [x] The blocking `AlertBase` on mount is replaced by an inline banner naming the in-progress workout, its elapsed time and sets logged, with Resume and Discard
+- [x] Discard from the banner confirms first
+- [x] Primary action is a single bottom-bar button naming the plan being started
+- [x] Empty state for a user with no plans
+- [x] Tour steps in `src/tour_steps/startWorkout.ts` still resolve, or are updated
 
 **Technical Notes:**
 - `StartWorkoutScreen.tsx:19` sets `showAlert` from `activeWorkout` in a mount-time
@@ -1110,6 +1192,68 @@ resume banner.
   indicator is the cross-screen case. Same state, so decide the split once
 
 **Dependencies:** TICKET-015, TICKET-016.
+
+**Decisions pinned:**
+- **Session volume is stored**, as `WorkoutSessionDoc.volume: SessionTotalVolume`,
+  computed in `buildSessionDocs`. Aggregating exercise stats on read would cost
+  one read per exercise per plan; adding the field after launch would mean migrating
+  every session. Pre-launch, it is free
+- **Mixed units null the total** (`unavailableReason: "mixed_units"`). "kg" next to
+  no unit counts as mixed, matching `areFieldsComparable`. Rejected: per-unit totals
+  (`{ kg, lb }`), which are more to store and render for a case the precedent
+  already answers with null
+- **An exercise with no weight+reps pair is excluded, not treated as a failure.** Under
+  strict all-or-nothing, any plan with a plank would never show a volume. Counted
+  in `exercisesTotal` and not in `exercisesWeighted`, and the row shows "1 not weighted"
+- **One unparseable lift nulls the total** (`"unparseable"`), with counts alongside
+  ("2 of 3 lifts readable"). Precedence when several apply: no weighted lifts,
+  then unparseable, then mixed units
+- **last done** = the newest session of the plan, from one recent-sessions query
+  (20) plus this user's pending uploads. Joined on `workoutId` and compared on
+  start time on both sides. On a tie the uploaded copy wins. The volume always
+  comes from the same session as the date. If the sessions query fails, no plan
+  shows a date, pending included. A pending date gets a "not uploaded yet" label
+- **last top set** = the heaviest weight in the last session, ties going to more
+  reps. An exercise without a weight+reps pair (a plank in minutes, reps-only
+  burpees) shows its highest value on its first measured field instead, e.g.
+  `1.5 min`. A session in a different unit than today's definition shows "unit
+  changed". This needed `ExerciseHistorySession.fields` (the session's own field
+  snapshot); the addition is additive, and `buildHistorySession` is its only producer
+- **Selection is derived**: a plan hidden by the search is not selected. It is not
+  cleared by remount or an effect, but it is cleared explicitly after Start
+- **`startWorkout` refuses while any workout is in progress** (PR #11 review), the
+  same plan included, and returns `{ status: "refused", reason }`. It overwrote
+  `activeWorkout` unconditionally, so a press past the disabled button deleted every
+  logged set. The screen keeps its disabled button and explanation; the store is
+  what stops the data loss, for every entry point
+
+**Deviations:**
+- Trend indicator deferred. The stored field now makes it possible, but plan
+  composition drifts between sessions ("volume up" can mean an exercise was added),
+  and most plans have fewer than 2 points in the 20-session window
+- Pending uploads count toward last-done. Not in the original ticket: without them,
+  a workout finished offline yesterday reads "8 days ago"
+- Banner adds Discard next to Resume (the design board shows Resume only), and both
+  are 44px (the board's 38px is under the target)
+- `START_WOURKOUT` misspelling left as is: `MANAGE_WOURKOUT` has the same typo, and
+  renaming one of them would be a half fix
+
+**Files:** `types/workoutSession.ts`, `utils/{exerciseStats,startWorkout}.ts`,
+`hooks/useRecentSessions.ts`, `components/start_workout/{PlanRow,ResumeBanner,PartsText}.tsx`,
+`screens/workout_management/StartWorkoutScreen.tsx`, `tour_steps/startWorkout.ts`,
+`components/active_workout/DiscardWorkoutDialog.tsx` (shared with the active workout),
+`stores/useWorkoutStore.tsx`
+
+**Verification:** 16 pure tests (`utils/startWorkout.test.ts`), 5 screen tests and
+1 store test (`startWorkout` refusal); 116 in the suite. The PR #11 review's mutation
+run found 2 survivors in what this work first claimed was fully mutated: the
+`blockedBy` guard (now backed by the store refusal and its test, seen red with the
+check removed) and the uploaded-wins tie clause (redundant by loop order, now labelled
+as such in the code). The screen-level guard itself is still untested: the disabled
+button makes it unreachable from a press. Opening the screen issues one
+`getWorkoutSessions` and no history read; selecting a plan issues one
+`getExerciseStats` for its exercises. Untested: a real Firestore write of the new
+field, and either schema on a device.
 
 ---
 
@@ -1779,6 +1923,7 @@ place to show it.
 --. TICKET-025 (Footer highlight)         — Small, independent; any time
 --. TICKET-026 (Clear state on sign-out)  — Privacy; small; before launch
 --. TICKET-032 (Edit/delete uploaded set) — After TICKET-020
+--. TICKET-035 (Time/distance measures)   — After 022; with or before TICKET-030
 
 --- Phase 4: later, after the Phase 3 UI is complete ---
 22. TICKET-033 (Drop sets)                — Data-model change; reminder only

@@ -9,6 +9,8 @@ import {
   ExerciseSessionDoc,
   ExerciseStatsDoc,
   WorkoutSessionDoc,
+  SessionTotalVolume,
+  SessionVolumeUnavailableReason,
   StatsBestEntry,
   StatsSessionEntry,
   StatsVolumePoint,
@@ -61,6 +63,69 @@ export function computeSessionVolume(
     value: setsCounted === setsTotal ? total : null,
     setsCounted,
     setsTotal,
+  };
+}
+
+/**
+ * Session total volume = sum of `computeSessionVolume` over the session's
+ * exercises. Carries `SessionVolume`'s all-or-nothing rule up a level, with two
+ * additions that only exist once exercises are summed together:
+ *
+ * - **Exercises with no weight+reps pair are excluded, not failures.** A plank
+ *   has no volume by definition; treating it as unparseable would mean any plan
+ *   containing one never shows a total. It is counted in `exercisesTotal` but
+ *   not `exercisesWeighted`, so the exclusion stays visible.
+ * - **Mixed units null the total.** `ExerciseField.unit` is per exercise, so one
+ *   session can hold a kg barbell lift and lb dumbbells. Units are never
+ *   converted (see `areFieldsComparable`), and summing them means nothing. Same
+ *   comparison as there: `"kg"` vs no unit is mixed; no unit on every exercise
+ *   matches. Rejected alternative: per-unit totals (`{ kg, lb }`) — more to
+ *   render and store for a case the precedent already answers with null.
+ *
+ * Reason precedence when several apply: `no_weighted_exercises`, then
+ * `unparseable` (a broken set is the fixable cause), then `mixed_units`. Fixed so
+ * the same input always reports the same reason.
+ */
+export function computeSessionTotalVolume(
+  exercises: Pick<ExerciseSessionDoc, "fields" | "sets">[]
+): SessionTotalVolume {
+  let total = 0;
+  let exercisesCounted = 0;
+  let exercisesWeighted = 0;
+  let unparseable = false;
+  const units = new Set<string | null>();
+
+  for (const exercise of exercises) {
+    const numeric = resolveNumericFields(exercise.fields);
+    if (!numeric) continue;
+    exercisesWeighted += 1;
+    units.add(numeric.weight.unit ?? null);
+
+    const { value } = computeSessionVolume(exercise.sets, numeric);
+    if (value === null) {
+      unparseable = true;
+      continue;
+    }
+    total += value;
+    exercisesCounted += 1;
+  }
+
+  const unavailableReason: SessionVolumeUnavailableReason | null =
+    exercisesWeighted === 0
+      ? "no_weighted_exercises"
+      : unparseable
+        ? "unparseable"
+        : units.size > 1
+          ? "mixed_units"
+          : null;
+
+  return {
+    value: unavailableReason === null ? total : null,
+    unit: unavailableReason === null ? ([...units][0] ?? null) : null,
+    unavailableReason,
+    exercisesCounted,
+    exercisesWeighted,
+    exercisesTotal: exercises.length,
   };
 }
 
@@ -257,6 +322,7 @@ export function buildSessionDocs(
       endedAt,
       exerciseIds: exerciseSessions.map((e) => e.exerciseId),
       rollupPending: true,
+      volume: computeSessionTotalVolume(exerciseSessions),
     },
     exerciseSessions,
   };

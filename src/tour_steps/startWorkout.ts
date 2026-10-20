@@ -34,15 +34,15 @@ const START_WOURKOUT_TOUR_STEPS = {
   },
   [START_WOURKOUT_STEP_NAMES.SEARCH_BOX]: SEARCH_BOX_TOUR_STEPS,
   [START_WOURKOUT_STEP_NAMES.SEARCHED_WORKOUT_ITEMS]: {
-    title: "Select a Workout",
+    title: "Pick a Plan",
     description:
-      "Choose a workout from the list to get started. If you’ve already selected one, you can scroll to the right to see more options.",
+      "Each plan shows how many exercises it has and when you last did it. Tap one to see its exercises and what you lifted last time.",
     screen: SCREEN_NAMES.START_WORKOUT_SCREEN,
   },
   [START_WOURKOUT_STEP_NAMES.SELECTED_WORKOUT_EXERCISE_LIST]: {
-    title: "Exercises in This Workout",
+    title: "Exercises in This Plan",
     description:
-      "These are the exercises included in the selected workout. You can track your progress for each exercise here.",
+      "Every exercise in the plan, with the heaviest set from the last time you did it.",
     screen: SCREEN_NAMES.START_WORKOUT_SCREEN,
   },
   [START_WOURKOUT_STEP_NAMES.START_SELECTED_WORKOUT_BUTTON]: {

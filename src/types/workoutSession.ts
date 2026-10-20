@@ -18,6 +18,35 @@ import { ExerciseField } from "./workoutType";
 /** One logged set's values, keyed by `ExerciseField.name`. */
 export type StoredSetFields = Record<string, string | number>;
 
+/** Why a session total is null. See `computeSessionTotalVolume`. */
+export type SessionVolumeUnavailableReason =
+  | "unparseable"
+  | "mixed_units"
+  | "no_weighted_exercises";
+
+/**
+ * A whole session's volume, stored at write time (TICKET-022). Stored rather
+ * than aggregated on read because the alternative is one exercise read per plan
+ * on the Start screen; stored now because the app is pre-launch and adding it
+ * after launch means migrating every session.
+ */
+export type SessionTotalVolume = {
+  /** Sum of every weighted exercise's volume, or null with `unavailableReason`. */
+  value: number | null;
+  /**
+   * The unit every weighted exercise shared. Only meaningful when `value` is
+   * non-null, and then null means "unspecified on every exercise", not unknown.
+   */
+  unit: string | null;
+  unavailableReason: SessionVolumeUnavailableReason | null;
+  /** Weighted exercises whose volume was summed. */
+  exercisesCounted: number;
+  /** Exercises with a weight+reps pair. */
+  exercisesWeighted: number;
+  /** All exercises in the session. `total − weighted` were excluded (a plank). */
+  exercisesTotal: number;
+};
+
 /**
  * One workout session.
  *
@@ -33,6 +62,11 @@ export type WorkoutSessionDoc = {
   endedAt: number;
   exerciseIds: string[];
   rollupPending: boolean;
+  /**
+   * Always written. Optional only because dev sessions saved before TICKET-022
+   * lack it; readers treat absence as unavailable, never as 0.
+   */
+  volume?: SessionTotalVolume;
 };
 
 /**
