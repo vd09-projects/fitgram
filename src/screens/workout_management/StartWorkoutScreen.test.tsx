@@ -157,7 +157,7 @@ describe("StartWorkoutScreen", () => {
 
   it("starts the selected plan from the bottom bar, and refuses while another workout is running", async () => {
     mockStats.mockResolvedValue({});
-    const startWorkout = jest.fn().mockResolvedValue(undefined);
+    const startWorkout = jest.fn().mockResolvedValue({ status: "started" });
     const first = await renderStart({ workoutActions: { startWorkout } });
 
     await act(async () => fireEvent.press(screen.getByRole("button", { name: "Push" })));

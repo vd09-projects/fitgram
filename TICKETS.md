@@ -1221,6 +1221,11 @@ resume banner.
   snapshot); the addition is additive, and `buildHistorySession` is its only producer
 - **Selection is derived**: a plan hidden by the search is not selected. It is not
   cleared by remount or an effect, but it is cleared explicitly after Start
+- **`startWorkout` refuses while any workout is in progress** (PR #11 review), the
+  same plan included, and returns `{ status: "refused", reason }`. It overwrote
+  `activeWorkout` unconditionally, so a press past the disabled button deleted every
+  logged set. The screen keeps its disabled button and explanation; the store is
+  what stops the data loss, for every entry point
 
 **Deviations:**
 - Trend indicator deferred. The stored field now makes it possible, but plan
@@ -1235,10 +1240,17 @@ resume banner.
 
 **Files:** `types/workoutSession.ts`, `utils/{exerciseStats,startWorkout}.ts`,
 `hooks/useRecentSessions.ts`, `components/start_workout/{PlanRow,ResumeBanner,PartsText}.tsx`,
-`screens/workout_management/StartWorkoutScreen.tsx`, `tour_steps/startWorkout.ts`
+`screens/workout_management/StartWorkoutScreen.tsx`, `tour_steps/startWorkout.ts`,
+`components/active_workout/DiscardWorkoutDialog.tsx` (shared with the active workout),
+`stores/useWorkoutStore.tsx`
 
-**Verification:** 16 pure tests (`utils/startWorkout.test.ts`) and 5 screen tests.
-Every behaviour was mutated and watched to fail. Opening the screen issues one
+**Verification:** 16 pure tests (`utils/startWorkout.test.ts`), 5 screen tests and
+1 store test (`startWorkout` refusal); 116 in the suite. The PR #11 review's mutation
+run found 2 survivors in what this work first claimed was fully mutated: the
+`blockedBy` guard (now backed by the store refusal and its test, seen red with the
+check removed) and the uploaded-wins tie clause (redundant by loop order, now labelled
+as such in the code). The screen-level guard itself is still untested: the disabled
+button makes it unreachable from a press. Opening the screen issues one
 `getWorkoutSessions` and no history read; selecting a plan issues one
 `getExerciseStats` for its exercises. Untested: a real Firestore write of the new
 field, and either schema on a device.

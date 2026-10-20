@@ -268,3 +268,20 @@ describe("removeSet and restoreSet", () => {
     expect(benchSets()).toEqual(sets([60]));
   });
 });
+
+describe("startWorkout", () => {
+  it("refuses while a workout is in progress and leaves it untouched", async () => {
+    const running = seedWorkout();
+    await AsyncStorage.setItem("activeWorkout", JSON.stringify(running));
+
+    const result = await store().startWorkout({
+      id: "other",
+      name: "Other",
+      exercises: [buildExercise("Squat")],
+    });
+
+    expect(result.status).toBe("refused");
+    expect(store().activeWorkout).toBe(running);
+    expect(JSON.parse((await AsyncStorage.getItem("activeWorkout")) ?? "null")).toEqual(running);
+  });
+});

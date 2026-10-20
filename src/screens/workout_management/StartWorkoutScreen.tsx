@@ -100,11 +100,19 @@ export default function StartWorkoutScreen() {
       navigation.navigate(WorkoutRoutes.LogWorkout);
       return;
     }
-    // Disabled while blocked; this guards a press that lands mid-render.
+    // The button is disabled while blocked, and the store refuses regardless.
+    // `starting` reads the last render, so it cannot stop a same-frame double
+    // press. Not protection: two starts of the same plan in one frame both pass
+    // the store's check (it sets the workout after a storage write) and converge
+    // on one empty workout, which loses nothing.
     if (blockedBy || starting) return;
     setStarting(true);
     try {
-      await startWorkout(selectedPlan);
+      const result = await startWorkout(selectedPlan);
+      if (result.status === "refused") {
+        show.alert("Could not start workout", result.reason);
+        return;
+      }
     } catch (error) {
       console.error("Could not start workout:", error);
       show.alert("Could not start workout", "Please try again.");

@@ -51,6 +51,8 @@ export type EndWorkoutResult =
 
 const refused = (reason: string): EndWorkoutResult => ({ status: "refused", reason });
 
+export type StartWorkoutResult = { status: "started" } | { status: "refused"; reason: string };
+
 /**
  * A set taken out by `removeSet`, with the exercise it came from and the 0-based
  * position it held. Undo puts it back by `index`, never by `set.id`: ids are
@@ -76,7 +78,7 @@ interface WorkoutStoreState {
   pendingUploads: PendingUpload[];
 
   // Actions
-  startWorkout: (workout: WorkoutPlan) => Promise<void>;
+  startWorkout: (workout: WorkoutPlan) => Promise<StartWorkoutResult>;
   addSetToExercise: (exerciseId: string, newSet: ExerciseSet) => Promise<void>;
   updateSet: (exerciseId: string, setId: number, updatedFields: Record<string, string | number>) => Promise<void>;
   removeSet: (exerciseId: string, setId: number) => Promise<RemovedSet | null>;
@@ -91,8 +93,26 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
   activeWorkout: null,
   pendingUploads: [],
 
-  /** 🔹 Start a Workout */
+  /**
+   * 🔹 Start a Workout
+   *
+   * Refused while any workout is in progress, the same plan included: starting
+   * replaces `activeWorkout` with empty sets, so it would delete every set
+   * logged so far, from the store and from storage, with no undo. The refusal
+   * lives here rather than only on the Start screen's disabled button because
+   * this is what destroys the data, and every entry point (TICKET-011's
+   * cross-screen indicator, say) gets it without re-implementing the check.
+   * The screen still disables the button; that is what explains why.
+   */
   startWorkout: async (workout: WorkoutPlan) => {
+    const current = get().activeWorkout;
+    if (current) {
+      return {
+        status: "refused",
+        reason: `${current.name} is still in progress. Resume or discard it first.`,
+      };
+    }
+
     // Prefetch history for every exercise in the plan, first, so it overlaps the
     // local writes below and the first set is logged against a warm cache. One
     // batched query, one document per exercise. Deliberately not awaited and
@@ -123,6 +143,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
 
     await AsyncStorage.setItem("activeWorkout", JSON.stringify(newWorkout));
     set({ activeWorkout: newWorkout });
+    return { status: "started" };
   },
 
   /** 🔹 Add a New Set to an Exercise */

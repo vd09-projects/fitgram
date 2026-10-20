@@ -70,6 +70,10 @@ export function buildPlanRows(
   if (sessions !== null) {
     const consider = (workoutId: string, candidate: Candidate) => {
       const current = latest.get(workoutId);
+      // The tie clause is order-independence insurance, redundant today: the
+      // sessions loop runs before the pending loop, so on equal `startedAt` the
+      // uploaded copy is already `current` and kept. It decides the outcome only
+      // if the loops are reordered. No test covers it for that reason.
       if (
         !current ||
         candidate.startedAt > current.startedAt ||
