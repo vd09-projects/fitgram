@@ -553,14 +553,15 @@ installed and authenticated; neither is present on this machine.
 >
 > **Open decisions.** Needed before TICKET-019 and TICKET-021; they do not block 015-018.
 >
-> 1. Rest duration has no home. `WorkoutPlan` and `Exercise` in
->    `src/types/workoutType.ts` carry no rest field — per exercise, per workout,
->    or one global setting?
+> 1. ~~Rest duration has no home.~~ **Resolved in TICKET-021:** one global
+>    preference (`restPreferenceStore`, AsyncStorage). Per exercise, falling back
+>    to it, is TICKET-038.
 > 2. ~~A mistyped set cannot be removed.~~ **Resolved in TICKET-019:**
 >    `removeSet` / `restoreSet` on the active workout, before Finish, with an
 >    inline undo. Deleting or editing an *uploaded* set is TICKET-032.
-> 3. Rest timer while the app is backgrounded. Resume-from-timestamp is cheap; a
->    local notification when rest ends is a separate dependency.
+> 3. ~~Rest timer while the app is backgrounded.~~ **Resolved in TICKET-021:**
+>    resume from timestamp only. No rest-end notification (`expo-notifications`
+>    is not installed: native dependency, rebuild, permission prompt).
 >
 > A user-facing display-font selector is deliberately **not** ticketed. The decision
 > is to ship one tuned face and keep the option cheap by making the font a theme
@@ -1226,9 +1227,35 @@ tell which session they are selecting. Seen on the emulator during TICKET-020.
 
 ---
 
+### TICKET-038: Per-Exercise Rest Duration, and a Control to Set It
+
+**Priority:** Low | **Effort:** Medium | **Status: OPEN**
+
+**Description:**
+TICKET-021 shipped one global rest duration (default 1:30). Squats and curls want different
+rests. Let an exercise carry its own, falling back to the global, and give the user a way to
+set both — 021 has no settings UI, so the global value is the default until this lands.
+
+**Acceptance Criteria:**
+- [ ] Optional `restSeconds` on `Exercise`, carried onto `LoggedExercise`; missing means the
+      global preference
+- [ ] A control to set the global duration (`restPreferenceStore.setRestDurationMs`, already
+      persisted and range-checked), and one per exercise in `ExerciseFieldEditor` or the plan
+- [ ] `ExerciseLogger.logSet` starts the rest with the exercise's value when present
+- [ ] Test: an exercise with its own duration rests for it; one without rests for the global
+
+**Technical Notes:**
+- Recorded as 021's open decision 1. Adding the field later costs nothing: absent falls back,
+  so no migration — unlike `WorkoutSessionDoc.volume`, which had to be decided up front
+- Touches the catalogue seed if catalogue exercises get defaults; optional otherwise
+
+**Dependencies:** TICKET-021.
+
+---
+
 ### TICKET-021: Rest Timer, Personal-Best Banner, Next-Set Target
 
-**Priority:** Medium | **Effort:** Medium | **Status: OPEN**
+**Priority:** Medium | **Effort:** Medium | **Status: IN PROGRESS** — built on branch `TICKET-021`, awaiting device run
 
 **Description:**
 After a set is logged, the input card gives way to a rest countdown with the next set's
@@ -1254,6 +1281,52 @@ target already shown, and a set that beats the user's previous best is called ou
   screen. Decide before building; do not build both
 
 **Dependencies:** TICKET-015, TICKET-016, TICKET-018.
+
+**Implementation decisions and deviations (branch `TICKET-021`):**
+- Open decision 1: one global duration, `restPreferenceStore` (zustand + AsyncStorage,
+  `colorSchemaStore`'s shape), default 1:30, range 5 s–30 min. Not in `useWorkoutStore`:
+  it is a preference. Per exercise is TICKET-038. **No UI sets it yet** — see gaps
+- Open decision 3: resume from timestamp only. `useWorkoutStore.rest` holds
+  `{ exerciseId, startedAt, durationMs }`; `restCountdown` derives what is left from
+  `Date.now()` on each render. The 500 ms interval only re-renders and holds no count.
+  `expo-keep-awake` not used
+- The running rest is in `useWorkoutStore` (the AC) but memory only, not AsyncStorage:
+  it survives navigation and backgrounding, not the OS killing the app. After a kill
+  the workout resumes on the card with nothing logged lost
+- The timer replaces the card, as designed. Skip is the filled control, one tap, no
+  confirm; `+30s` is outlined. `RestPanel` takes the card's slot inside
+  `ExerciseLogger`, so typed values, the undo row and the Today list are not remounted
+- The rest shows only on the exercise that started it. Another exercise shows its card
+  (a superset is not blocked); coming back shows the same rest, still counting
+- A rest that ran out stays on screen as "Rest done" / "Next set" until tapped, so
+  coming back from the background shows done, not a vanished timer
+- Clock moved backwards reads **done**, not 0 elapsed (`formatElapsed`'s choice): for a
+  countdown, 0 elapsed would show the full rest again and withhold the card for as
+  long as the clock moved. Add-time on a finished rest adds 30 s from now
+- **PR rule, not in the original AC:** the bar is `max(bestAtReps(reps), today's
+  heaviest at those reps before this set)`, strictly greater. The rollup only moves on
+  Finish, so against the stored best alone the second set of a PR session is
+  announced even when worse. "Best" is `bestAtReps`, the same record `sheetBest` uses,
+  not a second definition
+- **No stored record at those reps → no banner**, even if the set beats an earlier set
+  today. Otherwise every heavier set of a first-ever session is announced. The brief
+  listed "today's best only" as a case; this is the reading taken
+- The banner is for the last set in today's list; removing it while resting re-derives
+  for the new last one
+- Next-set target and its absence reasons are `resolveGhostTarget` / `ghostNotice`, the
+  card's own calls. The row opens the history sheet
+- Cross-screen timer: not built, left to TICKET-011
+
+**Known gaps:**
+- No control to change the rest duration: TICKET-038. Until then everyone rests 1:30
+  plus add-time
+- A finished workout still in the upload queue is absent from `best`, so the next
+  session can re-announce its PRs. TICKET-028's accepted gap, not reopened
+- The tour's log-fields and log-button steps are not on screen while resting; the tour
+  runs before the first set, so untouched
+- Untested on a device: both schemas on the real panel, 44px targets, the countdown
+  after a real background/foreground and screen lock, VoiceOver reading of the
+  countdown (no live region, so it is not announced each second)
 
 ---
 
@@ -2018,6 +2091,7 @@ place to show it.
 20. TICKET-030 (Catalogue field names)    — After 020, which also renders field labels
 --. TICKET-031 (Palette contrast guards)  — Small, independent; any time
 20. TICKET-021 (Rest timer + PR banner)   — Parallel with 020
+--. TICKET-038 (Per-exercise rest + setting) — After 021
 21. TICKET-023 (Tour press-to-continue)   — After Phase 3; patch in docs/patches/
 --. TICKET-025 (Footer highlight)         — Small, independent; any time
 --. TICKET-026 (Clear state on sign-out)  — Privacy; small; before launch

@@ -15,6 +15,7 @@ import { TooltipOverlay } from './src/components/guide_tour/TourStepOverlay';
 import { AppControlProvider } from './src/components/app_manager/AppControlProvider';
 import { refreshLastActive } from './src/services/initAuth';
 import { drainPendingUploads } from './src/stores/useWorkoutStore';
+import { useRestPreferenceStore } from './src/stores/restPreferenceStore';
 
 export default function App() {
   const [fontLoaded, setFontLoaded] = useState(false);
@@ -26,6 +27,8 @@ export default function App() {
     Font.loadAsync(FONT_ASSETS).then(() => setFontLoaded(true));
 
     loadFromStorage();
+    // Not awaited and not gating the first render: the default rest is usable.
+    useRestPreferenceStore.getState().loadFromStorage();
 
     // Update last-active timestamp each time the user brings the app to foreground
     const subscription = AppState.addEventListener('change', (nextState) => {

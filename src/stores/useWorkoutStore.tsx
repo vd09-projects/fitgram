@@ -7,6 +7,7 @@ import { saveWorkoutSession } from "../services/db/workoutSessions";
 import show from "../utils/toastUtils";
 import { normalizeExerciseFields } from "../utils/exerciseFields";
 import { clampExerciseIndex } from "../utils/workoutProgress";
+import { extendRest, RestTimer } from "../utils/restTimer";
 import { buildSessionDocs, buildSessionId } from "../utils/exerciseStats";
 import { useAuthStore } from "./authStore";
 import { useExerciseHistoryStore } from "./useExerciseHistoryStore";
@@ -76,6 +77,17 @@ interface WorkoutStoreState {
   activeWorkout: ActiveWorkout | null;
   /** Finished workouts waiting to upload, in finish order. Mirrors `PENDING_UPLOADS_KEY`. */
   pendingUploads: PendingUpload[];
+  /**
+   * The rest running since the last logged set, or null (TICKET-021).
+   *
+   * Memory only, not written to AsyncStorage: it survives navigating away and
+   * backgrounding, which keep the JS process, but not the OS killing the app.
+   * After a kill the workout resumes on the card, which loses nothing logged.
+   * Cleared by Finish and Discard, the only ways the active slot empties — and
+   * `startWorkout` refuses unless it is empty — so a stale rest cannot reappear
+   * on the same exercise in the next session.
+   */
+  rest: RestTimer | null;
 
   // Actions
   startWorkout: (workout: WorkoutPlan) => Promise<StartWorkoutResult>;
@@ -87,11 +99,18 @@ interface WorkoutStoreState {
   endWorkout: (userId : string | undefined) => Promise<EndWorkoutResult>;
   cancelWorkout: () => Promise<void>;
   loadWorkoutFromStorage: () => Promise<void>;
+  /** Start a rest of `durationMs` from now, replacing any rest already running. */
+  startRest: (exerciseId: string, durationMs: number) => void;
+  /** Add-time. See `extendRest` for a rest that has already ended. */
+  addRestTime: () => void;
+  /** Skip, or leave a finished rest. Immediate; nothing to confirm. */
+  endRest: () => void;
 }
 
 export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
   activeWorkout: null,
   pendingUploads: [],
+  rest: null,
 
   /**
    * 🔹 Start a Workout
@@ -353,6 +372,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     };
     set((state) => ({
       activeWorkout: null,
+      rest: null,
       // Replace, not append, if this session is somehow queued already: one
       // entry per session.
       pendingUploads: [
@@ -417,7 +437,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
   cancelWorkout: async () => {
     try {
       await AsyncStorage.removeItem("activeWorkout"); // Remove stored workout
-      set({ activeWorkout: null });
+      set({ activeWorkout: null, rest: null });
       console.log("Workout cancelled successfully.");
     } catch (error) {
       console.error("Failed to cancel workout:", error);
@@ -454,6 +474,26 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     set({ activeWorkout: { ...parsed, exercises } });
 
     prefetchHistoryOnResume(exercises.map((exercise) => exercise.id));
+  },
+
+  /**
+   * 🔹 Rest timer (TICKET-021)
+   *
+   * Only timestamps are stored; what is left is derived from `Date.now()` on
+   * every render by `restCountdown`. Synchronous and memory only, so Skip and
+   * add-time never wait on storage.
+   */
+  startRest: (exerciseId, durationMs) => {
+    set({ rest: { exerciseId, startedAt: Date.now(), durationMs } });
+  },
+
+  addRestTime: () => {
+    const { rest } = get();
+    if (rest) set({ rest: extendRest(rest, Date.now()) });
+  },
+
+  endRest: () => {
+    set({ rest: null });
   },
 }));
 

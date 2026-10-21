@@ -285,3 +285,20 @@ describe("startWorkout", () => {
     expect(JSON.parse((await AsyncStorage.getItem("activeWorkout")) ?? "null")).toEqual(running);
   });
 });
+
+// TICKET-021. The logger shows a rest on whichever exercise id it names, so a
+// rest left over from a finished or discarded workout would reappear on the
+// same exercise in the next one.
+describe("rest timer", () => {
+  it("is cleared by Finish and by Discard", async () => {
+    seedWorkout();
+    store().startRest("bench-press", 90_000);
+    await finishOffline("u1");
+    expect(store().rest).toBeNull();
+
+    seedWorkout();
+    store().startRest("bench-press", 90_000);
+    await store().cancelWorkout();
+    expect(store().rest).toBeNull();
+  });
+});
