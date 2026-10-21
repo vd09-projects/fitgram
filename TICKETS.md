@@ -2145,41 +2145,55 @@ place to show it.
 
 ## Recommended Execution Order
 
-Finished tickets have been removed — they are not blockers for anything. The
-remaining sequence is **unchanged from before the pruning**; the ordering decision
-is still open. Sizes and rationale are in Pending Work at the top.
+Finished tickets have been removed — they are not blockers for anything.
+
+**The next four are decided.** They come first because they are what makes logging
+an exercise match what people actually do, and because two of them change stored
+shapes: pre-launch is the cheap moment for that.
 
 ```
-TICKET-001  (ESLint/Prettier)          — Rescue 5d9189b from stash@{0} first; it is on no branch
-TICKET-007  (tsconfig strictness)      — Catch issues early
-TICKET-002  (Remove `any` types)       — Fix issues surfaced by strict mode
-TICKET-003  (Finish userDB split)      — Substance done; named files and barrel remain
-TICKET-004  (Error handling)           — Clean up console noise
-TICKET-005  (AsyncStorage service)     — One access point
-TICKET-006  (Break large components)   — Re-scope first: the named targets are gone
-TICKET-008  (Barrel exports)           — Polish
-TICKET-012  (Account Linking Ph.2)     — Makes linking reachable
-TICKET-014  (Reset email branding)     — Console-only Phase 1
-TICKET-013  (Auth error messages)      — Map exists; migrate the remaining call sites
-TICKET-011  (Active workout indicator) — 021 and 029 defer their surface to it
+1. TICKET-033  (Drop sets)                 — A weight change within one set
+2. TICKET-034  (Easy / hard rating)        — Per-exercise effort, independent of 033
+3. TICKET-032  (Edit/delete uploaded set)  — Needs the rollup rebuild; after 033 so it
+                                             is written once against the final shape
+4. TICKET-029  (Pending uploads view)      — Replaces the TEMPORARY debug screen.
+                                             Surface overlaps TICKET-011: either pull
+                                             011 in or let 029 decide it
+```
 
---- Phase 3 remainder ---
-TICKET-029  (Pending uploads view)     — Split from 028; with or after TICKET-011
-TICKET-030  (Catalogue field names)    — Renaming a field nulls past values
-TICKET-036  (Unit on volume trend)     — Removes the trend-window invariant
-TICKET-037  (Same-day session chips)   — Two identical chips in the sheet
-TICKET-031  (Palette contrast guards)  — Small, independent; any time
-TICKET-038  (Per-exercise rest)        — 021 shipped; unblocked
-TICKET-039  (Rep-progression PRs)      — 021 shipped; decision first
-TICKET-023  (Tour press-to-continue)   — Patch in docs/patches/
-TICKET-025  (Footer highlight)         — Small, independent; any time
-TICKET-026  (Clear state on sign-out)  — Privacy; small; before launch
-TICKET-032  (Edit/delete uploaded set) — 020 shipped; unblocked
-TICKET-035  (Time/distance measures)   — With or before TICKET-030
+**Everything after that is undecided**, listed by group rather than order. Sizes and
+what is actually left are in Pending Work at the top.
 
---- Phase 4: later ---
-TICKET-033  (Drop sets)                — Data-model change; reminder only
-TICKET-034  (Easy / hard rating)       — Reminder only
+```
+Before launch
+  TICKET-026  (Clear state on sign-out)  — Privacy: next user sees the previous one's cache
+  TICKET-030  (Catalogue field names)    — Renaming a field nulls past values, unflagged
+  TICKET-001  (ESLint/Prettier)          — Rescue 5d9189b from stash@{0}; it is on no branch
+  TICKET-011  (Active workout indicator) — 021 and 029 defer their surface to it
+  TICKET-014  (Reset email branding)     — Console-only Phase 1
+  TICKET-012  (Account Linking Ph.2)     — Makes linking reachable
+
+Correctness and guards
+  TICKET-036  (Unit on volume trend)     — Removes the trend-window invariant
+  TICKET-013  (Auth error messages)      — Map exists; migrate the remaining call sites
+  TICKET-002  (Remove `any` types)       — ~12 left across 8 files
+  TICKET-031  (Palette contrast guards)  — Extends the colors.test.ts pattern
+  TICKET-037  (Same-day session chips)   — Two identical chips in the sheet
+
+Decisions before code
+  TICKET-035  (Time/distance measures)   — "Which way is better" is a product call
+  TICKET-038  (Per-exercise rest)        — Nothing can set a non-default rest today
+  TICKET-039  (Rep-progression PRs)      — Decision first
+
+Tech debt
+  TICKET-003  (Finish userDB split)      — Substance done; named files and barrel remain
+  TICKET-004  (Error handling)           — Concrete case: persistWorkout's console.log
+  TICKET-005  (AsyncStorage service)     — 9 files touch it directly
+  TICKET-006  (Break large components)   — Re-scope first: the named targets are gone
+  TICKET-007  (tsconfig strictness)
+  TICKET-008  (Barrel exports)
+  TICKET-023  (Tour press-to-continue)   — Patch in docs/patches/
+  TICKET-025  (Footer highlight)
 ```
 
 ---
