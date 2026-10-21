@@ -6,6 +6,57 @@ This document outlines tickets for restructuring/cleaning up the existing codeba
 
 ---
 
+## Pending Work
+
+Everything still open, newest information first. Sizes are the ticket's own
+estimate unless a note corrects it. **This list is the source of truth for what is
+left**; a ticket's own `Status:` line further down may be stale.
+
+Order is *not* decided here — see Recommended Execution Order at the end.
+
+| # | What is left | Size | Note |
+|---|---|---|---|
+| 001 | ESLint + Prettier + pre-commit hooks | Small | **At risk:** `5d9189b` (100 files) is on no branch, only in `stash@{0}` of 16. Marked DONE in its section; it is not on `main` |
+| 002 | Remove the remaining `any` types | Small | ~12 left across 8 files |
+| 003 | Finish the `userDB.ts` split | Small | Substance done (userDB is 152 lines, logs moved to `workoutSessions.ts`); the named files and barrel export are not |
+| 004 | Centralize error handling, replace console calls | Medium | Concrete case recorded: `persistWorkout`'s `console.log` |
+| 005 | Centralize AsyncStorage access | Small | 9 files touch it directly |
+| 006 | Break down large components | Medium | **Needs re-scoping:** its named targets are gone; the biggest files now are Phase 3's own (`StartWorkoutScreen` 405, `ExerciseLogger` 371) |
+| 007 | Strengthen the TypeScript config | Small | |
+| 008 | Barrel exports | Small | |
+| 011 | Cross-screen active-workout indicator | Medium | **021 and 029 both defer their surface decision to this** |
+| 012 | Account linking — Phase 2 | Small-Med | Phase 1 shipped; Phase 2 makes linking reachable |
+| 013 | Human-readable auth error messages | Small | `describeAuthError` exists but has one call site; sign-in, sign-up and logout still pass raw Firebase messages |
+| 014 | Reset email branding — Phase 1 | Small | Console-only; the template itself is locked by Firebase |
+| 023 | Guided tour: press-to-continue steps | Medium | Shelved patch in `docs/patches/` |
+| 025 | Footer highlight follows the current screen | Small | |
+| 026 | Clear account-scoped state on sign-out | Small | **Privacy:** the next user sees the previous one's cached history and upload queue |
+| 029 | Pending uploads view | Small-Med | A `TEMPORARY` debug screen is currently the only way to see the queue |
+| 030 | Drop unit suffixes from catalogue field names | Small | **Silent data loss:** renaming a field nulls every past value for it, and the session stays `comparable` so nothing flags it |
+| 031 | Contrast guards for the rest of the role palette | Small | Extends the `colors.test.ts` pattern |
+| 032 | Edit or delete an already-uploaded set | Med-Large | Needs a rollup rebuild |
+| 033 | Drop sets | Med-Large | Data-model change |
+| 034 | Rate an exercise easy or hard | Small-Med | |
+| 035 | Measures beyond weight x reps | Med-Large | "Which way is better" is a product decision |
+| 036 | Put a unit on volume trend points | Small-Med | Today the trend over-suppresses; held by an invariant test, not a fix |
+| 037 | Tell apart two sessions on the same day | Small | |
+| 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
+| 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
+
+### Not tickets — verification owed
+
+- **`WorkoutSessionDoc.volume` has never had a real Firestore write.** On `main`
+  since TICKET-022, written on every Finish, and it feeds the Start screen's
+  volume figures.
+- **The guided tour has not been run since the scroll-buffer change** landed
+  (PR #13). Both states are unit-tested; nobody has watched a bottom step scroll
+  above its tooltip.
+
+One device session covers both: start a workout, log a set, Finish online, then
+run the tour from Profile.
+
+---
+
 ## PHASE 1: Codebase Rewrite & Cleanup
 
 ---
@@ -2094,48 +2145,41 @@ place to show it.
 
 ## Recommended Execution Order
 
+Finished tickets have been removed — they are not blockers for anything. The
+remaining sequence is **unchanged from before the pruning**; the ordering decision
+is still open. Sizes and rationale are in Pending Work at the top.
+
 ```
-1. TICKET-001  (ESLint/Prettier)         — Foundation for all future code
-2. TICKET-007  (tsconfig strictness)      — Catch issues early
-3. TICKET-002  (Remove `any` types)       — Fix issues surfaced by strict mode
-4. TICKET-003  (Split userDB.ts)          — Unblocks feature tickets
-5. TICKET-004  (Error handling)           — Clean up console noise
-6. TICKET-005  (AsyncStorage service)     — Unblocks Google Sign-In
-7. TICKET-006  (Break large components)   — General cleanup
-8. TICKET-008  (Barrel exports)           — Polish
-9. TICKET-012  (Account Linking Ph.1)     — Unblocks locked-out users
-10. TICKET-014 (Reset email branding)     — Console-only Phase 1, do it now
-11. TICKET-013 (Auth error messages)      — Small, user-facing polish
-11. TICKET-010 (Forgot Password)          — Subsumed by TICKET-012 Phase 1
-10. TICKET-009 (Google Sign-In)           — Largest feature
-11. TICKET-011 (Active Workout Animation) — UX enhancement
+TICKET-001  (ESLint/Prettier)          — Rescue 5d9189b from stash@{0} first; it is on no branch
+TICKET-007  (tsconfig strictness)      — Catch issues early
+TICKET-002  (Remove `any` types)       — Fix issues surfaced by strict mode
+TICKET-003  (Finish userDB split)      — Substance done; named files and barrel remain
+TICKET-004  (Error handling)           — Clean up console noise
+TICKET-005  (AsyncStorage service)     — One access point
+TICKET-006  (Break large components)   — Re-scope first: the named targets are gone
+TICKET-008  (Barrel exports)           — Polish
+TICKET-012  (Account Linking Ph.2)     — Makes linking reachable
+TICKET-014  (Reset email branding)     — Console-only Phase 1
+TICKET-013  (Auth error messages)      — Map exists; migrate the remaining call sites
+TICKET-011  (Active workout indicator) — 021 and 029 defer their surface to it
 
---- Phase 3: workout flow redesign ---
-12. TICKET-015 (Workout flow tokens)      — Blocks the rest of Phase 3
-12. ~~TICKET-016 (Exercise history hook)~~ — DONE
-13. TICKET-017 (Active workout pager)
-14. TICKET-024 (Jest setup + example tests) — First, so later screens ship with tests
-15. ~~TICKET-027 (one save per session)~~ — DONE
-16. TICKET-028 (Offline finish + queue)   — Next: 027 left offline Finish a dead end
-16. TICKET-029 (Pending uploads view)     — Split from 028; with or after TICKET-011
-17. TICKET-018 (Set logger card)
-18. TICKET-019 (Today's sets + deltas)    — Flow is whole and better here
-19. TICKET-022 (Start Workout redesign)
-20. TICKET-020 (History sheet)
-20. TICKET-030 (Catalogue field names)    — After 020, which also renders field labels
---. TICKET-031 (Palette contrast guards)  — Small, independent; any time
-20. TICKET-021 (Rest timer + PR banner)   — Parallel with 020
---. TICKET-038 (Per-exercise rest + setting) — After 021
---. TICKET-039 (Rep-progression PRs)     — Decision first; after 021
-21. TICKET-023 (Tour press-to-continue)   — After Phase 3; patch in docs/patches/
---. TICKET-025 (Footer highlight)         — Small, independent; any time
---. TICKET-026 (Clear state on sign-out)  — Privacy; small; before launch
---. TICKET-032 (Edit/delete uploaded set) — After TICKET-020
---. TICKET-035 (Time/distance measures)   — After 022; with or before TICKET-030
+--- Phase 3 remainder ---
+TICKET-029  (Pending uploads view)     — Split from 028; with or after TICKET-011
+TICKET-030  (Catalogue field names)    — Renaming a field nulls past values
+TICKET-036  (Unit on volume trend)     — Removes the trend-window invariant
+TICKET-037  (Same-day session chips)   — Two identical chips in the sheet
+TICKET-031  (Palette contrast guards)  — Small, independent; any time
+TICKET-038  (Per-exercise rest)        — 021 shipped; unblocked
+TICKET-039  (Rep-progression PRs)      — 021 shipped; decision first
+TICKET-023  (Tour press-to-continue)   — Patch in docs/patches/
+TICKET-025  (Footer highlight)         — Small, independent; any time
+TICKET-026  (Clear state on sign-out)  — Privacy; small; before launch
+TICKET-032  (Edit/delete uploaded set) — 020 shipped; unblocked
+TICKET-035  (Time/distance measures)   — With or before TICKET-030
 
---- Phase 4: later, after the Phase 3 UI is complete ---
-22. TICKET-033 (Drop sets)                — Data-model change; reminder only
-22. TICKET-034 (Easy / hard rating)       — Reminder only
+--- Phase 4: later ---
+TICKET-033  (Drop sets)                — Data-model change; reminder only
+TICKET-034  (Easy / hard rating)       — Reminder only
 ```
 
 ---
