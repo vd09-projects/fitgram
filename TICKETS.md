@@ -1253,6 +1253,32 @@ set both — 021 has no settings UI, so the global value is the default until th
 
 ---
 
+### TICKET-039: Decide Whether the PR Banner Rewards Rep Progression
+
+**Priority:** Low | **Effort:** Small (decision) + Medium (build) | **Status: OPEN**
+
+**Description:**
+TICKET-021's banner compares against the heaviest weight at the *same* rep count, so a
+user who progresses by adding reps (65 × 8 → 65 × 10) never sees one: there is no 10-rep
+record to beat. Decide whether the banner should cover that, and with which record.
+
+**Acceptance Criteria:**
+- [ ] A decision recorded here: rep PRs (most reps at a weight), a volume or estimated-1RM
+      record, or "weight at equal reps only" kept on purpose
+- [ ] If a new record is chosen: computed in the rollup next to `bestByReps`, one definition
+      shared by the banner and the history sheet, with its own banner copy
+- [ ] Tests for the chosen record's degenerate cases (ties, unit change, bodyweight 0 kg)
+
+**Technical Notes:**
+- Do not fall back to "heaviest at any reps": it calls 65 × 10 a loss to 70 × 8
+- The sheet's `sheetBest` pins "best" today; a second record must not let the sheet and
+  the banner disagree about one set (the reason `DeltaBadge` exists)
+- Raised in the PR #14 review
+
+**Dependencies:** TICKET-021.
+
+---
+
 ### TICKET-021: Rest Timer, Personal-Best Banner, Next-Set Target
 
 **Priority:** Medium | **Effort:** Medium | **Status: IN PROGRESS** — built on branch `TICKET-021`, awaiting device run
@@ -1322,11 +1348,19 @@ target already shown, and a set that beats the user's previous best is called ou
   plus add-time
 - A finished workout still in the upload queue is absent from `best`, so the next
   session can re-announce its PRs. TICKET-028's accepted gap, not reopened
+- Rep progression is never bannered. `best` is per exact rep count, so 65 × 10
+  against an 8-rep record of 65 is `noRecord`. Follows from "heaviest at equal reps"
+  (020's definition, deliberately reused); the Today list still shows `+2 reps` in
+  gold. Falling back to "heaviest at any reps" is worse (65 × 10 would "beat"
+  70 × 8). A rep or volume record is a product decision: TICKET-039
 - The tour's log-fields and log-button steps are not on screen while resting; the tour
   runs before the first set, so untouched
-- Untested on a device: both schemas on the real panel, 44px targets, the countdown
-  after a real background/foreground and screen lock, VoiceOver reading of the
-  countdown (no live region, so it is not announced each second)
+- Viewed on the Android emulator (PR #14 review): panel replaces the card, Skip
+  prominent, `+30s` extends, rest done after backgrounding past its end, survives
+  navigating to Profile and back, banner with stored and "set 1 today" copy, no
+  banner on a worse set, both schemas legible, Skip and `+30s` measured 47dp
+- Untested: screen lock on hardware, iOS, VoiceOver reading of the countdown (no
+  live region, so it is not announced each second)
 
 ---
 
@@ -2092,6 +2126,7 @@ place to show it.
 --. TICKET-031 (Palette contrast guards)  — Small, independent; any time
 20. TICKET-021 (Rest timer + PR banner)   — Parallel with 020
 --. TICKET-038 (Per-exercise rest + setting) — After 021
+--. TICKET-039 (Rep-progression PRs)     — Decision first; after 021
 21. TICKET-023 (Tour press-to-continue)   — After Phase 3; patch in docs/patches/
 --. TICKET-025 (Footer highlight)         — Small, independent; any time
 --. TICKET-026 (Clear state on sign-out)  — Privacy; small; before launch

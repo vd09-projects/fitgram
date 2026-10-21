@@ -66,6 +66,11 @@ export type PersonalBest =
  * (`bestSetsFromStats`), and `todayNumeric` resolves the same live fields, so
  * both sides are one unit. Nothing is converted.
  *
+ * Consequence: progressing by reps is never a best. 65 × 10 against an 8-rep
+ * record has no 10-rep record to beat (`noRecord`). Falling back to the
+ * heaviest at any reps would call it a loss to 70 × 8; a rep or volume record
+ * is TICKET-039.
+ *
  * Known gap, accepted in TICKET-028: a finished session waiting in the upload
  * queue is absent from the rollup, so its bests are too, and the next session
  * can announce a best already achieved.
