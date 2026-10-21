@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { RemovedSet, useWorkoutStore } from "../stores/useWorkoutStore";
+import { useRestPreferenceStore } from "../stores/restPreferenceStore";
 import { SPACING } from "../constants/styles";
 import { LoggedExercise } from "../types/zustandWorkoutType";
 import { useExerciseHistory } from "../hooks/useExerciseHistory";
@@ -18,6 +19,7 @@ import { TextBase, NumericText } from "./TextBase";
 import SetField from "./active_workout/SetField";
 import TodaySets from "./active_workout/TodaySets";
 import ExerciseHistorySheet from "./active_workout/ExerciseHistorySheet";
+import RestPanel from "./active_workout/RestPanel";
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 import { MaybeTourStep } from "./guide_tour/MaybeTourStep";
@@ -60,10 +62,22 @@ const PILL_HIT_SLOP = { top: (HIT - PILL_HEIGHT) / 2, bottom: (HIT - PILL_HEIGHT
  *   and closing. It is modal; "logging is not blocked" means nothing is lost.
  * - The pill's visual height stays 34; `hitSlop` takes its target to 44 without
  *   moving the card's layout.
+ *
+ * Decisions (TICKET-021):
+ * - Logging a set starts a rest, and `RestPanel` takes the card's slot until
+ *   Skip. It is rendered in place of the card, not around it: `inputValues`,
+ *   `removed` and the set number stay in this component, and the Today list's
+ *   position in the tree does not change, so nothing below is remounted.
+ * - The rest shows only on the exercise that started it (`rest.exerciseId`).
+ *   Moving to another exercise shows that one's card, so a superset is not
+ *   blocked; coming back shows the same rest, still counting from its start.
+ * - The rest starts after the store has the set, not before: the banner is
+ *   derived from the last set in the list and would otherwise judge the
+ *   previous one for a frame.
  */
 export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise }) {
   const { styles, t } = useThemeStyles(createStyles);
-  const { addSetToExercise, removeSet, restoreSet } = useWorkoutStore();
+  const { addSetToExercise, removeSet, restoreSet, rest, startRest, addRestTime, endRest } = useWorkoutStore();
   const history = useExerciseHistory(exercise.id);
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -101,7 +115,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
     await restoreSet(exercise.id, removed);
   };
 
-  const logSet = () => {
+  const logSet = async () => {
     const missing = missingFields(exercise.fields, inputValues);
     if (missing.length > 0) {
       setRefusal(missingFieldsMessage(missing, setNumber));
@@ -119,101 +133,115 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
     }
     // The store assigns the id; passing the set number keeps this call honest
     // about what that id will be.
-    addSetToExercise(exercise.id, { id: setNumber, fields });
     setRemoved(null);
     setInputValues({});
     setRefusal(null);
+    await addSetToExercise(exercise.id, { id: setNumber, fields });
+    startRest(exercise.id, useRestPreferenceStore.getState().restDurationMs);
   };
+
+  const resting = rest !== null && rest.exerciseId === exercise.id;
 
   return (
     <View style={styles.container}>
-      <View style={styles.card}>
-        <View style={styles.header}>
-          <View style={styles.setTitle} accessible accessibilityRole="header" accessibilityLabel={`Set ${setNumber}`}>
-            <TextBase style={styles.setTitleText}>SET </TextBase>
-            <NumericText style={styles.setTitleText}>{setNumber}</NumericText>
-          </View>
-          <TouchableOpacity
-            style={styles.pill}
-            onPress={() => setHistoryOpen(true)}
-            hitSlop={PILL_HIT_SLOP}
-            accessibilityRole="button"
-            accessibilityLabel={
-              pillText !== null ? `Last time ${pillText.replace("×", "by")}. Show history` : "Show history"
-            }
-          >
-            <TextBase style={styles.pillLabel}>{pillText !== null ? "LAST TIME" : "HISTORY"}</TextBase>
-            {pillText !== null && <NumericText style={styles.pillValue}>{pillText}</NumericText>}
-            <Ionicons name="chevron-up" size={14} color={t.colors.role.textSecondary} />
-          </TouchableOpacity>
-        </View>
-
-        {notice !== null && <TextBase style={styles.notice}>{notice}</TextBase>}
-
-        <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.LOG_FIELDS}>
-          {/* Plain View between the tour wrapper and the row: MultiTourSteps
-             keeps only flexDirection/height/align on its child and moves the
-             rest to its own wrapper, so the row lost its gap and wrap. */}
-          <View>
-            <View style={styles.fields}>
-              {exercise.fields.map((field) => (
-                <SetField
-                  key={field.name}
-                  field={field}
-                  value={inputValues[field.name] ?? ""}
-                  ghost={ghosts[field.name]}
-                  onChange={(text) => onChangeField(field.name, text)}
-                  reserveStepperRow={anyStepper}
-                />
-              ))}
+      {resting ? (
+        <RestPanel
+          rest={rest}
+          exercise={exercise}
+          history={history}
+          onSkip={endRest}
+          onAddTime={addRestTime}
+          onOpenHistory={() => setHistoryOpen(true)}
+        />
+      ) : (
+        <View style={styles.card}>
+          <View style={styles.header}>
+            <View style={styles.setTitle} accessible accessibilityRole="header" accessibilityLabel={`Set ${setNumber}`}>
+              <TextBase style={styles.setTitleText}>SET </TextBase>
+              <NumericText style={styles.setTitleText}>{setNumber}</NumericText>
             </View>
-          </View>
-        </MaybeTourStep>
-
-        {refusal !== null && (
-          <TextBase style={styles.refusal} accessibilityLiveRegion="polite" accessibilityRole="alert">
-            {refusal}
-          </TextBase>
-        )}
-
-        <View style={styles.actions}>
-          {/* Hidden, not disabled, when there is nothing to repeat: a dimmed
-             icon-only button gave no hint why, and the notice line already
-             says why there is no target. Log set takes the width. */}
-          {repeat !== null && (
             <TouchableOpacity
-              style={styles.repeatButton}
-              onPress={onRepeat}
+              style={styles.pill}
+              onPress={() => setHistoryOpen(true)}
+              hitSlop={PILL_HIT_SLOP}
               accessibilityRole="button"
               accessibilityLabel={
-                pillText
-                  ? `Repeat last session's set ${setNumber}: ${pillText.replace("×", "by")}`
-                  : `Repeat last session's set ${setNumber}`
+                pillText !== null ? `Last time ${pillText.replace("×", "by")}. Show history` : "Show history"
               }
             >
-              <Ionicons name="refresh" size={22} color={t.colors.role.textSecondary} />
+              <TextBase style={styles.pillLabel}>{pillText !== null ? "LAST TIME" : "HISTORY"}</TextBase>
+              {pillText !== null && <NumericText style={styles.pillValue}>{pillText}</NumericText>}
+              <Ionicons name="chevron-up" size={14} color={t.colors.role.textSecondary} />
             </TouchableOpacity>
-          )}
+          </View>
 
-          <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.SAVE_EXERCISE_SET}>
-            {/* Plain View between the tour wrapper and the button: MultiTourSteps
-               splits its child's style and would leave the touchable shrink-wrapped
-               to its content, so taps off-centre missed. */}
-            <View style={styles.logWrap}>
-              <TouchableOpacity
-                style={styles.logButton}
-                onPress={logSet}
-                accessibilityRole="button"
-                accessibilityLabel={`Log set ${setNumber}`}
-              >
-                <Ionicons name="checkmark" size={20} color={t.colors.role.ground} />
-                <TextBase style={styles.logButtonText}>Log set </TextBase>
-                <NumericText style={styles.logButtonText}>{setNumber}</NumericText>
-              </TouchableOpacity>
+          {notice !== null && <TextBase style={styles.notice}>{notice}</TextBase>}
+
+          <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.LOG_FIELDS}>
+            {/* Plain View between the tour wrapper and the row: MultiTourSteps
+               keeps only flexDirection/height/align on its child and moves the
+               rest to its own wrapper, so the row lost its gap and wrap. */}
+            <View>
+              <View style={styles.fields}>
+                {exercise.fields.map((field) => (
+                  <SetField
+                    key={field.name}
+                    field={field}
+                    value={inputValues[field.name] ?? ""}
+                    ghost={ghosts[field.name]}
+                    onChange={(text) => onChangeField(field.name, text)}
+                    reserveStepperRow={anyStepper}
+                  />
+                ))}
+              </View>
             </View>
           </MaybeTourStep>
+
+          {refusal !== null && (
+            <TextBase style={styles.refusal} accessibilityLiveRegion="polite" accessibilityRole="alert">
+              {refusal}
+            </TextBase>
+          )}
+
+          <View style={styles.actions}>
+            {/* Hidden, not disabled, when there is nothing to repeat: a dimmed
+               icon-only button gave no hint why, and the notice line already
+               says why there is no target. Log set takes the width. */}
+            {repeat !== null && (
+              <TouchableOpacity
+                style={styles.repeatButton}
+                onPress={onRepeat}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  pillText
+                    ? `Repeat last session's set ${setNumber}: ${pillText.replace("×", "by")}`
+                    : `Repeat last session's set ${setNumber}`
+                }
+              >
+                <Ionicons name="refresh" size={22} color={t.colors.role.textSecondary} />
+              </TouchableOpacity>
+            )}
+
+            <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.SAVE_EXERCISE_SET}>
+              {/* Plain View between the tour wrapper and the button: MultiTourSteps
+                 splits its child's style and would leave the touchable shrink-wrapped
+                 to its content, so taps off-centre missed. */}
+              <View style={styles.logWrap}>
+                <TouchableOpacity
+                  style={styles.logButton}
+                  onPress={logSet}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Log set ${setNumber}`}
+                >
+                  <Ionicons name="checkmark" size={20} color={t.colors.role.ground} />
+                  <TextBase style={styles.logButtonText}>Log set </TextBase>
+                  <NumericText style={styles.logButtonText}>{setNumber}</NumericText>
+                </TouchableOpacity>
+              </View>
+            </MaybeTourStep>
+          </View>
         </View>
-      </View>
+      )}
 
       <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.LOG_HISTORY}>
         {/* Plain View: MultiTourSteps splits its child's style. */}

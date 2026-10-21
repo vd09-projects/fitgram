@@ -105,6 +105,8 @@ describe("ExerciseHistorySheet", () => {
     await act(async () => {
       fireEvent.press(screen.getByRole("button", { name: "Log set 2" }));
     });
+    // Logging starts a rest (TICKET-021); Skip brings the card back.
+    fireEvent.press(screen.getByRole("button", { name: "Skip rest" }));
     expect(screen.getByRole("button", { name: "Log set 3" })).toBeOnTheScreen();
   });
 });

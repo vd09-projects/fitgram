@@ -37,6 +37,7 @@ import { LayoutRoutes, WorkoutRoutes } from "../constants/routes";
 import { useWorkoutStore } from "../stores/useWorkoutStore";
 import { useExerciseHistoryStore } from "../stores/useExerciseHistoryStore";
 import { useAuthStore } from "../stores/authStore";
+import { useRestPreferenceStore } from "../stores/restPreferenceStore";
 import { ActiveWorkout } from "../types/zustandWorkoutType";
 import { ExerciseStatsDoc } from "../types/workoutSession";
 
@@ -69,6 +70,7 @@ export const TEST_USER_ID = "test-user";
 const workoutInitial = useWorkoutStore.getInitialState();
 const historyInitial = useExerciseHistoryStore.getInitialState();
 const authInitial = useAuthStore.getInitialState();
+const restPreferenceInitial = useRestPreferenceStore.getInitialState();
 
 /**
  * Put every store back to its initial state and empty AsyncStorage.
@@ -79,6 +81,7 @@ export function resetStores() {
   useWorkoutStore.setState(workoutInitial, true);
   useExerciseHistoryStore.setState(historyInitial, true);
   useAuthStore.setState(authInitial, true);
+  useRestPreferenceStore.setState(restPreferenceInitial, true);
   AsyncStorage.clear();
 }
 

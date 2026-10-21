@@ -146,6 +146,8 @@ describe("ExerciseLogger", () => {
     fireEvent.changeText(weight(), "61");
     fireEvent.changeText(reps(), "8");
     await logSet();
+    // Logging starts a rest (TICKET-021); Skip brings the card back.
+    fireEvent.press(screen.getByRole("button", { name: "Skip rest" }));
 
     expect(loggedSets()).toEqual([{ id: 1, fields: { Weight: "61", Reps: "8" } }]);
     expect(logButton()).toHaveAccessibleName("Log set 2");
