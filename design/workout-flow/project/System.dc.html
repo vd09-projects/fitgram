@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tokens and controls</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body { margin: 0; }
+a { color: #5FA8B8; } a:hover { color: #8CC6D2; }
+button { font: inherit; color: inherit; background: none; border: none; padding: 0; cursor: pointer; }
+input { font: inherit; color: inherit; background: none; border: none; outline: none; }
+.num { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+</style>
+</helmet>
+<div style="width: 800px; height: 844px; box-sizing: border-box; background: #121414; color: #E8EDEC; font-family: 'Archivo', 'Helvetica Neue', system-ui, sans-serif; padding: 28px; display: flex; flex-direction: column; gap: 24px; overflow: hidden">
+
+  <header style="display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding-bottom: 18px; border-bottom: 1px solid #2A2F31">
+    <div>
+      <h1 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.02em">Tokens and controls</h1>
+      <div style="margin-top: 5px; font-size: 13px; color: #8A9593">Derived from the existing <span class="num">L: Death Note</span> schema — same roles, deeper ground, one accent, one signal colour</div>
+    </div>
+    <div class="num" style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #6E7A78">Archivo · IBM Plex Mono</div>
+  </header>
+
+  <div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px">
+
+    <div style="display: flex; flex-direction: column; gap: 22px; min-width: 0">
+      <section style="display: flex; flex-direction: column; gap: 10px">
+        <h2 style="margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #8A9593">Palette</h2>
+        <div style="display: flex; flex-direction: column">
+          <div style="display: flex; align-items: center; gap: 12px; height: 36px">
+            <span style="display: block; width: 44px; height: 24px; flex-shrink: 0; border-radius: 6px; background: #121414; border: 1px solid #2A2F31"></span>
+            <span class="num" style="width: 76px; flex-shrink: 0; font-size: 12px; color: #C6CFCD">#121414</span>
+            <span style="font-size: 12.5px; color: #8A9593">ground — behind everything</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; height: 36px">
+            <span style="display: block; width: 44px; height: 24px; flex-shrink: 0; border-radius: 6px; background: #1A1D1F"></span>
+            <span class="num" style="width: 76px; flex-shrink: 0; font-size: 12px; color: #C6CFCD">#1A1D1F</span>
+            <span style="font-size: 12.5px; color: #8A9593">surface — cards, bottom bar</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; height: 36px">
+            <span style="display: block; width: 44px; height: 24px; flex-shrink: 0; border-radius: 6px; background: #222628"></span>
+            <span class="num" style="width: 76px; flex-shrink: 0; font-size: 12px; color: #C6CFCD">#222628</span>
+            <span style="font-size: 12.5px; color: #8A9593">raised — inputs, pills</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; height: 36px">
+            <span style="display: block; width: 44px; height: 24px; flex-shrink: 0; border-radius: 6px; background: #2A2F31"></span>
+            <span class="num" style="width: 76px; flex-shrink: 0; font-size: 12px; color: #C6CFCD">#2A2F31</span>
+            <span style="font-size: 12.5px; color: #8A9593">hairline — card edges, dividers</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; height: 36px">
+            <span style="display: block; width: 44px; height: 24px; flex-shrink: 0; border-radius: 6px; background: #3A4245"></span>
+            <span class="num" style="width: 76px; flex-shrink: 0; font-size: 12px; color: #C6CFCD">#3A4245</span>
+            <span style="font-size: 12.5px; color: #8A9593">hairline strong — input edges</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; height: 36px">
+            <span style="display: block; width: 44px; height: 24px; flex-shrink: 0; border-radius: 6px; background: #5FA8B8"></span>
+            <span class="num" style="width: 76px; flex-shrink: 0; font-size: 12px; color: #C6CFCD">#5FA8B8</span>
+            <span style="font-size: 12.5px; color: #8A9593">accent — one action per screen</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; height: 36px">
+            <span style="display: block; width: 44px; height: 24px; flex-shrink: 0; border-radius: 6px; background: #1E3A41; border: 1px solid #5FA8B8"></span>
+            <span class="num" style="width: 76px; flex-shrink: 0; font-size: 12px; color: #C6CFCD">#1E3A41</span>
+            <span style="font-size: 12.5px; color: #8A9593">accent deep — selected fill</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; height: 36px">
+            <span style="display: block; width: 44px; height: 24px; flex-shrink: 0; border-radius: 6px; background: #D8A13B"></span>
+            <span class="num" style="width: 76px; flex-shrink: 0; font-size: 12px; color: #C6CFCD">#D8A13B</span>
+            <span style="font-size: 12.5px; color: #8A9593">signal — beat last session, PR</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; height: 36px">
+            <span style="display: block; width: 44px; height: 24px; flex-shrink: 0; border-radius: 6px; background: #241D0E; border: 1px solid #4A3716"></span>
+            <span class="num" style="width: 76px; flex-shrink: 0; font-size: 12px; color: #C6CFCD">#241D0E</span>
+            <span style="font-size: 12.5px; color: #8A9593">signal deep — PR banner fill</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; height: 36px">
+            <span style="display: block; width: 44px; height: 24px; flex-shrink: 0; border-radius: 6px; background: #C9636C"></span>
+            <span class="num" style="width: 76px; flex-shrink: 0; font-size: 12px; color: #C6CFCD">#C9636C</span>
+            <span style="font-size: 12.5px; color: #8A9593">danger — discard only</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; height: 52px; margin-top: 4px; padding: 0 12px; border-radius: 10px; background: #1A1D1F; border: 1px solid #2A2F31">
+            <span style="font-size: 14px; font-weight: 600; color: #E8EDEC">#E8EDEC</span>
+            <span style="font-size: 14px; color: #8A9593">#8A9593</span>
+            <span style="font-size: 14px; color: #6E7A78">#6E7A78</span>
+            <span style="flex-grow: 1"></span>
+            <span style="font-size: 11px; color: #8A9593">text: primary / secondary / ghost target</span>
+          </div>
+        </div>
+      </section>
+
+      <section style="display: flex; flex-direction: column; gap: 10px">
+        <h2 style="margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #8A9593">Type</h2>
+        <div style="display: flex; flex-direction: column; gap: 14px">
+          <div>
+            <div class="num" style="font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #6E7A78">Archivo 700 · 25 / −0.015em</div>
+            <div style="margin-top: 3px; font-size: 25px; font-weight: 700; letter-spacing: -0.015em">Bench Press</div>
+          </div>
+          <div>
+            <div class="num" style="font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #6E7A78">Archivo 700 · 13 / 0.1em caps</div>
+            <div style="margin-top: 4px; font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #8A9593">Today · Set 4 · Resting</div>
+          </div>
+          <div>
+            <div class="num" style="font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #6E7A78">Archivo 400 · 15</div>
+            <div style="margin-top: 3px; font-size: 15px">6 exercises · last done 7 days ago</div>
+          </div>
+          <div>
+            <div class="num" style="font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #6E7A78">IBM Plex Mono 500 · tabular figures</div>
+            <div class="num" style="margin-top: 3px; font-size: 22px; font-weight: 500">67.5 kg × 8 · 1,955 · 1:24</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 22px; min-width: 0">
+      <section style="display: flex; flex-direction: column; gap: 10px">
+        <h2 style="margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #8A9593">Controls</h2>
+        <button type="button" style="width: 100%; height: 52px; border-radius: 14px; background: #5FA8B8; color: #121414; font-size: 16px; font-weight: 700">Primary · one per screen</button>
+        <button type="button" style="width: 100%; height: 52px; border-radius: 14px; border: 1px solid #3A4245; color: #E8EDEC; font-size: 15px; font-weight: 600">Secondary · outline</button>
+        <div style="display: flex; gap: 8px">
+          <button type="button" style="flex-grow: 1; height: 44px; border-radius: 11px; background: #1E3A41; border: 1px solid #5FA8B8; color: #E8EDEC; font-size: 13px; font-weight: 600">Chip selected</button>
+          <button type="button" style="flex-grow: 1; height: 44px; border-radius: 11px; border: 1px solid #2A2F31; color: #8A9593; font-size: 13px">Chip rest</button>
+        </div>
+        <button type="button" style="width: 100%; height: 48px; border-radius: 13px; border: 1px solid #5A2F34; color: #C9636C; font-size: 14px; font-weight: 600">Discard workout · in the ··· menu</button>
+      </section>
+
+      <section style="display: flex; flex-direction: column; gap: 10px">
+        <h2 style="margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #8A9593">Number field</h2>
+        <div style="display: flex; gap: 12px">
+          <div style="width: 150px; display: flex; flex-direction: column; gap: 7px">
+            <label for="sys-w" style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Weight · kg</label>
+            <div style="height: 62px; border-radius: 13px; background: #222628; border: 1px solid #3A4245; display: flex; align-items: center; justify-content: center">
+              <input id="sys-w" class="num" type="text" inputmode="decimal" placeholder="65" style="width: 100%; height: 100%; text-align: center; font-size: 30px; font-weight: 500" />
+            </div>
+            <div class="num" style="font-size: 10.5px; color: #6E7A78">empty · ghost = last session</div>
+          </div>
+          <div style="width: 150px; display: flex; flex-direction: column; gap: 7px">
+            <label for="sys-r" style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Reps</label>
+            <div style="height: 62px; border-radius: 13px; background: #222628; border: 1px solid #5FA8B8; display: flex; align-items: center; justify-content: center">
+              <input id="sys-r" class="num" type="text" inputmode="numeric" value="9" style="width: 100%; height: 100%; text-align: center; font-size: 30px; font-weight: 500" />
+            </div>
+            <div class="num" style="font-size: 10.5px; color: #6E7A78">focused · typed value</div>
+          </div>
+        </div>
+      </section>
+
+      <section style="display: flex; flex-direction: column; gap: 10px">
+        <h2 style="margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #8A9593">Comparison signals</h2>
+        <div style="display: flex; align-items: center; gap: 16px; height: 40px; padding: 0 13px; border-radius: 11px; background: #1A1D1F; border: 1px solid #2A2F31">
+          <span style="display: flex; align-items: center; gap: 5px; color: #D8A13B; font-size: 12.5px; font-weight: 600">
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor"><path d="M6 2.4l4 6.6H2z"></path></svg>
+            <span class="num">+1 rep</span>
+          </span>
+          <span class="num" style="color: #8A9593; font-size: 12.5px; font-weight: 600">matched</span>
+          <span style="display: flex; align-items: center; gap: 5px; color: #8A9593; font-size: 12.5px; font-weight: 600">
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor"><path d="M6 9.6l4-6.6H2z"></path></svg>
+            <span class="num">−2 reps</span>
+          </span>
+          <span style="flex-grow: 1"></span>
+          <span style="font-size: 10.5px; color: #6E7A78">gold = up, grey = flat or down</span>
+        </div>
+      </section>
+
+      <section style="display: flex; flex-direction: column; gap: 10px">
+        <h2 style="margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #8A9593">Resume banner · replaces the blocking alert</h2>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: #1E3A41; border: 1px solid #5FA8B8">
+          <span style="display: block; width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; background: #5FA8B8"></span>
+          <div style="flex-grow: 1; min-width: 0">
+            <div style="font-size: 14px; font-weight: 600">Push · Chest &amp; Triceps in progress</div>
+            <div class="num" style="margin-top: 2px; font-size: 11.5px; color: #9FC9D2">24:18 · 3 sets logged</div>
+          </div>
+          <button type="button" style="height: 38px; padding: 0 14px; border-radius: 11px; background: #5FA8B8; color: #121414; font-size: 13.5px; font-weight: 700">Resume</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":800,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

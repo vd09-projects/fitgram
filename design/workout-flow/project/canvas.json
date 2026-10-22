@@ -1,0 +1,103 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Main.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "2 · Logging a set",
+      "w": 390,
+      "x": 470,
+      "y": 0
+    },
+    "OptionB.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "Option B · playful face kept",
+      "w": 390,
+      "x": 0,
+      "y": 1204
+    },
+    "PrevOpen.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "3 · History revealed",
+      "w": 390,
+      "x": 940,
+      "y": 0
+    },
+    "SetDone.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "4 · Set logged, resting",
+      "w": 390,
+      "x": 1410,
+      "y": 0
+    },
+    "Start.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "1 · Start workout",
+      "w": 390,
+      "x": 0,
+      "y": 0
+    },
+    "System.dc.html": {
+      "h": 844,
+      "title": "Tokens and controls",
+      "w": 800,
+      "x": 470,
+      "y": 1204
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-03T12:00:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "alt": {
+      "kind": "title1",
+      "maxW": 1270,
+      "text": "Type option and the token sheet",
+      "w": 240,
+      "x": 0,
+      "y": 904
+    },
+    "flow": {
+      "kind": "title1",
+      "maxW": 1800,
+      "text": "The flow — start, log, compare, rest",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "typenote": {
+      "fill": "orange",
+      "text": "Type stand-in: Comic Neue renders here because Google Fonts does not serve Comic Relief. Shapes are close enough to judge; a real build keeps your bundled ComicRelief ttf.",
+      "w": 300,
+      "x": -340,
+      "y": 1240
+    },
+    "wiring": {
+      "fill": "teal",
+      "text": "Board 2 → 3: tapping the \"Last time 65 × 8\" pill opens the history sheet. Previous sessions stay one tap away, never on screen by default.\n\nBoard 2 → 4: logging the set swaps the input card for the rest timer and the next set's target.",
+      "w": 300,
+      "x": 1890,
+      "y": 120
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Start.dc.html",
+    "PrevOpen.dc.html",
+    "SetDone.dc.html",
+    "OptionB.dc.html",
+    "System.dc.html"
+  ],
+  "pages": [],
+  "title": "Fitgram Workout Flow Redesign"
+}
