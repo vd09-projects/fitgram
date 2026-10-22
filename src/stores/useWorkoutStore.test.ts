@@ -13,6 +13,7 @@ import { drainPendingUploads, UPLOAD_GRACE_MS, useWorkoutStore } from "./useWork
 import { useAuthStore } from "./authStore";
 import { resetStores } from "../test/renderScreen";
 import { buildExercise, buildWorkout } from "../test/fixtures";
+import { Effort } from "../types/workoutSession";
 
 jest.mock("../services/db/workoutSessions", () => ({
   ...jest.requireActual("../services/db/workoutSessions"),
@@ -267,6 +268,29 @@ describe("removeSet and restoreSet", () => {
     expect(store().activeWorkout!.exercises[1].sets).toEqual(sets([100]));
     expect(benchSets()).toEqual(sets([60]));
   });
+
+  // TICKET-034: ids are ordinals, so a mark keyed by id would land on the
+  // wrong set after a removal. It lives on the set object and must move with it.
+  it("a set's effort mark moves with it through remove and undo, and is stored", async () => {
+    seedSets([60, 65, 70]);
+    await store().setSetEffort("bench-press", 3, Effort.Hard);
+    const removed = await store().removeSet("bench-press", 1);
+    expect(benchSets().map((s) => [s.fields.Weight, s.effort ?? null])).toEqual([[65, null], [70, Effort.Hard]]);
+
+    await store().restoreSet("bench-press", removed!);
+    const marks = (list: { fields: { Weight?: unknown }; effort?: unknown }[]) =>
+      list.map((s) => [s.fields.Weight, s.effort ?? null]);
+    expect(marks(benchSets())).toEqual([[60, null], [65, null], [70, Effort.Hard]]);
+    expect(marks(await storedSets())).toEqual([[60, null], [65, null], [70, Effort.Hard]]);
+  });
+
+  it("does not show a mark it failed to store", async () => {
+    seedSets([60]);
+    jest.spyOn(AsyncStorage, "setItem").mockRejectedValueOnce(new Error("disk full"));
+
+    await expect(store().setSetEffort("bench-press", 1, Effort.Hard)).rejects.toThrow("disk full");
+    expect(benchSets()[0].effort ?? null).toBeNull();
+  });
 });
 
 describe("startWorkout", () => {
@@ -292,12 +316,12 @@ describe("startWorkout", () => {
 describe("rest timer", () => {
   it("is cleared by Finish and by Discard", async () => {
     seedWorkout();
-    store().startRest("bench-press", 90_000);
+    store().startRest("bench-press", 90_000, 1);
     await finishOffline("u1");
     expect(store().rest).toBeNull();
 
     seedWorkout();
-    store().startRest("bench-press", 90_000);
+    store().startRest("bench-press", 90_000, 1);
     await store().cancelWorkout();
     expect(store().rest).toBeNull();
   });

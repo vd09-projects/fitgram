@@ -21,6 +21,7 @@ import {
   resolveNumericFields,
 } from "./exerciseFields";
 import { computeSessionVolume } from "./exerciseStats";
+import { zipSetEffort } from "./effort";
 
 /** `sessions` window. */
 export const HISTORY_RECENT_SESSION_COUNT = 3;
@@ -48,6 +49,9 @@ export function buildHistorySession(
   // A session logged in different units keeps its raw values but contributes no
   // numbers, so nothing downstream can compare 80 lb against 70 kg.
   const sessionNumeric = comparable ? numeric : null;
+  // Marks are about how the set felt, not its numbers, so an incomparable
+  // session keeps them.
+  const effort = zipSetEffort(entry.sets.length, entry.setEffort);
 
   const sets: HistorySet[] = entry.sets.map((fields, index) => {
     const { weight, reps } = parseSet(fields, sessionNumeric);
@@ -57,6 +61,7 @@ export function buildHistorySession(
       fields,
       weight,
       reps,
+      effort: effort.marks[index],
     };
   });
 
@@ -68,6 +73,7 @@ export function buildHistorySession(
     sets,
     fields: entry.fields,
     volume: computeSessionVolume(entry.sets, sessionNumeric),
+    effortUnavailable: effort.unavailable,
     comparable,
   };
 }

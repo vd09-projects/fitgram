@@ -20,6 +20,8 @@ import { StoredSetFields } from "../types/workoutSession";
 import { ExerciseField } from "../types/workoutType";
 import { parseSet, resolveNumericFields } from "./exerciseFields";
 import { computeSessionVolume } from "./exerciseStats";
+import { effortCountText } from "./effort";
+import { Effort } from "../types/workoutSession";
 import { SetDelta, setDelta, setValuesText, volumeText } from "./setDeltas";
 
 type SheetHistory = Pick<
@@ -68,6 +70,8 @@ export type SheetRow = {
   setNumber: number;
   /** The selected session's set as one line, or null when it stopped earlier. */
   past: string | null;
+  /** That set's mark, or null: not marked, or no such set (TICKET-034). */
+  pastEffort: Effort | null;
   /** Today's set as one line, or null when it is not logged yet. */
   today: string | null;
   /** The row of the set about to be logged. */
@@ -89,6 +93,13 @@ export type SheetSession = {
   rows: SheetRow[];
   /** Why this session's rows carry no deltas, or some of them; null when all can. */
   notice: string | null;
+  /**
+   * "1 easy · 1 hard" for the caption; "marks unavailable" when the stored
+   * marks could not be paired with the sets; null when nothing was marked.
+   * Counts sit in the caption, not on the date chips: chips with marks read as
+   * clutter on the canvas (board 8).
+   */
+  effort: string | null;
 };
 
 /**
@@ -127,6 +138,7 @@ export function sheetSession(
     rows.push({
       setNumber,
       past: past ? setValuesText(session.fields, past.fields) : null,
+      pastEffort: past?.effort ?? null,
       today: today ? setValuesText(todayFields, today) : null,
       isNext: setNumber === nextSet,
       delta: past && today ? setDelta(asLast, setNumber, today, todayNumeric) : null,
@@ -155,6 +167,7 @@ export function sheetSession(
     volume,
     rows,
     notice: sessionNotice(history, session, sets, own?.weight.unit ?? null, own !== null),
+    effort: session.effortUnavailable ? "marks unavailable" : effortCountText(sets.map((set) => set.effort)),
   };
 }
 

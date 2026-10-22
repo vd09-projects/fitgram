@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WorkoutPlan, Exercise } from "../types/workoutType";
+import { Effort } from "../types/workoutSession";
 import { ActiveWorkout, ExerciseSet, PendingUpload } from "../types/zustandWorkoutType";
 import { saveWorkoutSession } from "../services/db/workoutSessions";
 import show from "../utils/toastUtils";
@@ -95,12 +96,14 @@ interface WorkoutStoreState {
   updateSet: (exerciseId: string, setId: number, updatedFields: Record<string, string | number>) => Promise<void>;
   removeSet: (exerciseId: string, setId: number) => Promise<RemovedSet | null>;
   restoreSet: (exerciseId: string, removed: RemovedSet) => Promise<void>;
+  /** Mark how a set felt, or clear the mark with null (TICKET-034). */
+  setSetEffort: (exerciseId: string, setId: number, effort: Effort | null) => Promise<void>;
   setCurrentExerciseIndex: (index: number) => Promise<void>;
   endWorkout: (userId : string | undefined) => Promise<EndWorkoutResult>;
   cancelWorkout: () => Promise<void>;
   loadWorkoutFromStorage: () => Promise<void>;
   /** Start a rest of `durationMs` from now, replacing any rest already running. */
-  startRest: (exerciseId: string, durationMs: number) => void;
+  startRest: (exerciseId: string, durationMs: number, setNumber: number) => void;
   /** Add-time. See `extendRest` for a rest that has already ended. */
   addRestTime: () => void;
   /** Skip, or leave a finished rest. Immediate; nothing to confirm. */
@@ -303,6 +306,45 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
   },
 
   /**
+   * 🔹 Mark a set easy or hard, or clear its mark (TICKET-034).
+   *
+   * Written to storage at once, like every set change, so a mark survives an
+   * app kill and travels with the workout into the upload queue.
+   *
+   * The mark lives on the set object, so a later `removeSet` / `restoreSet`
+   * moves it with its set. `setId` is read fresh from the store by the caller,
+   * as for `updateSet`: it is an ordinal.
+   *
+   * Neither `lastUpdated` nor `currentExerciseIndex` moves: a mark is not
+   * logged data (`lastUpdated` tracks sets), and it is set from the rest panel
+   * or the Today list of the exercise already on screen.
+   */
+  setSetEffort: async (exerciseId, setId, effort) => {
+    const { activeWorkout } = get();
+    if (!activeWorkout) return;
+
+    let changed = false;
+    const updatedExercises = activeWorkout.exercises.map((exercise) => {
+      if (exercise.id !== exerciseId) return exercise;
+      return {
+        ...exercise,
+        sets: exercise.sets.map((set) => {
+          if (set.id !== setId || (set.effort ?? null) === effort) return set;
+          changed = true;
+          return { ...set, effort };
+        }),
+      };
+    });
+    if (!changed) return;
+
+    // Storage first, as for every set change: if the write fails, the screen
+    // must not show a mark an app kill would lose.
+    const updatedWorkout: ActiveWorkout = { ...activeWorkout, exercises: updatedExercises };
+    await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
+    set({ activeWorkout: updatedWorkout });
+  },
+
+  /**
    * 🔹 Point the session at the exercise the user is looking at.
    *
    * This is the only write that means "viewing". `addSetToExercise` and
@@ -483,8 +525,8 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
    * every render by `restCountdown`. Synchronous and memory only, so Skip and
    * add-time never wait on storage.
    */
-  startRest: (exerciseId, durationMs) => {
-    set({ rest: { exerciseId, startedAt: Date.now(), durationMs } });
+  startRest: (exerciseId, durationMs, setNumber) => {
+    set({ rest: { exerciseId, startedAt: Date.now(), durationMs, setNumber } });
   },
 
   addRestTime: () => {

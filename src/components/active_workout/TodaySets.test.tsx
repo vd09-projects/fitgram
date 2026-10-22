@@ -7,6 +7,7 @@ import { buildExercise, buildStats, buildWorkout } from "../../test/fixtures";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
 import { ExerciseField } from "../../types/workoutType";
 import { ExerciseSet } from "../../types/zustandWorkoutType";
+import { Effort } from "../../types/workoutSession";
 
 const sets = (...pairs: [string, string][]): ExerciseSet[] =>
   pairs.map(([Weight, Reps], i) => ({ id: i + 1, fields: { Weight, Reps } }));
@@ -141,5 +142,39 @@ describe("TodaySets", () => {
     expect(screen.getByLabelText("Weight · kg").props.value).toBe("");
     expect(screen.queryByRole("button", { name: /^Undo/ })).toBeNull();
     expect(useWorkoutStore.getState().activeWorkout!.exercises[0].sets).toHaveLength(1);
+  });
+
+  // TICKET-034
+  it("tapping a row opens Easy / Hard for it; picking one marks that set and closes the strip", async () => {
+    renderScreen(ActiveWorkoutScreen, { workout: benchWith(sets(["60", "8"], ["65", "8"])) });
+    expect(screen.queryByRole("radio", { name: "Easy" })).toBeNull();
+
+    await press(/^Set 2, 65 kg by 8/);
+    await act(async () => {
+      fireEvent.press(screen.getByRole("radio", { name: "Easy" }));
+    });
+
+    const marks = useWorkoutStore.getState().activeWorkout!.exercises[0].sets.map((s) => s.effort ?? null);
+    expect(marks).toEqual([null, Effort.Easy]);
+    expect(screen.queryByRole("radio", { name: "Easy" })).toBeNull();
+    expect(screen.getByRole("button", { name: /^Set 2, 65 kg by 8, felt easy/ })).toBeOnTheScreen();
+
+    // Tapping the chosen mark again clears it, as on the rest panel.
+    await press(/^Set 2, 65 kg by 8/);
+    await act(async () => {
+      fireEvent.press(screen.getByRole("radio", { name: "Easy" }));
+    });
+    expect(useWorkoutStore.getState().activeWorkout!.exercises[0].sets[1].effort ?? null).toBeNull();
+  });
+
+  // Ids are ordinals: Undo renumbers, so a strip left open would sit under another set.
+  it("Undo closes an open mark strip", async () => {
+    renderScreen(ActiveWorkoutScreen, { workout: benchWith(sets(["60", "8"], ["65", "8"], ["70", "8"])) });
+    await press("Remove set 1: 60 kg by 8");
+    await press(/^Set 2, 70 kg by 8/);
+    expect(screen.getByRole("radio", { name: "Hard" })).toBeOnTheScreen();
+
+    await press(/^Undo/);
+    expect(screen.queryByRole("radio", { name: "Hard" })).toBeNull();
   });
 });

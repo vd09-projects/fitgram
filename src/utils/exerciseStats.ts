@@ -17,6 +17,7 @@ import {
   StoredSetFields,
 } from "../types/workoutSession";
 import { NumericFieldMap, parseSet, resolveNumericFields } from "./exerciseFields";
+import { storedEffort } from "./effort";
 
 /** Sessions embedded in the rollup. Deeper history comes from exercise_sessions. */
 export const STATS_RECENT_SESSION_CAP = 10;
@@ -140,6 +141,10 @@ export function buildStatsSessionEntry(
     performedAt: doc.performedAt,
     fields: doc.fields,
     sets: doc.sets,
+    // Copied as stored, without pairing it to `sets`: the rollup is derived and
+    // the reader (`zipSetEffort`) is the one place a mismatch is judged. Absent
+    // on a pre-034 doc stays absent; Firestore rejects undefined, so omit it.
+    ...(doc.setEffort !== undefined && { setEffort: doc.setEffort }),
     volume: computeSessionVolume(doc.sets, numeric).value,
   };
 }
@@ -311,6 +316,9 @@ export function buildSessionDocs(
       // Positional only. The live `ExerciseSet.id` is a Date.now() stamp and is
       // deliberately not persisted — it was never a set number.
       sets: exercise.sets.map((set) => set.fields),
+      // Built from the same array as `sets`, so the two are aligned by
+      // construction (TICKET-034).
+      setEffort: storedEffort(exercise.sets),
     }));
 
   return {

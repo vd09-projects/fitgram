@@ -8,6 +8,7 @@ import { useColorSchemaStore } from "../stores/colorSchemaStore";
 import { DefaultColorSchema, HinataHyugaColors } from "../constants/colors";
 import { saveWorkoutSession } from "../services/db/workoutSessions";
 import { ExerciseField } from "../types/workoutType";
+import { Effort } from "../types/workoutSession";
 
 // Only the Finish test reaches it, through the real `endWorkout`.
 jest.mock("../services/db/workoutSessions", () => ({
@@ -186,5 +187,21 @@ describe("ExerciseLogger", () => {
       // Not reset by renderScreen; leaking it would re-theme every later test.
       useColorSchemaStore.setState({ currentColorSchema: DefaultColorSchema });
     }
+  });
+
+  // TICKET-034
+  it("shows last time's mark for the set about to be logged, on the pill and spelled out", async () => {
+    const marked = buildStats("Bench Press", [
+      { sets: [{ Weight: "60", Reps: "8" }, { Weight: "65", Reps: "6" }], setEffort: [null, Effort.Hard] },
+    ]);
+    renderScreen(ActiveWorkoutScreen, {
+      workout: buildWorkout([], {
+        exercises: [buildExercise("Bench Press", { sets: [{ id: 1, fields: { Weight: "60", Reps: "8" } }] })],
+      }),
+      history: { [marked.exerciseId]: marked },
+    });
+
+    expect(screen.getByRole("button", { name: "Last time 65 by 6, felt hard. Show history" })).toBeOnTheScreen();
+    expect(screen.getByText(/^Felt hard last time/)).toBeOnTheScreen();
   });
 });
