@@ -5,7 +5,7 @@
     "Main.dc.html": {
       "h": 844,
       "radius": 28,
-      "title": "2 · Logging a set",
+      "title": "2 \u00b7 Logging a set",
       "w": 390,
       "x": 470,
       "y": 0
@@ -13,7 +13,7 @@
     "OptionB.dc.html": {
       "h": 844,
       "radius": 28,
-      "title": "Option B · playful face kept",
+      "title": "Option B \u00b7 playful face kept",
       "w": 390,
       "x": 0,
       "y": 1204
@@ -21,7 +21,7 @@
     "PrevOpen.dc.html": {
       "h": 844,
       "radius": 28,
-      "title": "3 · History revealed",
+      "title": "3 \u00b7 History revealed",
       "w": 390,
       "x": 940,
       "y": 0
@@ -29,7 +29,7 @@
     "SetDone.dc.html": {
       "h": 844,
       "radius": 28,
-      "title": "4 · Set logged, resting",
+      "title": "4 \u00b7 Set logged, resting",
       "w": 390,
       "x": 1410,
       "y": 0
@@ -37,7 +37,7 @@
     "Start.dc.html": {
       "h": 844,
       "radius": 28,
-      "title": "1 · Start workout",
+      "title": "1 \u00b7 Start workout",
       "w": 390,
       "x": 0,
       "y": 0
@@ -48,6 +48,46 @@
       "w": 800,
       "x": 470,
       "y": 1204
+    },
+    "EffortRest.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "5 \u00b7 Rate the set while resting",
+      "w": 390,
+      "x": 0,
+      "y": 2470
+    },
+    "EffortToday.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "6 \u00b7 Fix a mark later \u2014 option A, inline",
+      "w": 390,
+      "x": 470,
+      "y": 2470
+    },
+    "EffortNext.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "7 \u00b7 Next time: the mark returns",
+      "w": 390,
+      "x": 940,
+      "y": 2470
+    },
+    "EffortHistory.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "8 \u00b7 History: marks per set",
+      "w": 390,
+      "x": 1410,
+      "y": 2470
+    },
+    "EffortGutter.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "6b \u00b7 Option B, mark in the number column",
+      "w": 390,
+      "x": 470,
+      "y": 3434
     }
   },
   "createdOnFiles": {
@@ -70,7 +110,7 @@
     "flow": {
       "kind": "title1",
       "maxW": 1800,
-      "text": "The flow — start, log, compare, rest",
+      "text": "The flow \u2014 start, log, compare, rest",
       "w": 240,
       "x": 0,
       "y": -300
@@ -84,10 +124,25 @@
     },
     "wiring": {
       "fill": "teal",
-      "text": "Board 2 → 3: tapping the \"Last time 65 × 8\" pill opens the history sheet. Previous sessions stay one tap away, never on screen by default.\n\nBoard 2 → 4: logging the set swaps the input card for the rest timer and the next set's target.",
+      "text": "Board 2 \u2192 3: tapping the \"Last time 65 \u00d7 8\" pill opens the history sheet. Previous sessions stay one tap away, never on screen by default.\n\nBoard 2 \u2192 4: logging the set swaps the input card for the rest timer and the next set's target.",
       "w": 300,
       "x": 1890,
       "y": 120
+    },
+    "effort": {
+      "kind": "title1",
+      "maxW": 1800,
+      "text": "TICKET-034 \u2014 mark a set easy or hard",
+      "w": 240,
+      "x": 0,
+      "y": 2170
+    },
+    "effortwhy": {
+      "fill": "teal",
+      "w": 300,
+      "x": 1890,
+      "y": 2590,
+      "text": "Per set, not per exercise. No mark = done in good form, as planned.\n\nE (hollow) = easy, push more next time. H (solid) = hard: missed reps, lost form or needed a spot.\n\nBoard 5: rate during the rest, the moment the set ends. Optional; tap again to clear.\nBoard 6: fix a mark later. Unmarked rows carry no extra control; tap a row to open Easy / Hard (and Clear once marked). \u00d7 still removes the set.\nBoard 6b: same, with marks in a column beside the set number.\nBoard 7: next session, set 4's mark rides on the Last time pill.\nBoard 8: history sheet shows the mark per set; the caption counts them. Date chips stay plain.\n\nNo new colours: gold is PR, red is discard. E and H differ in fill (lightness), not hue."
     }
   },
   "order": [
@@ -96,7 +151,12 @@
     "PrevOpen.dc.html",
     "SetDone.dc.html",
     "OptionB.dc.html",
-    "System.dc.html"
+    "System.dc.html",
+    "EffortRest.dc.html",
+    "EffortToday.dc.html",
+    "EffortNext.dc.html",
+    "EffortHistory.dc.html",
+    "EffortGutter.dc.html"
   ],
   "pages": [],
   "title": "Fitgram Workout Flow Redesign"
