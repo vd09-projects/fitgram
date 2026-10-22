@@ -19,7 +19,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 001 | ESLint + Prettier + pre-commit hooks | Small | **At risk:** `5d9189b` (100 files) is on no branch, only in `stash@{0}` of 16. Marked DONE in its section; it is not on `main` |
 | 002 | Remove the remaining `any` types | Small | ~12 left across 8 files |
 | 003 | Finish the `userDB.ts` split | Small | Substance done (userDB is 152 lines, logs moved to `workoutSessions.ts`); the named files and barrel export are not |
-| 004 | Centralize error handling, replace console calls | Medium | Concrete case recorded: `persistWorkout`'s `console.log` |
+| 004 | Centralize error handling, replace console calls | Medium | Concrete cases recorded: `persistWorkout`'s `console.log`; `setSetEffort` (and `removeSet`/`restoreSet`) callers fire without a catch, so a failed save is an unhandled rejection (PR #15) |
 | 005 | Centralize AsyncStorage access | Small | 9 files touch it directly |
 | 006 | Break down large components | Medium | **Needs re-scoping:** its named targets are gone; the biggest files now are Phase 3's own (`StartWorkoutScreen` 405, `ExerciseLogger` 371) |
 | 007 | Strengthen the TypeScript config | Small | |
@@ -36,7 +36,6 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 031 | Contrast guards for the rest of the role palette | Small | Extends the `colors.test.ts` pattern |
 | 032 | Edit or delete an already-uploaded set | Med-Large | Needs a rollup rebuild |
 | 033 | Drop sets | Med-Large | Data-model change |
-| 034 | Mark a set easy or hard | Small-Med | **In review** on branch `TICKET-034`: built and unit-tested; Firestore write and a device run untested |
 | 035 | Measures beyond weight x reps | Med-Large | "Which way is better" is a product decision |
 | 036 | Put a unit on volume trend points | Small-Med | Today the trend over-suppresses; held by an invariant test, not a fix |
 | 037 | Tell apart two sessions on the same day | Small | |
@@ -51,9 +50,13 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 - **The guided tour has not been run since the scroll-buffer change** landed
   (PR #13). Both states are unit-tested; nobody has watched a bottom step scroll
   above its tooltip.
+- **TICKET-034's set marks have never had a real Firestore write** (`setEffort`
+  on the session doc and in the `exercise_stats` rollup), and the rules are
+  untested for it. Merged in PR #15; unit-tested only.
 
-One device session covers both: start a workout, log a set, Finish online, then
-run the tour from Profile.
+One device session covers all three: start a workout, log two sets, mark one
+easy or hard, Finish online, start the same workout again and check "last time"
+shows the mark, then run the tour from Profile.
 
 ---
 
@@ -2115,10 +2118,10 @@ the first weight was not completed.
 
 ---
 
-### TICKET-034: Mark a Set Easy or Hard
+### ~~TICKET-034: Mark a Set Easy or Hard~~ ✅ DONE
 
-**Priority:** Low | **Effort:** Small-Medium | **Status: IN REVIEW** — PR #15 (branch
-`TICKET-034`); not yet run on a device
+**Priority:** Low | **Effort:** Small-Medium | **Status: DONE** — merged in PR #15;
+Firestore write and a device run still owed (see Pending Work → verification owed)
 
 **Description:**
 After a set, the user can mark how it felt. Next time it shows next to that set's
@@ -2206,16 +2209,15 @@ a mark that failed to store is not shown; tap-again clears on the Today strip to
 
 Finished tickets have been removed — they are not blockers for anything.
 
-**The next four are decided.** They come first because they are what makes logging
-an exercise match what people actually do, and because two of them change stored
-shapes: pre-launch is the cheap moment for that.
+**The next three are decided.** They come first because they are what makes logging
+an exercise match what people actually do, and because 033 changes a stored
+shape: pre-launch is the cheap moment for that.
 
 ```
 1. TICKET-033  (Drop sets)                 — A weight change within one set
-2. TICKET-034  (Easy / hard rating)        — Per-set effort (in review), independent of 033
-3. TICKET-032  (Edit/delete uploaded set)  — Needs the rollup rebuild; after 033 so it
+2. TICKET-032  (Edit/delete uploaded set)  — Needs the rollup rebuild; after 033 so it
                                              is written once against the final shape
-4. TICKET-029  (Pending uploads view)      — Replaces the TEMPORARY debug screen.
+3. TICKET-029  (Pending uploads view)      — Replaces the TEMPORARY debug screen.
                                              Surface overlaps TICKET-011: either pull
                                              011 in or let 029 decide it
 ```
