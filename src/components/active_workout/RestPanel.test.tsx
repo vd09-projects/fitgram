@@ -125,4 +125,23 @@ describe("RestPanel", () => {
     });
     expect(effort()).toBeNull();
   });
+
+  it("asks only about the set that started the rest: removing it hides the question, Undo brings it back", async () => {
+    renderScreen(ActiveWorkoutScreen, { workout: buildWorkout(["Bench Press"]), history });
+    await logSet("60", "8");
+    fireEvent.press(button("Skip rest"));
+    await logSet("62.5", "8");
+    const question = () => screen.queryByLabelText(/^How was set \d\? Optional$/);
+    expect(screen.getByLabelText("How was set 2? Optional")).toBeOnTheScreen();
+
+    await act(async () => {
+      fireEvent.press(button("Remove set 2: 62.5 kg by 8"));
+    });
+    expect(question()).toBeNull();
+
+    await act(async () => {
+      fireEvent.press(button(/^Undo/));
+    });
+    expect(screen.getByLabelText("How was set 2? Optional")).toBeOnTheScreen();
+  });
 });

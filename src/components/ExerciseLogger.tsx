@@ -151,7 +151,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
     setInputValues({});
     setRefusal(null);
     await addSetToExercise(exercise.id, { id: setNumber, fields });
-    startRest(exercise.id, useRestPreferenceStore.getState().restDurationMs);
+    startRest(exercise.id, useRestPreferenceStore.getState().restDurationMs, setNumber);
   };
 
   const resting = rest !== null && rest.exerciseId === exercise.id;

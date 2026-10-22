@@ -25,6 +25,8 @@ function finishedSession(startTime: number, marks: (Effort | null | undefined)[]
   return buildSessionDocs(stored, startTime + 3600_000).exerciseSessions[0];
 }
 
+// `rebuildStatsFromSessions` folds each doc through `applySessionToStats`, the
+// function Finish calls, so this is the live write path, not a separate one.
 const historyOf = (docs: ExerciseSessionDoc[]) =>
   deriveExerciseHistory({
     exerciseId: docs[0].exerciseId,
@@ -60,6 +62,8 @@ describe("effort marks, end to end", () => {
 describe("zipSetEffort", () => {
   it("reads every mark as unavailable when the stored marks do not line up with the sets", () => {
     expect(zipSetEffort(3, [Effort.Hard, null])).toEqual({ marks: [null, null, null], unavailable: true });
+    // Stored, but not marks: unavailable, and never a throw that takes the whole history down.
+    expect(zipSetEffort(2, null)).toEqual({ marks: [null, null], unavailable: true });
     // A doc from before marks existed: nothing was marked, which is true.
     expect(zipSetEffort(2, undefined)).toEqual({ marks: [null, null], unavailable: false });
   });

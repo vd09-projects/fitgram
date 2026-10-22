@@ -103,7 +103,7 @@ interface WorkoutStoreState {
   cancelWorkout: () => Promise<void>;
   loadWorkoutFromStorage: () => Promise<void>;
   /** Start a rest of `durationMs` from now, replacing any rest already running. */
-  startRest: (exerciseId: string, durationMs: number) => void;
+  startRest: (exerciseId: string, durationMs: number, setNumber: number) => void;
   /** Add-time. See `extendRest` for a rest that has already ended. */
   addRestTime: () => void;
   /** Skip, or leave a finished rest. Immediate; nothing to confirm. */
@@ -337,9 +337,11 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     });
     if (!changed) return;
 
+    // Storage first, as for every set change: if the write fails, the screen
+    // must not show a mark an app kill would lose.
     const updatedWorkout: ActiveWorkout = { ...activeWorkout, exercises: updatedExercises };
-    set({ activeWorkout: updatedWorkout });
     await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
+    set({ activeWorkout: updatedWorkout });
   },
 
   /**
@@ -523,8 +525,8 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
    * every render by `restCountdown`. Synchronous and memory only, so Skip and
    * add-time never wait on storage.
    */
-  startRest: (exerciseId, durationMs) => {
-    set({ rest: { exerciseId, startedAt: Date.now(), durationMs } });
+  startRest: (exerciseId, durationMs, setNumber) => {
+    set({ rest: { exerciseId, startedAt: Date.now(), durationMs, setNumber } });
   },
 
   addRestTime: () => {

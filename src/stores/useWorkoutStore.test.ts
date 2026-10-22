@@ -283,6 +283,14 @@ describe("removeSet and restoreSet", () => {
     expect(marks(benchSets())).toEqual([[60, null], [65, null], [70, Effort.Hard]]);
     expect(marks(await storedSets())).toEqual([[60, null], [65, null], [70, Effort.Hard]]);
   });
+
+  it("does not show a mark it failed to store", async () => {
+    seedSets([60]);
+    jest.spyOn(AsyncStorage, "setItem").mockRejectedValueOnce(new Error("disk full"));
+
+    await expect(store().setSetEffort("bench-press", 1, Effort.Hard)).rejects.toThrow("disk full");
+    expect(benchSets()[0].effort ?? null).toBeNull();
+  });
 });
 
 describe("startWorkout", () => {
@@ -308,12 +316,12 @@ describe("startWorkout", () => {
 describe("rest timer", () => {
   it("is cleared by Finish and by Discard", async () => {
     seedWorkout();
-    store().startRest("bench-press", 90_000);
+    store().startRest("bench-press", 90_000, 1);
     await finishOffline("u1");
     expect(store().rest).toBeNull();
 
     seedWorkout();
-    store().startRest("bench-press", 90_000);
+    store().startRest("bench-press", 90_000, 1);
     await store().cancelWorkout();
     expect(store().rest).toBeNull();
   });

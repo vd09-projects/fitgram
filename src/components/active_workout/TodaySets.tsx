@@ -18,7 +18,7 @@ import {
 import { TextBase, NumericText } from "../TextBase";
 import { DeltaBadge, deltaSpeech } from "./DeltaBadge";
 import { EffortBadge } from "./EffortBadge";
-import { EFFORT_LABEL, effortSpeech } from "../../utils/effort";
+import { EFFORT_LABEL, effortSpeech, toggleEffort } from "../../utils/effort";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 
@@ -61,8 +61,10 @@ type Props = {
  *   Not a swipe, for the same reason as remove; not a long-press, which
  *   nothing on screen would reveal. One strip open at a time; picking a mark
  *   closes it.
- * - The strip closes on remove: set ids are ordinals, so after a removal the
- *   open id would name a different set.
+ * - The strip closes on remove and on undo: set ids are ordinals, so after
+ *   either the open id would name a different set.
+ * - Tapping the mark already chosen clears it (`toggleEffort`), as on the rest
+ *   panel. Clear stays as the visible way to do the same.
  */
 export default function TodaySets({ exercise, history, removed, onRemove, onUndo, onSetEffort }: Props) {
   const { styles, t } = useThemeStyles(createStyles);
@@ -122,11 +124,12 @@ export default function TodaySets({ exercise, history, removed, onRemove, onUndo
                 style={[styles.stripOption, effort === option && styles.stripOptionSelected]}
                 onPress={() => {
                   setOpenSetId(null);
-                  onSetEffort(set.id, option);
+                  onSetEffort(set.id, toggleEffort(effort, option));
                 }}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: effort === option }}
                 accessibilityLabel={EFFORT_LABEL[option]}
+                accessibilityHint={effort === option ? "Tap again to clear" : undefined}
               >
                 <EffortBadge effort={option} size={18} />
                 <TextBase style={styles.stripText}>{EFFORT_LABEL[option]}</TextBase>
@@ -163,7 +166,10 @@ export default function TodaySets({ exercise, history, removed, onRemove, onUndo
         </TextBase>
         <TouchableOpacity
           style={styles.undo}
-          onPress={onUndo}
+          onPress={() => {
+            setOpenSetId(null);
+            onUndo();
+          }}
           accessibilityRole="button"
           accessibilityLabel={`Undo: restore set ${removed.index + 1}, ${values.replace("×", "by")}`}
         >

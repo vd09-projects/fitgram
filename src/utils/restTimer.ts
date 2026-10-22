@@ -18,6 +18,8 @@ export type RestTimer = {
   startedAt: number;
   /** Total rest, including any time added since. */
   durationMs: number;
+  /** The set number whose logging started this rest; the one the panel asks about (TICKET-034). */
+  setNumber: number;
 };
 
 /** What a rest-duration preference falls back to: 1:30, the design's target. */

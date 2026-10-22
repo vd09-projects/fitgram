@@ -5,7 +5,7 @@ import { SPACING } from "../../constants/styles";
 import { ExerciseHistory } from "../../types/exerciseHistory";
 import { LoggedExercise } from "../../types/zustandWorkoutType";
 import { Effort, EFFORTS } from "../../types/workoutSession";
-import { EFFORT_LABEL } from "../../utils/effort";
+import { EFFORT_LABEL, toggleEffort } from "../../utils/effort";
 import { resolveNumericFields } from "../../utils/exerciseFields";
 import { personalBest, personalBestText } from "../../utils/personalBest";
 import { ADD_REST_MS, formatCountdown, restCountdown, RestTimer } from "../../utils/restTimer";
@@ -64,6 +64,10 @@ type Props = {
  * - The banner is about the last set in today's list. Removing that set while
  *   resting re-derives it for the new last set, which is still a true
  *   statement about that set.
+ * - "How was set N?" is not: it asks about the set that started the rest
+ *   (`rest.setNumber`), and hides when a removal makes it no longer the last
+ *   one. Moving it to the new last set would mark a set rated, or left unrated
+ *   on purpose, earlier (TICKET-034).
  * - Next-set target and its absence reasons come from `resolveGhostTarget` and
  *   `ghostNotice`, the card's own calls, so the two always agree.
  */
@@ -92,8 +96,12 @@ export default function RestPanel({ rest, exercise, history, onSkip, onAddTime, 
     )
   );
 
-  const lastSet = exercise.sets[exercise.sets.length - 1] ?? null;
-  const lastEffort = lastSet?.effort ?? null;
+  // The set this rest is for, while it is still the last one in the list. A
+  // removal during the rest (of it, or of an earlier set, which renumbers it)
+  // hides the question rather than move it onto a set rated earlier; Undo
+  // brings it back. Ids are ordinals, so the count is the identity check.
+  const ratedSet = exercise.sets.length === rest.setNumber ? exercise.sets[rest.setNumber - 1] : null;
+  const ratedEffort = ratedSet?.effort ?? null;
 
   const addSeconds = ADD_REST_MS / 1000;
   const skipLabel = running ? "Skip rest" : "Next set";
@@ -156,22 +164,22 @@ export default function RestPanel({ rest, exercise, history, onSkip, onAddTime, 
           </TouchableOpacity>
         </View>
 
-        {lastSet !== null && (
-          <View style={styles.rate} accessibilityRole="radiogroup" accessibilityLabel={`How was set ${exercise.sets.length}? Optional`}>
+        {ratedSet !== null && (
+          <View style={styles.rate} accessibilityRole="radiogroup" accessibilityLabel={`How was set ${rest.setNumber}? Optional`}>
             <View style={styles.rateHeader}>
               <TextBase style={styles.nextLabel}>
-                HOW WAS SET <NumericText style={styles.nextLabel}>{exercise.sets.length}</NumericText>?
+                HOW WAS SET <NumericText style={styles.nextLabel}>{rest.setNumber}</NumericText>?
               </TextBase>
               <TextBase style={styles.secondary}>optional</TextBase>
             </View>
             <View style={styles.rateOptions}>
               {EFFORTS.map((effort) => {
-                const selected = lastEffort === effort;
+                const selected = ratedEffort === effort;
                 return (
                   <TouchableOpacity
                     key={effort}
                     style={[styles.rateOption, selected && styles.rateOptionSelected]}
-                    onPress={() => onSetEffort(lastSet.id, selected ? null : effort)}
+                    onPress={() => onSetEffort(ratedSet.id, toggleEffort(ratedEffort, effort))}
                     accessibilityRole="radio"
                     accessibilityState={{ checked: selected }}
                     accessibilityLabel={EFFORT_LABEL[effort]}

@@ -39,7 +39,7 @@ describe("formatCountdown", () => {
 });
 
 describe("extendRest", () => {
-  const rest: RestTimer = { exerciseId: "bench-press", startedAt: START, durationMs: REST };
+  const rest: RestTimer = { exerciseId: "bench-press", startedAt: START, durationMs: REST, setNumber: 1 };
 
   it("moves the end of a running rest 30 s later", () => {
     const extended = extendRest(rest, at(60));

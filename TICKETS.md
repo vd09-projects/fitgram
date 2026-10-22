@@ -2117,8 +2117,8 @@ the first weight was not completed.
 
 ### TICKET-034: Mark a Set Easy or Hard
 
-**Priority:** Low | **Effort:** Small-Medium | **Status: IN REVIEW** — built on branch
-`TICKET-034`, uncommitted; not yet run on a device
+**Priority:** Low | **Effort:** Small-Medium | **Status: IN REVIEW** — PR #15 (branch
+`TICKET-034`); not yet run on a device
 
 **Description:**
 After a set, the user can mark how it felt. Next time it shows next to that set's
@@ -2152,8 +2152,11 @@ lost form or needed a spot — hold the weight, save energy, or rest longer.
 - **"Last time" is the last session only.** If last session's set N was not marked,
   the card shows nothing — no fallback to an older mark, which would sit beside
   numbers it was never about (`lastTimeEffort`). Older marks are in the history sheet.
-- **Where it is set.** The rest panel ("How was set N?", optional; tap again to clear),
-  and the Today list (tap a row → Easy / Hard / Clear). No per-row slot (looked
+- **Where it is set.** The rest panel ("How was set N?", optional), and the Today list
+  (tap a row → Easy / Hard / Clear). On both, tapping the chosen mark again clears it
+  (`toggleEffort`). The rest panel asks about the set that started the rest
+  (`RestTimer.setNumber`) and hides the question if a removal makes it no longer the
+  last set, rather than move it onto a set rated earlier. No per-row slot (looked
   cluttered beside remove), no swipe (the pager owns horizontal swipes), no long-press.
 - **Where it shows.** The set card's pill (`LAST TIME 65 × 6 [H]`) plus a line
   "Felt hard last time · 2 Oct"; the history sheet's Felt column and its caption count
@@ -2172,12 +2175,14 @@ lost form or needed a spot — hold the weight, save energy, or rest longer.
 - TICKET-021/038 linkage: TICKET-038 as written does not read effort. Rest length from
   a mark is a future option, not a contract this ticket fulfils.
 
-**Verified:** typecheck clean; 170 unit tests pass, 8 of them new, each seen failing
+**Verified:** typecheck clean; 173 unit tests pass, 11 of them new, each seen failing
 against a deliberate break of the line it covers: JSON round trip → `buildSessionDocs`
 → rollup rebuild → history keeps marks and stores null not undefined; last-session-only;
 misaligned marks read as unavailable; a mark moves with its set through remove/undo
 and is stored; rest-panel mark and clear; Today row strip; set-card pill; sheet rows
-and caption.
+and caption. After PR #15 review: a `null` `setEffort` reads as unavailable instead of
+throwing; Undo closes an open strip; the rest question hides when its set is removed;
+a mark that failed to store is not shown; tap-again clears on the Today strip too.
 
 **Unverified:**
 - The Firestore write of `setEffort` and the rollup transaction carrying it — no

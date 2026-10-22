@@ -29,6 +29,8 @@ const isEffort = (value: unknown): value is Effort => (EFFORTS as readonly unkno
  *
  * - **Missing array** (a doc saved before TICKET-034): every set unmarked, not
  *   unavailable. Nothing could have been marked then, so "not marked" is true.
+ * - **Not an array** (null, or a hand-edited doc): every set null and
+ *   `unavailable`. Something was stored, and it is not marks.
  * - **Length mismatch**: every set null and `unavailable`. The array is built
  *   from the same live sets as `sets`, so this only happens if something wrote
  *   one without the other; pairing by position would then put a mark on the
@@ -37,12 +39,20 @@ const isEffort = (value: unknown): value is Effort => (EFFORTS as readonly unkno
  * - **An unknown value** (a later app version's third mark, or a typo in a
  *   hand-edited doc): that set reads null. The others stand.
  */
-export function zipSetEffort(setCount: number, setEffort: readonly unknown[] | undefined): ZippedEffort {
+export function zipSetEffort(setCount: number, setEffort: unknown): ZippedEffort {
   const none = () => Array.from({ length: setCount }, () => null);
   if (setEffort === undefined) return { marks: none(), unavailable: false };
-  if (setEffort.length !== setCount) return { marks: none(), unavailable: true };
+  if (!Array.isArray(setEffort) || setEffort.length !== setCount) return { marks: none(), unavailable: true };
   return { marks: setEffort.map((value) => (isEffort(value) ? value : null)), unavailable: false };
 }
+
+/**
+ * The mark after tapping `picked` on a set marked `current`. Tapping the mark
+ * already chosen clears it, on every surface that offers marks, so "tap again
+ * to clear" learnt in one place works in the other.
+ */
+export const toggleEffort = (current: Effort | null, picked: Effort): Effort | null =>
+  current === picked ? null : picked;
 
 /** What each live set stores. Absent (a set logged before 034) is null, never undefined: Firestore rejects undefined. */
 export const storedEffort = (sets: readonly { effort?: Effort | null }[]): (Effort | null)[] =>
