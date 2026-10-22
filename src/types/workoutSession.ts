@@ -15,6 +15,30 @@
 
 import { ExerciseField } from "./workoutType";
 
+/**
+ * How one set felt, marked by the user (TICKET-034).
+ *
+ * - `easy`: could have done more. Push next time.
+ * - `hard`: missed reps, lost form, or needed a spot.
+ * - `null`: **not marked**, which the user reads as "done in good form, as
+ *   planned". Stored as null, never as a third value: the app cannot tell an
+ *   ordinary set from one nobody thought to mark, so it must not claim the
+ *   first. Rejected: a stored "ok" (TICKET-034's three-value option) — the user
+ *   marks exceptions, not every set, so "ok" would be indistinguishable from
+ *   unmarked in practice and only add a button.
+ *
+ * Per set, not per exercise as the ticket first said: "hard" is about the set
+ * where reps were missed, and comparing it with the same set last time is the
+ * axis ghosts and deltas already use.
+ */
+export const Effort = { Easy: "easy", Hard: "hard" } as const;
+export type Effort = (typeof Effort)[keyof typeof Effort];
+/**
+ * Every mark, in the order the controls offer them. The strings are what
+ * Firestore stores: renaming one orphans every mark already written.
+ */
+export const EFFORTS: readonly Effort[] = [Effort.Easy, Effort.Hard];
+
 /** One logged set's values, keyed by `ExerciseField.name`. */
 export type StoredSetFields = Record<string, string | number>;
 
@@ -89,6 +113,20 @@ export type ExerciseSessionDoc = {
   performedAt: number;
   fields: ExerciseField[];
   sets: StoredSetFields[];
+  /**
+   * Per-set effort marks, positional: index i is `sets[i]`'s (TICKET-034).
+   *
+   * A parallel array rather than a field inside each set, so TICKET-033's
+   * reshape of the stored set does not have to carry it, and the volume and
+   * record code that reads `sets` is untouched. Built in one place
+   * (`buildSessionDocs`) from the live sets, so it is aligned by construction;
+   * a reader that finds a length mismatch reads every mark as null and says so
+   * (`zipSetEffort`) rather than pair marks with the wrong sets.
+   *
+   * Always written, as nulls when nothing was marked: Firestore here rejects
+   * `undefined`. Optional only for dev docs saved before 034.
+   */
+  setEffort?: (Effort | null)[];
 };
 
 /** A session as embedded in the rollup. Same data, bounded count. */
@@ -99,6 +137,8 @@ export type StatsSessionEntry = {
   performedAt: number;
   fields: ExerciseField[];
   sets: StoredSetFields[];
+  /** Copied from `ExerciseSessionDoc.setEffort`; same rules. */
+  setEffort?: (Effort | null)[];
   /** Precomputed at write time. null when the session's volume is unavailable. */
   volume: number | null;
 };

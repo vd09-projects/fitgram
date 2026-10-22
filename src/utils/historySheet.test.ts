@@ -5,7 +5,7 @@ import { STATS_RECENT_SESSION_CAP } from "./exerciseStats";
 import { resolveNumericFields } from "./exerciseFields";
 import { buildStats, StatsSessionSpec } from "../test/fixtures";
 import { ExerciseHistoryStatus } from "../types/exerciseHistory";
-import { StoredSetFields } from "../types/workoutSession";
+import { Effort, StoredSetFields } from "../types/workoutSession";
 import { ExerciseField } from "../types/workoutType";
 
 const KG: ExerciseField = { name: "Weight", role: "weight", unit: "kg" };
@@ -36,6 +36,21 @@ const historyOf = (
   );
 
 describe("sheetSession", () => {
+  // TICKET-034
+  it("puts each set's mark on its own row and counts them; misaligned marks say so instead", () => {
+    const history = historyOf([
+      { sets: [set("60", "8"), set("65", "8"), set("65", "6")], setEffort: [null, Effort.Easy, Effort.Hard] },
+      { sets: [set("60", "8"), set("65", "8")], setEffort: [Effort.Hard] },
+    ]);
+    const marked = sheetSession(history, history.sessions[0], [], BENCH);
+    expect(marked.rows.map((row) => row.pastEffort)).toEqual([null, Effort.Easy, Effort.Hard]);
+    expect(marked.effort).toBe("1 easy · 1 hard");
+
+    const misaligned = sheetSession(history, history.sessions[1], [], BENCH);
+    expect(misaligned.rows.map((row) => row.pastEffort)).toEqual([null, null]);
+    expect(misaligned.effort).toBe("marks unavailable");
+  });
+
   it("gives the last session the Today list's deltas, aligned by set index", () => {
     const history = historyOf([{ sets: [set("60", "8"), set("62.5", "6"), set("60", "8")] }]);
     const today = [set("60", "9"), set("62.5", "6")];
@@ -52,7 +67,7 @@ describe("sheetSession", () => {
       false,
     ]);
     // Set 3 was done last time, not yet today: values on one side, no delta.
-    expect(view.rows[2]).toEqual({ setNumber: 3, past: "60 kg × 8", today: null, isNext: true, delta: null });
+    expect(view.rows[2]).toEqual({ setNumber: 3, past: "60 kg × 8", pastEffort: null, today: null, isNext: true, delta: null });
   });
 
   it("compares against the selected session, not the last one, and keeps today's extra sets", () => {

@@ -36,7 +36,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 031 | Contrast guards for the rest of the role palette | Small | Extends the `colors.test.ts` pattern |
 | 032 | Edit or delete an already-uploaded set | Med-Large | Needs a rollup rebuild |
 | 033 | Drop sets | Med-Large | Data-model change |
-| 034 | Rate an exercise easy or hard | Small-Med | |
+| 034 | Mark a set easy or hard | Small-Med | **In review** on branch `TICKET-034`: built and unit-tested; Firestore write and a device run untested |
 | 035 | Measures beyond weight x reps | Med-Large | "Which way is better" is a product decision |
 | 036 | Put a unit on volume trend points | Small-Med | Today the trend over-suppresses; held by an invariant test, not a fix |
 | 037 | Tell apart two sessions on the same day | Small | |
@@ -2107,39 +2107,93 @@ the first weight was not completed.
   shape first. The app is pre-launch, so no migration is needed
 - Not an extra free-text field: deltas and records would have to guess its
   meaning, which is the inference the field-role model exists to avoid
+- TICKET-034 stores `setEffort` parallel to `sets`, one mark per set position. Keep a
+  drop set as **one** entry in `sets`, or rebuild `setEffort` alongside: if the two
+  lengths differ, every mark in that session reads as "marks unavailable" (`zipSetEffort`)
 
 **Dependencies:** Phase 3 complete (TICKET-019, TICKET-020, TICKET-021).
 
 ---
 
-### TICKET-034: Rate an Exercise Easy or Hard
+### TICKET-034: Mark a Set Easy or Hard
 
-**Priority:** Low | **Effort:** Small-Medium | **Status: OPEN** — after Phase 3
+**Priority:** Low | **Effort:** Small-Medium | **Status: IN REVIEW** — built on branch
+`TICKET-034`, uncommitted; not yet run on a device
 
 **Description:**
-After an exercise, the user marks how it felt. Next time it shows next to
-last session's numbers. Easy means push slightly more; hard means hold the
-weight, save energy, or rest longer.
+After a set, the user can mark how it felt. Next time it shows next to that set's
+numbers from last session. Easy means push slightly more; hard means missed reps,
+lost form or needed a spot — hold the weight, save energy, or rest longer.
 
 **Acceptance Criteria:**
-- [ ] One control per exercise per session to mark it easy or hard. Optional,
-      never required to log or finish
-- [ ] Stored with that exercise's session and carried into history
-- [ ] Shown next time alongside "last time" (set card and/or history sheet),
-      e.g. "Last time: hard"
-- [ ] Decided: two values (easy / hard) or three (easy / ok / hard), and
-      whether "not rated" is distinct from "ok"
+- [x] ~~One control per exercise per session~~ One mark per **set**, optional, never
+      required to log or finish (see Deviations)
+- [x] Stored with that exercise's session and carried into history
+- [x] Shown next time alongside "last time": on the set card for that set, and per set
+      in the history sheet
+- [x] Decided: two values, `easy` / `hard`; not marked (`null`) is distinct and is
+      never stored as a third value
 
-**Technical Notes:**
-- A typed field on the exercise session (e.g. `effort: "easy" | "hard" | null`),
-  not a role-`other` set field: it describes the exercise, not one set, and
-  later features (target suggestions, rest length with TICKET-021) need to read
-  it reliably
-- Suggesting a heavier target from "easy" is a separate decision. This ticket
-  records and shows the rating; it does not change ghost targets
+**Decisions** (also in code comments at each site):
+- **Values.** `Effort = "easy" | "hard"`, `null` = not marked, read by the user as
+  "done in good form, as planned". Rejected a stored `ok`: the user marks exceptions,
+  not every set, so `ok` would be indistinguishable from unmarked in practice
+  (`src/types/workoutSession.ts`).
+- **Stored shape.** `ExerciseSessionDoc.setEffort: (Effort | null)[]`, parallel to
+  `sets`, copied into the rollup's `StatsSessionEntry`. A parallel array so TICKET-033's
+  reshape of the stored set does not have to carry it. Built once from the live sets
+  (`buildSessionDocs`), so aligned by construction; a reader finding a length mismatch
+  reads every mark as null and flags it (`zipSetEffort`). Always written as nulls when
+  nothing is marked: Firestore here rejects `undefined`, which would fail the queued
+  upload on every retry.
+- **Live shape.** `ExerciseSet.effort`, on the set object, so `removeSet`/`restoreSet`
+  move the mark with its set. Persisted to AsyncStorage on every change, so it
+  survives an app kill and travels in the upload queue with the workout.
+- **"Last time" is the last session only.** If last session's set N was not marked,
+  the card shows nothing — no fallback to an older mark, which would sit beside
+  numbers it was never about (`lastTimeEffort`). Older marks are in the history sheet.
+- **Where it is set.** The rest panel ("How was set N?", optional; tap again to clear),
+  and the Today list (tap a row → Easy / Hard / Clear). No per-row slot (looked
+  cluttered beside remove), no swipe (the pager owns horizontal swipes), no long-press.
+- **Where it shows.** The set card's pill (`LAST TIME 65 × 6 [H]`) plus a line
+  "Felt hard last time · 2 Oct"; the history sheet's Felt column and its caption count
+  ("1 easy · 1 hard"). Date chips stay plain — marks on them read as clutter.
+- **Look.** `EffortBadge`: H solid, E hollow; told apart by fill and letter, no new
+  colour (gold is PR, red is discard). Design: `design/workout-flow/project/Effort*.dc.html`
+  (canvas boards 5–8; 6b is the rejected column layout).
+- Records and shows only: ghost targets, deltas, the PR banner and rest duration do
+  not read it.
 
-**Dependencies:** Phase 3 complete. TICKET-020 (history sheet) is a natural
-place to show it.
+**Deviations from the ticket as written:**
+- **Per set, not per exercise.** The ticket said "it describes the exercise, not one
+  set". In use, "hard" is about the set where reps were missed or a spot was needed,
+  and comparing it with the same set last time is the axis ghosts and deltas already
+  use. A per-exercise mark could not say which set.
+- TICKET-021/038 linkage: TICKET-038 as written does not read effort. Rest length from
+  a mark is a future option, not a contract this ticket fulfils.
+
+**Verified:** typecheck clean; 170 unit tests pass, 8 of them new, each seen failing
+against a deliberate break of the line it covers: JSON round trip → `buildSessionDocs`
+→ rollup rebuild → history keeps marks and stores null not undefined; last-session-only;
+misaligned marks read as unavailable; a mark moves with its set through remove/undo
+and is stored; rest-panel mark and clear; Today row strip; set-card pill; sheet rows
+and caption.
+
+**Unverified:**
+- The Firestore write of `setEffort` and the rollup transaction carrying it — no
+  emulator or device run. Rules are a per-user wildcard with no field validation, so
+  they should accept it; untested.
+- A device run of the rest-panel control, the Today strip and the sheet's Felt column
+  (layout at phone width, the extra column in the sheet's sideways-scrolling table).
+
+**Known gaps:**
+- A mark cannot be changed after upload — that is editing an uploaded set, TICKET-032.
+- `WorkoutHistoricalLogsFilter` reads `exercise_sessions` directly and ignores marks.
+  Out of scope; it gets the field for free if it ever wants it.
+- Possible follow-up, not filed: a "needed help now, didn't before" signal across
+  sessions. Today the user reads it from the sheet.
+
+**Dependencies:** Phase 3 complete. TICKET-020 (history sheet) is where older marks show.
 
 ---
 
@@ -2153,7 +2207,7 @@ shapes: pre-launch is the cheap moment for that.
 
 ```
 1. TICKET-033  (Drop sets)                 — A weight change within one set
-2. TICKET-034  (Easy / hard rating)        — Per-exercise effort, independent of 033
+2. TICKET-034  (Easy / hard rating)        — Per-set effort (in review), independent of 033
 3. TICKET-032  (Edit/delete uploaded set)  — Needs the rollup rebuild; after 033 so it
                                              is written once against the final shape
 4. TICKET-029  (Pending uploads view)      — Replaces the TEMPORARY debug screen.

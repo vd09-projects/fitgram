@@ -1,4 +1,5 @@
 import { ExerciseField } from "./workoutType";
+import { Effort } from "./workoutSession";
 
 // Type for a single set in an exercise
 export interface ExerciseSet {
@@ -14,6 +15,13 @@ export interface ExerciseSet {
    */
   id: number;
   fields: Record<string, string | number>; // Dynamic fields (e.g., reps, weight, time)
+  /**
+   * How the set felt, marked by the user (TICKET-034). Absent or null: not
+   * marked. Lives on the set object so `removeSet` / `restoreSet` carry it with
+   * the set they move. Optional because a workout stored before 034 lacks it;
+   * every reader treats absent as null.
+   */
+  effort?: Effort | null;
 }
 
 // Type for logged exercises

@@ -18,6 +18,8 @@ import { formatSessionDate, formatVolume, setCountText } from "../../utils/setDe
 import { formatStepValue, resolveGhostTarget } from "../../utils/setLogger";
 import { TextBase, NumericText } from "../TextBase";
 import { DeltaBadge, deltaSpeech } from "./DeltaBadge";
+import { EffortBadge } from "./EffortBadge";
+import { effortSpeech } from "../../utils/effort";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 
@@ -145,6 +147,7 @@ export default function ExerciseHistorySheet({ visible, onClose, exercise, histo
                       <NumericText style={styles.caption}>
                         {setCountText(session.setCount)}
                         {session.volume !== null && ` · ${session.volume}`}
+                        {session.effort !== null && ` · ${session.effort}`}
                       </NumericText>
                     </TextBase>
                     {session.notice !== null && <TextBase style={styles.notice}>{session.notice}</TextBase>}
@@ -183,6 +186,7 @@ function SessionTable({ rows, dateLabel, styles }: { rows: SheetRow[]; dateLabel
           <View style={[styles.tableRow, styles.tableHead]}>
             <TextBase style={[styles.headText, styles.colSet]}>SET</TextBase>
             <NumericText style={[styles.headText, styles.colPast]}>{dateLabel.toUpperCase()}</NumericText>
+            <TextBase style={[styles.headText, styles.colFelt]}>FELT</TextBase>
             <TextBase style={[styles.headText, styles.colToday]}>TODAY</TextBase>
           </View>
           {rows.map((row) => (
@@ -198,6 +202,9 @@ function SessionTable({ rows, dateLabel, styles }: { rows: SheetRow[]; dateLabel
               <NumericText style={[styles.past, styles.colPast]} numberOfLines={1}>
                 {row.past ?? "—"}
               </NumericText>
+              <View style={[styles.colFelt, styles.feltCell]}>
+                {row.pastEffort !== null && <EffortBadge effort={row.pastEffort} />}
+              </View>
               <View style={[styles.colToday, styles.todayCell]}>
                 {row.today !== null ? (
                   <>
@@ -225,7 +232,10 @@ function SessionTable({ rows, dateLabel, styles }: { rows: SheetRow[]; dateLabel
 
 /** "Set 2: 26 Sep 65 kg by 10; today 65 kg by 10, matched". */
 function rowSpeech(row: SheetRow, dateLabel: string): string {
-  const past = row.past !== null ? `${dateLabel} ${row.past.replace("×", "by")}` : `not done on ${dateLabel}`;
+  const past =
+    row.past !== null
+      ? `${dateLabel} ${row.past.replace("×", "by")}${effortSpeech(row.pastEffort)}`
+      : `not done on ${dateLabel}`;
   const today =
     row.today !== null
       ? `today ${row.today.replace("×", "by")}${deltaSpeech(row.delta)}`
@@ -472,6 +482,13 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   colPast: {
     flex: 1,
     minWidth: 104,
+  },
+  colFelt: {
+    width: 36,
+    textAlign: "center",
+  },
+  feltCell: {
+    alignItems: "center",
   },
   colToday: {
     flex: 1.3,

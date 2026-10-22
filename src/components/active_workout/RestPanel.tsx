@@ -4,6 +4,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { SPACING } from "../../constants/styles";
 import { ExerciseHistory } from "../../types/exerciseHistory";
 import { LoggedExercise } from "../../types/zustandWorkoutType";
+import { Effort, EFFORTS } from "../../types/workoutSession";
+import { EFFORT_LABEL } from "../../utils/effort";
 import { resolveNumericFields } from "../../utils/exerciseFields";
 import { personalBest, personalBestText } from "../../utils/personalBest";
 import { ADD_REST_MS, formatCountdown, restCountdown, RestTimer } from "../../utils/restTimer";
@@ -12,6 +14,7 @@ import { ghostNotice, lastTimeText, resolveGhostTarget } from "../../utils/setLo
 import { TextBase, NumericText } from "../TextBase";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
+import { EffortBadge } from "./EffortBadge";
 
 const ACTION_HEIGHT = 48;
 
@@ -38,6 +41,8 @@ type Props = {
   onSkip: () => void;
   onAddTime: () => void;
   onOpenHistory: () => void;
+  /** Mark the set just logged, or clear its mark with null (TICKET-034). */
+  onSetEffort: (setId: number, effort: Effort | null) => void;
 };
 
 /**
@@ -62,7 +67,7 @@ type Props = {
  * - Next-set target and its absence reasons come from `resolveGhostTarget` and
  *   `ghostNotice`, the card's own calls, so the two always agree.
  */
-export default function RestPanel({ rest, exercise, history, onSkip, onAddTime, onOpenHistory }: Props) {
+export default function RestPanel({ rest, exercise, history, onSkip, onAddTime, onOpenHistory, onSetEffort }: Props) {
   const { styles, t } = useThemeStyles(createStyles);
   const now = useNow(500);
 
@@ -86,6 +91,9 @@ export default function RestPanel({ rest, exercise, history, onSkip, onAddTime, 
       resolveNumericFields(exercise.fields)
     )
   );
+
+  const lastSet = exercise.sets[exercise.sets.length - 1] ?? null;
+  const lastEffort = lastSet?.effort ?? null;
 
   const addSeconds = ADD_REST_MS / 1000;
   const skipLabel = running ? "Skip rest" : "Next set";
@@ -147,6 +155,36 @@ export default function RestPanel({ rest, exercise, history, onSkip, onAddTime, 
             <TextBase style={styles.skipText}>{skipLabel}</TextBase>
           </TouchableOpacity>
         </View>
+
+        {lastSet !== null && (
+          <View style={styles.rate} accessibilityRole="radiogroup" accessibilityLabel={`How was set ${exercise.sets.length}? Optional`}>
+            <View style={styles.rateHeader}>
+              <TextBase style={styles.nextLabel}>
+                HOW WAS SET <NumericText style={styles.nextLabel}>{exercise.sets.length}</NumericText>?
+              </TextBase>
+              <TextBase style={styles.secondary}>optional</TextBase>
+            </View>
+            <View style={styles.rateOptions}>
+              {EFFORTS.map((effort) => {
+                const selected = lastEffort === effort;
+                return (
+                  <TouchableOpacity
+                    key={effort}
+                    style={[styles.rateOption, selected && styles.rateOptionSelected]}
+                    onPress={() => onSetEffort(lastSet.id, selected ? null : effort)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: selected }}
+                    accessibilityLabel={EFFORT_LABEL[effort]}
+                    accessibilityHint={selected ? "Tap again to clear" : undefined}
+                  >
+                    <EffortBadge effort={effort} />
+                    <TextBase style={styles.rateText}>{EFFORT_LABEL[effort]}</TextBase>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         <TouchableOpacity
           style={styles.next}
@@ -288,6 +326,42 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     fontSize: t.fonts.medium,
     fontWeight: "bold",
     color: t.colors.role.ground,
+  },
+  rate: {
+    marginTop: 14,
+    paddingTop: 13,
+    borderTopWidth: 1,
+    borderTopColor: t.colors.role.hairline,
+    gap: 9,
+  },
+  rateHeader: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+  },
+  rateOptions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  rateOption: {
+    flex: 1,
+    height: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: t.colors.role.hairlineStrong,
+  },
+  rateOptionSelected: {
+    backgroundColor: t.colors.role.accentDeep,
+    borderColor: t.colors.role.accent,
+  },
+  rateText: {
+    fontSize: t.fonts.small,
+    fontWeight: "600",
+    color: t.colors.role.textPrimary,
   },
   next: {
     flexDirection: "row",

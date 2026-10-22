@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SPACING } from "../../constants/styles";
 import { ExerciseHistory } from "../../types/exerciseHistory";
 import { LoggedExercise } from "../../types/zustandWorkoutType";
+import { Effort, EFFORTS } from "../../types/workoutSession";
 import { RemovedSet } from "../../stores/useWorkoutStore";
 import { resolveNumericFields } from "../../utils/exerciseFields";
 import {
@@ -16,6 +17,8 @@ import {
 } from "../../utils/setDeltas";
 import { TextBase, NumericText } from "../TextBase";
 import { DeltaBadge, deltaSpeech } from "./DeltaBadge";
+import { EffortBadge } from "./EffortBadge";
+import { EFFORT_LABEL, effortSpeech } from "../../utils/effort";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 
@@ -29,6 +32,8 @@ type Props = {
   removed: RemovedSet | null;
   onRemove: (setId: number) => void;
   onUndo: () => void;
+  /** Mark a set, or clear its mark with null (TICKET-034). */
+  onSetEffort: (setId: number, effort: Effort | null) => void;
 };
 
 /**
@@ -45,9 +50,23 @@ type Props = {
  *   being undone is on screen, and a timed affordance would race the user.
  * - A row with no delta shows nothing in the delta slot — not 0, not a dash
  *   that reads as a value. The card's notice and the footer say why.
+ *
+ * Decisions (TICKET-034, canvas boards 6 and 6b):
+ * - A mark shows right after the set's values, `65 kg × 6 [H]`; an unmarked
+ *   row shows nothing extra. Rejected: an empty slot per row (looked
+ *   cluttered beside the remove control), and a column by the set number
+ *   (board 6b, kept as the alternative).
+ * - Tapping the row opens a strip with Easy / Hard, and Clear once marked.
+ *   The row body did nothing before, so this takes no gesture from anything.
+ *   Not a swipe, for the same reason as remove; not a long-press, which
+ *   nothing on screen would reveal. One strip open at a time; picking a mark
+ *   closes it.
+ * - The strip closes on remove: set ids are ordinals, so after a removal the
+ *   open id would name a different set.
  */
-export default function TodaySets({ exercise, history, removed, onRemove, onUndo }: Props) {
+export default function TodaySets({ exercise, history, removed, onRemove, onUndo, onSetEffort }: Props) {
   const { styles, t } = useThemeStyles(createStyles);
+  const [openSetId, setOpenSetId] = useState<number | null>(null);
   const numeric = resolveNumericFields(exercise.fields);
   const summary = todaySummary(
     history,
@@ -61,27 +80,73 @@ export default function TodaySets({ exercise, history, removed, onRemove, onUndo
     const setNumber = index + 1;
     const values = setValuesText(exercise.fields, set.fields);
     const delta = setDelta(history, setNumber, set.fields, numeric);
+    const effort = set.effort ?? null;
+    const open = openSetId === set.id;
     return (
-      <View key={`set-${set.id}`} style={[styles.row, index > 0 && styles.divider]}>
-        <View
-          style={styles.rowInfo}
-          accessible
-          accessibilityLabel={`Set ${setNumber}, ${values.replace("×", "by")}${deltaSpeech(delta)}`}
-        >
-          <NumericText style={styles.setNumber}>{setNumber}</NumericText>
-          <NumericText style={styles.values} numberOfLines={1}>
-            {values}
-          </NumericText>
-          <DeltaBadge delta={delta} />
+      <View key={`set-${set.id}`} style={[open && styles.rowOpen, index > 0 && styles.divider]}>
+        <View style={styles.row}>
+          <TouchableOpacity
+            style={styles.rowInfo}
+            onPress={() => setOpenSetId(open ? null : set.id)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: open }}
+            accessibilityLabel={`Set ${setNumber}, ${values.replace("×", "by")}${effortSpeech(effort)}${deltaSpeech(delta)}`}
+            accessibilityHint="Mark easy or hard"
+          >
+            <NumericText style={styles.setNumber}>{setNumber}</NumericText>
+            <View style={styles.valuesWrap}>
+              <NumericText style={styles.values} numberOfLines={1}>
+                {values}
+              </NumericText>
+              {effort !== null && <EffortBadge effort={effort} />}
+            </View>
+            <DeltaBadge delta={delta} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.remove}
+            onPress={() => {
+              setOpenSetId(null);
+              onRemove(set.id);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Remove set ${setNumber}: ${values.replace("×", "by")}`}
+          >
+            <Ionicons name="close" size={16} color={t.colors.role.textSecondary} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={styles.remove}
-          onPress={() => onRemove(set.id)}
-          accessibilityRole="button"
-          accessibilityLabel={`Remove set ${setNumber}: ${values.replace("×", "by")}`}
-        >
-          <Ionicons name="close" size={16} color={t.colors.role.textSecondary} />
-        </TouchableOpacity>
+        {open && (
+          <View style={styles.strip} accessibilityRole="radiogroup" accessibilityLabel={`Mark set ${setNumber}`}>
+            {EFFORTS.map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[styles.stripOption, effort === option && styles.stripOptionSelected]}
+                onPress={() => {
+                  setOpenSetId(null);
+                  onSetEffort(set.id, option);
+                }}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: effort === option }}
+                accessibilityLabel={EFFORT_LABEL[option]}
+              >
+                <EffortBadge effort={option} size={18} />
+                <TextBase style={styles.stripText}>{EFFORT_LABEL[option]}</TextBase>
+              </TouchableOpacity>
+            ))}
+            {effort !== null && (
+              <TouchableOpacity
+                style={styles.stripClear}
+                onPress={() => {
+                  setOpenSetId(null);
+                  onSetEffort(set.id, null);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Clear mark on set ${setNumber}`}
+              >
+                <TextBase style={styles.stripClearText}>Clear</TextBase>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </View>
     );
   });
@@ -204,6 +269,8 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   },
   rowInfo: {
     flex: 1,
+    // The whole row height is the tap target, not just the text.
+    minHeight: ROW_HEIGHT,
     flexDirection: "row",
     alignItems: "center",
     gap: SPACING.medium,
@@ -214,10 +281,57 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     // textSecondary, not textGhost: textGhost is cleared for large numerals only.
     color: t.colors.role.textSecondary,
   },
-  values: {
+  valuesWrap: {
     flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.small,
+  },
+  values: {
+    flexShrink: 1,
     fontSize: 15.5,
     color: t.colors.role.textPrimary,
+  },
+  rowOpen: {
+    backgroundColor: t.colors.role.raised,
+  },
+  strip: {
+    flexDirection: "row",
+    gap: SPACING.small,
+    paddingLeft: 13 + 22 + SPACING.medium,
+    paddingRight: 13,
+    paddingBottom: 11,
+  },
+  stripOption: {
+    flex: 1,
+    height: HIT,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: t.colors.role.hairlineStrong,
+  },
+  stripOptionSelected: {
+    backgroundColor: t.colors.role.accentDeep,
+    borderColor: t.colors.role.accent,
+  },
+  stripText: {
+    fontSize: t.fonts.small,
+    fontWeight: "600",
+    color: t.colors.role.textPrimary,
+  },
+  stripClear: {
+    height: HIT,
+    justifyContent: "center",
+    paddingHorizontal: SPACING.medium,
+  },
+  stripClearText: {
+    fontSize: t.fonts.small,
+    fontWeight: "600",
+    color: t.colors.role.textSecondary,
   },
   remove: {
     width: HIT,

@@ -51,6 +51,8 @@ export type StatsSessionSpec = {
   /** Default: one day earlier per position, so the first spec is the newest. */
   performedAt?: number;
   workoutName?: string;
+  /** Per-set effort marks, positional like `sets` (TICKET-034). Default: none stored. */
+  setEffort?: ExerciseSessionDoc["setEffort"];
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -81,6 +83,7 @@ export function buildStats(name: string, sessions: StatsSessionSpec[]): Exercise
       performedAt: spec.performedAt ?? now - (index + 1) * DAY_MS,
       fields: spec.fields ?? buildExercise(name).fields,
       sets: spec.sets,
+      ...(spec.setEffort && { setEffort: spec.setEffort }),
     };
   });
 

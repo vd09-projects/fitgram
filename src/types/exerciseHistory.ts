@@ -5,7 +5,7 @@
 // means the last time bench press was done in ANY workout, which is the question
 // the active-workout flow actually asks.
 
-import { ExerciseStatsDoc, StoredSetFields } from "./workoutSession";
+import { Effort, ExerciseStatsDoc, StoredSetFields } from "./workoutSession";
 import { ExerciseField } from "./workoutType";
 import { NumericFieldMap } from "../utils/exerciseFields";
 import { SessionVolume } from "../utils/exerciseStats";
@@ -42,6 +42,8 @@ export type HistorySet = {
   /** null when the value is absent, unparseable, or the exercise has no such role. */
   weight: number | null;
   reps: number | null;
+  /** The user's mark for this set, or null: not marked (TICKET-034). */
+  effort: Effort | null;
 };
 
 export type ExerciseHistorySession = {
@@ -58,6 +60,12 @@ export type ExerciseHistorySession = {
    */
   fields: ExerciseField[];
   volume: SessionVolume;
+  /**
+   * True when the stored marks could not be paired with the sets (the array
+   * lengths differ). Every `effort` is then null; this says why, so a reader can
+   * tell "marks unavailable" from "nothing marked". See `zipSetEffort`.
+   */
+  effortUnavailable: boolean;
   /**
    * False when this session's weight unit differs from the exercise's current
    * definition. Its numbers are still shown; comparing them is not valid.

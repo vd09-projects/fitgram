@@ -4,6 +4,7 @@ import { renderScreen } from "../../test/renderScreen";
 import { buildExercise, buildStats, buildWorkout } from "../../test/fixtures";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
 import { useRestPreferenceStore } from "../../stores/restPreferenceStore";
+import { Effort } from "../../types/workoutSession";
 
 // Last session: 60 × 8, 62.5 × 8. Stored best at 8 reps: 62.5 kg.
 const lastTime = buildStats("Bench Press", [
@@ -105,5 +106,23 @@ describe("RestPanel", () => {
     await logSet("63", "8");
     expect(screen.getByLabelText("1:30 rest left of 1:30")).toBeOnTheScreen();
     expect(screen.queryByTestId("personal-best-banner")).toBeNull();
+  });
+
+  // TICKET-034
+  it("marks the set just logged from the rest panel; tapping the mark again clears it", async () => {
+    renderScreen(ActiveWorkoutScreen, { workout: buildWorkout(["Bench Press"]), history });
+    await logSet("60", "8");
+    const effort = () => useWorkoutStore.getState().activeWorkout!.exercises[0].sets[0].effort ?? null;
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole("radio", { name: "Hard" }));
+    });
+    expect(effort()).toBe(Effort.Hard);
+    expect(screen.getByRole("button", { name: /^Set 1, 60 kg by 8, felt hard/ })).toBeOnTheScreen();
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole("radio", { name: "Hard" }));
+    });
+    expect(effort()).toBeNull();
   });
 });

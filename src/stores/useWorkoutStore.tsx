@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WorkoutPlan, Exercise } from "../types/workoutType";
+import { Effort } from "../types/workoutSession";
 import { ActiveWorkout, ExerciseSet, PendingUpload } from "../types/zustandWorkoutType";
 import { saveWorkoutSession } from "../services/db/workoutSessions";
 import show from "../utils/toastUtils";
@@ -95,6 +96,8 @@ interface WorkoutStoreState {
   updateSet: (exerciseId: string, setId: number, updatedFields: Record<string, string | number>) => Promise<void>;
   removeSet: (exerciseId: string, setId: number) => Promise<RemovedSet | null>;
   restoreSet: (exerciseId: string, removed: RemovedSet) => Promise<void>;
+  /** Mark how a set felt, or clear the mark with null (TICKET-034). */
+  setSetEffort: (exerciseId: string, setId: number, effort: Effort | null) => Promise<void>;
   setCurrentExerciseIndex: (index: number) => Promise<void>;
   endWorkout: (userId : string | undefined) => Promise<EndWorkoutResult>;
   cancelWorkout: () => Promise<void>;
@@ -300,6 +303,43 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
 
     await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
     set({ activeWorkout: updatedWorkout });
+  },
+
+  /**
+   * 🔹 Mark a set easy or hard, or clear its mark (TICKET-034).
+   *
+   * Written to storage at once, like every set change, so a mark survives an
+   * app kill and travels with the workout into the upload queue.
+   *
+   * The mark lives on the set object, so a later `removeSet` / `restoreSet`
+   * moves it with its set. `setId` is read fresh from the store by the caller,
+   * as for `updateSet`: it is an ordinal.
+   *
+   * Neither `lastUpdated` nor `currentExerciseIndex` moves: a mark is not
+   * logged data (`lastUpdated` tracks sets), and it is set from the rest panel
+   * or the Today list of the exercise already on screen.
+   */
+  setSetEffort: async (exerciseId, setId, effort) => {
+    const { activeWorkout } = get();
+    if (!activeWorkout) return;
+
+    let changed = false;
+    const updatedExercises = activeWorkout.exercises.map((exercise) => {
+      if (exercise.id !== exerciseId) return exercise;
+      return {
+        ...exercise,
+        sets: exercise.sets.map((set) => {
+          if (set.id !== setId || (set.effort ?? null) === effort) return set;
+          changed = true;
+          return { ...set, effort };
+        }),
+      };
+    });
+    if (!changed) return;
+
+    const updatedWorkout: ActiveWorkout = { ...activeWorkout, exercises: updatedExercises };
+    set({ activeWorkout: updatedWorkout });
+    await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
   },
 
   /**

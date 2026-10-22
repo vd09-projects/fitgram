@@ -5,6 +5,7 @@ import { RemovedSet, useWorkoutStore } from "../stores/useWorkoutStore";
 import { useRestPreferenceStore } from "../stores/restPreferenceStore";
 import { SPACING } from "../constants/styles";
 import { LoggedExercise } from "../types/zustandWorkoutType";
+import { Effort } from "../types/workoutSession";
 import { useExerciseHistory } from "../hooks/useExerciseHistory";
 import {
   ghostNotice,
@@ -24,6 +25,9 @@ import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 import { MaybeTourStep } from "./guide_tour/MaybeTourStep";
 import { ACTIVE_WORKOUT_STEP_NAMES } from "../tour_steps/activeWorkout";
+import { EffortBadge } from "./active_workout/EffortBadge";
+import { effortSpeech, lastTimeEffort } from "../utils/effort";
+import { formatSessionDate } from "../utils/setDeltas";
 
 const HIT = 44;
 const ACTION_HEIGHT = 56;
@@ -74,10 +78,18 @@ const PILL_HIT_SLOP = { top: (HIT - PILL_HEIGHT) / 2, bottom: (HIT - PILL_HEIGHT
  * - The rest starts after the store has the set, not before: the banner is
  *   derived from the last set in the list and would otherwise judge the
  *   previous one for a frame.
+ *
+ * Decisions (TICKET-034, canvas board 7):
+ * - Last time's mark for this set rides on the pill beside its numbers, and a
+ *   line under the header spells it out with the date. The pill alone is easy
+ *   to miss; the line alone loses the pairing with the numbers.
+ * - From the last session only (`lastTimeEffort`). It records and shows: the
+ *   ghost target and the rest duration do not read it.
  */
 export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise }) {
   const { styles, t } = useThemeStyles(createStyles);
-  const { addSetToExercise, removeSet, restoreSet, rest, startRest, addRestTime, endRest } = useWorkoutStore();
+  const { addSetToExercise, removeSet, restoreSet, setSetEffort, rest, startRest, addRestTime, endRest } =
+    useWorkoutStore();
   const history = useExerciseHistory(exercise.id);
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -90,6 +102,8 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
   const repeat = repeatValues(ghosts);
   const pillText = lastTimeText(target);
   const notice = ghostNotice(target, history.status);
+  const lastEffort = lastTimeEffort(history, setNumber);
+  const onSetEffort = (setId: number, effort: Effort | null) => setSetEffort(exercise.id, setId, effort);
   const anyStepper = exercise.fields.some((field) => field.role === "weight" || field.role === "reps");
 
   const onChangeField = (name: string, text: string) => {
@@ -152,6 +166,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
           onSkip={endRest}
           onAddTime={addRestTime}
           onOpenHistory={() => setHistoryOpen(true)}
+          onSetEffort={onSetEffort}
         />
       ) : (
         <View style={styles.card}>
@@ -166,15 +181,24 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
               hitSlop={PILL_HIT_SLOP}
               accessibilityRole="button"
               accessibilityLabel={
-                pillText !== null ? `Last time ${pillText.replace("×", "by")}. Show history` : "Show history"
+                pillText !== null
+                  ? `Last time ${pillText.replace("×", "by")}${effortSpeech(lastEffort?.effort)}. Show history`
+                  : "Show history"
               }
             >
               <TextBase style={styles.pillLabel}>{pillText !== null ? "LAST TIME" : "HISTORY"}</TextBase>
               {pillText !== null && <NumericText style={styles.pillValue}>{pillText}</NumericText>}
+              {pillText !== null && lastEffort !== null && <EffortBadge effort={lastEffort.effort} />}
               <Ionicons name="chevron-up" size={14} color={t.colors.role.textSecondary} />
             </TouchableOpacity>
           </View>
 
+          {lastEffort !== null && (
+            <TextBase style={styles.notice}>
+              Felt {lastEffort.effort} last time ·{" "}
+              <NumericText style={styles.notice}>{formatSessionDate(lastEffort.performedAt)}</NumericText>
+            </TextBase>
+          )}
           {notice !== null && <TextBase style={styles.notice}>{notice}</TextBase>}
 
           <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.LOG_FIELDS}>
@@ -252,6 +276,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
             removed={removed}
             onRemove={onRemoveSet}
             onUndo={onUndoRemove}
+            onSetEffort={onSetEffort}
           />
         </View>
       </MaybeTourStep>
