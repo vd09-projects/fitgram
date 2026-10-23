@@ -41,7 +41,6 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
-| 040 | Edit a set in the active workout, before Finish | Small-Med | **Built, in review (branch TICKET-040);** device run owed. Editing an *uploaded* set stays TICKET-032 |
 
 ### Not tickets — verification owed
 
@@ -54,10 +53,15 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 - **TICKET-034's set marks have never had a real Firestore write** (`setEffort`
   on the session doc and in the `exercise_stats` rollup), and the rules are
   untested for it. Merged in PR #15; unit-tested only.
+- **TICKET-040's edit mode has never run on a device.** Merged in PR #16;
+  unit-tested only. Unwatched: the layout at phone width (the three-button strip
+  and its hint, the Editing label, Cancel/Save, the rest line), the rest line
+  switching to "Rest done" mid-edit, and the guided tour over the card in edit mode.
 
-One device session covers all three: start a workout, log two sets, mark one
-easy or hard, Finish online, start the same workout again and check "last time"
-shows the mark, then run the tour from Profile.
+One device session covers all four: start a workout, log two sets, mark one
+easy or hard, edit the other during its rest and wait for the rest to end, Save,
+Finish online, start the same workout again and check "last time" shows the mark
+and the edited values, then run the tour from Profile (once with an edit open).
 
 ---
 
@@ -1337,9 +1341,10 @@ record to beat. Decide whether the banner should cover that, and with which reco
 
 ---
 
-### TICKET-040: Edit a Set in the Active Workout, Before Finish
+### ~~TICKET-040: Edit a Set in the Active Workout, Before Finish~~ ✅ DONE
 
-**Priority:** Medium | **Effort:** Small-Medium | **Status: BUILT, in review (branch TICKET-040) — device run owed**
+**Priority:** Medium | **Effort:** Small-Medium | **Status: DONE** — merged in PR #16;
+device run still owed (see Pending Work → verification owed)
 
 **Description:**
 A mistyped set (56 for 65) can today only be removed and re-logged. Let the user correct
@@ -2335,18 +2340,15 @@ a mark that failed to store is not shown; tap-again clears on the Today strip to
 
 Finished tickets have been removed — they are not blockers for anything.
 
-**The next four are decided.** They come first because they are what makes logging
+**The next three are decided.** They come first because they are what makes logging
 an exercise match what people actually do, and because 033 changes a stored
-shape: pre-launch is the cheap moment for that. 040 goes first: it is small, touches
-no stored shape, and fixes the typo people hit mid-workout today.
+shape: pre-launch is the cheap moment for that.
 
 ```
-1. TICKET-040  (Edit a set before Finish)  — In-place edit in the active workout; no
-                                             stored shape, no rollup
-2. TICKET-033  (Drop sets)                 — A weight change within one set
-3. TICKET-032  (Edit/delete uploaded set)  — Needs the rollup rebuild; after 033 so it
+1. TICKET-033  (Drop sets)                 — A weight change within one set
+2. TICKET-032  (Edit/delete uploaded set)  — Needs the rollup rebuild; after 033 so it
                                              is written once against the final shape
-4. TICKET-029  (Pending uploads view)      — Replaces the TEMPORARY debug screen.
+3. TICKET-029  (Pending uploads view)      — Replaces the TEMPORARY debug screen.
                                              Surface overlaps TICKET-011: either pull
                                              011 in or let 029 decide it
 ```
