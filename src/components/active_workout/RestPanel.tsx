@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SPACING } from "../../constants/styles";
@@ -14,25 +14,10 @@ import { ghostNotice, lastTimeText, resolveGhostTarget } from "../../utils/setLo
 import { TextBase, NumericText } from "../TextBase";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
+import { useNow } from "../../hooks/useNow";
 import { EffortBadge } from "./EffortBadge";
 
 const ACTION_HEIGHT = 48;
-
-/**
- * Re-reads the clock twice a second. The interval only triggers a re-render and
- * holds no count (as `ElapsedTime` in WorkoutHeader): every value is derived
- * from the stored `startedAt`, so unmounting, backgrounding or a suspended JS
- * thread loses nothing. Half a second, not one, so the shown second never lags
- * the real one by most of a second.
- */
-function useNow(intervalMs: number): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), intervalMs);
-    return () => clearInterval(id);
-  }, [intervalMs]);
-  return now;
-}
 
 type Props = {
   rest: RestTimer;

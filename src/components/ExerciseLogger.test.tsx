@@ -205,3 +205,108 @@ describe("ExerciseLogger", () => {
     expect(screen.getByText(/^Felt hard last time/)).toBeOnTheScreen();
   });
 });
+
+// TICKET-040: edit a logged set before Finish.
+describe("ExerciseLogger edit mode", () => {
+  const benchWith = (sets: { id: number; fields: Record<string, string>; effort?: Effort }[]) =>
+    buildWorkout([], { exercises: [buildExercise("Bench Press", { sets })] });
+  const press = (name: string | RegExp) =>
+    act(async () => {
+      fireEvent.press(screen.getByRole("button", { name }));
+    });
+  const openEdit = async (row: RegExp, setNumber: number) => {
+    await press(row);
+    await press(`Edit set ${setNumber}`);
+  };
+
+  it("saves over the set in place: mark and position kept, no rest, next set's typing back after", async () => {
+    renderScreen(ActiveWorkoutScreen, {
+      workout: benchWith([
+        { id: 1, fields: { Weight: "60", Reps: "8" } },
+        { id: 2, fields: { Weight: "56", Reps: "8" }, effort: Effort.Easy },
+        { id: 3, fields: { Weight: "65", Reps: "8" } },
+      ]),
+      history: withHistory,
+    });
+    fireEvent.changeText(weight(), "70");
+
+    await openEdit(/^Set 2, 56 kg by 8/, 2);
+    expect(weight().props.value).toBe("56");
+    expect(weight().props.placeholder).toBe("62.5"); // last session's set 2, not set 4
+    fireEvent.changeText(weight(), "65");
+    await press("Save set 2");
+
+    expect(loggedSets()).toEqual([
+      { id: 1, fields: { Weight: "60", Reps: "8" } },
+      { id: 2, fields: { Weight: "65", Reps: "8" }, effort: Effort.Easy },
+      { id: 3, fields: { Weight: "65", Reps: "8" } },
+    ]);
+    expect(useWorkoutStore.getState().rest).toBeNull();
+    expect(logButton()).toHaveAccessibleName("Log set 4");
+    expect(weight().props.value).toBe("70");
+  });
+
+  it("clearing an optional field in the edit clears it from the set", async () => {
+    const fields: ExerciseField[] = [
+      { name: "Weight", role: "weight", unit: "kg" },
+      { name: "Reps", role: "reps" },
+      { name: "Band", role: "other" },
+    ];
+    const exercise = buildExercise("Bench Press", {
+      fields,
+      sets: [{ id: 1, fields: { Weight: "60", Reps: "8", Band: "red" } }],
+    });
+    renderScreen(ActiveWorkoutScreen, { workout: buildWorkout([], { exercises: [exercise] }) });
+
+    await openEdit(/^Set 1, /, 1);
+    fireEvent.changeText(screen.getByLabelText("Band"), "");
+    await press("Save set 1");
+
+    expect(loggedSets()).toEqual([{ id: 1, fields: { Weight: "60", Reps: "8" } }]);
+  });
+
+  // Ids are ordinals: a remove or undo during the edit would renumber the set
+  // being edited, and Save would land on another one.
+  it("keeps the list read-only while editing, so the edit lands on its own set; Undo waits", async () => {
+    renderScreen(ActiveWorkoutScreen, {
+      workout: benchWith([
+        { id: 1, fields: { Weight: "60", Reps: "8" } },
+        { id: 2, fields: { Weight: "650", Reps: "8" } },
+        { id: 3, fields: { Weight: "70", Reps: "8" } },
+      ]),
+    });
+    await press("Remove set 1: 60 kg by 8");
+    await openEdit(/^Set 1, 650 kg by 8/, 1);
+
+    expect(screen.queryByRole("button", { name: /^Remove set/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Undo/ })).toBeNull();
+    expect(screen.getByText("Undo after this edit")).toBeOnTheScreen();
+
+    fireEvent.changeText(weight(), "65");
+    await press("Save set 1");
+    await press(/^Undo/);
+    expect(loggedSets().map((s) => s.fields.Weight)).toEqual(["60", "65", "70"]);
+  });
+
+  it("during a rest, takes the panel's slot without touching the rest, and gives it back on Save", async () => {
+    renderScreen(ActiveWorkoutScreen, {
+      workout: benchWith([{ id: 1, fields: { Weight: "60", Reps: "8" } }]),
+    });
+    const rest = { exerciseId: "bench-press", startedAt: Date.now(), durationMs: 90_000, setNumber: 1 };
+    act(() => useWorkoutStore.setState({ rest }));
+
+    await openEdit(/^Set 1, 60 kg by 8/, 1);
+    expect(screen.queryByRole("button", { name: "Skip rest" })).toBeNull();
+    expect(screen.getByLabelText(/^Rest keeps running, 1:(30|29) left$/)).toBeOnTheScreen();
+
+    fireEvent.changeText(weight(), "");
+    await press("Save set 1");
+    expect(screen.getByText("Enter Weight to save set 1")).toBeOnTheScreen();
+
+    fireEvent.changeText(weight(), "62.5");
+    await press("Save set 1");
+    expect(useWorkoutStore.getState().rest).toBe(rest);
+    expect(screen.getByRole("button", { name: "Skip rest" })).toBeOnTheScreen();
+    expect(loggedSets()[0].fields.Weight).toBe("62.5");
+  });
+});
