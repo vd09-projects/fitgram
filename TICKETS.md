@@ -41,7 +41,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
-| 040 | Edit a set in the active workout, before Finish | Small-Med | **Built on branch TICKET-040, not pushed;** device run owed. Editing an *uploaded* set stays TICKET-032 |
+| 040 | Edit a set in the active workout, before Finish | Small-Med | **Built, in review (branch TICKET-040);** device run owed. Editing an *uploaded* set stays TICKET-032 |
 
 ### Not tickets — verification owed
 
@@ -1339,7 +1339,7 @@ record to beat. Decide whether the banner should cover that, and with which reco
 
 ### TICKET-040: Edit a Set in the Active Workout, Before Finish
 
-**Priority:** Medium | **Effort:** Small-Medium | **Status: BUILT on branch TICKET-040, not pushed — device run owed**
+**Priority:** Medium | **Effort:** Small-Medium | **Status: BUILT, in review (branch TICKET-040) — device run owed**
 
 **Description:**
 A mistyped set (56 for 65) can today only be removed and re-logged. Let the user correct
