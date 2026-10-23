@@ -197,7 +197,7 @@ function joinNames(names: string[]): string {
 export type SetAction = "log" | "save";
 
 /** What a refused Log set / Save set tap says. Names every missing field. */
-export function missingFieldsMessage(missing: string[], setNumber: number, action: SetAction = "log"): string {
+export function missingFieldsMessage(missing: string[], setNumber: number, action: SetAction): string {
   return `Enter ${joinNames(missing)} to ${action} set ${setNumber}`;
 }
 
@@ -237,6 +237,29 @@ export function buildSetFields(
     return { kind: "refused", message: `Enter a value to ${action} set ${setNumber}` };
   }
   return { kind: "ok", fields: stored };
+}
+
+/**
+ * The record an edit stores: the fields `buildSetFields` built, plus any stored
+ * key the exercise no longer defines, kept as it was.
+ *
+ * `buildSetFields` reads only defined fields and `updateSet` replaces, so
+ * without this a Save would silently drop such a key. Unreachable today (a
+ * running workout's fields do not change), but an edit should change only what
+ * the card showed. Rejected: merging in `updateSet`, which would make clearing
+ * an optional field impossible.
+ */
+export function withUnlistedFields(
+  fields: ExerciseField[],
+  stored: Record<string, string | number>,
+  built: Record<string, string>
+): Record<string, string> {
+  const listed = new Set(fields.map((field) => field.name));
+  const kept: Record<string, string> = {};
+  for (const [name, value] of Object.entries(stored)) {
+    if (!listed.has(name)) kept[name] = String(value);
+  }
+  return { ...kept, ...built };
 }
 
 /**

@@ -3,6 +3,7 @@ import { StyleSheet } from "react-native";
 import ActiveWorkoutScreen from "../screens/workout_management/ActiveWorkoutScreen";
 import { renderScreen } from "../test/renderScreen";
 import { buildExercise, buildStats, buildWorkout } from "../test/fixtures";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useWorkoutStore } from "../stores/useWorkoutStore";
 import { useColorSchemaStore } from "../stores/colorSchemaStore";
 import { DefaultColorSchema, HinataHyugaColors } from "../constants/colors";
@@ -286,6 +287,41 @@ describe("ExerciseLogger edit mode", () => {
     await press("Save set 1");
     await press(/^Undo/);
     expect(loggedSets().map((s) => s.fields.Weight)).toEqual(["60", "65", "70"]);
+  });
+
+  it("a failed save keeps the edit open and says so", async () => {
+    renderScreen(ActiveWorkoutScreen, { workout: benchWith([{ id: 1, fields: { Weight: "60", Reps: "8" } }]) });
+    await openEdit(/^Set 1, /, 1);
+    fireEvent.changeText(weight(), "65");
+    jest.spyOn(AsyncStorage, "setItem").mockRejectedValueOnce(new Error("disk full"));
+    await press("Save set 1");
+
+    expect(screen.getByText("Couldn't save set 1")).toBeOnTheScreen();
+    expect(weight().props.value).toBe("65");
+    expect(loggedSets()[0].fields.Weight).toBe("60");
+  });
+
+  // No UI path removes the edited set; this stands in for the next one that does.
+  it("ends an edit whose set leaves the store, so it cannot reopen when that id returns", async () => {
+    renderScreen(ActiveWorkoutScreen, {
+      workout: benchWith([
+        { id: 1, fields: { Weight: "60", Reps: "8" } },
+        { id: 2, fields: { Weight: "62.5", Reps: "8" } },
+      ]),
+    });
+    await openEdit(/^Set 2, /, 2);
+    const { removeSet, restoreSet } = useWorkoutStore.getState();
+    const exerciseId = useWorkoutStore.getState().activeWorkout!.exercises[0].id;
+    let removed: Awaited<ReturnType<typeof removeSet>> = null;
+    await act(async () => {
+      removed = await removeSet(exerciseId, 2);
+    });
+    await act(async () => {
+      await restoreSet(exerciseId, removed!);
+    });
+
+    expect(logButton()).toHaveAccessibleName("Log set 3");
+    expect(screen.queryByRole("button", { name: "Save set 2" })).toBeNull();
   });
 
   it("during a rest, takes the panel's slot without touching the rest, and gives it back on Save", async () => {

@@ -60,7 +60,8 @@ type Props = {
  *   row shows nothing extra. Rejected: an empty slot per row (looked
  *   cluttered beside the remove control), and a column by the set number
  *   (board 6b, kept as the alternative).
- * - Tapping the row opens a strip with Easy / Hard, and Clear once marked.
+ * - Tapping the row opens a strip with Easy / Hard (TICKET-040 adds Edit and
+ *   drops Clear; see below).
  *   The row body did nothing before, so this takes no gesture from anything.
  *   Not a swipe, for the same reason as remove; not a long-press, which
  *   nothing on screen would reveal. One strip open at a time; picking a mark
@@ -361,8 +362,14 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     paddingRight: 13,
     paddingBottom: 11,
   },
+  // Three equal buttons with the marks still grouped for the radiogroup role:
+  // basis `gap` covers the gap inside the group, so after it the free width
+  // splits 2:1 and each mark gets exactly Edit's width. Plain `flex: 2` left
+  // each mark gap/2 narrower than Edit.
   stripMarks: {
-    flex: 2,
+    flexGrow: 2,
+    flexShrink: 1,
+    flexBasis: SPACING.small,
     flexDirection: "row",
     gap: SPACING.small,
   },

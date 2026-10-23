@@ -8,6 +8,7 @@ import {
   resolveGhostTarget,
   stepFieldValue,
   stepSizeFor,
+  withUnlistedFields,
 } from "./setLogger";
 import { deriveExerciseHistory } from "./exerciseHistory";
 import { buildExercise, buildStats } from "../test/fixtures";
@@ -158,7 +159,7 @@ describe("ghostNotice and missingFieldsMessage", () => {
   });
 
   it("names every missing field", () => {
-    expect(missingFieldsMessage(["Weight", "Reps", "Time"], 2)).toBe(
+    expect(missingFieldsMessage(["Weight", "Reps", "Time"], 2, "log")).toBe(
       "Enter Weight, Reps and Time to log set 2"
     );
   });
@@ -181,5 +182,13 @@ describe("buildSetFields", () => {
       message: "Enter Weight to save set 4",
     });
     expect(buildSetFields(PLANK, {}, 1, "log")).toEqual({ kind: "refused", message: "Enter Time to log set 1" });
+  });
+});
+
+describe("withUnlistedFields", () => {
+  it("keeps a stored key the exercise no longer defines; listed fields come from the edit only", () => {
+    expect(
+      withUnlistedFields([KG, REPS], { Weight: 60, Reps: "8", Tempo: "3-1-1" }, { Weight: "65", Reps: "8" })
+    ).toEqual({ Tempo: "3-1-1", Weight: "65", Reps: "8" });
   });
 });

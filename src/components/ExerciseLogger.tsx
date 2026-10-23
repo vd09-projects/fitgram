@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { RemovedSet, useWorkoutStore } from "../stores/useWorkoutStore";
@@ -15,6 +15,7 @@ import {
   lastTimeText,
   repeatValues,
   resolveGhostTarget,
+  withUnlistedFields,
 } from "../utils/setLogger";
 import { TextBase, NumericText } from "./TextBase";
 import SetField from "./active_workout/SetField";
@@ -133,6 +134,14 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
   // Ids are ordinals, so the edited set's id is its number.
   const setNumber = editedSet ? editedSet.id : nextSetNumber;
   const values = editedSet && editing ? editing.values : inputValues;
+
+  // An edit whose set is gone is over. Without this, `editing` would outlive
+  // its set and reopen with old values if a set with that id came back. No path
+  // reaches it today (the list is read-only while editing); this keeps the next
+  // path that changes sets from finding it.
+  useEffect(() => {
+    if (editing && !editedSet) setEditing(null);
+  }, [editing, editedSet]);
   const target = resolveGhostTarget(history, setNumber);
   const ghosts = ghostValues(exercise.fields, target, history.numericFields);
   const repeat = repeatValues(ghosts);
@@ -198,7 +207,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
 
   // No rest call and no `setRemoved`: an edit leaves the rest and a pending
   // undo as they were. Closed after the store write, so a failed write leaves
-  // the edit open with its values.
+  // the edit open with its values and says so.
   const saveEdit = async () => {
     if (!editedSet || !editing) return;
     const result = buildSetFields(exercise.fields, editing.values, setNumber, "save");
@@ -206,7 +215,12 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
       setRefusal(result.message);
       return;
     }
-    await updateSet(exercise.id, editedSet.id, result.fields);
+    try {
+      await updateSet(exercise.id, editedSet.id, withUnlistedFields(exercise.fields, editedSet.fields, result.fields));
+    } catch {
+      setRefusal(`Couldn't save set ${setNumber}`);
+      return;
+    }
     cancelEdit();
   };
 
