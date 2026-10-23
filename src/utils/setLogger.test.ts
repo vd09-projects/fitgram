@@ -1,4 +1,5 @@
 import {
+  buildSetFields,
   ghostNotice,
   ghostValues,
   missingFields,
@@ -160,5 +161,25 @@ describe("ghostNotice and missingFieldsMessage", () => {
     expect(missingFieldsMessage(["Weight", "Reps", "Time"], 2)).toBe(
       "Enter Weight, Reps and Time to log set 2"
     );
+  });
+});
+
+// TICKET-040: one builder for Log set and Save set.
+describe("buildSetFields", () => {
+  const BAND: ExerciseField[] = [KG, REPS, { name: "Band", role: "other" }];
+
+  it("leaves a blanked optional field out, so an edit that clears it stores the set without it", () => {
+    expect(buildSetFields(BAND, { Weight: " 65 ", Reps: "8", Band: "  " }, 2, "save")).toEqual({
+      kind: "ok",
+      fields: { Weight: "65", Reps: "8" },
+    });
+  });
+
+  it("refuses a missing required field with the action's own verb", () => {
+    expect(buildSetFields(BAND, { Weight: "", Reps: "8", Band: "red" }, 4, "save")).toEqual({
+      kind: "refused",
+      message: "Enter Weight to save set 4",
+    });
+    expect(buildSetFields(PLANK, {}, 1, "log")).toEqual({ kind: "refused", message: "Enter Time to log set 1" });
   });
 });

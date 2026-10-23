@@ -190,9 +190,63 @@ function joinNames(names: string[]): string {
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
-/** What a refused Log set tap says. Names every missing field. */
-export function missingFieldsMessage(missing: string[], setNumber: number): string {
-  return `Enter ${joinNames(missing)} to log set ${setNumber}`;
+/**
+ * What the card's button does: log a new set, or save an edit to a logged one
+ * (TICKET-040). Only the wording of a refusal differs; the rules are the same.
+ */
+export type SetAction = "log" | "save";
+
+/** What a refused Log set / Save set tap says. Names every missing field. */
+export function missingFieldsMessage(missing: string[], setNumber: number, action: SetAction = "log"): string {
+  return `Enter ${joinNames(missing)} to ${action} set ${setNumber}`;
+}
+
+export type SetFieldsResult =
+  | { kind: "ok"; fields: Record<string, string> }
+  | { kind: "refused"; message: string };
+
+/**
+ * The fields a Log set or Save set tap stores, or why it is refused. One
+ * function for both paths (TICKET-040), so an edit cannot store a set that
+ * logging would have refused.
+ *
+ * - A required field left blank refuses, naming every such field
+ *   (`missingFields`).
+ * - Values are trimmed. A blank optional field is left out, not stored as "".
+ *   The result is the set's whole field record: `updateSet` replaces, so an edit
+ *   that blanks an optional field clears it.
+ * - Nothing at all refuses: only reachable when every field is optional, and an
+ *   empty set is a record of nothing.
+ * - Only the exercise's own fields are read, in definition order.
+ */
+export function buildSetFields(
+  fields: ExerciseField[],
+  values: Record<string, string>,
+  setNumber: number,
+  action: SetAction
+): SetFieldsResult {
+  const missing = missingFields(fields, values);
+  if (missing.length > 0) return { kind: "refused", message: missingFieldsMessage(missing, setNumber, action) };
+
+  const stored: Record<string, string> = {};
+  for (const field of fields) {
+    const value = (values[field.name] ?? "").trim();
+    if (value !== "") stored[field.name] = value;
+  }
+  if (Object.keys(stored).length === 0) {
+    return { kind: "refused", message: `Enter a value to ${action} set ${setNumber}` };
+  }
+  return { kind: "ok", fields: stored };
+}
+
+/**
+ * A logged set's values as the card's inputs hold them, to prefill an edit.
+ * Stored values may be numbers (older sets, test fixtures); inputs are strings.
+ */
+export function editInputValues(set: { fields: Record<string, string | number> }): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const [name, value] of Object.entries(set.fields)) values[name] = String(value);
+  return values;
 }
 
 /**
