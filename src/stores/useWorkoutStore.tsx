@@ -93,7 +93,8 @@ interface WorkoutStoreState {
   // Actions
   startWorkout: (workout: WorkoutPlan) => Promise<StartWorkoutResult>;
   addSetToExercise: (exerciseId: string, newSet: ExerciseSet) => Promise<void>;
-  updateSet: (exerciseId: string, setId: number, updatedFields: Record<string, string | number>) => Promise<void>;
+  /** Replace a logged set's fields; id, mark and rest untouched (TICKET-040). */
+  updateSet: (exerciseId: string, setId: number, fields: Record<string, string>) => Promise<void>;
   removeSet: (exerciseId: string, setId: number) => Promise<RemovedSet | null>;
   restoreSet: (exerciseId: string, removed: RemovedSet) => Promise<void>;
   /** Mark how a set felt, or clear the mark with null (TICKET-034). */
@@ -197,30 +198,49 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     set({ activeWorkout: updatedWorkout });
   },
 
-  /** 🔹 Update an Existing Set */
-  updateSet: async (exerciseId, setId, updatedFields) => {
+  /**
+   * 🔹 Edit a logged set in the active workout (TICKET-040).
+   *
+   * REPLACES the set's fields with `fields`, it does not merge. The card's form
+   * holds every field, so its output (`buildSetFields`) is the whole set, and a
+   * merge would keep the old value of an optional field the user cleared.
+   * Rejected: merge, which was this action's behaviour before 040 (it had no
+   * caller).
+   *
+   * Only `fields` changes. The set keeps its id — its position, which every
+   * comparison reads — and its effort mark. No rest is started or touched, and
+   * a pending undo (held by the caller) is unaffected.
+   *
+   * `lastUpdated` moves, as for remove and restore: the logged data changed.
+   * `currentExerciseIndex` does not, as for `removeSet`: editing is not logging,
+   * and the row is only reachable on the exercise already on screen.
+   *
+   * `setId` is an ordinal: read it fresh from the store. The caller keeps the
+   * Today list read-only while an edit is open, so no remove or undo can
+   * renumber under it. No-op when there is no such set.
+   */
+  updateSet: async (exerciseId, setId, fields) => {
     const { activeWorkout } = get();
     if (!activeWorkout) return;
 
+    let changed = false;
     const updatedExercises = activeWorkout.exercises.map((exercise) => {
-      if (exercise.id === exerciseId) {
-        return {
-          ...exercise,
-          sets: exercise.sets.map((set) =>
-            set.id === setId ? { ...set, fields: { ...set.fields, ...updatedFields } } : set
-          ),
-        };
-      }
-      return exercise;
+      if (exercise.id !== exerciseId) return exercise;
+      return {
+        ...exercise,
+        sets: exercise.sets.map((set) => {
+          if (set.id !== setId) return set;
+          changed = true;
+          return { ...set, fields };
+        }),
+      };
     });
-
-    const exerciseIndex = activeWorkout.exercises.findIndex((ex) => ex.id === exerciseId);
+    if (!changed) return;
 
     const updatedWorkout: ActiveWorkout = {
       ...activeWorkout,
       exercises: updatedExercises,
       lastUpdated: Date.now(),
-      currentExerciseIndex: exerciseIndex !== -1 ? exerciseIndex : null,
     };
 
     await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
@@ -347,9 +367,9 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
   /**
    * 🔹 Point the session at the exercise the user is looking at.
    *
-   * This is the only write that means "viewing". `addSetToExercise` and
-   * `updateSet` also write `currentExerciseIndex`, as "I just logged here"; in
-   * the paged screen that is always the exercise on screen, so the two agree.
+   * This is the only write that means "viewing". `addSetToExercise` also writes
+   * `currentExerciseIndex`, as "I just logged here"; in the paged screen that is
+   * always the exercise on screen, so the two agree.
    *
    * Out-of-range input is clamped rather than rejected, so a stale index from a
    * double-tapped arrow lands on the last exercise instead of on nothing. An

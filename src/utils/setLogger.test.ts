@@ -1,4 +1,5 @@
 import {
+  buildSetFields,
   ghostNotice,
   ghostValues,
   missingFields,
@@ -7,6 +8,7 @@ import {
   resolveGhostTarget,
   stepFieldValue,
   stepSizeFor,
+  withUnlistedFields,
 } from "./setLogger";
 import { deriveExerciseHistory } from "./exerciseHistory";
 import { buildExercise, buildStats } from "../test/fixtures";
@@ -157,8 +159,36 @@ describe("ghostNotice and missingFieldsMessage", () => {
   });
 
   it("names every missing field", () => {
-    expect(missingFieldsMessage(["Weight", "Reps", "Time"], 2)).toBe(
+    expect(missingFieldsMessage(["Weight", "Reps", "Time"], 2, "log")).toBe(
       "Enter Weight, Reps and Time to log set 2"
     );
+  });
+});
+
+// TICKET-040: one builder for Log set and Save set.
+describe("buildSetFields", () => {
+  const BAND: ExerciseField[] = [KG, REPS, { name: "Band", role: "other" }];
+
+  it("leaves a blanked optional field out, so an edit that clears it stores the set without it", () => {
+    expect(buildSetFields(BAND, { Weight: " 65 ", Reps: "8", Band: "  " }, 2, "save")).toEqual({
+      kind: "ok",
+      fields: { Weight: "65", Reps: "8" },
+    });
+  });
+
+  it("refuses a missing required field with the action's own verb", () => {
+    expect(buildSetFields(BAND, { Weight: "", Reps: "8", Band: "red" }, 4, "save")).toEqual({
+      kind: "refused",
+      message: "Enter Weight to save set 4",
+    });
+    expect(buildSetFields(PLANK, {}, 1, "log")).toEqual({ kind: "refused", message: "Enter Time to log set 1" });
+  });
+});
+
+describe("withUnlistedFields", () => {
+  it("keeps a stored key the exercise no longer defines; listed fields come from the edit only", () => {
+    expect(
+      withUnlistedFields([KG, REPS], { Weight: 60, Reps: "8", Tempo: "3-1-1" }, { Weight: "65", Reps: "8" })
+    ).toEqual({ Tempo: "3-1-1", Weight: "65", Reps: "8" });
   });
 });

@@ -293,6 +293,42 @@ describe("removeSet and restoreSet", () => {
   });
 });
 
+describe("updateSet", () => {
+  const seed = () => {
+    const workout = buildWorkout([], {
+      exercises: [
+        buildExercise("Bench Press", {
+          sets: [
+            { id: 1, fields: { Weight: "60", Reps: "8" } },
+            { id: 2, fields: { Weight: "56", Reps: "8", Band: "red" }, effort: Effort.Easy },
+            { id: 3, fields: { Weight: "65", Reps: "8" } },
+          ],
+        }),
+        buildExercise("Squat"),
+      ],
+      currentExerciseIndex: 1,
+    });
+    useWorkoutStore.setState({ activeWorkout: workout, rest: null });
+  };
+  const benchSets = () => store().activeWorkout!.exercises[0].sets;
+
+  // TICKET-040: before 040 this merged, so a cleared optional field kept its value.
+  it("replaces the fields, keeps id, position and mark, and stores the edit", async () => {
+    seed();
+    await store().updateSet("bench-press", 2, { Weight: "65", Reps: "8" });
+
+    expect(benchSets()).toEqual([
+      { id: 1, fields: { Weight: "60", Reps: "8" } },
+      { id: 2, fields: { Weight: "65", Reps: "8" }, effort: Effort.Easy },
+      { id: 3, fields: { Weight: "65", Reps: "8" } },
+    ]);
+    const stored = JSON.parse((await AsyncStorage.getItem("activeWorkout")) ?? "null");
+    expect(stored.exercises[0].sets[1]).toEqual({ id: 2, fields: { Weight: "65", Reps: "8" }, effort: Effort.Easy });
+    // Editing is not logging: the session stays on the exercise being viewed.
+    expect(store().activeWorkout!.currentExerciseIndex).toBe(1);
+  });
+});
+
 describe("startWorkout", () => {
   it("refuses while a workout is in progress and leaves it untouched", async () => {
     const running = seedWorkout();

@@ -88,6 +88,54 @@
       "w": 390,
       "x": 470,
       "y": 3434
+    },
+    "EditEntry.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "9 \u00b7 Option A, Edit added to the strip",
+      "w": 390,
+      "x": 0,
+      "y": 4700
+    },
+    "EditCard.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "10 \u00b7 Card in edit mode",
+      "w": 390,
+      "x": 470,
+      "y": 4700
+    },
+    "EditResting.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "11 \u00b7 Edit during a rest, refused save",
+      "w": 390,
+      "x": 940,
+      "y": 4700
+    },
+    "EditSaved.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "12 \u00b7 Saved: back to the rest, re-derived",
+      "w": 390,
+      "x": 1410,
+      "y": 4700
+    },
+    "EditStrip3.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "9b \u00b7 Option B, three equal buttons, no Clear",
+      "w": 390,
+      "x": 0,
+      "y": 5664
+    },
+    "EditMarks.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "9c \u00b7 Option C, no strip: row opens the edit card",
+      "w": 390,
+      "x": 470,
+      "y": 5664
     }
   },
   "createdOnFiles": {
@@ -143,6 +191,28 @@
       "x": 1890,
       "y": 2590,
       "text": "Per set, not per exercise. No mark = done in good form, as planned.\n\nE (hollow) = easy, push more next time. H (solid) = hard: missed reps, lost form or needed a spot.\n\nBoard 5: rate during the rest, the moment the set ends. Optional; tap again to clear.\nBoard 6: fix a mark later. Unmarked rows carry no extra control; tap a row to open Easy / Hard (and Clear once marked). \u00d7 still removes the set.\nBoard 6b: same, with marks in a column beside the set number.\nBoard 7: next session, set 4's mark rides on the Last time pill.\nBoard 8: history sheet shows the mark per set; the caption counts them. Date chips stay plain.\n\nNo new colours: gold is PR, red is discard. E and H differ in fill (lightness), not hue."
+    },
+    "edit": {
+      "kind": "title1",
+      "maxW": 1800,
+      "text": "TICKET-040 \u2014 edit a set before Finish",
+      "w": 240,
+      "x": 0,
+      "y": 4400
+    },
+    "editwhy": {
+      "fill": "teal",
+      "w": 300,
+      "x": 1890,
+      "y": 4820,
+      "text": "Edit, not remove + re-log: set ids are positions, so edit never moves a set, keeps its mark and starts no rest.\n\nBoard 9: Edit joins Easy / Hard / Clear in the strip the row tap already opens.\nBoard 10: the card switches to EDIT SET 2, prefilled with the logged values. Ghosts and the Last time pill are last session's set 2, not the next set. Cancel / Save set 2. What you had typed for set 5 comes back after.\nWhile editing, the Today list is read-only: no \u00d7, no strip, and a pending Undo waits (\"Undo after this edit\") rather than being lost. Ids are ordinals, so a remove or undo mid-edit would point the edit at another set.\nBoard 11: editing during a rest swaps the rest panel for the card; the rest keeps counting. Same refusals as logging, worded \"save\".\nBoard 12: Save returns to the rest. Banner, delta and volume re-derive from 67.5; the H mark and position stay.\n\nSwiping to another exercise drops an open edit (the card is per exercise)."
+    },
+    "editopts": {
+      "fill": "orange",
+      "w": 300,
+      "x": 940,
+      "y": 5784,
+      "text": "Entry options for TICKET-040.\n\nA (board 9): strip gets Easy / Hard / Clear | Edit. Four controls; reads cluttered.\n\nB (9b): three equal buttons, Easy / Hard / Edit. Clear goes: tapping the chosen mark already clears it (034's toggle), said once in small text. Keeps 034's one-tap marking.\n\nC (9c): no strip. Tapping a row opens the card as EDIT SET 2, with the mark inside it (Felt: Easy / Hard). One place to change anything about a set; mark and numbers save together, Cancel reverts both. Cost: changing only a mark from the list is tap, tap, Save instead of one tap. The rest panel still asks right after each set, so most marks never need the list."
     }
   },
   "order": [
@@ -156,7 +226,13 @@
     "EffortToday.dc.html",
     "EffortNext.dc.html",
     "EffortHistory.dc.html",
-    "EffortGutter.dc.html"
+    "EffortGutter.dc.html",
+    "EditEntry.dc.html",
+    "EditCard.dc.html",
+    "EditResting.dc.html",
+    "EditSaved.dc.html",
+    "EditStrip3.dc.html",
+    "EditMarks.dc.html"
   ],
   "pages": [],
   "title": "Fitgram Workout Flow Redesign"

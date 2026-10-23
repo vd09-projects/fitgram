@@ -34,6 +34,10 @@ type Props = {
   onUndo: () => void;
   /** Mark a set, or clear its mark with null (TICKET-034). */
   onSetEffort: (setId: number, effort: Effort | null) => void;
+  /** Open the card's edit mode for a set (TICKET-040). */
+  onEdit: (setId: number) => void;
+  /** The set the card is editing, or null. While set, the list is read-only. */
+  editingSetId: number | null;
 };
 
 /**
@@ -56,7 +60,8 @@ type Props = {
  *   row shows nothing extra. Rejected: an empty slot per row (looked
  *   cluttered beside the remove control), and a column by the set number
  *   (board 6b, kept as the alternative).
- * - Tapping the row opens a strip with Easy / Hard, and Clear once marked.
+ * - Tapping the row opens a strip with Easy / Hard (TICKET-040 adds Edit and
+ *   drops Clear; see below).
  *   The row body did nothing before, so this takes no gesture from anything.
  *   Not a swipe, for the same reason as remove; not a long-press, which
  *   nothing on screen would reveal. One strip open at a time; picking a mark
@@ -64,9 +69,32 @@ type Props = {
  * - The strip closes on remove and on undo: set ids are ordinals, so after
  *   either the open id would name a different set.
  * - Tapping the mark already chosen clears it (`toggleEffort`), as on the rest
- *   panel. Clear stays as the visible way to do the same.
+ *   panel.
+ *
+ * Decisions (TICKET-040, canvas boards 9b and 10):
+ * - The strip is three equal buttons: Easy / Hard / Edit. Clear is gone; once
+ *   a set is marked a one-line hint says tapping the mark again clears it.
+ *   Rejected: Edit beside Easy / Hard / Clear (board 9, four controls,
+ *   cluttered), and dropping the strip for an edit card holding the mark too
+ *   (board 9c: marking alone would become tap, tap, Save).
+ * - While an edit is open the list is read-only: rows do not open, no remove,
+ *   and a pending undo reads "Undo after this edit" instead of offering Undo.
+ *   Ids are ordinals, so a remove or undo would renumber the set under the
+ *   edit and Save would land on another set. Rejected: remove/undo cancelling
+ *   the edit (silently drops what was typed), and the edit following its set
+ *   through a renumber (more state for a rare path). The removal is not lost:
+ *   Undo comes back after Save or Cancel.
  */
-export default function TodaySets({ exercise, history, removed, onRemove, onUndo, onSetEffort }: Props) {
+export default function TodaySets({
+  exercise,
+  history,
+  removed,
+  onRemove,
+  onUndo,
+  onSetEffort,
+  onEdit,
+  editingSetId,
+}: Props) {
   const { styles, t } = useThemeStyles(createStyles);
   const [openSetId, setOpenSetId] = useState<number | null>(null);
   const numeric = resolveNumericFields(exercise.fields);
@@ -83,17 +111,22 @@ export default function TodaySets({ exercise, history, removed, onRemove, onUndo
     const values = setValuesText(exercise.fields, set.fields);
     const delta = setDelta(history, setNumber, set.fields, numeric);
     const effort = set.effort ?? null;
-    const open = openSetId === set.id;
+    const readOnly = editingSetId !== null;
+    const editing = editingSetId === set.id;
+    const open = !readOnly && openSetId === set.id;
     return (
-      <View key={`set-${set.id}`} style={[open && styles.rowOpen, index > 0 && styles.divider]}>
-        <View style={styles.row}>
+      <View key={`set-${set.id}`} style={[(open || editing) && styles.rowOpen, index > 0 && styles.divider]}>
+        <View style={[styles.row, readOnly && styles.rowReadOnly]}>
           <TouchableOpacity
             style={styles.rowInfo}
             onPress={() => setOpenSetId(open ? null : set.id)}
+            disabled={readOnly}
             accessibilityRole="button"
-            accessibilityState={{ expanded: open }}
-            accessibilityLabel={`Set ${setNumber}, ${values.replace("×", "by")}${effortSpeech(effort)}${deltaSpeech(delta)}`}
-            accessibilityHint="Mark easy or hard"
+            accessibilityState={{ expanded: open, disabled: readOnly }}
+            accessibilityLabel={`Set ${setNumber}, ${values.replace("×", "by")}${effortSpeech(effort)}${
+              editing ? ", editing" : deltaSpeech(delta)
+            }`}
+            accessibilityHint={readOnly ? undefined : "Mark easy or hard, or edit"}
           >
             <NumericText style={styles.setNumber}>{setNumber}</NumericText>
             <View style={styles.valuesWrap}>
@@ -102,53 +135,59 @@ export default function TodaySets({ exercise, history, removed, onRemove, onUndo
               </NumericText>
               {effort !== null && <EffortBadge effort={effort} />}
             </View>
-            <DeltaBadge delta={delta} />
+            {editing ? <TextBase style={styles.editingLabel}>EDITING</TextBase> : <DeltaBadge delta={delta} />}
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.remove}
-            onPress={() => {
-              setOpenSetId(null);
-              onRemove(set.id);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={`Remove set ${setNumber}: ${values.replace("×", "by")}`}
-          >
-            <Ionicons name="close" size={16} color={t.colors.role.textSecondary} />
-          </TouchableOpacity>
+          {!readOnly && (
+            <TouchableOpacity
+              style={styles.remove}
+              onPress={() => {
+                setOpenSetId(null);
+                onRemove(set.id);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove set ${setNumber}: ${values.replace("×", "by")}`}
+            >
+              <Ionicons name="close" size={16} color={t.colors.role.textSecondary} />
+            </TouchableOpacity>
+          )}
         </View>
         {open && (
-          <View style={styles.strip} accessibilityRole="radiogroup" accessibilityLabel={`Mark set ${setNumber}`}>
-            {EFFORTS.map((option) => (
-              <TouchableOpacity
-                key={option}
-                style={[styles.stripOption, effort === option && styles.stripOptionSelected]}
-                onPress={() => {
-                  setOpenSetId(null);
-                  onSetEffort(set.id, toggleEffort(effort, option));
-                }}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: effort === option }}
-                accessibilityLabel={EFFORT_LABEL[option]}
-                accessibilityHint={effort === option ? "Tap again to clear" : undefined}
-              >
-                <EffortBadge effort={option} size={18} />
-                <TextBase style={styles.stripText}>{EFFORT_LABEL[option]}</TextBase>
-              </TouchableOpacity>
-            ))}
-            {effort !== null && (
-              <TouchableOpacity
-                style={styles.stripClear}
-                onPress={() => {
-                  setOpenSetId(null);
-                  onSetEffort(set.id, null);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={`Clear mark on set ${setNumber}`}
-              >
-                <TextBase style={styles.stripClearText}>Clear</TextBase>
-              </TouchableOpacity>
-            )}
+          <View style={styles.strip}>
+            <View style={styles.stripMarks} accessibilityRole="radiogroup" accessibilityLabel={`Mark set ${setNumber}`}>
+              {EFFORTS.map((option) => (
+                <TouchableOpacity
+                  key={option}
+                  style={[styles.stripOption, effort === option && styles.stripOptionSelected]}
+                  onPress={() => {
+                    setOpenSetId(null);
+                    onSetEffort(set.id, toggleEffort(effort, option));
+                  }}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: effort === option }}
+                  accessibilityLabel={EFFORT_LABEL[option]}
+                  accessibilityHint={effort === option ? "Tap again to clear" : undefined}
+                >
+                  <EffortBadge effort={option} size={18} />
+                  <TextBase style={styles.stripText}>{EFFORT_LABEL[option]}</TextBase>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity
+              style={styles.stripOption}
+              onPress={() => {
+                setOpenSetId(null);
+                onEdit(set.id);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Edit set ${setNumber}`}
+            >
+              <Ionicons name="pencil-outline" size={15} color={t.colors.role.textPrimary} />
+              <TextBase style={styles.stripText}>Edit</TextBase>
+            </TouchableOpacity>
           </View>
+        )}
+        {open && effort !== null && (
+          <TextBase style={styles.stripHint}>Tap {EFFORT_LABEL[effort]} again to clear it</TextBase>
         )}
       </View>
     );
@@ -164,17 +203,21 @@ export default function TodaySets({ exercise, history, removed, onRemove, onUndo
         <TextBase style={styles.undoText} numberOfLines={1}>
           Set <NumericText style={styles.undoNumber}>{removed.index + 1}</NumericText> removed
         </TextBase>
-        <TouchableOpacity
-          style={styles.undo}
-          onPress={() => {
-            setOpenSetId(null);
-            onUndo();
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={`Undo: restore set ${removed.index + 1}, ${values.replace("×", "by")}`}
-        >
-          <TextBase style={styles.undoAction}>Undo</TextBase>
-        </TouchableOpacity>
+        {editingSetId !== null ? (
+          <TextBase style={styles.undoLater}>Undo after this edit</TextBase>
+        ) : (
+          <TouchableOpacity
+            style={styles.undo}
+            onPress={() => {
+              setOpenSetId(null);
+              onUndo();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Undo: restore set ${removed.index + 1}, ${values.replace("×", "by")}`}
+          >
+            <TextBase style={styles.undoAction}>Undo</TextBase>
+          </TouchableOpacity>
+        )}
       </View>
     );
   }
@@ -302,12 +345,41 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   rowOpen: {
     backgroundColor: t.colors.role.raised,
   },
+  rowReadOnly: {
+    // The remove control's slot stays, empty, so values do not shift sideways.
+    paddingRight: HIT,
+  },
+  editingLabel: {
+    fontSize: t.fonts.xSmall,
+    fontWeight: "bold",
+    letterSpacing: 1.2,
+    color: t.colors.role.accent,
+  },
   strip: {
     flexDirection: "row",
     gap: SPACING.small,
     paddingLeft: 13 + 22 + SPACING.medium,
     paddingRight: 13,
     paddingBottom: 11,
+  },
+  // Three equal buttons with the marks still grouped for the radiogroup role:
+  // basis `gap` covers the gap inside the group, so after it the free width
+  // splits 2:1 and each mark gets exactly Edit's width. Plain `flex: 2` left
+  // each mark gap/2 narrower than Edit.
+  stripMarks: {
+    flexGrow: 2,
+    flexShrink: 1,
+    flexBasis: SPACING.small,
+    flexDirection: "row",
+    gap: SPACING.small,
+  },
+  stripHint: {
+    fontSize: 12,
+    color: t.colors.role.textSecondary,
+    paddingLeft: 13 + 22 + SPACING.medium,
+    paddingRight: 13,
+    paddingBottom: 11,
+    marginTop: -4,
   },
   stripOption: {
     flex: 1,
@@ -329,15 +401,10 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     fontWeight: "600",
     color: t.colors.role.textPrimary,
   },
-  stripClear: {
-    height: HIT,
-    justifyContent: "center",
-    paddingHorizontal: SPACING.medium,
-  },
-  stripClearText: {
-    fontSize: t.fonts.small,
-    fontWeight: "600",
+  undoLater: {
+    fontSize: 12,
     color: t.colors.role.textSecondary,
+    paddingHorizontal: SPACING.medium,
   },
   remove: {
     width: HIT,
