@@ -41,6 +41,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
+| 040 | Edit a set in the active workout, before Finish | Small-Med | **Built on branch TICKET-040, not pushed;** device run owed. Editing an *uploaded* set stays TICKET-032 |
 
 ### Not tickets — verification owed
 
@@ -1137,6 +1138,9 @@ only repair is running `rebuildExerciseStats.ts` by hand.
       stops ghosting the old value
 - [ ] Offline behaviour decided: queue the edit, or refuse it while offline
 
+Editing a set in the *active* workout, before Finish, is TICKET-040 — no rollup
+involved there.
+
 **Dependencies:** TICKET-019, TICKET-020 (the history sheet is where a past set
 is visible).
 
@@ -1330,6 +1334,128 @@ record to beat. Decide whether the banner should cover that, and with which reco
 - Raised in the PR #14 review
 
 **Dependencies:** TICKET-021.
+
+---
+
+### TICKET-040: Edit a Set in the Active Workout, Before Finish
+
+**Priority:** Medium | **Effort:** Small-Medium | **Status: BUILT on branch TICKET-040, not pushed — device run owed**
+
+**Description:**
+A mistyped set (56 for 65) can today only be removed and re-logged. Let the user correct
+a logged set in place, from the Today list, while the workout is still active. Editing a
+set that has already *uploaded* is TICKET-032, not this ticket: that needs the rollup
+rebuild.
+
+**Why edit, not remove + re-log + reorder** (decided before this ticket):
+every set comparison — ids, `setAt`, ghosts, deltas — is positional (`ExerciseSet.id` is
+an ordinal, `src/types/zustandWorkoutType.ts`). Edit never moves a set. Re-log would
+start a rest (`ExerciseLogger` `logSet` → `startRest`), drop the TICKET-034 effort mark,
+and need a new `moveSet` action plus reorder UI (no drag library is installed).
+
+**Triage:** Tier 1 + 2. No stored shape changes and nothing else reads its output, but it
+has design choices. Tier 3 skipped: nothing to measure end to end, and the user can judge
+it by using the app.
+
+**Acceptance Criteria:**
+- [x] "Edit" in the row strip TodaySets already opens (TICKET-034), beside Easy / Hard
+- [x] The card switches to edit mode: "EDIT SET N", inputs prefilled with that set's
+      values, "Save set N" and Cancel. Same missing/empty-field refusals as logging
+- [x] Save *replaces* the set's fields; clearing an optional field clears it
+- [x] Saving does not start, restart or end a rest, and does not move the set or drop its
+      effort mark
+- [x] Deltas, the Today volume and the PR banner re-derive from the edited values
+- [x] An open edit cannot land on a different set after a remove or Undo
+- [x] A pending Undo row survives an edit
+
+**Verified before design (CLAUDE.md 2.1):**
+1. `updateSet` (`src/stores/useWorkoutStore.tsx`) has no caller and no test (grep: only
+   its definition and a comment on `ExerciseSet.id`). It *merges* —
+   `{ ...set.fields, ...updatedFields }` — so a field left out keeps its old value; an
+   optional field cleared in the form would survive the edit. **Decision: replace.** The
+   form holds every field, so its output is the whole set.
+2. `updateSet` writes `currentExerciseIndex` and `lastUpdated`. **Decision:** drop the
+   `currentExerciseIndex` write, as `removeSet` does — editing is not logging, and the row
+   is only reachable on the exercise on screen. Keep `lastUpdated`: it "tracks logged
+   data", and `removeSet` / `restoreSet` bump it too. (Nothing in `src/` reads it today.)
+3. What an edit leaves alone: `id`/position (replace `fields` only), `effort` (spread the
+   set), `rest` (no rest call), the pending `removed` (not cleared, unlike `logSet`).
+   Ordinal hazard: `ExerciseLogger` is keyed by exercise id (`ActiveWorkoutScreen`), so a
+   swipe unmounts it and drops the edit. Logging is impossible while editing (the card is
+   in edit mode). Remove and Undo are the two that would renumber under an open edit.
+
+**Design** (canvas boards 9–12, `design/workout-flow/project/Edit*.dc.html`):
+- **Entry: board 9b (chosen).** The row strip becomes three equal buttons, Easy / Hard /
+  Edit. Clear is dropped: tapping the chosen mark already clears it (`toggleEffort`,
+  TICKET-034), and a one-line hint says so. Rejected: board 9 (Edit added beside
+  Easy / Hard / Clear, four controls, cluttered) and board 9c (no strip; the row opens the
+  edit card with the mark inside: one place for everything, but changing only a mark
+  becomes tap, tap, Save, and it replaces 034's shipped strip).
+- **Board 10.** Edit mode: accent border and header, a line "Logged 56 × 10 · mark and
+  position stay". Ghosts and the Last-time pill are last session's set N, not the next
+  set. The repeat button gives way to Cancel. The in-progress draft for the next set is
+  kept separately and comes back after Save or Cancel.
+- **While editing, the Today list is read-only:** no ×, no strip, and a pending Undo row
+  reads "Undo after this edit" instead of offering Undo. Chosen over "remove/undo cancels
+  the edit" (silently drops what was typed) and over "the edit follows its set through a
+  renumber" (more state for a rare path). The removal is still undoable after.
+- **Board 11.** During a rest the edit card takes the rest panel's slot; the rest keeps
+  counting ("Rest keeps running · 0:58 left"). Refusals read "Enter Weight to save set 4".
+- **Rest during an edit.** The rest is stored as `startedAt` + `durationMs` and every
+  countdown is derived from the clock, so the edit only hides the panel: nothing calls
+  `startRest` / `endRest` / `addRestTime`. Save or Cancel with 20 s left shows the panel
+  at 0:20, still counting. If the rest runs out mid-edit, the card's line reads "Rest
+  done" and the panel comes back as REST DONE / Next set, which stays until tapped
+  (TICKET-021's rule). The card's line uses `restCountdown`, the panel's own derivation,
+  so the two cannot disagree. No alert at rest end: `expo-notifications` is not installed.
+- **Board 12.** Save returns to the rest; banner, delta and volume re-derive; the H mark
+  and the set's position stay.
+
+**Technical Notes:**
+- Validation and field-building move out of `logSet` into one pure function in
+  `src/utils/setLogger.ts`, used by both log and save, not copied.
+  `missingFieldsMessage` takes the verb ("log" / "save").
+- Tests, few: save replaces values; clearing an optional field clears it; mark and
+  position survive an edit; an open edit cannot land on a different set after
+  remove/Undo.
+
+**Deviation from TICKET-034:** the strip's Clear button is gone (board 9b). Tapping the
+chosen mark again still clears it; a hint line says so once a set is marked.
+
+**Built** (decisions also in code comments at each site):
+- `buildSetFields` / `editInputValues` (`src/utils/setLogger.ts`): one builder for Log
+  set and Save set; `missingFieldsMessage` takes the verb. `logSet` now uses it.
+- `updateSet` (`src/stores/useWorkoutStore.tsx`): replaces fields, keeps id and mark, no
+  `currentExerciseIndex` write, no-op for a missing set.
+- `TodaySets`: Easy / Hard / Edit strip; read-only list while `editingSetId` is set.
+- `ExerciseLogger`: edit mode on the card, edit values held apart from the next set's.
+- `EditRestLine` (new): the card's rest line. `useNow` moved out of `RestPanel` into
+  `src/hooks/useNow.ts` so both read the same clock.
+
+**Verified:** typecheck clean; 180 unit tests pass in each of 3 full runs (173 before;
+the PR #15 flake did not show). 7 new, each seen failing against a deliberate break of the
+line it covers: `buildSetFields` leaves a blanked optional out / refuses with the action's
+verb; `updateSet` replaces, keeps id and mark, leaves `currentExerciseIndex`; card edit
+saves in place with mark, position, no rest and the next set's typing back; clearing an
+optional field in the edit clears it; read-only list while editing so the edit lands on
+its own set and Undo works after; during a rest the card takes the panel's slot, the
+stored rest is the same object after Save, refusals say "save".
+
+**Unverified (device run owed):**
+- Layout at phone width: the three-button strip and its hint, the Editing label, the
+  Cancel/Save row, the rest line.
+- The rest line ticking live and switching to "Rest done" mid-edit (unit-tested only
+  through `restCountdown`; the switch itself is not tested).
+- The guided tour over the card in edit mode (tour steps wrap the same fields and button).
+
+**Known gaps (accepted):**
+- Finish with an edit open saves what is stored; the unsaved edit is dropped, like a
+  half-typed next set today.
+- Swiping to another exercise drops an open edit.
+- A failed storage write on Save leaves the edit open but surfaces as an unhandled
+  rejection, like `setSetEffort` and `removeSet` today (TICKET-004).
+
+**Dependencies:** TICKET-019, TICKET-021, TICKET-034 (the row strip).
 
 ---
 
@@ -2156,7 +2282,7 @@ lost form or needed a spot — hold the weight, save energy, or rest longer.
   the card shows nothing — no fallback to an older mark, which would sit beside
   numbers it was never about (`lastTimeEffort`). Older marks are in the history sheet.
 - **Where it is set.** The rest panel ("How was set N?", optional), and the Today list
-  (tap a row → Easy / Hard / Clear). On both, tapping the chosen mark again clears it
+  (tap a row → Easy / Hard / Clear; Clear dropped in TICKET-040, tap-again still clears). On both, tapping the chosen mark again clears it
   (`toggleEffort`). The rest panel asks about the set that started the rest
   (`RestTimer.setNumber`) and hides the question if a removal makes it no longer the
   last set, rather than move it onto a set rated earlier. No per-row slot (looked
@@ -2209,15 +2335,18 @@ a mark that failed to store is not shown; tap-again clears on the Today strip to
 
 Finished tickets have been removed — they are not blockers for anything.
 
-**The next three are decided.** They come first because they are what makes logging
+**The next four are decided.** They come first because they are what makes logging
 an exercise match what people actually do, and because 033 changes a stored
-shape: pre-launch is the cheap moment for that.
+shape: pre-launch is the cheap moment for that. 040 goes first: it is small, touches
+no stored shape, and fixes the typo people hit mid-workout today.
 
 ```
-1. TICKET-033  (Drop sets)                 — A weight change within one set
-2. TICKET-032  (Edit/delete uploaded set)  — Needs the rollup rebuild; after 033 so it
+1. TICKET-040  (Edit a set before Finish)  — In-place edit in the active workout; no
+                                             stored shape, no rollup
+2. TICKET-033  (Drop sets)                 — A weight change within one set
+3. TICKET-032  (Edit/delete uploaded set)  — Needs the rollup rebuild; after 033 so it
                                              is written once against the final shape
-3. TICKET-029  (Pending uploads view)      — Replaces the TEMPORARY debug screen.
+4. TICKET-029  (Pending uploads view)      — Replaces the TEMPORARY debug screen.
                                              Surface overlaps TICKET-011: either pull
                                              011 in or let 029 decide it
 ```
