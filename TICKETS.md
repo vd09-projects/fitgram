@@ -2694,7 +2694,9 @@ picked on a device would be ids TICKET-046 may not keep.
 - Muscle order is data: "glutes" ranks Hip Thrust above Goblet Squat only because
   glutes is listed first on Hip Thrust. Whoever edits the catalog curates it
 - Regrouping is mechanical but not automatic: names like "Seated Cable Row" vs
-  "Machine Row (Seated)" need a person to say whether they are one movement
+  "Machine Row (Seated)" need a person to say whether they are one movement.
+  **Answered by TICKET-046 stage 2 (user, 2026-10-25): one movement, Seated Row**,
+  with cable, machine, plate-loaded, band and one-arm cable versions
 
 **Dependencies:** none for the shape. TICKET-046 for the content (stage 1 can ship
 the types with a small hand-made catalog). Before or with TICKET-030 (field names).
@@ -3038,7 +3040,7 @@ version, a session never compares across grips, so none of this is built. Boards
 ### TICKET-046: Build the Real Catalog — Movements and Versions
 
 **Priority:** Medium | **Effort:** Large | **Status: IN PROGRESS** — added 2026-10-24;
-open questions settled 2026-10-25; stage 1 of 5 built
+open questions settled 2026-10-25; stages 1–2 of 5 built
 
 **Description:**
 The research catalog (`research/exercise-catalog/`, 878 flat entries) was built to
@@ -3199,6 +3201,63 @@ kind of miss a real pass catches.
   set bests and add to the session's kg volume (CLAUDE.md 2.4)
 - **Out of this ticket:** logging band level (light, medium, heavy) would be a
   unit of its own, like TICKET-044's plates. Not offered in the MVP
+
+- **Committed** as `9dca5d8` (2026-10-25), not pushed. **PR plan (user,
+  2026-10-25):** one commit per stage on `TICKET-046`, one PR after stage 5
+
+**Implementation, stage 2: back (2026-10-25).**
+- 90 research entries → **39 movements, 77 versions** in `movements/back.ts`, plus
+  4 pullover versions added to Pullover in the stage 1 file (a movement lives in
+  one file). Accounting: 27 movements of one version, 63 versions, 0 dropped
+- **Grouping calls a person should check** (all in ACCOUNTING.md):
+  - **"Seated Cable Row" vs "Machine Row (Seated)" (042's question): one movement,
+    Seated Row**, with cable, machine, plate-loaded, band and one-arm cable
+    versions. Wide-Grip Seated Cable Row merges into cable (user). Hammer Strength
+    Row, Hammer Strength Low Row and the iso-lateral Lat Row all merge into the
+    plate-loaded version: a version is the machine type, not the brand or model, so
+    two gyms' plate-loaded rows share history. Standing Single-Arm Cable Row is its
+    own movement (no back support)
+  - Chin-Up stays its own movement, not a reverse-grip Pull-Up (named exercise, as
+    Hammer Curl was). Yates Row (underhand) and Pendlay Row (dead stop) are their
+    own movements too
+  - Single-Arm Dumbbell Row and the single-arm kettlebell row are the one-arm
+    versions of Bent-Over Row; Single-Arm Landmine Row merges into Meadows Row;
+    Helms Row into the dumbbell Chest-Supported Row; Seal Row stays apart (flat)
+  - Lat Pulldown: wide grip is the normal one; Hammer Strength Pulldown merges into
+    plate-loaded; kneeling single-arm into the one-arm version. Hammer Strength
+    High Row is its own movement (pulls from above). Behind-the-neck stays apart
+  - Inverted Row takes ring and suspension versions; the Smith bar is where the
+    body works, so the Smith inverted row merges into bodyweight. The suspension
+    row's research weight × reps became bodyweight reps
+  - Band-Assisted Pull-Up is `pull_up__band` (reps only): the band assists, and
+    the name reads "Pull-Up · Band". Assisted Pull-Up (Machine) is
+    `pull_up__assisted_machine`
+  - ~~**Rack Pull dropped** as partial range (MVP extra)~~ **Kept (user, stage 2
+    review, 2026-10-25): its own movement**, `rack_pull__barbell`, hinge pattern,
+    not a deadlift version: programmed on its own, and its numbers never compare
+    with a deadlift's
+  - neck: Chin Tuck only here; the neck flexion work is mobility, so stage 5
+  - all accepted by the user in the stage 2 review (2026-10-25), with Rack Pull
+    kept
+- Checks: 41/91 search targets resolve (8 more than stage 1; none dropped);
+  430/447 research aliases carried, the other 17 equal a movement name. Coverage:
+  89 free-exercise-db entries; 69 covered, 8 later stages, 4 MVP extras, **0
+  added, 8 skipped as niche**
+- **Corrected while building, in the stage 1 files:**
+  - the stage 1 header said "a movement id never names equipment", but 17 stage 1
+    ids do (`cable_crossover`, `landmine_press`, `band_pull_apart`, `gripper`,
+    ...): the implement is part of those exercises' names. The header now says
+    so; no id changed. Stage 2's `kettlebell_high_pull` and `standing_cable_row`
+    were renamed `high_pull` and `standing_row` before they were pinned
+  - the test "close grip puts triceps first" was too broad: it failed on the
+    close-grip lat pulldown, which is rightly lats first. It now checks presses
+    only (patterns `horizontal_push`, `vertical_push`), where the rule came from;
+    all 6 close-grip press versions are still covered
+- **Tests:** 6 back rows of the user's notes join the table (68 of the 84 names; the
+  leg rows arrive with stage 3); the pin grows to 316. Seen red: a removed back
+  version (pin, the "Seated cabled row" row, accounting), close-grip bench
+  chest-first against the narrowed test, a back band version given kg, a removed
+  pullover version (pin, accounting)
 
 **Technical Notes:**
 - Grouping needs a person: "Seated Cable Row" vs "Machine Row (Seated)" (042's note)

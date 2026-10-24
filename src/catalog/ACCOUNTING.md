@@ -290,6 +290,104 @@ Band versions log Reps only (stage 1 review): the research gave them a weight in
 | Z Press | movement | `z_press__barbell` |  |
 | Zottman Curl | movement | `zottman_curl__dumbbell` |  |
 
+## Stage 2: back
+
+90 entries: 27 movements of one version, 63 versions (4 of them added to Pullover,
+which lives in the stage 1 file), 0 dropped.
+
+| Research entry | Outcome | Version id | Note |
+|---|---|---|---|
+| Archer Pull-Up | movement | `archer_pull_up__bodyweight__one_side` |  |
+| Assisted Pull-Up (Machine) | version | `pull_up__assisted_machine` | assisted: assisted_machine, role other |
+| Back Extension | version | `back_extension__bodyweight` | the user's "Hyperextension" |
+| Back Extension Machine | version | `back_extension__machine` |  |
+| Band Bent-Over Row | version | `bent_over_row__band` |  |
+| Band Lat Pulldown | version | `lat_pulldown__band` |  |
+| Band-Assisted Pull-Up | version | `pull_up__band` | the band assists: band version, reps only |
+| Banded Lat Pulldown (Kneeling) | version | `lat_pulldown__band` | merged: the band is the load: merged into Band Lat Pulldown |
+| Banded Row | version | `seated_row__band` | the band is the load: band version (user, 2026-10-25) |
+| Barbell Bent-Over Row | version | `bent_over_row__barbell` |  |
+| Barbell Shrug | version | `shrug__barbell` |  |
+| Behind-the-Back Barbell Shrug | movement | `behind_the_back_shrug__barbell` | own movement: the bar path changes the numbers |
+| Behind-the-Neck Lat Pulldown | movement | `behind_the_neck_lat_pulldown__cable` | own movement: the path changes the numbers |
+| Cable Lat Prayer | movement | `lat_prayer__cable` |  |
+| Cable Pullover (Lying) | version | `pullover__cable` | added to Pullover (stage 1 file): the cable version, lats first |
+| Cable Row to Neck (Face-Height Row) | movement | `face_height_row__cable` | own movement: kept apart from Face Pull (bar or handle, not rope; upper back first) |
+| Cable Shoulder Shrug-In | movement | `shrug_in__cable` |  |
+| Cable Shrug | version | `shrug__cable` |  |
+| Chest-Supported Dumbbell Row | version | `chest_supported_row__dumbbell` |  |
+| Chest-Supported Machine Row | version | `chest_supported_row__plate_loaded_machine` |  |
+| Chin Tuck | movement | `chin_tuck__bodyweight` |  |
+| Chin-Up | version | `chin_up__bodyweight` | kept its own movement, not a reverse-grip Pull-Up: a named exercise, like Hammer Curl |
+| Close-Grip Lat Pulldown | version | `lat_pulldown__cable__close_grip` |  |
+| Commando Pull-Up | movement | `commando_pull_up__bodyweight` |  |
+| Dumbbell Bent-Over Row | version | `bent_over_row__dumbbell` |  |
+| Dumbbell Pullover (Decline) | version | `pullover__dumbbell__decline` | added to Pullover (stage 1 file): the decline dumbbell version |
+| Dumbbell Seal Row | version | `seal_row__dumbbell` |  |
+| Dumbbell Shrug | version | `shrug__dumbbell` |  |
+| Gorilla Row | movement | `gorilla_row__kettlebell` |  |
+| Hammer Strength High Row | movement | `high_row__plate_loaded_machine` | own movement: pulls down from above, unlike the seated rows |
+| Hammer Strength Low Row | version | `seated_row__plate_loaded_machine` | merged: merged into the plate-loaded version |
+| Hammer Strength Pulldown | version | `lat_pulldown__plate_loaded_machine` | merged: Hammer Strength is a plate-loaded machine: merged into the plate-loaded version |
+| Hammer Strength Row | version | `seated_row__plate_loaded_machine` | the plate-loaded version. A version is the machine type, not the brand: gyms' plate-loaded rows share it |
+| Helms Row | version | `chest_supported_row__dumbbell` | merged: a Helms row is a chest-supported dumbbell row: merged |
+| Inverted Row | version | `inverted_row__bodyweight` |  |
+| Kettlebell Bent-Over Row | version | `bent_over_row__kettlebell` |  |
+| Kettlebell High Pull | movement | `high_pull__kettlebell` |  |
+| Kettlebell Row (Single-Arm) | version | `bent_over_row__kettlebell__one_side` | the one-arm kettlebell version |
+| Kettlebell Shrug | version | `shrug__kettlebell` |  |
+| Kneeling Single-Arm Lat Pulldown | version | `lat_pulldown__cable__one_side` | merged: kneeling vs seated does not change the numbers: merged into the one-arm version |
+| Kroc Row | movement | `kroc_row__dumbbell__one_side` |  |
+| L-Sit Pull-Up | movement | `l_sit_pull_up__bodyweight` |  |
+| Lat Pulldown (Cable, Wide Grip) | version | `lat_pulldown__cable` | wide is the normal lat pulldown grip: no wide key (user, 2026-10-25) |
+| Machine Lat Pulldown | version | `lat_pulldown__machine` |  |
+| Machine Pullover | version | `pullover__machine` | added to Pullover (stage 1 file): the machine version |
+| Machine Row (Seated) | version | `seated_row__machine` | the machine version of Seated Row |
+| Machine Shrug | version | `shrug__machine` |  |
+| Meadows Row | movement | `meadows_row__landmine__one_side` |  |
+| Muscle-Up (Bar) | version | `muscle_up__bodyweight` |  |
+| Muscle-Up (Rings) | version | `muscle_up__rings` |  |
+| Negative Pull-Up | movement | `negative_pull_up__bodyweight` |  |
+| Neutral-Grip Lat Pulldown | version | `lat_pulldown__cable__neutral_grip` |  |
+| Neutral-Grip Pull-Up | version | `pull_up__bodyweight__neutral_grip` | neutral-grip version |
+| One-Arm Pull-Up | version | `pull_up__bodyweight__one_side` |  |
+| Pendlay Row | movement | `pendlay_row__barbell` | own movement: a dead stop from the floor changes the numbers |
+| Plate-Loaded Lat Row (Iso-Lateral) | version | `seated_row__plate_loaded_machine` | merged: merged into the plate-loaded version |
+| Plate-Loaded Machine Lat Pulldown | version | `lat_pulldown__plate_loaded_machine` |  |
+| Prone YTW Raise | movement | `prone_ytw_raise__dumbbell` |  |
+| Pull-Up | version | `pull_up__bodyweight` |  |
+| Pullover Machine (Plate-Loaded) | version | `pullover__plate_loaded_machine` | added to Pullover (stage 1 file): the plate-loaded version |
+| Rack Pull | movement | `rack_pull__barbell` | its own movement, not a deadlift version (stage 2 review): programmed on its own, numbers never compare with a deadlift's. Kept although partial range |
+| Renegade Row | movement | `renegade_row__dumbbell__one_side` |  |
+| Reverse-Grip Lat Pulldown | version | `lat_pulldown__cable__reverse_grip` |  |
+| Ring Pull-Up | version | `pull_up__rings` |  |
+| Ring Row | version | `inverted_row__rings` |  |
+| Rope Climb | movement | `rope_climb__bodyweight` | the rope is where the body works: bodyweight (user, 2026-10-25) |
+| Rope Straight-Arm Pulldown | version | `straight_arm_pulldown__cable__rope` |  |
+| Scapular Pull-Up | movement | `scapular_pull_up__bodyweight` |  |
+| Seal Row | version | `seal_row__barbell` | own movement: lying flat, apart from the incline chest-supported row |
+| Seated Cable Row | version | `seated_row__cable` | "Seated Cable Row" and "Machine Row (Seated)" are one movement, Seated Row, with cable and machine versions (042's grouping question) |
+| Seated Good Morning | movement | `seated_good_morning__barbell` | seated changes the numbers: own movement |
+| Single-Arm Dumbbell Row | version | `bent_over_row__dumbbell__one_side` | the one-arm dumbbell version of Bent-Over Row |
+| Single-Arm Landmine Row | version | `meadows_row__landmine__one_side` | merged: a single-arm landmine row is the Meadows Row: merged |
+| Single-Arm Lat Pulldown | version | `lat_pulldown__cable__one_side` |  |
+| Single-Arm Seated Cable Row | version | `seated_row__cable__one_side` |  |
+| Smith Machine Bent-Over Row | version | `bent_over_row__smith_machine` |  |
+| Smith Machine Inverted Row | version | `inverted_row__bodyweight` | merged: the Smith bar is where the body works: merged into the bodyweight version |
+| Smith Machine Shrug | version | `shrug__smith_machine` |  |
+| Standing Single-Arm Cable Row | movement | `standing_row__cable__one_side` | standing vs seated changes the numbers (no back support): own movement |
+| Straight-Arm Pulldown | version | `straight_arm_pulldown__cable` |  |
+| Superman | movement | `superman__bodyweight` |  |
+| Suspension Row | version | `inverted_row__suspension_trainer` | suspension version; the research's weight × reps was wrong for a bodyweight row |
+| T-Bar Row | movement | `t_bar_row__landmine` |  |
+| Trap Bar Shrug | version | `shrug__trap_bar` |  |
+| Wall Slide | movement | `wall_slide__bodyweight` |  |
+| Weighted Back Extension | version | `back_extension__added_weight` | weighted: the added_weight version |
+| Weighted Chin-Up | version | `chin_up__added_weight` | weighted: the added_weight version |
+| Weighted Pull-Up | version | `pull_up__added_weight` | weighted: the added_weight version |
+| Wide-Grip Seated Cable Row | version | `seated_row__cable` | merged: no wide key: merged into the cable version (user, 2026-10-25; collision seated_row__cable) |
+| Yates Row | movement | `yates_row__barbell` | own movement, not a reverse-grip Bent-Over Row: a named exercise |
+
 ## Coverage check (free-exercise-db)
 
 Beyond the user's notes, each stage is checked against
@@ -308,6 +406,15 @@ get-ups), 9 are MVP extras (chains, pin, partials, bands for speed). **Added: 0.
 Skipped as niche: 48:** Alternating Deltoid Raise; Anti-Gravity Press; Around The Worlds; Barbell Curls Lying Against An Incline; Barbell Guillotine Bench Press; Barbell Incline Shoulder Raise; Body-Up; Bottoms-Up Clean From The Hang Position; Cable Iron Cross; Car Drivers; Clock Push-Up; Dumbbell Incline Shoulder Raise; Dumbbell Scaption; Flexor Incline Dumbbell Curls; Front Raise And Pullover; Hammer Grip Incline DB Bench Press; Incline Dumbbell Bench With Palms Facing In; Incline Dumbbell Flyes - With A Twist; Iron Cross; Isometric Wipers; Kettlebell Halo with Overhead Extension; Kettlebell Pirate Ships; Kettlebell Seesaw Press; Landmine Linear Jammer; Leg-Over Floor Press; Lying Supine Dumbbell Curl; Neck Press; One Arm Pronated Dumbbell Triceps Extension; One Arm Supinated Dumbbell Triceps Extension; One-Arm Kettlebell Military Press To The Side; One-Arm Kettlebell Para Press; Plyo Kettlebell Pushups; Push Up to Side Plank; Push-Ups With Feet On An Exercise Ball; Reverse Flyes With External Rotation; See-Saw Press (Alternating Side Press); Side Laterals to Front Raise; Single-Arm Linear Jammer; Sled Overhead Backward Walk; Sled Overhead Triceps Extension; Sled Reverse Flye; Smith Incline Shoulder Raise; Standing Palm-In One-Arm Dumbbell Press; Standing Palms-In Dumbbell Press; Standing Towel Triceps Extension; Straight Raises on Incline Bench; Wrist Rotations with Straight Bar; Zottman Preacher Curl.
 Borderline, skipped: the neutral-grip incline dumbbell press (2 names). It would
 be bench_press__dumbbell__incline__neutral_grip; adding it later is safe.
+
+**Stage 2** (lats, middle back, lower back, traps, neck): 89 reference entries.
+44 match by name (Rack Pulls now, and Rack Pull with Bands, whose bands are an
+MVP extra), 25 are covered under another name (long-bar rows = Meadows and
+T-Bar Row, "Leverage Iso Row" = Seated Row plate-loaded, "Suspended Row" = Inverted
+Row suspension), 8 are in the research for a later stage (Deadlift, Good Morning,
+Sled Row, the neck resistance work), 4 are MVP extras (bands, chains, deficit). **Added: 0. Skipped as niche: 8:** Gironda Sternum Chins; London Bridges;
+Middle Back Shrug; Mixed Grip Chin; Rocky Pull-Ups/Pulldowns; Side To Side Chins;
+Weighted Ball Hyperextension; Wide-Grip Rear Pull-Up.
 
 ## Added (no research entry)
 

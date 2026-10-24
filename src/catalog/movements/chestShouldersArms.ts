@@ -10,10 +10,12 @@
 // ../catalog.test.ts pins every one.
 //
 // Conventions, so a later edit stays consistent:
-// - a movement id never names equipment (`bottoms_up_press`, not
-//   `kettlebell_bottoms_up_press`): equipment is the next part of the version id.
-//   A single-version movement may keep its equipment in the display name
-//   ("Kettlebell Bottoms-Up Press"), since only the movement name shows
+// - a movement id names equipment only when the implement is part of the
+//   exercise's own name (`cable_crossover`, `landmine_press`, `band_pull_apart`,
+//   `gripper`); otherwise it leaves it out (`bottoms_up_press`, not
+//   `kettlebell_bottoms_up_press`), since equipment is the next part of the
+//   version id. A single-version movement may keep its equipment in the display
+//   name ("Kettlebell Bottoms-Up Press"), since only the movement name shows
 // - standing presses are Overhead Press; seated ones are Shoulder Press, since
 //   back support changes the numbers. Seated or kneeling vs standing is merged
 //   wherever it does not (curls, raises, the landmine press)
@@ -210,6 +212,11 @@ export const CHEST_SHOULDERS_ARMS: Movement[] = [
     versions: [
       { id: "pullover__dumbbell", equipment: "dumbbell", unilateral: false, measure: "weight_reps", fields: FIELDS.weight_reps, aliases: ["dumbbell pullover"] },
       { id: "pullover__barbell", equipment: "barbell", unilateral: false, measure: "weight_reps", fields: FIELDS.weight_reps, aliases: ["barbell pullover"] },
+      // Stage 2's pullovers (back entries in the research) are versions of this movement.
+      { id: "pullover__dumbbell__decline", equipment: "dumbbell", angle: "decline", unilateral: false, measure: "weight_reps", fields: FIELDS.weight_reps, aliases: ["dumbbell pullover (decline)"], primaryMuscles: ["lats", "chest"] },
+      { id: "pullover__cable", equipment: "cable", unilateral: false, measure: "weight_reps", fields: FIELDS.weight_reps, aliases: ["cable pullover (lying)", "lying cable pullover"], primaryMuscles: ["lats"] },
+      { id: "pullover__machine", equipment: "machine", unilateral: false, measure: "weight_reps", fields: FIELDS.weight_reps, aliases: ["machine pullover", "nautilus pullover"], primaryMuscles: ["lats"] },
+      { id: "pullover__plate_loaded_machine", equipment: "plate_loaded_machine", unilateral: false, measure: "weight_reps", fields: FIELDS.weight_reps, aliases: ["pullover machine (plate-loaded)"], primaryMuscles: ["lats"] },
     ],
   },
   {

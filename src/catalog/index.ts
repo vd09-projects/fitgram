@@ -11,6 +11,7 @@
 // One file per stage of TICKET-046, joined here.
 
 import type { Movement } from "../types/catalog";
+import { BACK } from "./movements/back";
 import { CHEST_SHOULDERS_ARMS } from "./movements/chestShouldersArms";
 
-export const CATALOG: Movement[] = [...CHEST_SHOULDERS_ARMS];
+export const CATALOG: Movement[] = [...CHEST_SHOULDERS_ARMS, ...BACK];

@@ -254,6 +254,88 @@ const SHIPPED_VERSION_IDS = [
   "towel_hang__bodyweight",
   "mace_10_to_2__mace",
   "gada_swing__gada__one_side",
+  "pullover__dumbbell__decline",
+  "pullover__cable",
+  "pullover__machine",
+  "pullover__plate_loaded_machine",
+  // Stage 2: back
+  "pull_up__bodyweight",
+  "pull_up__added_weight",
+  "pull_up__assisted_machine",
+  "pull_up__band",
+  "pull_up__rings",
+  "pull_up__bodyweight__one_side",
+  "pull_up__bodyweight__neutral_grip",
+  "chin_up__bodyweight",
+  "chin_up__added_weight",
+  "archer_pull_up__bodyweight__one_side",
+  "commando_pull_up__bodyweight",
+  "l_sit_pull_up__bodyweight",
+  "negative_pull_up__bodyweight",
+  "scapular_pull_up__bodyweight",
+  "muscle_up__bodyweight",
+  "muscle_up__rings",
+  "rope_climb__bodyweight",
+  "lat_pulldown__cable",
+  "lat_pulldown__machine",
+  "lat_pulldown__plate_loaded_machine",
+  "lat_pulldown__cable__close_grip",
+  "lat_pulldown__cable__neutral_grip",
+  "lat_pulldown__cable__reverse_grip",
+  "lat_pulldown__cable__one_side",
+  "lat_pulldown__band",
+  "behind_the_neck_lat_pulldown__cable",
+  "high_row__plate_loaded_machine",
+  "straight_arm_pulldown__cable",
+  "straight_arm_pulldown__cable__rope",
+  "lat_prayer__cable",
+  "bent_over_row__barbell",
+  "bent_over_row__dumbbell",
+  "bent_over_row__kettlebell",
+  "bent_over_row__smith_machine",
+  "bent_over_row__band",
+  "bent_over_row__dumbbell__one_side",
+  "bent_over_row__kettlebell__one_side",
+  "pendlay_row__barbell",
+  "yates_row__barbell",
+  "kroc_row__dumbbell__one_side",
+  "meadows_row__landmine__one_side",
+  "t_bar_row__landmine",
+  "gorilla_row__kettlebell",
+  "renegade_row__dumbbell__one_side",
+  "chest_supported_row__dumbbell",
+  "chest_supported_row__plate_loaded_machine",
+  "seal_row__barbell",
+  "seal_row__dumbbell",
+  "seated_row__cable",
+  "seated_row__machine",
+  "seated_row__plate_loaded_machine",
+  "seated_row__cable__one_side",
+  "seated_row__band",
+  "standing_row__cable__one_side",
+  "inverted_row__bodyweight",
+  "inverted_row__rings",
+  "inverted_row__suspension_trainer",
+  "face_height_row__cable",
+  "prone_ytw_raise__dumbbell",
+  "wall_slide__bodyweight",
+  "shrug__barbell",
+  "shrug__dumbbell",
+  "shrug__smith_machine",
+  "shrug__trap_bar",
+  "shrug__cable",
+  "shrug__kettlebell",
+  "shrug__machine",
+  "behind_the_back_shrug__barbell",
+  "shrug_in__cable",
+  "high_pull__kettlebell",
+  "back_extension__bodyweight",
+  "back_extension__added_weight",
+  "back_extension__machine",
+  "superman__bodyweight",
+  "rack_pull__barbell",
+  "seated_good_morning__barbell",
+  "chin_tuck__bodyweight",
 ];
 
 it("every shipped version id is unchanged", () => {
@@ -276,7 +358,7 @@ describe("ACCOUNTING.md", () => {
 // The user's own exercises, from their Back, Chest and Leg notes (checked
 // 2026-10-20): each note name and the versions it means. 84 names, 81
 // distinct; two rows are loadmuscle links the user checked against. Rows are
-// added as each stage builds their movements.
+// added as each stage builds their movements (the leg rows: stage 3).
 const USER_NOTES: [string, string[]][] = [
   ["Dumbbell bicepcurl / bicepcurl rod", ["bicep_curl__dumbbell", "bicep_curl__barbell", "bicep_curl__ez_bar"]],
   ["Rope hammer curls", ["hammer_curl__cable__rope", "hammer_curl__dumbbell"]],
@@ -305,6 +387,16 @@ const USER_NOTES: [string, string[]][] = [
   ["Facepull", ["face_pull__cable__rope"]],
   ["loadmuscle: alternate low fly", ["low_to_high_cable_fly__cable"]],
   ["loadmuscle: standing chest press", ["chest_press__cable"]],
+  // Back
+  ["Straight arm pull down", ["straight_arm_pulldown__cable", "straight_arm_pulldown__cable__rope"]],
+  ["Barbell row", ["bent_over_row__barbell", "bent_over_row__dumbbell", "bent_over_row__smith_machine"]],
+  [
+    "Latpulldown plates",
+    ["lat_pulldown__cable", "lat_pulldown__machine", "lat_pulldown__cable__close_grip", "lat_pulldown__cable__neutral_grip", "lat_pulldown__cable__reverse_grip"],
+  ],
+  ["Seated cabled row", ["seated_row__cable", "seated_row__machine"]],
+  ["Hyperextension", ["back_extension__bodyweight", "back_extension__machine"]],
+  ["Dumbbell / Smith shrugs", ["shrug__dumbbell", "shrug__smith_machine"]],
 ];
 
 it.each(USER_NOTES)("the user's %s resolves", (_, expected) => {
@@ -330,8 +422,13 @@ describe("grip versions", () => {
     expect(gripped.filter(({ version }) => !version.primaryMuscles).map(({ version }) => version.id)).toEqual([]);
   });
 
-  it("close grip puts triceps first", () => {
-    const close = gripped.filter(({ version }) => version.grip === "close");
+  // On a press only: a close grip moves the work to the triceps. A close-grip
+  // pull (lat pulldown) is still lats first.
+  it("close grip puts triceps first on a press", () => {
+    const close = gripped.filter(
+      ({ movement, version }) =>
+        version.grip === "close" && (movement.pattern === "horizontal_push" || movement.pattern === "vertical_push")
+    );
     expect(close.length).toBeGreaterThan(0);
     expect(close.filter(({ version }) => version.primaryMuscles?.[0] !== "triceps").map(({ version }) => version.id)).toEqual([]);
   });
