@@ -44,9 +44,9 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 041 | Design every screen the catalog changes | Medium | Canvas first; plates boards (C1–C2) first so 044 stage 1 is not held up |
 | 042 | Exercise catalog: movements with versions, loaded into the app | Large | Movement first; history stays per version. 349 entries not weight × reps; **assisted** must not use role `weight` |
 | 043 | Find an exercise: search by muscle, typos, movement-first picker | Large | Ports the prototype and its 91 cases; "Latpulldown", "squad", "bech press" return 0 today |
-| 044 | Logging details: plates unit, and how tags compare | Small + Small-Med | Stage 1 (plates) needs only 041 boards C1–C2. Machine settings and per-side dropped (MVP) |
+| 044 | Plates as a weight unit | Small | Needs only 041 boards C1–C2. Machine settings, per-side and tags dropped or superseded |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap |
-| 046 | Build the real catalog: movements, versions, tags | Large | Research catalog is reference only. Variations become tags under one movement |
+| 046 | Build the real catalog: movements and versions | Large | Research catalog is reference only. Grip is a version; shown by movement |
 | 047 | Switch an exercise's version mid-workout | Medium | Deferred 2026-10-24. For this workout only; the plan keeps its version |
 | 048 | Exercise names with "-" or "()" are refused | Small | **Live bug:** "Pull-Ups" from today's catalog cannot be added to a plan |
 
@@ -2281,7 +2281,7 @@ needs it, built against the chosen board.
 | C2 | Set card in plates | Stepper and labels assume kg or lb | "4 plates", stepper by 1, the last-time pill and deltas in plates, the notice when last time was in kg | 044 stage 1 |
 | C3 | ~~Machine setting~~ | none | **Dropped 2026-10-24 (MVP).** Boards drawn, marked dropped | — |
 | C4 | ~~Per-side reps~~ | none | **Dropped 2026-10-24 (MVP).** Reps stay plain | — |
-| C5 | Variation tags | none | One-tap chips (grip, stance, tempo, pause, ...) on a set, and how a tagged set shows in Today's sets, the history sheet and next to a delta | 044 stage 2+ |
+| C5 | ~~Variation tags~~ | none | **Superseded 2026-10-24:** grip is a version (042), extras not offered. Boards kept, labelled | — |
 
 **Acceptance Criteria:**
 - [x] Every row above has a board, or a written reason it is not needed (e.g. B2 if
@@ -2293,7 +2293,8 @@ needs it, built against the chosen board.
       TICKET-040's **Design** section)
 - [x] The decisions that boards settle are written back into TICKET-042 to TICKET-044:
       at least incline as a version or a movement, the version line format, and
-      whether a tagged set compares with an untagged one
+      whether a tagged set compares with an untagged one (answered: grip became a
+      version, so nothing compares across it; tags superseded)
 - [x] Boards mirrored in `design/workout-flow/project/` and committed after the user
       approves
 - [x] Delivered in groups that can each be approved alone, so a build ticket is not
@@ -2325,28 +2326,25 @@ needs it, built against the chosen board.
   ("Bench Press (Barbell)", movement first) and NN/g's finding that people scanning
   a list read about two words. B1b and B1c rejected. Recorded in TICKET-042. B2:
   wanted but deferred, as TICKET-047 (new), for this workout only.
-- **C5 approved 2026-10-24:** compare, and say the tags differed; C5b rejected.
-  Recorded in TICKET-044's **Design, stage 2**. All groups done. Still open: TICKET-042's "incline 19 versions" and other counts
+- ~~**C5 approved 2026-10-24:** compare, and say the tags differed~~; superseded by
+  grip as a version (below). All groups done. Still open: TICKET-042's "incline 19 versions" and other counts
   wait for TICKET-046's real catalog.
-- **Open after the PR #17 review, waiting on the user:**
-  - **two lifts, one id:** a tag does not change the version id, so Bench Press and
-    Close-Grip Bench Press cannot both be in one plan (`exerciseValidations.ts`
-    refuses the duplicate) and would share one history
-  - **bests ignore tags:** a banded or chained set can become the stored
-    `bestByReps` record and later show untagged (CLAUDE.md 2.4)
-  - proposed fix for both, drawn as boards P1–P5 (`Version*.dc.html`): every pick
-    in A3 (equipment, angle, grip) is the version, each combination with its own
-    history; extras dropped for the MVP. Not decided
+- **PR #17 review, the two High comments, decided (user, 2026-10-24, after the PR #17 review):** stored per
+  combination, shown per movement. Grip is a version axis (own history, bests,
+  targets), so bench and close-grip bench can share a plan and no load-changing
+  choice enters another's records. Search and recents show movements only; a
+  combination is named only where it is logged or planned. Nothing about the
+  version is editable in Manage Workout (equipment, angle and grip alike; remove
+  and add instead). Extras dropped for the MVP. Boards P1–P5 (`Version*.dc.html`)
+  draw it; the user rejected the first P2 (grip editable in Manage) and P5 (recents
+  per combination), both redrawn. C5 and the tags board are superseded. Recorded in
+  TICKET-042, 043, 044, 046 and 047
 - **Manage Workout redesign confirmed for TICKET-043 stage 3** (user, 2026-10-24)
 - **C3 and C4 dropped** (user, 2026-10-24): MVP with about 5–10 users, so no
   machine settings and no per-side reps. Boards drawn and kept, marked dropped.
   Recorded in TICKET-044.
-- **Tags are plan-level and part of A3** (user, 2026-10-24). Every tag alike, no
-  special case for grip: grip, stance, pause, bands, chains, belt are chosen in A3's
-  sheet with the version, and changed in Manage Workout (board
-  `ManageTags.dc.html`). Changing one for a single workout joins the version switch
-  in TICKET-047. Recorded in TICKET-043 (builds it) and TICKET-044 (what is left:
-  how a session with other tags compares). C5 narrows to that comparison.
+- ~~**Tags are plan-level and part of A3**~~ (2026-10-24), superseded the same day by
+  grip as a version, above.
 
 **Technical Notes:**
 - Marks only where data exists: a set with no tag shows nothing, not an empty chip
@@ -2390,12 +2388,13 @@ numbers, so **the history key must stay one per version, not one per movement.**
 **Which differences make a version, and which are only details** (rule: a version is
 anything that changes the numbers):
 
-| Version (own history) | Detail (TICKET-044, same history) |
+| Version (own history) | ~~Detail (same history)~~ Not offered in the MVP (2026-10-24) |
 |---|---|
-| Equipment: barbell, dumbbell, Smith, machine, cable, band, kettlebell | Grip: wide, close, neutral, reverse |
-| Angle, where it changes the load: flat, incline, decline | Stance, tempo, pause, partial range |
-| Cable attachment: rope, straight bar, V-bar | Belt, straps, bands or chains on a bar |
-| One arm or leg vs both, where the load is per side | ~~Machine seat or pin setting~~ (dropped, MVP: TICKET-044) |
+| Equipment: barbell, dumbbell, Smith, machine, cable, band, kettlebell | Stance, tempo, pause, partial range |
+| Angle, where it changes the load: flat, incline, decline | Belt, straps, bands or chains on a bar |
+| Cable attachment: rope, straight bar, V-bar | ~~Machine seat or pin setting~~ (dropped, MVP: TICKET-044) |
+| One arm or leg vs both | |
+| **Grip:** close, reverse, neutral (moved here 2026-10-24, after the PR #17 review) | |
 
 Cable attachment as a version settles the open question on cable lateral raise with
 a rope: it is one more option, not a new exercise.
@@ -2436,18 +2435,27 @@ interface MovementVersion {
         heuristic count: TICKET-046 settles it. The picker shows Equipment × Angle and disables
         combinations that do not exist. Rejected: board A3b, incline as its own
         movement
-      - ~~grip: movements of their own, or tags?~~ **Decided (user, 2026-10-24):
-        tags.** One exercise with variations is one movement: searching "bench
-        press" gives Bench Press once, and close grip, reverse grip, pause and the
-        rest are chosen under it. Close-Grip Bench Press is Bench Press + a close-grip
-        tag. Consequences, for TICKET-046 to settle:
-        - search: the tag must carry its muscle emphasis (close grip: triceps), or
-          "triceps" stops finding it
-        - history: a tag does not split history (the table above), so a close-grip
-          set compares with a normal one. Whether and how that comparison shows is
-          TICKET-044's open question, designed in TICKET-041 C5
-        - ~~tagging every set is a chore~~ settled: tags are set on the plan's
-          exercise, not per set (TICKET-043 Design, A3)
+      - ~~grip: movements of their own, or tags?~~ **Decided (user, 2026-10-24, after the PR #17 review): grip is a
+        version axis, like angle. There are no tags.** Stored per combination,
+        shown per movement:
+        - **stored:** equipment + angle + attachment + grip together are one
+          version, with its own id, history, ghost targets and bests. Close-grip
+          bench never compares with normal-grip bench, and a plan can hold both
+          (they are different ids). This fixes the two High review comments: the
+          duplicate refusal and a load-changing choice entering `bestByReps`
+        - **shown:** outside logging and the plan, the user sees movements only.
+          Search and recents show "Bench Press" once; the combination is chosen in
+          A3's sheet (TICKET-043). It appears by name only where it is logged or
+          planned ("Bench Press · Barbell, close grip")
+        - **extras dropped for the MVP:** pause, bands, chains, belt, deficit,
+          stance, partial range, straps are not offered (TICKET-046 lists the
+          research entries this drops). Tempo was already out (free text)
+        - search: a grip version may override muscles (close grip: triceps first),
+          like incline does, so "triceps" still finds Bench Press
+        - rejected: grip and extras as tags that never split history (the earlier
+          decision, boards C5 and `ManageTags.dc.html`): a close-grip set would
+          compare with a normal one, a banded set could become the heaviest
+          record, and bench plus close-grip bench could not share a plan
       - **storage:** ship the catalog in the app bundle (research measured 21 KB
         gzipped for the search fields; offline search, zero Firestore reads) or keep
         `predefined_exercises` in Firestore. Recommend the bundle: Firestore then
@@ -2470,15 +2478,15 @@ interface MovementVersion {
         and only "Pec Deck (Machine Fly)" for a single version. Names never cut to
         one line; they wrap to two (Start plan row and history sheet title change)
       - **the name is built, not stored** (decided after PR #17 review). Plans and
-        sessions store the version id (and the tags, while tags exist); every name
+        sessions store the version id; every name
         site, including the history sheet and `WorkoutHistoricalLogsFilter`, builds
         the string from the catalog. An old session builds its name from its own
-        stored version id and tags, not the plan's current ones. A catalog rename
+        stored version id, not the plan's current one. A catalog rename
         then updates old names too, which is wanted: the exercise did not change.
         `Exercise.name` stays stored only for custom exercises, which have no
         catalog entry (TICKET-045). So plan save never sees "·" and the name rule
         does not apply to catalog exercises. Rejected: storing the joined string,
-        which goes stale when a tag or version is renamed
+        which goes stale when a version is renamed
       - ~~a custom exercise: a movement with one version and no muscles, or plain
         `Exercise` only~~ **No new custom exercises for now** (user, 2026-10-24; see
         TICKET-043 Design). What remains here: existing custom exercises in plans and
@@ -2632,7 +2640,7 @@ and `PlatesUnit.dc.html`; chosen by the user 2026-10-24):
     showing; search still finds them by name (the criterion above stays). Nothing
     is deleted or migrated
   - a machine the catalog lacks is logged as the closest catalog movement, plus a
-    field ("Seat") or, after TICKET-044, a tag
+    field ("Seat")
   - the Custom board with starting templates (`ManageAdd.dc.html`) is kept on the
     canvas, marked deferred, for TICKET-045, which reopens this
 - **New plan: first row of the plan picker (chosen).** No New button on the screen;
@@ -2656,11 +2664,13 @@ and `PlatesUnit.dc.html`; chosen by the user 2026-10-24):
 **Design, the picker** (TICKET-041 group A, `design/workout-flow/project/Find*.dc.html`;
 chosen by the user 2026-10-24). A full screen opened by Add exercise, not a dropdown:
 - **A1, empty query (chosen).** Search box focused; one row of three filter menus,
-  Muscle / Equipment / Type; then **Recent**: versions the user has logged, newest
-  first, with the date. A recent row adds that version directly, with no version
-  step, and with the tags it was last logged with, shown in its name ("Bench Press
-  · Barbell, close grip"): a recent row is what was logged, exactly (PR #17 review). A row already in the plan reads "In plan" and is disabled (plan save refuses
-  duplicates). This settles the empty-query criterion above: recents. Rejected:
+  Muscle / Equipment / Type; then **Recent**: **movements** the user has logged,
+  newest first, never one row per combination (user, 2026-10-24, after the PR #17 review). The second line is the
+  combination last logged and its date ("Barbell, close grip · 22 Oct"). Tapping
+  opens A3's sheet with that combination preselected (`VersionRecent.dc.html`); a
+  single-version movement is added at once, and reads "In plan" (disabled) if it
+  is already there. In the sheet, a combination already in the plan is disabled.
+  This settles the empty-query criterion above: recents. Rejected:
   A1b, muscle groups as chips in view, which made muscle one tap instead of two but
   cost a second row.
 - **A2, results (chosen).** One row per movement: name, then the main muscle
@@ -2676,16 +2686,17 @@ chosen by the user 2026-10-24). A full screen opened by Add exercise, not a drop
   an angle of Bench Press**, so Bench Press has about 20 versions (TICKET-042 records
   it). Rejected: A3b, Incline Bench Press as its own movement (three search rows of
   8, 6 and 5 versions, a simpler sheet).
-- **A3, tags (user, 2026-10-24).** Variations are tags under one movement, and every
-  tag is treated the same way: chosen here, once, with the version. The sheet shows
-  the tag groups the movement has: a single choice per group (Grip: Normal / Close /
-  Wide / Reverse / Neutral, unavailable ones disabled) and multi-select Extras
-  (Pause, Bands, Chains, Belt). Stored on the plan's exercise and used for every
-  set. Changed later in Manage Workout, in the expanded exercise
-  (`ManageTags.dc.html`), like the unit. Each logged session copies the plan's tags,
-  so a past session keeps what it was logged with. Not chosen per set. A change
-  for one workout only is TICKET-047. Which groups a movement has comes from the
-  catalog (TICKET-046)
+- **A3, grip (user, 2026-10-24, after the PR #17 review).** Grip is a version axis, shown as a third row (Normal / Close /
+  Reverse / Neutral, unavailable ones disabled; `VersionGrip.dc.html`). Every pick
+  in the sheet together is the version (TICKET-042). No Extras row: dropped for the
+  MVP. Which axes a movement has comes from the catalog (TICKET-046). Rejected:
+  grip and extras as tags (`ManageTags.dc.html`)
+- **The version is not editable in Manage Workout** (user, 2026-10-24, after the PR #17 review). Equipment, angle and grip
+  are treated alike: none can be changed on a plan exercise; to change one, remove
+  the exercise and add the other combination. The expanded row edits fields and
+  units only. A plan may hold two combinations of one movement (bench and
+  close-grip bench, `VersionPlan.dc.html`). A change for one workout only is
+  TICKET-047
 - **A4, typo.** No special state and no "did you mean": results come back, headed
   "Close matches" when every one is a fuzzy match.
 - **A4, no results.** "No exercise matches", why (every word must match) and a
@@ -2710,10 +2721,10 @@ chosen by the user 2026-10-24). A full screen opened by Add exercise, not a drop
 
 ---
 
-### TICKET-044: Logging Details — Plates as a Unit, and How Tags Compare
+### TICKET-044: Logging Details — Plates as a Weight Unit
 
 **Priority:** Medium (plates) / Low (the rest) | **Effort:** Small (plates) +
-Small-Medium (tag comparison) | **Status: OPEN**
+nothing else (stage 2 superseded) | **Status: OPEN**
 
 **Description:**
 Details people record that are not a different exercise. Today the only way to
@@ -2733,11 +2744,10 @@ record most of them is a custom exercise, which splits the history.
    its own version (TICKET-042's table), so its history never mixes with the
    two-arm one; it just carries no "per side" label. Volume counts reps as logged.
    Board kept, marked dropped (TICKET-041 C4)
-4. **Variation tags,** one tap, chosen on the plan's exercise (TICKET-043, A3):
-   grip, pause, bands, chains, belt, and the other one-tap groups TICKET-046 settles
-   (stance, partial range, straps). Tempo (`3-1-1`) is left out: it is a value, not
-   a tap, and would be free text (see the criterion below). These do **not** split
-   history (TICKET-042 draws the line)
+4. ~~**Variation tags**~~ **Superseded (user, 2026-10-24, after the PR #17 review).** Grip became a version axis
+   (TICKET-042), chosen in TICKET-043's picker; pause, bands, chains, belt and the
+   rest are not offered in the MVP. Nothing is left for this ticket to store or
+   compare
 
 **Load-bearing fact (plates):** every comparison already checks unit equality
 (`areFieldsComparable` in `exerciseFields.ts`, `exerciseHistory.ts`, `setDeltas.ts`,
@@ -2764,18 +2774,8 @@ logic. Verify with a test rather than assume it.
       - ~~decided: is volume in plates shown or left out?~~ **Decided: shown with its
         unit** ("2 sets · 115 plates"), see Design. Coordinate with TICKET-036 (unit
         on volume trend points)
-- [ ] **Stage 2+, the rest.** Decided and written down before code:
-      - ~~tags on the set, the session entry, or both~~ **Decided (user,
-        2026-10-24): on the plan's exercise, not per set, every tag alike.** Chosen
-        and changed through TICKET-043's picker and Manage Workout (TICKET-043
-        Design, A3), so this ticket no longer builds tag entry. Each logged session
-        copies the plan's tags. Per-set tags (a pause on one set) are not offered
-        for now; a one-workout change is TICKET-047
-      - ~~whether a session with other tags compares with the last one~~
-        **Decided (user, 2026-10-24): compare, and say the tags differed**
-        (TICKET-041 C5; see Design, stage 2)
-      - ~~where a machine setting is stored~~ and ~~per-side reps~~: dropped
-        (MVP, see Description)
+- [x] ~~**Stage 2+, the rest**~~ superseded: machine settings and per-side reps
+      dropped (MVP); tags replaced by grip as a version (TICKET-042). No stage 2
 - [ ] Not a free-text notes field: deltas would have to guess its meaning
       (CLAUDE.md 2.5)
 
@@ -2809,10 +2809,10 @@ chosen by the user 2026-10-24):
   `EXERCISE_EDITABLE_LIST` → `EXISTING_ITEM`, whose copy ("rename them or remove
   any") does not mention units; optional copy update.
 
-**Design, stage 2** (TICKET-041 board C5, `design/workout-flow/project/Tag*.dc.html`;
-chosen by the user 2026-10-24). Tags live on the plan's exercise (TICKET-043 Design,
-A3), so a session's tags differ from last time only after the plan changes:
-- **C5 (chosen): compare with last time, and say the tags differed.** The Last time
+**Design, stage 2 — superseded (user, 2026-10-24, after the PR #17 review).** Kept for the record: with grip a
+version, a session never compares across grips, so none of this is built. Boards
+`Tag*.dc.html` are labelled superseded.
+- ~~**C5 (chosen): compare with last time, and say the tags differed.**~~ The Last time
   pill names last time's tags ("80 × 8 normal grip"); one line on the card says
   "Last time was normal grip; today is close grip"; deltas are computed as usual and
   a caption under Today says what they were compared with ("Compared with normal
@@ -2831,20 +2831,17 @@ A3), so a session's tags differ from last time only after the plan changes:
   Simplest is the user logs the total including the bar; a per-version bar-weight
   setting the app adds is possible but means the app changes a number the user
   typed. Decide during stage 2
-- Tags no longer touch `ExerciseSet`: they live on the plan's exercise and are copied
-  onto the session entry. So the TICKET-033 coordination (drop sets reshape the set)
-  no longer applies here. Settle the session entry's shape first, pre-launch so no
-  migration
+- Nothing here changes `ExerciseSet` or the session entry any more (stage 2 is
+  superseded), so there is no TICKET-033 coordination
 - Cardio extras (speed, incline, resistance level, watts, split /500 m) are listed
   per machine in the catalog's `optional_fields`. They are fields with role `other`,
   which already works
 
-**Dependencies:** Stage 1: TICKET-041 boards C1–C2 only. Stage 2: TICKET-042,
-TICKET-043 (tags are chosen there), Phase 3, and TICKET-041 board C5.
+**Dependencies:** TICKET-041 boards C1–C2 only.
 
 ---
 
-### TICKET-046: Build the Real Catalog — Movements, Versions and Tags
+### TICKET-046: Build the Real Catalog — Movements and Versions
 
 **Priority:** Medium | **Effort:** Large | **Status: OPEN** — added 2026-10-24
 
@@ -2858,28 +2855,29 @@ source of names, muscles and aliases.
 Searching "bench press" shows Bench Press once; the user picks it, then the
 combination under it. Of what differs between two entries:
 - **version** (own history): equipment, angle, cable attachment, one arm or leg
-  vs both. These change the numbers (TICKET-042's table)
-- **tag** (same history, TICKET-044): grip (close, wide, reverse, neutral, mixed),
-  stance, pause, tempo, deficit, partial range, bands or chains, belt, straps
+  vs both, and grip (user, 2026-10-24, after the PR #17 review). These change the numbers (TICKET-042)
+- **not offered in the MVP:** pause, deficit, bands or chains, belt, stance,
+  partial range, straps, tempo. Research entries built on them are dropped, with
+  the reason, in the accounting table below
 - **its own movement:** only when it is a different exercise, not a variation
   (Bench Press vs Floor Press). A person decides, case by case
 
 **Size, from the research (a name heuristic, so rough, measured 2026-10-24):**
 878 entries group into about 573 movements; 98 movements have more than one entry,
-covering 403 entries. 29 names carry a tag word (close-grip, reverse-grip,
-neutral-grip, pause, deficit, banded) and fold into their movement as tags. Bench
-Press alone groups 25 entries: 18 equipment × angle versions, single-arm dumbbell (a
-version), and 6 that fold into tags (close-grip ×3, reverse-grip, neutral-grip,
-pause). Specialty Bar Bench Press is a 19th equipment × angle version the name
-grouping missed, so Bench Press has 20 versions (TICKET-042 counts the same). The
+covering 403 entries. 29 names carry a grip or extra word: the grip ones
+(close-, reverse-, neutral-grip) become grip versions of their movement, the rest
+(pause, deficit, banded) are dropped for the MVP. Bench Press alone groups 25
+entries: 18 equipment × angle versions, single-arm dumbbell, 5 grip versions
+(close-grip ×3, reverse-grip, neutral-grip) and Pause Bench Press (dropped). Specialty Bar Bench Press is a 19th equipment × angle version the name
+grouping missed, so Bench Press has 20 versions before grip, about 25 with it (TICKET-042
+counts the same before grip). The
 kind of miss a real pass catches.
 
 **Acceptance Criteria:**
-- [ ] The tag vocabulary: each tag's name, group (grip, stance, ...), and the muscle
-      emphasis it carries, so "triceps" still finds Bench Press through close grip.
-      Settle with TICKET-044 stage 2 (where a tag is stored) before content
-- [ ] Every research entry accounted for: a movement, a version of one, a tag on
-      one, or dropped with a reason. A table, so nothing disappears silently
+- [ ] The grip values each movement offers, and each grip version's muscle
+      override (close grip: triceps first), so "triceps" still finds Bench Press
+- [ ] Every research entry accounted for: a movement, a version of one, or dropped
+      with a reason. A table, so nothing disappears silently
 - [ ] The 84 versions from the user's Back, Chest and Leg notes each resolve
 - [ ] Coverage beyond the notes: how many exercises the catalog lacks is unknown
       today. Decide a check (a reference list, or the user's other notes) and report
@@ -2889,12 +2887,11 @@ kind of miss a real pass catches.
 
 **Technical Notes:**
 - Grouping needs a person: "Seated Cable Row" vs "Machine Row (Seated)" (042's note)
-- A tag that changes the primary muscle (close grip → triceps) still does not split
-  history; that is what the user chose. TICKET-044 decides how a tagged set's
-  comparison reads, so a close-grip day is not read as a bench regression
+- Versions multiply (equipment × angle × grip): store only combinations that exist,
+  so the picker can disable the rest
 
 **Dependencies:** TICKET-042's model (shape) first. Blocks TICKET-042 stage 2 and
-TICKET-043's search cases. Coordinates with TICKET-044 stage 2 on tags.
+TICKET-043's search cases.
 
 ---
 
@@ -2943,10 +2940,10 @@ is nothing to add (TICKET-043 Design). This ticket is the place to reopen that.
 - Existing custom exercises in plans and history keep loading, logging and showing,
   and are found by name. Nothing is deleted or migrated
 - A machine the catalog lacks is logged as the closest catalog movement, plus a
-  field ("Seat") or a TICKET-044 tag
+  field ("Seat")
 
 **Reopen when:** someone cannot log an exercise they do, and the closest catalog
-movement plus a field or tag misstates it. No signal is collected for this today; a
+movement plus a field misstates it. No signal is collected for this today; a
 count of searches with no results would be one, and would need a decision on what is
 recorded.
 
@@ -2970,7 +2967,7 @@ recorded.
 
 **Description:**
 The machine is taken, so the user does dumbbells instead; or the shoulder is sore,
-so close grip today. Both are the same kind of switch: a version or a tag, for one
+so close grip today. Both are a version switch (grip is a version), for one
 workout. Today the only options are
 logging dumbbell numbers under the machine's history (a wrong number) or skipping the
 exercise. Wanted (user, 2026-10-24), not built now.
@@ -2980,10 +2977,11 @@ exercise. Wanted (user, 2026-10-24), not built now.
   planned one again. The plan changes in Manage Workout, never from the logger (the
   same rule as TICKET-041 C1). Hevy and Strong default to this too; their "update
   the routine?" question at Finish is the part left out
-- Covers tags too (user, 2026-10-24): a different grip, a pause or a belt for this
-  workout only, with the plan's tags left as they are
+- Covers grip too: it is a version. Every axis is switchable alike, none singled out
+- Revisit with it: logging against the new combination's own history, and its
+  "first time" state when it was never done (proposal boards P3, P4)
 - Reached from the version in the logger header (a small caret), only where the
-  movement has more than one version or has tags. The sheet is A3's, labelled "For this workout
+  movement has more than one version. The sheet is A3's, labelled "For this workout
   only. Your plan keeps Machine."
 - **Before set 1:** the exercise is swapped for today. Targets and the Last time pill
   come from the new version's history
@@ -3163,10 +3161,9 @@ Exercise catalog (Phase 3B), in this order; research is in research/exercise-cat
   TICKET-041  (Design all catalog UI)    — Canvas boards; plates group first
   TICKET-044  (stage 1: plates unit)     — Small; needs only boards C1–C2 from 041
   TICKET-042  (Catalog, movement first)  — Decisions first; before or with TICKET-030
-  TICKET-046  (Real catalog content)     — Research is reference only; variations → tags
+  TICKET-046  (Real catalog content)     — Research is reference only; grip is a version
   TICKET-048  (Name rule bug)            — Small and live; any time, before 042
   TICKET-043  (Search + picker)          — After 042; picker built from 041 boards A
-  TICKET-044  (stage 2+: details)        — After 042, Phase 3, and 041 boards C3–C5
 
 Decisions before code
   TICKET-035  (Time/distance measures)   — "Which way is better" is a product call

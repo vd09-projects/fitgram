@@ -228,7 +228,7 @@
     "FindEmpty.dc.html": {
       "h": 844,
       "radius": 28,
-      "title": "A1 \u00b7 Empty search: recent first, three filter menus (chosen)",
+      "title": "A1 \u00b7 Empty search: recent movements first, three filter menus (chosen)",
       "w": 390,
       "x": 0,
       "y": 10932
@@ -244,7 +244,7 @@
     "FindVersion.dc.html": {
       "h": 844,
       "radius": 28,
-      "title": "A3 \u00b7 Pick a version and its tags (chosen)",
+      "title": "A3 \u00b7 Superseded by P1: version and tags sheet",
       "w": 390,
       "x": 940,
       "y": 10932
@@ -340,7 +340,7 @@
     "ManageTags.dc.html": {
       "h": 1140,
       "radius": 28,
-      "title": "A3 \u00b7 Tags changed later in Manage Workout",
+      "title": "A3 \u00b7 Rejected: changing a plan exercise's grip and extras",
       "w": 390,
       "x": 1410,
       "y": 11896
@@ -372,7 +372,7 @@
     "TagCompare.dc.html": {
       "h": 844,
       "radius": 28,
-      "title": "C5 \u00b7 Tags changed: compare and say so (chosen)",
+      "title": "C5 \u00b7 Superseded: tags changed, compare and say so",
       "w": 390,
       "x": 1410,
       "y": 17268
@@ -380,7 +380,7 @@
     "TagHistory.dc.html": {
       "h": 844,
       "radius": 28,
-      "title": "C5 \u00b7 History sheet: a session's tags",
+      "title": "C5 \u00b7 Superseded: history sheet with tags",
       "w": 390,
       "x": 0,
       "y": 18232
@@ -396,7 +396,7 @@
     "TagSameTags.dc.html": {
       "h": 844,
       "radius": 28,
-      "title": "C5b \u00b7 Rejected: targets from the last session with the same tags",
+      "title": "C5b \u00b7 Superseded: targets from the same tags",
       "w": 390,
       "x": 470,
       "y": 19196
@@ -404,7 +404,7 @@
     "VersionGrip.dc.html": {
       "h": 844,
       "radius": 28,
-      "title": "P1 \u00b7 A3 sheet: grip is part of the version, no extras",
+      "title": "P1 \u00b7 A3 sheet: grip is part of the version, no extras (chosen)",
       "w": 390,
       "x": 0,
       "y": 20640
@@ -412,7 +412,7 @@
     "VersionPlan.dc.html": {
       "h": 1020,
       "radius": 28,
-      "title": "P2 \u00b7 Bench and close-grip bench in one plan",
+      "title": "P2 \u00b7 Bench and close-grip bench in one plan; version not editable (chosen)",
       "w": 390,
       "x": 470,
       "y": 20640
@@ -420,7 +420,7 @@
     "VersionLogger.dc.html": {
       "h": 844,
       "radius": 28,
-      "title": "P3 \u00b7 Close grip logs against its own history",
+      "title": "P3 \u00b7 Close grip logs against its own history (revisit with TICKET-047)",
       "w": 390,
       "x": 940,
       "y": 20640
@@ -428,7 +428,7 @@
     "VersionFirst.dc.html": {
       "h": 844,
       "radius": 28,
-      "title": "P4 \u00b7 The cost: a new combination has no last time",
+      "title": "P4 \u00b7 A new combination has no last time (revisit with TICKET-047)",
       "w": 390,
       "x": 1410,
       "y": 20640
@@ -436,7 +436,7 @@
     "VersionRecent.dc.html": {
       "h": 844,
       "radius": 28,
-      "title": "P5 \u00b7 Recents list each combination",
+      "title": "P5 \u00b7 A recent movement opens its sheet, last combination preselected (chosen)",
       "w": 390,
       "x": 0,
       "y": 21780
@@ -616,7 +616,7 @@
     "proposal": {
       "kind": "title1",
       "maxW": 1800,
-      "text": "Proposal (PR #17 review) \u2014 every pick is a version",
+      "text": "Decided (PR #17 review) \u2014 stored per combination, shown per movement",
       "w": 240,
       "x": 0,
       "y": 20340
@@ -626,7 +626,7 @@
       "w": 300,
       "x": 1890,
       "y": 20760,
-      "text": "PROPOSAL, not decided. Answers two High review comments on PR #17.\n\nToday's design: grip and extras are tags. A tag never changes the exercise id, so (1) Bench Press and Close-Grip Bench Press cannot both be in one plan (the duplicate check refuses it) and would share one history, and (2) a set with bands or chains can become the stored \"heaviest\" record and later show with no tag.\n\nProposal: everything picked in A3 together is the exercise. Equipment, angle and grip form the version, and each combination has its own history, bests and targets. Extras (pause, bands, chains, belt) are dropped for the MVP.\n\nP1: the sheet looks the same, minus Extras. Search still shows Bench Press once.\nP2: both bench lifts can sit in one plan. Changing grip in Manage Workout switches to that combination's own history.\nP3: close grip compares with close grip, so no \"normal grip\" labels; C5 is no longer needed.\nP4: the cost: a combination you have never done starts with \"First time on this exercise\" and no targets.\nP5: recents list each combination as its own row.\n\nGone with it: tags as a stored concept, copying tags into sessions, C5's labels, a tag vocabulary in TICKET-046 (grip becomes a version axis like angle)."
+      "text": "DECIDED (user, 2026-10-24), after the PR #17 review.\n\nStored per combination: equipment + angle + grip together are one version, with its own history, bests and targets. Close grip never compares with normal grip; a banded set can never become the normal record; bench and close-grip bench can share a plan.\n\nShown per movement: outside logging and the plan, the user sees movements only. Search and recents show Bench Press once; the combination is picked in the sheet. A combination is named only where it is logged or planned.\n\nP1: grip is a row in the sheet, like angle. No Extras: dropped for the MVP.\nP2: nothing about the version is editable in Manage Workout, equipment, angle and grip alike. To change it, remove the exercise and add the other combination. The first P2 (grip editable here) was rejected: it singled grip out.\nP5: a recent row is a movement; its second line names the combination last logged. Tapping opens the sheet with it preselected; a combination already in the plan is disabled. The first P5 (one recent row per combination) was rejected.\nP3, P4: consequences in the logger; revisit with TICKET-047 (switching for one workout).\n\nSuperseded: C5, C5b, the tags history sheet, the tags board in Manage Workout, and A3's version and tags sheet."
     }
   },
   "order": [

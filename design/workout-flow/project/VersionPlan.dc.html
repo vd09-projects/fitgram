@@ -56,11 +56,6 @@ button { font: inherit; color: inherit; background: none; border: none; padding:
           </div>
           <div style="padding: 4px 12px 12px; display: flex; flex-direction: column; gap: 8px">
             <div style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Fields</div>
-          <div style="display: flex; flex-direction: column; gap: 6px">
-            <div style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Grip</div>
-            <div style="display: flex; flex-wrap: wrap; gap: 6px"><button type="button" aria-pressed="false" style="min-width: 44px; height: 44px; padding: 0 14px; border-radius: 12px; font-size: 14px; border: 1px solid #3A4245; color: #E8EDEC">Normal</button><button type="button" aria-pressed="true" style="min-width: 44px; height: 44px; padding: 0 14px; border-radius: 12px; font-size: 14px; background: #1E3A41; border: 1px solid {{accent}}; color: #E8EDEC; font-weight: 700">Close</button><button type="button" aria-pressed="false" style="min-width: 44px; height: 44px; padding: 0 14px; border-radius: 12px; font-size: 14px; border: 1px solid #3A4245; color: #E8EDEC">Reverse</button></div>
-            <div style="font-size: 12px; line-height: 1.4; color: #8A9593">Grip is part of the exercise. Changing it here switches to that exercise's own history.</div>
-          </div>
           <div style="padding: 10px; border-radius: 12px; background: #16191A; border: 1px solid #2A2F31">
             <div style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 2px 0 12px; border-radius: 10px; background: #222628; border: 1px solid #6A7474">
               <input type="text" value="Weight" aria-label="Field name" style="flex-grow: 1; min-width: 0; font-size: 15px" />
@@ -78,6 +73,10 @@ button { font: inherit; color: inherit; background: none; border: none; padding:
               <button type="button" aria-label="Remove Reps field" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; color: #8A9593"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
             </div>
             <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px"><button type="button" aria-pressed="false" disabled style="min-width: 44px; height: 44px; padding: 0 14px; border-radius: 12px; font-size: 14px; border: 1px solid #2A2F31; color: #6E7A78">Weight</button><button type="button" aria-pressed="true" style="min-width: 44px; height: 44px; padding: 0 14px; border-radius: 12px; font-size: 14px; background: #1E3A41; border: 1px solid {{accent}}; color: #E8EDEC; font-weight: 700">Reps</button><button type="button" aria-pressed="false" style="min-width: 44px; height: 44px; padding: 0 14px; border-radius: 12px; font-size: 14px; border: 1px solid #3A4245; color: #E8EDEC">Time</button><button type="button" aria-pressed="false" style="min-width: 44px; height: 44px; padding: 0 14px; border-radius: 12px; font-size: 14px; border: 1px solid #3A4245; color: #E8EDEC">Dist</button><button type="button" aria-pressed="false" style="min-width: 44px; height: 44px; padding: 0 14px; border-radius: 12px; font-size: 14px; border: 1px solid #3A4245; color: #E8EDEC">Other</button></div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 2px 0 12px; border-radius: 11px; background: #222628; border: 1px solid #6A7474">
+            <input type="text" placeholder="New field, e.g. Seat" aria-label="New field name" style="flex-grow: 1; min-width: 0; font-size: 15px" />
+            <button type="button" aria-label="Add field" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; color: {{accent}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
           </div>
           </div>
         </li>
