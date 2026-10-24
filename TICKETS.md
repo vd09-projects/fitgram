@@ -2243,10 +2243,12 @@ A rough name grouping of the 878 gives about 573 movements; 98 of them have more
 than one entry (re-measured 2026-10-24, TICKET-046). The grouping is a heuristic, and
 TICKET-046 settles the real one.
 
-Four tickets: the design for every screen this changes (041, first), the catalog
-itself (042), finding an exercise (043), and recording details while logging (044).
-A fifth, added 2026-10-24: the catalog's content (046). The research catalog is
-reference only; 046 builds the real one against the model 042 defines.
+Four tickets at first: the design for every screen this changes (041, first), the
+catalog's model (042), finding an exercise (043), and plates as a weight unit (044;
+its other details were dropped or superseded on 2026-10-24). Added the same day: the
+catalog's content (046; the research catalog is reference only), a live name-rule
+bug to fix first (048), and two deferred ones, custom exercises (045) and switching
+a version mid-workout (047).
 
 ---
 
@@ -2415,16 +2417,32 @@ interface Movement {
 }
 
 interface MovementVersion {
-  id: string;                    // "bench_press__dumbbell": the exerciseId history joins on
+  id: string;                    // "bench_press__barbell__incline__close_grip": the exerciseId history joins on (format below)
   equipment: EquipmentId;
   angle?: "flat" | "incline" | "decline";
   attachment?: "rope" | "straight_bar" | "v_bar" | "d_handle";
+  grip?: "close" | "reverse" | "neutral";   // absent = normal grip (2026-10-24)
   unilateral: boolean;
   fields: ExerciseField[];       // what a plan copies when this version is added
   aliases: string[];             // "db bench"
   primaryMuscles?: MuscleId[];   // override only where the version changes the target (incline: upper chest first)
 }
 ```
+
+**The version id is a stored contract** (PR #17 second review). It is the history
+key, so it never changes once a version ships:
+- **format:** `{movement}__{equipment}[__{angle}][__{attachment}][__{grip}_grip][__one_arm]`,
+  parts in that fixed order, lower snake case: `bench_press__barbell`,
+  `bench_press__dumbbell__incline`, `bench_press__barbell__close_grip`,
+  `triceps_pushdown__cable__rope`, `lateral_raise__cable__one_arm`
+- **defaults are left out** (flat, normal grip, both arms, no attachment), as they
+  are in the name. So adding an axis later leaves every existing id unchanged: old
+  versions simply have the new axis at its default
+- **generated once, then frozen:** the catalog stores each id as a literal. Renaming
+  a movement or a part changes the display name, never the id. A test pins every
+  shipped id (a snapshot), so a regenerated catalog that renames one fails
+- the research catalog's ids do not carry over; today's 42 are the "old ids"
+  decision below
 
 **Acceptance Criteria:**
 - [ ] Decided and written down before any code:
@@ -2487,6 +2505,15 @@ interface MovementVersion {
         catalog entry (TICKET-045). So plan save never sees "·" and the name rule
         does not apply to catalog exercises. Rejected: storing the joined string,
         which goes stale when a version is renamed
+      - **when the id is not in the catalog** (PR #17 second review): today's 42 old
+        ids, research entries TICKET-046 drops (Pause Bench Press, the banded
+        ones), a version removed later. Plans and sessions also keep the name as
+        it read when the exercise was added or logged, a **fallback snapshot**, read
+        only when the catalog has no entry. The name site then shows the snapshot
+        with a small "no longer in the catalog" line, so it never looks current.
+        With no snapshot either (data older than this), it shows "Exercise no
+        longer in the catalog" and the id: an explicit absence, never a blank
+        (CLAUDE.md 2.4). Test: an unknown id with and without a snapshot
       - ~~a custom exercise: a movement with one version and no muscles, or plain
         `Exercise` only~~ **No new custom exercises for now** (user, 2026-10-24; see
         TICKET-043 Design). What remains here: existing custom exercises in plans and
@@ -2723,12 +2750,13 @@ chosen by the user 2026-10-24). A full screen opened by Add exercise, not a drop
 
 ### TICKET-044: Logging Details — Plates as a Weight Unit
 
-**Priority:** Medium (plates) / Low (the rest) | **Effort:** Small (plates) +
-nothing else (stage 2 superseded) | **Status: OPEN**
+**Priority:** Medium | **Effort:** Small | **Status: OPEN**
 
 **Description:**
-Details people record that are not a different exercise. Today the only way to
-record most of them is a custom exercise, which splits the history.
+Plates as a weight unit, for machines whose real weight is unknown. This ticket once
+also covered machine settings, per-side reps and variation tags: the first two were
+dropped (MVP) and tags superseded by grip as a version (TICKET-042). Items 2–4 below
+are kept struck through, for the record.
 
 1. **Plates as a weight unit.** A weight field offers kg or lb
    (`ExerciseFieldEditor.tsx`, `UNITS.weight`). Add **plates** for machines where the
@@ -2774,10 +2802,15 @@ logic. Verify with a test rather than assume it.
       - ~~decided: is volume in plates shown or left out?~~ **Decided: shown with its
         unit** ("2 sets · 115 plates"), see Design. Coordinate with TICKET-036 (unit
         on volume trend points)
+      - **bar weight** (moved here from stage 2, PR #17 second review). The user's
+        notes write "20 r" / "15 rod" for a bar's own weight. **Default: the weight
+        the user types is the total, bar included; the app never adds a bar
+        weight**, so it never changes a typed number. Plates count the machine's
+        stack, where there is no bar. The field gets no hint for it. A per-version
+        bar weight the app adds is rejected for the MVP. A default chosen to close
+        the question; the user can overrule it
 - [x] ~~**Stage 2+, the rest**~~ superseded: machine settings and per-side reps
       dropped (MVP); tags replaced by grip as a version (TICKET-042). No stage 2
-- [ ] Not a free-text notes field: deltas would have to guess its meaning
-      (CLAUDE.md 2.5)
 
 **Design, stage 1** (TICKET-041 boards C1–C2, `design/workout-flow/project/Plates*.dc.html`;
 chosen by the user 2026-10-24):
@@ -2827,10 +2860,6 @@ version, a session never compares across grips, so none of this is built. Boards
 - Dropped (MVP): machine settings (C3, C3b) and per-side reps (C4); see Description
 
 **Technical Notes:**
-- Bar weight: the notes also write "20 r" / "15 rod" for the bar's own weight.
-  Simplest is the user logs the total including the bar; a per-version bar-weight
-  setting the app adds is possible but means the app changes a number the user
-  typed. Decide during stage 2
 - Nothing here changes `ExerciseSet` or the session entry any more (stage 2 is
   superseded), so there is no TICKET-033 coordination
 - Cardio extras (speed, incline, resistance level, watts, split /500 m) are listed
