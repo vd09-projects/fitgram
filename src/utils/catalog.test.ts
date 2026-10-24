@@ -1,8 +1,7 @@
 // TICKET-042 stage 1: the version id rule, the display name, the unknown-id
 // fallback and the loader's refusals.
 
-import { EXERCISE_CATALOG } from "../constants/exerciseCatalog";
-import type { Movement } from "../types/catalog";
+import type { Movement, MovementVersion } from "../types/catalog";
 import {
   buildCatalogIndex,
   buildVersionId,
@@ -14,6 +13,50 @@ import {
 } from "./catalog";
 
 const both = { unilateral: false } as const;
+
+// A small catalog of its own, not the real one (src/catalog/), so curating the
+// real content never breaks a rule test (TICKET-046). One movement per naming
+// rule: equipment that varies, equipment that does not, one side, one version.
+const v = (id: string, axes: Partial<MovementVersion> & Pick<MovementVersion, "equipment">): MovementVersion => ({
+  id,
+  unilateral: false,
+  measure: "weight_reps",
+  fields: [
+    { name: "Weight", role: "weight", unit: "kg" },
+    { name: "Reps", role: "reps" },
+  ],
+  aliases: [],
+  ...axes,
+});
+const movement = (id: string, name: string, versions: MovementVersion[], extra: Partial<Movement> = {}): Movement => ({
+  id,
+  name,
+  primaryMuscles: ["chest"],
+  secondaryMuscles: [],
+  category: "strength",
+  mechanic: "compound",
+  aliases: [],
+  versions,
+  ...extra,
+});
+const FIXTURE: Movement[] = [
+  movement("bench_press", "Bench Press", [
+    v("bench_press__barbell", { equipment: "barbell" }),
+    v("bench_press__dumbbell__incline", { equipment: "dumbbell", angle: "incline" }),
+    v("bench_press__barbell__close_grip", { equipment: "barbell", grip: "close" }),
+  ]),
+  movement("triceps_pushdown", "Triceps Pushdown", [
+    v("triceps_pushdown__cable__rope", { equipment: "cable", attachment: "rope" }),
+    v("triceps_pushdown__cable__straight_bar", { equipment: "cable", attachment: "straight_bar" }),
+  ]),
+  movement(
+    "lateral_raise",
+    "Lateral Raise",
+    [v("lateral_raise__dumbbell", { equipment: "dumbbell" }), v("lateral_raise__cable__one_side", { equipment: "cable", unilateral: true })],
+    { oneSide: "arm" }
+  ),
+  movement("pec_deck", "Pec Deck (Machine Fly)", [v("pec_deck__machine", { equipment: "machine" })]),
+];
 
 describe("buildVersionId", () => {
   it("adds each axis in the fixed order, defaults left out", () => {
@@ -38,7 +81,7 @@ describe("buildVersionId", () => {
 });
 
 describe("display names", () => {
-  const index = buildCatalogIndex(EXERCISE_CATALOG);
+  const index = buildCatalogIndex(FIXTURE);
   const name = (id: string) => resolveExerciseName(index, id).title;
 
   it("names the version parts, defaults left out", () => {
@@ -52,7 +95,7 @@ describe("display names", () => {
 
   it("a single-version movement is its name alone, even with a non-default axis", () => {
     expect(name("pec_deck__machine")).toBe("Pec Deck (Machine Fly)");
-    const facePull = { ...EXERCISE_CATALOG[1], name: "Face Pull", versions: [EXERCISE_CATALOG[1].versions[0]] };
+    const facePull = { ...FIXTURE[1], name: "Face Pull", versions: [FIXTURE[1].versions[0]] };
     expect(resolveExerciseName(buildCatalogIndex([facePull]), "triceps_pushdown__cable__rope").title).toBe("Face Pull");
   });
 
@@ -98,9 +141,10 @@ describe("loadCatalog refuses", () => {
     ],
   });
 
-  it("accepts a valid catalog, and the shipped one", () => {
+  // The real catalog's own check is in src/catalog/catalog.test.ts.
+  it("accepts a valid catalog, and the fixture", () => {
     expect(loadCatalog([valid()]).kind).toBe("ok");
-    expect(validateCatalog(EXERCISE_CATALOG)).toEqual([]);
+    expect(validateCatalog(FIXTURE)).toEqual([]);
   });
 
   // Each case breaks one thing in an otherwise valid catalog. Values arrive

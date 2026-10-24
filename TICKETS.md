@@ -3037,7 +3037,8 @@ version, a session never compares across grips, so none of this is built. Boards
 
 ### TICKET-046: Build the Real Catalog — Movements and Versions
 
-**Priority:** Medium | **Effort:** Large | **Status: OPEN** — added 2026-10-24
+**Priority:** Medium | **Effort:** Large | **Status: IN PROGRESS** — added 2026-10-24;
+open questions settled 2026-10-25; stage 1 of 5 built
 
 **Description:**
 The research catalog (`research/exercise-catalog/`, 878 flat entries) was built to
@@ -3081,7 +3082,123 @@ kind of miss a real pass catches.
       review): what carries the load or changes the numbers. Bodyweight movements
       on a bar, station, bench, box or wall are `bodyweight`; an implement the
       vocabulary lacks gets its own key, never `none`
-- [ ] TICKET-043's search cases rewritten against it still pass
+- [ ] ~~TICKET-043's search cases rewritten against it still pass~~ **Deviation
+      (user, 2026-10-25):** 043 runs after this ticket, so its search does not exist
+      yet. What 046 checks instead, each stage: every one of the 91 cases' expected
+      entries maps to a version that was kept, not dropped (so 043 has something to
+      find), and every research alias of a kept entry lands on its movement or
+      version. Reported as "N/91 targets resolve, M aliases carried". Ranking stays
+      043's
+
+**Decisions (user, 2026-10-25), settled before any content:**
+- ~~where the catalog lives~~ **TypeScript in `src/catalog/`**, one file per stage
+  under `movements/`, joined in `index.ts`, with a "never import from app code"
+  header: the app reads Firestore (042 stage 2); this is the upload's source. TS,
+  not JSON: a JSON import widens every string, so `tsc` would not catch a muscle or
+  equipment typo. Inside `src/`, because `tsconfig.json` covers only `src/**`.
+  Rejected in the stage 1 review (user, 2026-10-25): `src/scripts/catalog/`, next
+  to the upload script; `src/catalog/` kept. The
+  stage 1 placeholder (`src/constants/exerciseCatalog.ts`) and its pin are
+  replaced; the rule tests in `utils/catalog.test.ts` moved to a fixture of their
+  own, so curating the real content never breaks a name test
+- ~~drafting~~ **a one-off converter in the scratchpad drafts each stage from
+  `catalog.json`; a person curates.** Belt Squat is its own movement; Banded Row
+  and Banded Hammer Curl are band versions (the band is the load); Banded Deadlift
+  and Banded Squat are dropped (bands on a bar); the strap stretch is not lifting
+  straps
+- ~~position words~~ **a position that changes the numbers is its own movement**
+  (seated vs standing calf raise, seated vs lying leg curl); otherwise merged.
+  Every call is in the accounting table's Note column
+- ~~wide grip~~ **no `wide` key for now.** Adding a grip key later only adds ids.
+  Wide-Grip Seated Cable Row merges into the normal one
+- ~~measures~~ jump distance is "Distance" in `m`. **Bodyweight versions log Reps
+  only**; weighted ones are equipment `added_weight` ("Added Weight" kg + Reps).
+  Why: an empty weight parses to null (`parseNumericValue`), which nulls the
+  exercise's volume and then the whole session's total (`computeSessionTotalVolume`,
+  `unparseable`), and most bodyweight sets carry no weight. Volume counts the
+  added weight only ("+10 kg × 5" adds 50 kg), noted at `FIELDS`. Weight vest
+  versions stay `weight_vest`. Time: `s` for holds and loaded holds, `min` for
+  duration and distance + time
+- ~~equipment `none` (49 entries)~~ new keys `farmers_handles`, `gripper`,
+  `wrist_roller`, `tib_bar`, `punching_bag`; Rope Climb and agility drills are
+  `bodyweight`; Massage Gun and Lacrosse Ball dropped. **Sports and classes
+  (Tennis, Yoga, Zumba, ...) dropped, "not training, MVP"**, except gym cardio
+  people log (swimming, running, cycling): adding a movement later is safe,
+  removing a shipped one strands its history on the fallback name
+- ~~coverage check~~ **the user's notes (3 PDFs: Back, Chest, Leg) plus
+  free-exercise-db** (876 entries, public domain) as the reference list. Only
+  obvious gym staples are added; the rest is "skip (niche)". **Correction:** the
+  notes' "84 versions" are 84 names but 81 distinct (Face Pull, Low-to-High Cable
+  Fly and Standing Cable Chest Press are listed twice; 2 rows are loadmuscle
+  links, not notes). The table test keys on the note name
+- ~~accounting~~ **`src/catalog/ACCOUNTING.md`**, one row per research entry, with
+  a Jest check both ways (every id it names exists; every catalog id is named)
+- **stages:** 1 chest/shoulders/arms, 2 back, 3 legs, 4 core, 5 cardio,
+  conditioning, mobility, stretching, plyometric, strongman, olympic. A research
+  entry's stage is its first primary muscle's group; those modalities go to 5
+  regardless. One commit per stage, reviewed before the next
+
+**Implementation, stage 1: chest, shoulders, arms (2026-10-25).**
+- 259 research entries → **96 movements, 235 versions**; accounting: 61 movements
+  of one version, 191 versions (some merged), 7 dropped (pause ×2, partial range
+  ×3, stance, deficit); 1 added with no research entry (`dip__added_weight`)
+- `src/catalog/fields.ts`: the fields per measure (`Record<MeasureId, ...>`, so a
+  new measure must say what it logs). Equipment keys added: `added_weight`,
+  `gripper`, `wrist_roller` (the rest arrive with their stages)
+- **Grouping calls a person should check** (all in ACCOUNTING.md's Note column):
+  - standing presses are Overhead Press, seated ones Shoulder Press (back support
+    changes the numbers): Seated Barbell Overhead Press is `shoulder_press__barbell`,
+    Standing Dumbbell Shoulder Press is `overhead_press__dumbbell`
+  - Chest Press (seated machine, standing cable) stays apart from Bench Press, as in
+    the user's notes; Vertical Chest Press Machine and Cable Crossover Press merge
+    into it. "chest press" is no longer a Bench Press alias, since it names a movement
+  - flys split four ways: Chest Fly (dumbbell, band, cable lying on a bench, with
+    angles), Cable Crossover (standing mid), High-to-Low and Low-to-High Cable Fly
+    (direction changes the target), Seated Cable Fly (back support). Kneeling
+    High-to-Low merges into High-to-Low
+  - Hammer Curl and Reverse Curl stay movements, not grip versions of Bicep Curl:
+    named exercises in the user's notes. Grip versions are only names that say
+    "X-grip" (and Diamond Push-Up = close grip)
+  - ~~one Dip movement for machine, plate-loaded, assisted and ring dips; Triceps
+    Dip apart~~ **Changed (user, stage 1 review, 2026-10-25): Triceps Dip folds into
+    Dip** (`dip__bodyweight`, plus a new `dip__added_weight`; the research had no
+    weighted triceps dip). The assisted, ring and machine dips are triceps-dip
+    variants, so an assisted dip's progress now sits next to the real dip; their
+    chest-first muscle overrides went with it. Chest Dip stays apart (the forward
+    lean changes the numbers), and so does Bench Dip
+  - Hammer Strength = plate-loaded machine (3 merges); low incline = incline;
+    alternating = both arms, not one side; seated vs standing curls and raises
+    merged; Lean-Away Lateral Raise is the one-arm dumbbell version;
+    Chest-Supported Rear Delt Fly is the dumbbell incline version
+  - kept although niche: Cheat Curl (cheating is not an MVP extra)
+  - all accepted by the user in the stage 1 review (2026-10-25), with the Dip
+    change above
+- 5 of the 11 version id collisions the probe found are stage 1's, each a merge
+  above; `seated_row__cable` is the user's (stage 2); the other 5 are called in
+  their stages
+- Checks: 33/91 search targets resolve (the other 58 are in later stages; none
+  dropped); 330/344 research aliases carried, the other 14 equal a movement's name.
+  Coverage: 313 free-exercise-db entries in these muscles; 239 covered, 17 later
+  stages, 9 MVP extras, **0 added, 48 skipped as niche** (list in ACCOUNTING.md).
+  The neutral-grip incline dumbbell press is skipped too (user, 2026-10-25;
+  adding it later is safe)
+- **Shoulders and arms rely on free-exercise-db alone** (user, 2026-10-25): the
+  user has no notes beyond Back, Chest and Leg. Chest has both
+- **Tests:** `src/catalog/catalog.test.ts`, 31: the loader passes, the id pin (235),
+  ACCOUNTING.md both ways, 24 rows of the user's notes (52 of the 84 names; the back
+  and leg rows arrive with stages 2 and 3), grip versions state their muscles and
+  close grip puts triceps first. Each seen red: a removed version (pin, notes,
+  accounting), a grip version without muscles, close grip chest-first, a ghost id
+  and a missing row in ACCOUNTING.md, an unknown equipment. Added in the review:
+  band versions log no weight (seen red by giving one kg back); `dip__bodyweight`
+  removed turns the pin, the "Dips" row and the accounting check red
+- ~~**Known gap:** band versions log "Weight" in kg, from the research~~ **Fixed
+  (user, stage 1 review, 2026-10-25): all 14 band versions log Reps only**
+  (measure `reps`; 14, not the 13 the review counted: Band Pull-Apart's only
+  version is one too). The research's kg on a band is a made-up number that would
+  set bests and add to the session's kg volume (CLAUDE.md 2.4)
+- **Out of this ticket:** logging band level (light, medium, heavy) would be a
+  unit of its own, like TICKET-044's plates. Not offered in the MVP
 
 **Technical Notes:**
 - Grouping needs a person: "Seated Cable Row" vs "Machine Row (Seated)" (042's note)

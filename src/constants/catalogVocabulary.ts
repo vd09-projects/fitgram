@@ -116,6 +116,15 @@ export const EQUIPMENT = {
   weight_vest: "weight vest",
   mace: "mace",
   gada: "gada",
+  // Added by TICKET-046.
+  // Weight hung from a dip belt or held: "Pull-Up · Added weight". A version of
+  // its own, not an optional field on the bodyweight one: an empty weight
+  // field parses to null and empties the whole session's volume
+  // (computeSessionTotalVolume), and most bodyweight sets carry no weight. A
+  // weight vest stays `weight_vest`.
+  added_weight: "added weight",
+  gripper: "gripper",
+  wrist_roller: "wrist roller",
 } as const;
 export type EquipmentId = keyof typeof EQUIPMENT;
 

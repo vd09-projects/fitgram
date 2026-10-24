@@ -1,0 +1,338 @@
+// TICKET-046: checks the catalog's content needs beyond the loader's rules
+// (those are tested in utils/catalog.test.ts, on a fixture).
+
+import { readFileSync } from "fs";
+import { join } from "path";
+
+import { validateCatalog } from "../utils/catalog";
+import { CATALOG } from "./index";
+
+const versions = CATALOG.flatMap((movement) => movement.versions.map((version) => ({ movement, version })));
+const ids = new Set(versions.map(({ version }) => version.id));
+
+it("passes the loader's checks", () => {
+  expect(validateCatalog(CATALOG)).toEqual([]);
+});
+
+// Version ids are history keys, so they never change once shipped. This list
+// pins every one. A renamed or removed id fails here; so does a new one until
+// it is added below, which is the moment it becomes a contract.
+const SHIPPED_VERSION_IDS = [
+  // Stage 1: chest, shoulders, arms
+  "bench_press__barbell",
+  "bench_press__dumbbell",
+  "bench_press__kettlebell",
+  "bench_press__machine",
+  "bench_press__plate_loaded_machine",
+  "bench_press__smith_machine",
+  "bench_press__specialty_bar",
+  "bench_press__band",
+  "bench_press__barbell__incline",
+  "bench_press__dumbbell__incline",
+  "bench_press__kettlebell__incline",
+  "bench_press__machine__incline",
+  "bench_press__plate_loaded_machine__incline",
+  "bench_press__smith_machine__incline",
+  "bench_press__barbell__decline",
+  "bench_press__dumbbell__decline",
+  "bench_press__machine__decline",
+  "bench_press__plate_loaded_machine__decline",
+  "bench_press__smith_machine__decline",
+  "bench_press__dumbbell__one_side",
+  "bench_press__barbell__close_grip",
+  "bench_press__ez_bar__close_grip",
+  "bench_press__smith_machine__close_grip",
+  "bench_press__smith_machine__incline__close_grip",
+  "bench_press__barbell__reverse_grip",
+  "bench_press__dumbbell__neutral_grip",
+  "chest_press__machine",
+  "chest_press__plate_loaded_machine",
+  "chest_press__machine__incline",
+  "chest_press__cable",
+  "chest_press__cable__one_side",
+  "chest_press__machine__one_side",
+  "floor_press__barbell",
+  "floor_press__dumbbell",
+  "floor_press__kettlebell",
+  "chest_fly__dumbbell",
+  "chest_fly__dumbbell__incline",
+  "chest_fly__dumbbell__decline",
+  "chest_fly__cable",
+  "chest_fly__cable__incline",
+  "chest_fly__band",
+  "cable_crossover__cable",
+  "cable_crossover__cable__one_side",
+  "high_to_low_cable_fly__cable",
+  "low_to_high_cable_fly__cable",
+  "seated_cable_fly__cable",
+  "pec_deck__machine",
+  "squeeze_press__dumbbell",
+  "squeeze_press__dumbbell__incline",
+  "pullover__dumbbell",
+  "pullover__barbell",
+  "svend_press__weight_plate",
+  "plate_press_out__weight_plate",
+  "push_up__bodyweight",
+  "push_up__bodyweight__incline",
+  "push_up__bodyweight__decline",
+  "push_up__bodyweight__one_side",
+  "push_up__medicine_ball",
+  "push_up__rings",
+  "push_up__suspension_trainer",
+  "push_up__parallettes",
+  "push_up__band",
+  "push_up__added_weight",
+  "push_up__bodyweight__close_grip",
+  "push_up__bodyweight__incline__close_grip",
+  "knee_push_up__bodyweight",
+  "wall_push_up__bodyweight",
+  "archer_push_up__bodyweight__one_side",
+  "hindu_push_up__bodyweight",
+  "pike_push_up__bodyweight",
+  "pseudo_planche_push_up__bodyweight",
+  "spiderman_push_up__bodyweight",
+  "t_push_up__bodyweight",
+  "typewriter_push_up__bodyweight",
+  "hand_release_push_up__bodyweight",
+  "staggered_push_up__bodyweight__one_side",
+  "scapular_push_up__bodyweight",
+  "handstand_push_up__bodyweight",
+  "chest_dip__bodyweight",
+  "chest_dip__added_weight",
+  "bench_dip__bodyweight",
+  "dip__bodyweight",
+  "dip__added_weight",
+  "dip__machine",
+  "dip__plate_loaded_machine",
+  "dip__assisted_machine",
+  "dip__rings",
+  "overhead_press__barbell",
+  "overhead_press__dumbbell",
+  "overhead_press__kettlebell__one_side",
+  "overhead_press__band",
+  "shoulder_press__dumbbell",
+  "shoulder_press__barbell",
+  "shoulder_press__machine",
+  "shoulder_press__plate_loaded_machine",
+  "shoulder_press__smith_machine",
+  "shoulder_press__cable",
+  "shoulder_press__dumbbell__one_side",
+  "landmine_press__landmine",
+  "landmine_press__landmine__one_side",
+  "behind_the_neck_press__barbell",
+  "behind_the_neck_press__smith_machine",
+  "arnold_press__dumbbell",
+  "z_press__barbell",
+  "bradford_press__barbell",
+  "viking_press__plate_loaded_machine",
+  "bottoms_up_press__kettlebell__one_side",
+  "bent_press__kettlebell",
+  "sots_press__kettlebell",
+  "halo__kettlebell",
+  "halo__weight_plate",
+  "cuban_press__dumbbell",
+  "lateral_raise__dumbbell",
+  "lateral_raise__cable",
+  "lateral_raise__band",
+  "lateral_raise__kettlebell",
+  "lateral_raise__landmine",
+  "lateral_raise__machine",
+  "lateral_raise__weight_plate",
+  "lateral_raise__cable__one_side",
+  "lateral_raise__dumbbell__one_side",
+  "lateral_raise__dumbbell__incline",
+  "lu_raise__dumbbell",
+  "y_raise__dumbbell",
+  "y_raise__cable",
+  "front_raise__dumbbell",
+  "front_raise__barbell",
+  "front_raise__cable",
+  "front_raise__band",
+  "front_raise__kettlebell",
+  "front_raise__weight_plate",
+  "front_raise__cable__rope",
+  "front_raise__cable__one_side",
+  "rear_delt_fly__dumbbell",
+  "rear_delt_fly__cable",
+  "rear_delt_fly__band",
+  "rear_delt_fly__dumbbell__incline",
+  "reverse_pec_deck__machine",
+  "rear_delt_row__dumbbell",
+  "rear_delt_row__cable",
+  "rear_delt_row__machine",
+  "face_pull__cable__rope",
+  "face_pull__band",
+  "band_pull_apart__band",
+  "upright_row__barbell",
+  "upright_row__dumbbell",
+  "upright_row__ez_bar",
+  "upright_row__cable",
+  "upright_row__smith_machine",
+  "external_rotation__cable__one_side",
+  "external_rotation__band__one_side",
+  "external_rotation__dumbbell__one_side",
+  "internal_rotation__cable__one_side",
+  "bicep_curl__dumbbell",
+  "bicep_curl__barbell",
+  "bicep_curl__ez_bar",
+  "bicep_curl__cable",
+  "bicep_curl__band",
+  "bicep_curl__kettlebell",
+  "bicep_curl__machine",
+  "bicep_curl__suspension_trainer",
+  "bicep_curl__dumbbell__incline",
+  "bicep_curl__cable__one_side",
+  "hammer_curl__dumbbell",
+  "hammer_curl__cable__rope",
+  "hammer_curl__band",
+  "hammer_curl__dumbbell__incline",
+  "hammer_curl__dumbbell__one_side",
+  "reverse_curl__ez_bar",
+  "reverse_curl__barbell",
+  "reverse_curl__dumbbell",
+  "reverse_curl__cable",
+  "preacher_curl__ez_bar",
+  "preacher_curl__barbell",
+  "preacher_curl__dumbbell__one_side",
+  "preacher_curl__cable",
+  "preacher_curl__plate_loaded_machine",
+  "preacher_hammer_curl__dumbbell",
+  "spider_curl__dumbbell",
+  "spider_curl__ez_bar",
+  "concentration_curl__dumbbell__one_side",
+  "drag_curl__barbell",
+  "cheat_curl__barbell",
+  "bayesian_curl__cable__one_side",
+  "high_cable_curl__cable",
+  "lying_cable_curl__cable",
+  "waiter_curl__dumbbell",
+  "zottman_curl__dumbbell",
+  "curl_to_press__dumbbell",
+  "chin_up_hold__bodyweight",
+  "triceps_pushdown__cable__rope",
+  "triceps_pushdown__cable__straight_bar",
+  "triceps_pushdown__cable__v_bar",
+  "triceps_pushdown__cable__reverse_grip",
+  "triceps_pushdown__band",
+  "triceps_pushdown__cable__one_side",
+  "overhead_triceps_extension__dumbbell",
+  "overhead_triceps_extension__ez_bar",
+  "overhead_triceps_extension__cable",
+  "overhead_triceps_extension__band",
+  "overhead_triceps_extension__dumbbell__one_side",
+  "overhead_triceps_extension__cable__one_side",
+  "skull_crusher__ez_bar",
+  "skull_crusher__barbell",
+  "skull_crusher__dumbbell",
+  "skull_crusher__cable",
+  "skull_crusher__ez_bar__incline",
+  "skull_crusher__ez_bar__decline",
+  "triceps_kickback__dumbbell__one_side",
+  "triceps_kickback__cable__one_side",
+  "cross_body_triceps_extension__cable",
+  "triceps_extension_machine__machine",
+  "bodyweight_triceps_extension__bodyweight",
+  "jm_press__barbell",
+  "jm_press__smith_machine",
+  "tate_press__dumbbell",
+  "wrist_curl__barbell",
+  "wrist_curl__dumbbell__one_side",
+  "wrist_curl__cable",
+  "behind_the_back_wrist_curl__barbell",
+  "reverse_wrist_curl__barbell",
+  "reverse_wrist_curl__dumbbell",
+  "finger_curl__barbell",
+  "radial_deviation__dumbbell__one_side",
+  "pronation_supination__dumbbell__one_side",
+  "wrist_roller__wrist_roller",
+  "gripper__gripper",
+  "plate_pinch__weight_plate",
+  "barbell_hold__barbell",
+  "fat_grip_hold__dumbbell",
+  "dead_hang__bodyweight",
+  "active_hang__bodyweight",
+  "towel_hang__bodyweight",
+  "mace_10_to_2__mace",
+  "gada_swing__gada__one_side",
+];
+
+it("every shipped version id is unchanged", () => {
+  expect([...ids].sort()).toEqual([...SHIPPED_VERSION_IDS].sort());
+});
+
+describe("ACCOUNTING.md", () => {
+  const table = readFileSync(join(__dirname, "ACCOUNTING.md"), "utf8");
+  const named = new Set([...table.matchAll(/`([a-z0-9_]+__[a-z0-9_]+)`/g)].map((match) => match[1]));
+
+  it("names only version ids that exist", () => {
+    expect([...named].filter((id) => !ids.has(id))).toEqual([]);
+  });
+
+  it("accounts for every version in the catalog", () => {
+    expect([...ids].filter((id) => !named.has(id))).toEqual([]);
+  });
+});
+
+// The user's own exercises, from their Back, Chest and Leg notes (checked
+// 2026-10-20): each note name and the versions it means. 84 names, 81
+// distinct; two rows are loadmuscle links the user checked against. Rows are
+// added as each stage builds their movements.
+const USER_NOTES: [string, string[]][] = [
+  ["Dumbbell bicepcurl / bicepcurl rod", ["bicep_curl__dumbbell", "bicep_curl__barbell", "bicep_curl__ez_bar"]],
+  ["Rope hammer curls", ["hammer_curl__cable__rope", "hammer_curl__dumbbell"]],
+  ["Dumbbell forearm twist (up)", ["pronation_supination__dumbbell__one_side"]],
+  ["Dumbbell forearm twist (down)", ["wrist_curl__dumbbell__one_side"]],
+  ["Reverse curl", ["reverse_curl__cable", "reverse_curl__barbell", "reverse_curl__ez_bar", "reverse_curl__dumbbell"]],
+  ["Cable crossover", ["cable_crossover__cable", "high_to_low_cable_fly__cable"]],
+  ["Cable crossover low to high", ["low_to_high_cable_fly__cable"]],
+  ["Cable flys (dumbbells)", ["chest_fly__dumbbell"]],
+  ["Bench press", ["bench_press__barbell", "bench_press__machine", "bench_press__smith_machine", "bench_press__dumbbell"]],
+  [
+    "Incline bench press",
+    ["bench_press__barbell__incline", "bench_press__smith_machine__incline", "bench_press__machine__incline", "bench_press__dumbbell__incline"],
+  ],
+  ["Chest press", ["chest_press__machine", "chest_press__plate_loaded_machine", "chest_press__cable"]],
+  ["Dumbbell pullover", ["pullover__dumbbell"]],
+  ["Tricep kick back", ["triceps_kickback__dumbbell__one_side", "triceps_kickback__cable__one_side"]],
+  ["Tricep push down", ["triceps_pushdown__cable__rope", "triceps_pushdown__cable__straight_bar", "triceps_pushdown__cable__v_bar"]],
+  ["Triceps reverse grip pushdown", ["triceps_pushdown__cable__reverse_grip"]],
+  ["Triceps overhead extension", ["overhead_triceps_extension__cable", "overhead_triceps_extension__dumbbell"]],
+  ["Dips", ["chest_dip__bodyweight", "dip__bodyweight", "bench_dip__bodyweight", "dip__assisted_machine"]],
+  ["Cable high pull with ropes", ["face_pull__cable__rope"]],
+  ["Shoulder press (plates)", ["shoulder_press__machine", "shoulder_press__plate_loaded_machine", "shoulder_press__dumbbell"]],
+  ["Lateral raises / rope", ["lateral_raise__dumbbell", "lateral_raise__cable", "lateral_raise__cable__one_side"]],
+  ["Front raises", ["front_raise__dumbbell", "front_raise__cable", "front_raise__cable__rope"]],
+  ["Facepull", ["face_pull__cable__rope"]],
+  ["loadmuscle: alternate low fly", ["low_to_high_cable_fly__cable"]],
+  ["loadmuscle: standing chest press", ["chest_press__cable"]],
+];
+
+it.each(USER_NOTES)("the user's %s resolves", (_, expected) => {
+  expect(expected.filter((id) => !ids.has(id))).toEqual([]);
+});
+
+// A band has no weight in kg: the research's number was made up, and as a
+// weight it would set bests and add to kg volume (stage 1 review). Band
+// versions log reps; band level, if ever needed, is a unit of its own.
+it("band versions log no weight", () => {
+  const weighted = versions.filter(
+    ({ version }) => version.equipment === "band" && version.fields.some((field) => field.role === "weight")
+  );
+  expect(weighted.map(({ version }) => version.id)).toEqual([]);
+});
+
+// A grip changes the target, so search must see it: "triceps" still finds
+// Bench Press through its close-grip version (TICKET-046).
+describe("grip versions", () => {
+  const gripped = versions.filter(({ version }) => version.grip);
+
+  it("each states its primary muscles", () => {
+    expect(gripped.filter(({ version }) => !version.primaryMuscles).map(({ version }) => version.id)).toEqual([]);
+  });
+
+  it("close grip puts triceps first", () => {
+    const close = gripped.filter(({ version }) => version.grip === "close");
+    expect(close.length).toBeGreaterThan(0);
+    expect(close.filter(({ version }) => version.primaryMuscles?.[0] !== "triceps").map(({ version }) => version.id)).toEqual([]);
+  });
+});
