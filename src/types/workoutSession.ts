@@ -114,6 +114,11 @@ export type WorkoutSessionDoc = {
  */
 export type ExerciseSessionDoc = {
   exerciseId: string;
+  /**
+   * The name as logged. This is the session's name snapshot (TICKET-042): read
+   * only when `exerciseId` is not in the catalog, never validated. Rejected: a
+   * separate `nameSnapshot` here, which would hold the same string twice.
+   */
   exerciseName: string;
   sessionId: string;
   workoutId: string;

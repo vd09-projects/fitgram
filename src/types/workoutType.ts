@@ -41,6 +41,15 @@ export interface Exercise {
    */
   id: string;
   name: string;
+  /**
+   * The name as it read when the exercise was added to the plan (TICKET-042),
+   * e.g. "Bench Press · Dumbbell, incline". A FALLBACK, read only when `id` is
+   * not in the catalog (`resolveExerciseName`): catalog names are built from
+   * the id, never stored. Never run through the custom-name rule, so its "·"
+   * never meets it. Optional: plans saved before 042 lack it. Nothing writes
+   * it yet: stage 2.
+   */
+  nameSnapshot?: string;
   fields: ExerciseField[];
 }
 
