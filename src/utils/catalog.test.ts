@@ -16,7 +16,8 @@ const both = { unilateral: false } as const;
 
 // A small catalog of its own, not the real one (src/catalog/), so curating the
 // real content never breaks a rule test (TICKET-046). One movement per naming
-// rule: equipment that varies, equipment that does not, one side, one version.
+// rule: equipment that varies, equipment that does not, one side next to both
+// sides, one side only, one version.
 const v = (id: string, axes: Partial<MovementVersion> & Pick<MovementVersion, "equipment">): MovementVersion => ({
   id,
   unilateral: false,
@@ -55,6 +56,15 @@ const FIXTURE: Movement[] = [
     [v("lateral_raise__dumbbell", { equipment: "dumbbell" }), v("lateral_raise__cable__one_side", { equipment: "cable", unilateral: true })],
     { oneSide: "arm" }
   ),
+  movement(
+    "lunge",
+    "Lunge",
+    [
+      v("lunge__dumbbell__one_side", { equipment: "dumbbell", unilateral: true }),
+      v("lunge__barbell__one_side", { equipment: "barbell", unilateral: true }),
+    ],
+    { oneSide: "leg" }
+  ),
   movement("pec_deck", "Pec Deck (Machine Fly)", [v("pec_deck__machine", { equipment: "machine" })]),
 ];
 
@@ -91,6 +101,12 @@ describe("display names", () => {
     // Every pushdown is cable, so equipment is left out.
     expect(name("triceps_pushdown__cable__rope")).toBe("Triceps Pushdown · Rope");
     expect(name("lateral_raise__cable__one_side")).toBe("Lateral Raise · Cable, one arm");
+  });
+
+  it("one side shows only when the movement's versions differ in it", () => {
+    // Every lunge is one leg, so saying so tells nothing apart. Lateral Raise
+    // (above) has both, so its one-arm version says "one arm".
+    expect(name("lunge__dumbbell__one_side")).toBe("Lunge · Dumbbell");
   });
 
   it("a single-version movement is its name alone, even with a non-default axis", () => {

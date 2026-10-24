@@ -2644,6 +2644,9 @@ nothing in the app imports them yet, so the app behaves as before.
   - **names show equipment only when the movement's versions differ in it**, so
     "Triceps Pushdown · Rope". Rejected: "an attachment implies cable", a special
     case. Cost: a band pushdown added later renames the rope one "Cable, rope"
+  - **changed by TICKET-046 (2026-10-25): one side follows the same rule**, shown
+    only when the movement's versions differ in it ("Lunge · Dumbbell", every lunge
+    being one leg; "Lateral Raise · Cable, one arm"). Ids unchanged
   - a single version shows the movement name even with a non-default axis (a
     rope-only Face Pull reads "Face Pull")
   - **deviation: `angle` has no `"flat"` value**; absent is flat, so a flat version
@@ -3139,6 +3142,14 @@ kind of miss a real pass catches.
   conditioning, mobility, stretching, plyometric, strongman, olympic. A research
   entry's stage is its first primary muscle's group; those modalities go to 5
   regardless. One commit per stage, reviewed before the next
+- ~~one side in names: always shown (a), or `unilateral: false` where a movement
+  has no two-sided version (b)?~~ **Decided (user, 2026-10-25, stage 3 review):
+  neither. (c) ids keep `__one_side`; the name shows "one arm / one leg" only when
+  the movement's versions differ in it**, the rule equipment already follows. So
+  "Lunge · Dumbbell" and "Lateral Raise · Cable, one arm". Rejected (a): every
+  lunge read "one leg", a part that tells nothing apart. Rejected (b): ids record
+  what the exercise is, and a two-sided kickback added later would find its id
+  taken. A change to 042's `buildVersionName`, its own commit
 
 **Implementation, stage 1: chest, shoulders, arms (2026-10-25).**
 - 259 research entries → **96 movements, 235 versions**; accounting: 61 movements
