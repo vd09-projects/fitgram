@@ -24,7 +24,8 @@ stretching, plyometric, strongman and olympic entries all go to stage 5):
 
 ## Stage 1: chest, shoulders, arms
 
-259 entries: 61 movements of one version, 191 versions, 7 dropped.
+259 entries: 60 movements of one version, 192 versions, 7 dropped (61 and 191 at stage 1; Kettlebell
+Sots Press became a version when stage 5 added the barbell one).
 
 Band versions log Reps only (stage 1 review): the research gave them a weight in kg, which a band does not have; it would set bests and add to kg volume.
 
@@ -170,7 +171,7 @@ Band versions log Reps only (stage 1 review): the research gave them a weight in
 | Kettlebell Incline Bench Press | version | `bench_press__kettlebell__incline` |  |
 | Kettlebell Lateral Raise | version | `lateral_raise__kettlebell` |  |
 | Kettlebell Overhead Press | version | `overhead_press__kettlebell__one_side` | one arm, as the research has it |
-| Kettlebell Sots Press | movement | `sots_press__kettlebell` |  |
+| Kettlebell Sots Press | version | `sots_press__kettlebell` | a version since stage 5 added the barbell Sots Press; the movement is now "Sots Press" |
 | Knee Push-Up | movement | `knee_push_up__bodyweight` | knees down changes the numbers: own movement |
 | Kneeling High-to-Low Cable Fly | version | `high_to_low_cable_fly__cable` | merged: kneeling vs standing does not change the numbers: merged |
 | Landmine Lateral Raise | version | `lateral_raise__landmine` |  |
@@ -679,6 +680,274 @@ muscle group of its own.
 | Weighted Russian Twist | version | `russian_twist__weight_plate` | a plate held: the weight_plate version |
 | Windshield Wiper | movement | `windshield_wiper__bodyweight` |  |
 
+## Stage 5: cardio, conditioning, plyometric, olympic, strongman, mobility, stretching
+
+255 entries: 191 movements of one version, 37 versions (1 of them, the barbell Sots
+Press, added to Sots Press in the stage 1 file), 27 dropped (25 sports, classes and
+outdoor activities as not training, 2 recovery tools).
+
+**Changed in an earlier stage's file:** Bear Crawl (stage 4, `bear_crawl__bodyweight`)
+now logs `short_distance`, Distance in m + Time in s, instead of km + min. Its id is
+unchanged (user, 2026-10-25).
+
+| Research entry | Outcome | Version id | Note |
+|---|---|---|---|
+| 90/90 Hip Stretch | movement | `90_90_hip_stretch__bodyweight__one_side` |  |
+| Aerobics | dropped |  | not training, MVP (user, 2026-10-25) |
+| Agility Ladder Drills | movement | `agility_ladder_drills__bodyweight` | no implement worth a key: bodyweight (user, 2026-10-25) |
+| Air Bike | movement | `air_bike__cardio_machine` |  |
+| American Kettlebell Swing | movement | `american_swing__kettlebell` | overhead finish changes the numbers: own movement |
+| Ankle Circles | movement | `ankle_circles__bodyweight__one_side` |  |
+| Ankle Dorsiflexion Stretch (Knee-to-Wall) | movement | `ankle_dorsiflexion_stretch__bodyweight__one_side` |  |
+| Aqua Jogging | dropped |  | not training, MVP (user, 2026-10-25) |
+| Arc Trainer | movement | `arc_trainer__cardio_machine` |  |
+| Arm Circles | movement | `arm_circles__bodyweight` |  |
+| Atlas Stone Lift | movement | `atlas_stone_lift__atlas_stone` |  |
+| Axle Deadlift | movement | `axle_deadlift__specialty_bar` | own movement, not a Deadlift version: the thick bar is a strongman lift of its own |
+| Axle Press | movement | `axle_press__specialty_bar` |  |
+| Badminton | dropped |  | not training, MVP (user, 2026-10-25) |
+| Band Ankle Mobilization | movement | `ankle_mobilization__band__one_side` |  |
+| Bar-Facing Burpee | movement | `bar_facing_burpee__bodyweight` |  |
+| Basketball | dropped |  | not training, MVP (user, 2026-10-25) |
+| Battle Rope Slams | movement | `battle_rope_slams__battle_rope` |  |
+| Battle Rope Waves | movement | `battle_rope_waves__battle_rope` |  |
+| Bicep Wall Stretch | movement | `bicep_wall_stretch__bodyweight__one_side` |  |
+| Block Clean | movement | `block_clean__barbell` |  |
+| Block Snatch | movement | `block_snatch__barbell` |  |
+| Bounding | movement | `bounding__bodyweight` | a set is one short effort: short_distance, m + s (user, 2026-10-25) |
+| Box Jump | version | `box_jump__bodyweight` |  |
+| Box Step-Over | movement | `box_step_over__bodyweight` |  |
+| Boxing Class | dropped |  | not training, MVP (user, 2026-10-25) |
+| Broad Jump | movement | `broad_jump__bodyweight` | Distance in m (user, 2026-10-25) |
+| Burpee | version | `burpee__bodyweight` |  |
+| Burpee Box Jump-Over | movement | `burpee_box_jump_over__bodyweight` |  |
+| Burpee Pull-Up | movement | `burpee_pull_up__bodyweight` |  |
+| Butt Kicks | movement | `butt_kicks__bodyweight` |  |
+| Butterfly Pull-Up | movement | `butterfly_pull_up__bodyweight` | own movement, as Kipping Pull-Up |
+| Butterfly Stretch | movement | `butterfly_stretch__bodyweight` |  |
+| Calf Stretch (Wall) | movement | `calf_stretch__bodyweight__one_side` |  |
+| Cat-Cow | movement | `cat_cow__bodyweight` |  |
+| Chest-to-Bar Pull-Up | movement | `chest_to_bar_pull_up__bodyweight` | own movement: a longer pull than Pull-Up |
+| Child's Pose | movement | `childs_pose__bodyweight` |  |
+| Circuit Training | dropped |  | not training, MVP (user, 2026-10-25) |
+| Clap Push-Up | movement | `clap_push_up__bodyweight` |  |
+| Clean | version | `clean__barbell` |  |
+| Clean and Jerk | movement | `clean_and_jerk__barbell` |  |
+| Clean Deadlift | movement | `clean_deadlift__barbell` |  |
+| Clean High Pull | movement | `clean_high_pull__barbell` |  |
+| Clean Pull | movement | `clean_pull__barbell` |  |
+| Cobra Stretch | movement | `cobra_stretch__bodyweight` |  |
+| Cone Drills | movement | `cone_drills__bodyweight` | bodyweight (user, 2026-10-25) |
+| Controlled Articular Rotations (CARs) | movement | `controlled_articular_rotations__bodyweight` |  |
+| Couch Stretch | movement | `couch_stretch__bodyweight__one_side` |  |
+| Cricket | dropped |  | not training, MVP (user, 2026-10-25) |
+| Cross-Body Mountain Climber | movement | `cross_body_mountain_climber__bodyweight` |  |
+| Cross-Body Shoulder Stretch | movement | `cross_body_shoulder_stretch__bodyweight__one_side` |  |
+| CrossFit WOD | dropped |  | not training, MVP (user, 2026-10-25) |
+| Curved Treadmill (Self-Powered) | movement | `curved_treadmill__cardio_machine` |  |
+| Dance | dropped |  | not training, MVP (user, 2026-10-25) |
+| Dead Bug (Breathing / 90-90) | movement | `dead_bug_breathing__bodyweight` | a breathing drill, not the core lift: own movement (collision dead_bug__bodyweight; user lean, 2026-10-25) |
+| Deep Squat Hold | movement | `deep_squat_hold__bodyweight` |  |
+| Depth Drop | movement | `depth_drop__bodyweight` |  |
+| Depth Jump | movement | `depth_jump__bodyweight` |  |
+| Devil Press | movement | `devil_press__dumbbell` |  |
+| Doorway Chest Stretch | movement | `doorway_chest_stretch__bodyweight__one_side` |  |
+| Double Kettlebell Clean | version | `clean__kettlebell` | two kettlebells: the kettlebell version (the single-arm one is its one-arm version) |
+| Double-Unders | movement | `double_unders__jump_rope` |  |
+| Downward Dog | movement | `downward_dog__bodyweight` |  |
+| Dumbbell Burpee | version | `burpee__dumbbell` |  |
+| Dumbbell Clean | version | `clean__dumbbell` |  |
+| Dumbbell Clean and Press | version | `clean_and_press__dumbbell` |  |
+| Dumbbell Hang Clean | version | `hang_clean__dumbbell` |  |
+| Dumbbell Jump Squat | version | `jump_squat__dumbbell` |  |
+| Dumbbell Push Press | version | `push_press__dumbbell` |  |
+| Dumbbell Snatch | version | `snatch__dumbbell__one_side` |  |
+| Dumbbell Swing | version | `swing__dumbbell` |  |
+| Dumbbell Thruster | version | `thruster__dumbbell` |  |
+| Elliptical | movement | `elliptical__cardio_machine` |  |
+| Farmer's Handles Walk | version | `farmers_walk__farmers_handles` | new equipment key farmers_handles (user, 2026-10-25) |
+| Farmer's Walk | version | `farmers_walk__dumbbell` |  |
+| Figure-4 Stretch | movement | `figure_4_stretch__bodyweight__one_side` |  |
+| Foam Roll Adductors | movement | `foam_roll_adductors__foam_roller__one_side` |  |
+| Foam Roll Calves | movement | `foam_roll_calves__foam_roller` |  |
+| Foam Roll Glutes | movement | `foam_roll_glutes__foam_roller__one_side` |  |
+| Foam Roll Hamstrings | movement | `foam_roll_hamstrings__foam_roller` |  |
+| Foam Roll IT Band | movement | `foam_roll_it_band__foam_roller__one_side` |  |
+| Foam Roll Lats | movement | `foam_roll_lats__foam_roller__one_side` |  |
+| Foam Roll Quads | movement | `foam_roll_quads__foam_roller` |  |
+| Foam Roll Upper Back | movement | `foam_roll_upper_back__foam_roller` |  |
+| Football / Soccer | dropped |  | not training, MVP (user, 2026-10-25) |
+| Frog Jump | movement | `frog_jump__bodyweight` |  |
+| Frog Stretch | movement | `frog_stretch__bodyweight` |  |
+| Front Split Stretch | movement | `front_split_stretch__bodyweight__one_side` |  |
+| Glute Activation Circuit (Band) | movement | `glute_activation_circuit__band` | band, timed: stays a hold (the band rule only replaces weight) |
+| Hamstring Stretch (Standing) | movement | `hamstring_stretch__bodyweight` |  |
+| Hand Bike (Arm Ergometer) | movement | `hand_bike__cardio_machine` |  |
+| Hang Clean | version | `hang_clean__barbell` |  |
+| Hang Power Clean | movement | `hang_power_clean__barbell` |  |
+| Hang Power Snatch | movement | `hang_power_snatch__barbell` |  |
+| Hang Snatch | movement | `hang_snatch__barbell` |  |
+| Happy Baby | movement | `happy_baby__bodyweight` |  |
+| Heavy Bag Rounds | movement | `heavy_bag_rounds__punching_bag` | new equipment key punching_bag (user, 2026-10-25) |
+| High Knees | movement | `high_knees__bodyweight` |  |
+| HIIT Class | dropped |  | not training, MVP (user, 2026-10-25) |
+| Hiking | dropped |  | not training, MVP (user, 2026-10-25) |
+| Hill Sprint | movement | `hill_sprint__bodyweight` | a set is one short effort: short_distance, m + s (user, 2026-10-25) |
+| Hip Airplane | movement | `hip_airplane__bodyweight__one_side` |  |
+| Hip Circles | movement | `hip_circles__bodyweight__one_side` |  |
+| Hurdle Hop | movement | `hurdle_hop__bodyweight` | the hurdle is where the body works: bodyweight |
+| Husafell Stone Carry | movement | `husafell_stone_carry__atlas_stone` |  |
+| Inchworm | movement | `inchworm__bodyweight` |  |
+| Incline Treadmill Walk | version | `treadmill_walk__cardio_machine__incline` | incline is an angle of Treadmill Walk (it changes the load) |
+| Indian Club Swing | movement | `indian_club_swing__indian_club` | new equipment key indian_club: an Indian club is not a mace |
+| IT Band Stretch | movement | `it_band_stretch__bodyweight__one_side` |  |
+| Jacob's Ladder | movement | `jacobs_ladder__cardio_machine` |  |
+| Jefferson Curl | movement | `jefferson_curl__dumbbell` |  |
+| Jerk Dip Squat | movement | `jerk_dip_squat__barbell` |  |
+| Jump Squat | version | `jump_squat__bodyweight` |  |
+| Jumping Jack | movement | `jumping_jack__bodyweight` |  |
+| Jumping Lunge | movement | `jumping_lunge__bodyweight` |  |
+| Kayaking | dropped |  | not training, MVP (user, 2026-10-25) |
+| Kettlebell Clean | version | `clean__kettlebell__one_side` |  |
+| Kettlebell Clean and Press | version | `clean_and_press__kettlebell__one_side` |  |
+| Kettlebell Farmer's Walk | version | `farmers_walk__kettlebell` |  |
+| Kettlebell Jerk | movement | `jerk__kettlebell` | the barbell jerks are their own movements (push, split, power, squat) |
+| Kettlebell Jump Squat | version | `jump_squat__kettlebell` |  |
+| Kettlebell Long Cycle | movement | `long_cycle__kettlebell` |  |
+| Kettlebell Push Press | version | `push_press__kettlebell__one_side` |  |
+| Kettlebell Rack Carry | movement | `rack_carry__kettlebell` |  |
+| Kettlebell Snatch | version | `snatch__kettlebell__one_side` |  |
+| Kettlebell Swing | version | `swing__kettlebell` |  |
+| Kettlebell Thruster | version | `thruster__kettlebell` |  |
+| Kickboxing | dropped |  | not training, MVP (user, 2026-10-25) |
+| Kipping Pull-Up | movement | `kipping_pull_up__bodyweight` | own movement, not a Pull-Up version: the kip changes the numbers |
+| Kneeling Hip Flexor Stretch | movement | `kneeling_hip_flexor_stretch__bodyweight__one_side` |  |
+| Lacrosse Ball Release | dropped |  | recovery tool, not training (user, 2026-10-25) |
+| Landmine Clean and Press | version | `clean_and_press__landmine__one_side` |  |
+| Lat Stretch (Bench/Wall) | movement | `lat_stretch__bodyweight__one_side` |  |
+| Lateral Bound | movement | `lateral_bound__bodyweight` |  |
+| Lateral Box Jump | movement | `lateral_box_jump__bodyweight` |  |
+| Leg Swings (Front-to-Back) | movement | `leg_swings_front_to_back__bodyweight__one_side` | direction makes two movements (collision leg_swings__bodyweight__one_side) |
+| Leg Swings (Side-to-Side) | movement | `leg_swings_side_to_side__bodyweight__one_side` | own movement per direction |
+| Log Press | movement | `log_press__log` |  |
+| Lying Hamstring Stretch (Strap) | movement | `lying_hamstring_stretch__bodyweight__one_side` | the strap is a stretching tool, not lifting straps (user, 2026-10-25): kept, bodyweight |
+| Man Maker | movement | `man_maker__dumbbell` |  |
+| Martial Arts | dropped |  | not training, MVP (user, 2026-10-25) |
+| Massage Gun | dropped |  | recovery tool, not training (user, 2026-10-25) |
+| Medicine Ball Chest Pass | movement | `chest_pass__medicine_ball` |  |
+| Medicine Ball Overhead Throw | movement | `overhead_throw__medicine_ball` |  |
+| Medicine Ball Scoop Toss | movement | `scoop_toss__medicine_ball` |  |
+| Medicine Ball Slam | movement | `medicine_ball_slam__medicine_ball` |  |
+| Mountain Climber | movement | `mountain_climber__bodyweight` |  |
+| Muscle Clean | movement | `muscle_clean__barbell` |  |
+| Muscle Snatch | movement | `muscle_snatch__barbell` |  |
+| Neck Flexion/Extension (Plate or Harness) | movement | `neck_flexion_extension__weight_plate` |  |
+| Neck Lateral Flexion | movement | `neck_lateral_flexion__bodyweight__one_side` |  |
+| Neck Side Stretch | movement | `neck_side_stretch__bodyweight__one_side` |  |
+| Open Book Stretch | movement | `open_book_stretch__bodyweight__one_side` |  |
+| Outdoor Cycling | movement | `outdoor_cycling__bodyweight` | gym cardio kept (user, 2026-10-25); no implement, so bodyweight |
+| Outdoor Run | movement | `outdoor_run__bodyweight` | gym cardio kept (user, 2026-10-25); no implement, so bodyweight |
+| Overhead Carry | movement | `overhead_carry__dumbbell` |  |
+| Overhead Squat | movement | `overhead_squat__barbell` |  |
+| Overhead Triceps Stretch | movement | `overhead_triceps_stretch__bodyweight__one_side` |  |
+| Pigeon Pose | movement | `pigeon_pose__bodyweight__one_side` |  |
+| Pilates (Mat) | dropped |  | not training, MVP (user, 2026-10-25) |
+| Plyo Lunge Switch | version | `jumping_lunge__bodyweight` | merged: the same exercise as Jumping Lunge: merged |
+| Pogo Jump | movement | `pogo_jump__bodyweight` |  |
+| Power Clean | movement | `power_clean__barbell` |  |
+| Power Jerk | movement | `power_jerk__barbell` |  |
+| Power Snatch | movement | `power_snatch__barbell` |  |
+| Push Jerk | movement | `push_jerk__barbell` |  |
+| Push Press | version | `push_press__barbell` |  |
+| Quad Stretch (Standing) | movement | `quad_stretch__bodyweight__one_side` |  |
+| Recumbent Bike | movement | `recumbent_bike__cardio_machine` |  |
+| Reformer Pilates | dropped |  | not training, MVP (user, 2026-10-25) |
+| Rock Climbing / Bouldering | dropped |  | not training, MVP (user, 2026-10-25) |
+| Rollerblading | dropped |  | not training, MVP (user, 2026-10-25) |
+| Rowing Machine | movement | `rowing_machine__cardio_machine` |  |
+| Rucking | movement | `rucking__weight_vest` | weight vest, weight × distance in m: a 5 km ruck reads 5000 m (user, 2026-10-25) |
+| Sandbag Carry | movement | `sandbag_carry__sandbag` |  |
+| Sandbag Clean | version | `clean__sandbag` |  |
+| Sandbag Over Shoulder | movement | `sandbag_over_shoulder__sandbag` |  |
+| Scorpion Stretch | movement | `scorpion_stretch__bodyweight__one_side` |  |
+| Seal Jack | movement | `seal_jack__bodyweight` |  |
+| Seated Box Jump | movement | `seated_box_jump__bodyweight` |  |
+| Seated Forward Fold | movement | `seated_forward_fold__bodyweight` |  |
+| Seated Straddle Stretch | movement | `seated_straddle_stretch__bodyweight` |  |
+| Shadow Boxing | movement | `shadow_boxing__bodyweight` |  |
+| Shoulder Dislocates (Band/Stick) | movement | `shoulder_dislocates__band` |  |
+| Shuttle Run | movement | `shuttle_run__bodyweight` | a set is one short effort: short_distance, m + s (user, 2026-10-25) |
+| Side Split Stretch | movement | `side_split_stretch__bodyweight` |  |
+| Single-Arm Kettlebell Swing | version | `swing__kettlebell__one_side` | one-arm version of Kettlebell Swing |
+| Single-Leg Box Jump | version | `box_jump__bodyweight__one_side` |  |
+| Single-Leg Hop | movement | `single_leg_hop__bodyweight__one_side` |  |
+| Single-Unders | movement | `single_unders__jump_rope` |  |
+| Skater Jump | movement | `skater_jump__bodyweight` |  |
+| Ski Erg | movement | `ski_erg__cardio_machine` |  |
+| Skipping (Jump Rope) | movement | `skipping__jump_rope` | timed skipping; Single-Unders and Double-Unders (counted) stay apart |
+| Sled Drag (Forward, Harness) | movement | `sled_drag__sled` |  |
+| Sled Pull (Backward Drag) | movement | `sled_pull__sled` |  |
+| Sled Push | movement | `sled_push__sled` |  |
+| Sled Row (Rope Pull) | movement | `sled_row__sled` |  |
+| Sledgehammer Tire Strike | movement | `sledgehammer_tire_strike__sledgehammer` |  |
+| Sleeper Stretch | movement | `sleeper_stretch__bodyweight__one_side` |  |
+| Snatch | version | `snatch__barbell` |  |
+| Snatch Balance | movement | `snatch_balance__barbell` |  |
+| Snatch High Pull | movement | `snatch_high_pull__barbell` |  |
+| Snatch Pull | movement | `snatch_pull__barbell` |  |
+| Snatch-Grip Romanian Deadlift | movement | `snatch_grip_romanian_deadlift__barbell` |  |
+| Soleus Stretch | movement | `soleus_stretch__bodyweight__one_side` |  |
+| Sots Press | version | `sots_press__barbell` | added to Sots Press (stage 1 file): the barbell version; the movement's name drops "Kettlebell" |
+| Speed Bag | movement | `speed_bag__punching_bag` | punching_bag, as Heavy Bag Rounds |
+| Spiderman Lunge with Rotation | movement | `spiderman_lunge_with_rotation__bodyweight__one_side` |  |
+| Spin Bike | movement | `spin_bike__cardio_machine` |  |
+| Split Jerk | movement | `split_jerk__barbell` |  |
+| Sprawl | movement | `sprawl__bodyweight` |  |
+| Sprint | movement | `sprint__bodyweight` | a set is one short effort: short_distance, m + s (user, 2026-10-25) |
+| Squash | dropped |  | not training, MVP (user, 2026-10-25) |
+| Squat Jerk | movement | `squat_jerk__barbell` |  |
+| Squat Thrust | movement | `squat_thrust__bodyweight` |  |
+| Stair Climber | movement | `stair_climber__cardio_machine` |  |
+| Stair Running (Outdoor) | movement | `stair_running__bodyweight` | running is gym cardio kept: bodyweight, duration |
+| Standing Side Bend Stretch | movement | `standing_side_bend_stretch__bodyweight__one_side` |  |
+| Star Jump | movement | `star_jump__bodyweight` |  |
+| Stationary Bike | movement | `stationary_bike__cardio_machine` |  |
+| Step Aerobics | dropped |  | not training, MVP (user, 2026-10-25) |
+| Stepper (Pedal) | movement | `stepper__cardio_machine` |  |
+| Supine Spinal Twist | movement | `supine_spinal_twist__bodyweight__one_side` |  |
+| Surya Namaskar | movement | `surya_namaskar__bodyweight` |  |
+| Swimming (Backstroke) | movement | `swimming_backstroke__bodyweight` | own movement per stroke |
+| Swimming (Breaststroke) | movement | `swimming_breaststroke__bodyweight` | own movement per stroke |
+| Swimming (Butterfly) | movement | `swimming_butterfly__bodyweight` | own movement per stroke |
+| Swimming (Freestyle) | movement | `swimming_freestyle__bodyweight` | each stroke its own movement: no stroke axis, and the stroke changes the numbers (collision swimming__none). gym cardio kept (user, 2026-10-25); no implement, so bodyweight |
+| Table Tennis | dropped |  | not training, MVP (user, 2026-10-25) |
+| Tall Clean | movement | `tall_clean__barbell` |  |
+| Tennis | dropped |  | not training, MVP (user, 2026-10-25) |
+| Thoracic Extension (Foam Roller) | movement | `thoracic_extension__foam_roller` | on a foam roller: foam_roller (the research had bodyweight) |
+| Thread the Needle | movement | `thread_the_needle__bodyweight__one_side` |  |
+| Thruster | version | `thruster__barbell` |  |
+| Tire Flip | movement | `tire_flip__tire` |  |
+| Track Intervals | movement | `track_intervals__bodyweight` | a set is one short effort: short_distance, m + s (user, 2026-10-25) |
+| Trap Bar Farmer's Walk | version | `farmers_walk__trap_bar` |  |
+| Trap Bar Jump | movement | `trap_bar_jump__trap_bar` |  |
+| Treadmill Intervals | movement | `treadmill_intervals__cardio_machine` |  |
+| Treadmill Run | movement | `treadmill_run__cardio_machine` | treadmill movements stay apart from the outdoor ones: "Run · Cardio machine" would not say treadmill |
+| Treadmill Walk | version | `treadmill_walk__cardio_machine` |  |
+| Tuck Jump | movement | `tuck_jump__bodyweight` |  |
+| VersaClimber | movement | `versaclimber__cardio_machine` |  |
+| Vertical Jump | movement | `vertical_jump__bodyweight` | Distance in m (user, 2026-10-25): 60 cm reads 0.6 m |
+| Walk | movement | `walk__bodyweight` | gym cardio kept (user, 2026-10-25); no implement, so bodyweight |
+| Walking Knee Hug | movement | `walking_knee_hug__bodyweight` |  |
+| Wall Angel | movement | `wall_angel__bodyweight` |  |
+| Wall Ball | movement | `wall_ball__medicine_ball` |  |
+| World's Greatest Stretch | movement | `worlds_greatest_stretch__bodyweight__one_side` |  |
+| Wrist Extensor Stretch | movement | `wrist_extensor_stretch__bodyweight__one_side` |  |
+| Wrist Flexor Stretch | movement | `wrist_flexor_stretch__bodyweight__one_side` |  |
+| Yoga | dropped |  | not training, MVP (user, 2026-10-25) |
+| Yoke Carry | movement | `yoke_carry__yoke` |  |
+| Zercher Carry | movement | `zercher_carry__barbell` |  |
+| Zumba | dropped |  | not training, MVP (user, 2026-10-25) |
+
 ## Coverage check (free-exercise-db)
 
 Beyond the user's notes, each stage is checked against
@@ -727,6 +996,36 @@ in the research for stage 5 (Air Bike, Medicine Ball Slam), 0 are MVP extras. **
 Judo Flip; Cocoons; Frog Sit-Ups; Gorilla Chin/Crunch; Janda Sit-Up; Kettlebell Pass
 Between The Legs; Otis-Up; Pallof Press With Rotation; Press Sit-Up; Side Jackknife;
 Smith Machine Hip Raise; Spell Caster; Spider Crawl; Wind Sprints.
+
+**Stage 5** (every cardio, stretching, plyometrics, olympic weightlifting and strongman
+entry, whatever its muscle): 254 reference entries. 63 match by name, 72 are covered
+under another name (the "-SMR" entries = Foam Roll, "Running, Treadmill" = Treadmill
+Run, "Step Mill" = Stair Climber, the many quad, calf and triceps stretches), 2 are MVP
+extras (deficit, stance). **Added: 0. Skipped as niche: 117**, almost all athletic
+drills (cone hops, start technique, chest pushes, medicine ball throws from the
+floor), named stretch variants, foam rolling for small areas (foot, neck, peroneals),
+strongman implements a gym lacks (Conan's Wheel, Circus Bell, Keg Load, Car Deadlift,
+Rickshaw) and olympic accessories (Clean Shrug, Snatch Shrug, Split Clean, Split
+Snatch, Jerk Balance).
+
+### All stages
+
+Every free-exercise-db entry is checked exactly once: stages 1–4 took its strength
+and powerlifting entries by first muscle (all 17 of its muscles are covered), stage 5
+every other category.
+
+| Stage | Reference entries | Covered | MVP extra | Added | Skipped (niche) |
+|---|---|---|---|---|---|
+| 1 chest, shoulders, arms | 313 | 256 | 9 | 0 | 48 |
+| 2 back | 89 | 77 | 4 | 0 | 8 |
+| 3 legs | 139 | 110 | 13 | 0 | 16 |
+| 4 core | 81 | 65 | 0 | 0 | 16 |
+| 5 the rest | 254 | 135 | 2 | 0 | 117 |
+| **Total** | **876** | **643** | **28** | **0** | **205** |
+
+"Covered" includes the 44 entries each stage sent to a later one; all 44 now resolve
+to a kept version. **The catalog lacks 205 of the reference list's 876 as niche (and 28
+as MVP extras); no obvious gym staple was missing, so none was added.**
 
 ## Added (no research entry)
 

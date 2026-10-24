@@ -810,7 +810,7 @@ export const CORE: Movement[] = [
     mechanic: "compound",
     aliases: ["bear crawls"],
     versions: [
-      { id: "bear_crawl__bodyweight", equipment: "bodyweight", unilateral: false, measure: "distance_time", fields: FIELDS.distance_time, aliases: [] },
+      { id: "bear_crawl__bodyweight", equipment: "bodyweight", unilateral: false, measure: "short_distance", fields: FIELDS.short_distance, aliases: [] },
     ],
   },
   {

@@ -6,6 +6,24 @@
 //
 // Time unit, per measure: seconds where a set lasts seconds (a hold, a loaded
 // hold), minutes where it lasts minutes (a class, a run).
+//
+// Distance, per measure, by WHAT ONE SET IS (TICKET-046, 2026-10-25):
+// - `short_distance`, m + s: one effort of a few hundred metres at most, timed
+//   in seconds. Sprint, Hill Sprint, Shuttle Run, Bounding, Track Intervals
+//   (one rep is a set), Bear Crawl
+// - `distance_time`, km + min: a continuous piece. Runs, walks, rows, rides,
+//   the ski erg, Treadmill Intervals (logged as one total), and swimming:
+//   1500 m reads 1.5 km, consistent with the other long cardio
+// - `weight_distance`, kg + m: a loaded carry or sled. Rucking stays here, so a
+//   5 km ruck reads 5000 m; a fourth measure for one movement was rejected
+// Rejected: one distance measure for all, which makes a 20 m crawl 0.02 km or
+// a 10 km run 10000 m.
+//
+// These are only the default units. The user can switch the chip (m / km,
+// s / min) when adding the exercise to a plan. Units are never converted: a
+// set in m never compares with one in km (`lastTopSet` reports
+// `unit_changed`), so the default decides which earlier sets a new one is
+// compared with. History itself joins on the version id, whatever the unit.
 
 import type { MeasureId } from "../constants/catalogVocabulary";
 import type { ExerciseField } from "../types/workoutType";
@@ -33,6 +51,10 @@ export const FIELDS: Record<MeasureId, ExerciseField[]> = {
   distance_time: [
     { name: "Distance", role: "distance", unit: "km" },
     { name: "Time", role: "time", unit: "min" },
+  ],
+  short_distance: [
+    { name: "Distance", role: "distance", unit: "m" },
+    { name: "Time", role: "time", unit: "s" },
   ],
   weight_distance: [
     { name: "Weight", role: "weight", unit: "kg" },

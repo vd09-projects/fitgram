@@ -126,6 +126,10 @@ export const EQUIPMENT = {
   gripper: "gripper",
   wrist_roller: "wrist roller",
   tib_bar: "tib bar",
+  farmers_handles: "farmer's handles",
+  punching_bag: "punching bag",
+  // Not `mace`: an Indian club is a light club swung in circles, a different number.
+  indian_club: "Indian club",
 } as const;
 export type EquipmentId = keyof typeof EQUIPMENT;
 
@@ -190,6 +194,8 @@ export const MEASURES = {
   hold: "Hold for time",
   duration: "Duration",
   distance_time: "Distance + time",
+  // TICKET-046: a single short effort (a sprint, a shuttle, a crawl) in m and s.
+  short_distance: "Short distance + time",
   weight_distance: "Weight × distance",
   weight_time: "Weight × time",
   jump_distance: "Jump or throw distance",

@@ -41,10 +41,10 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
-| 042 | Exercise catalog: movements with versions, loaded into the app | Large | **Stage 1 done** (types, id and name rules, loader, hand-made catalog). Stage 2 after 046. Movement first; history stays per version; catalog in Firestore, cached |
+| 042 | Exercise catalog: movements with versions, loaded into the app | Large | **Stage 1 done** (types, id and name rules, loader, hand-made catalog). **Stage 2 next** (046 done, pending merge). An app build with 046's vocabulary must be on phones before the first upload. Movement first; history stays per version; catalog in Firestore, cached |
 | 043 | Find an exercise: search by muscle, typos, movement-first picker | Large | Ports the prototype and its 91 cases; "Latpulldown", "squad", "bech press" return 0 today |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap |
-| 046 | Build the real catalog: movements and versions | Large | Research catalog is reference only. Grip is a version; shown by movement |
+| 046 | Build the real catalog: movements and versions | Large | **Done, pending merge** (2026-10-25): 489 movements, 805 versions, all 878 research entries accounted for. Unblocks 042 stage 2 |
 | 047 | Switch an exercise's version mid-workout | Medium | Deferred 2026-10-24. For this workout only; the plan keeps its version |
 
 ### Not tickets — verification owed
@@ -2683,6 +2683,17 @@ nothing in the app imports them yet, so the app behaves as before.
 - **Not checked:** that a version's fields match its measure; that grip
   versions carry a muscle override (TICKET-046's criterion)
 
+**Stage 2, recorded by TICKET-046 (2026-10-25):**
+- **an app build containing 046's vocabulary must be on phones before the first
+  upload.** 046 added equipment keys (`added_weight`, `gripper`, `wrist_roller`,
+  `tib_bar`, `farmers_handles`, `punching_bag`, `indian_club`) and a measure
+  (`short_distance`); an older build's loader refuses the whole catalog and keeps its
+  cache (the build-first order above)
+- **one doc fits; chunking is optional.** Measured on 046's final catalog: 282,421
+  bytes as JSON (27% of Firestore's 1 MiB doc cap), 22.8 KiB gzipped; the largest
+  movement, Bench Press, is 7.9 KiB. The `chunk_N` design above still works, but a
+  single doc beside `meta` is enough for now
+
 **Stage 2 needs, from TICKET-046:** the real catalog in this shape, passing
 `validateCatalog`, with its ids frozen into the pin list; the per-movement
 `oneSide` label; each grip version's muscle override. Not run on the hand-made
@@ -3042,8 +3053,8 @@ version, a session never compares across grips, so none of this is built. Boards
 
 ### TICKET-046: Build the Real Catalog — Movements and Versions
 
-**Priority:** Medium | **Effort:** Large | **Status: IN PROGRESS** — added 2026-10-24;
-open questions settled 2026-10-25; stages 1–4 of 5 built
+**Priority:** Medium | **Effort:** Large | **Status: DONE, pending merge** — added
+2026-10-24; open questions settled and all 5 stages built and reviewed 2026-10-25
 
 **Description:**
 The research catalog (`research/exercise-catalog/`, 878 flat entries) was built to
@@ -3361,6 +3372,102 @@ kind of miss a real pass catches.
   per movement here
 - all grouping calls accepted by the user in the stage 4 review (2026-10-25)
 
+- **Committed** as `0b4f35d` (2026-10-25), not pushed
+
+**Decided before stage 5 (user, 2026-10-25): short distances get their own measure.**
+~~One distance measure in km + min for all~~ (a 20 m crawl read 0.02 km). New measure
+`short_distance`, "Short distance + time", Distance in m + Time in s, chosen by **what
+one set is**: a single short effort (Sprint, Hill Sprint, Shuttle Run, Bounding, Track
+Intervals, Bear Crawl). Continuous pieces stay `distance_time` in km + min (runs,
+walks, rows, rides, the ski erg, Treadmill Intervals, swimming: 1500 m reads 1.5 km,
+the m chip exists). Loaded carries and sleds stay `weight_distance` in m; Rucking
+stays there too (a 5 km ruck reads 5000 m; no fourth measure for one movement).
+Hiking, Rollerblading and Kayaking dropped as not training. The rule, and that the
+catalog sets only the default unit, are in `fields.ts`. History joins on the version
+id whatever the unit; the unit decides which earlier sets compare (`lastTopSet`
+reports `unit_changed`; units are never converted)
+
+**Implementation, stage 5: cardio, conditioning, plyometric, olympic, strongman,
+mobility, stretching (2026-10-25).**
+- 255 research entries → **203 movements, 226 versions** in
+  `movements/conditioningMobility.ts`, plus the barbell Sots Press added to Sots Press
+  in the stage 1 file (renamed from "Kettlebell Sots Press"; ids unchanged).
+  Accounting: 191 movements of one version, 37 versions, 27 dropped (25 sports,
+  classes and outdoor activities as not training; Massage Gun and Lacrosse Ball as
+  recovery tools). Bear Crawl (stage 4) moved to `short_distance`, id unchanged
+- Measure added: `short_distance`. Equipment keys added: `farmers_handles`,
+  `punching_bag` (both confirmed 2026-10-25), and `indian_club`, not decided before:
+  an Indian club is a light club swung in circles, not a mace, and the research had
+  filed it under mace
+- **Grouping calls a person should check** (all in ACCOUNTING.md):
+  - **collisions:** Dead Bug (Breathing / 90-90) is its own movement, a breathing
+    drill apart from the core lift (`dead_bug`); the four swimming strokes are four
+    movements (no stroke axis, and the stroke changes the numbers); Leg Swings
+    front-to-back and side-to-side are two movements, by direction
+  - treadmill movements stay apart from the outdoor ones (Treadmill Run vs Outdoor
+    Run, Treadmill Walk with an incline version vs Walk): "Run · Cardio machine"
+    would not say treadmill. Each cardio machine is its own movement. Outdoor Run,
+    Walk, Outdoor Cycling and swimming are `bodyweight` (user)
+  - olympic: Clean, Hang Clean, Snatch, Push Press and Thruster take barbell,
+    dumbbell and kettlebell versions; Double Kettlebell Clean is the kettlebell
+    version, the single-arm one its one-arm version. Every other olympic lift (power,
+    hang power, block, muscle, tall, pulls, high pulls, the barbell jerks) is its own
+    movement
+  - Kettlebell Swing takes dumbbell and one-arm versions; American Kettlebell Swing
+    is its own. Plyo Lunge Switch merges into Jumping Lunge. Kipping, Butterfly and
+    Chest-to-Bar Pull-Up are their own movements, not Pull-Up versions
+  - strongman: Axle Deadlift is its own movement, not a Deadlift version; Farmer's
+    Walk takes dumbbell, kettlebell, trap bar and handles versions; each carry and
+    sled movement is its own
+  - Skipping (timed) stays apart from Single-Unders and Double-Unders (counted)
+  - the band rule now replaces only a weight measure: band stretches and the band
+    glute circuit stay timed
+- **Not added: a test for the short-distance split.** The six are written in
+  `fields.ts` and pinned by nothing beyond the content; stage 5 is the last drafted
+  stage, so no later draft can undo it. The measure itself is guarded by `tsc`
+  (`FIELDS` is a `Record<MeasureId, ...>`: a measure without fields does not
+  compile, seen red)
+- Seen red: a removed stage 5 version (loader, pin, accounting)
+- all grouping calls accepted by the user in the stage 5 review (2026-10-25),
+  `indian_club` included; no test wanted for the six short-distance movements
+
+**Final totals (all 5 stages, 2026-10-25):**
+- **489 movements, 805 versions** (384 movements have one version)
+- **878 of 878 research entries accounted for**, each exactly once (checked against
+  `catalog.json` by name): 384 movements, 450 versions, 44 dropped. Dropped by reason:
+  not training 25, pause 4, partial range 4, deficit 3, stance 3, bands on a bar or
+  around the knees 3, recovery tools 2. **Added with no research entry: 1**
+  (`dip__added_weight`)
+- **Search targets: 91/91** of TICKET-043's cases resolve to a kept version; **919/942
+  research aliases carried**, the other 23 equal a movement's name
+- **Coverage** (free-exercise-db, 876 entries): 643 covered, 28 MVP extras, **0
+  added, 205 skipped as niche**. Table in ACCOUNTING.md
+- **The user's notes:** 84 names, 81 distinct, all resolve (table test)
+- equipment keys added over the ticket: `added_weight`, `gripper`, `wrist_roller`,
+  `tib_bar`, `farmers_handles`, `punching_bag`, `indian_club`; measure added:
+  `short_distance`. None renamed
+- **Tests:** `src/catalog/catalog.test.ts` (44: loader, pin of 805 ids, ACCOUNTING.md
+  both ways, 36 notes rows plus their count, grip muscles, band weights) and the
+  one-side name rule in `utils/catalog.test.ts`
+
+**Size (measured 2026-10-25, user's request; also measured by the user):** `CATALOG`
+as JSON is **282,421 bytes** (276 KiB), **22.8 KiB gzipped**; the largest movement,
+Bench Press, is **7.9 KiB** (then Push-Up 2.8, Lateral Raise 2.6). Against Firestore's
+1 MiB doc cap that is 27%: **one doc holds the whole catalog, so 042's chunking is
+optional.** Not in this ticket's criteria as written; 042's storage decision is
+where 1 MiB comes from. JSON length approximates Firestore's own size count (field
+names plus string bytes), not measured against Firestore. AsyncStorage: a 276 KiB
+string is far below the Android default database size (6 MB) and per-value read
+window (about 2 MB), per the library's docs, not measured on a device
+
+**What TICKET-042 stage 2 needs from this ticket:** the catalog is `CATALOG` in
+`src/catalog/index.ts` (489 movements), passing `validateCatalog`, every id pinned.
+The upload script imports it (never the app). Before the first upload, the app build
+must know every equipment and measure key above, or older builds refuse the whole
+catalog (042's build-first order); the keys are already in `catalogVocabulary.ts`, so
+a build from this branch is enough. Each grip version has its muscle override; each
+movement with a one-side version has its `oneSide` label
+
 **Technical Notes:**
 - Grouping needs a person: "Seated Cable Row" vs "Machine Row (Seated)" (042's note)
 - Versions multiply (equipment × angle × grip): store only combinations that exist,
@@ -3628,8 +3735,10 @@ it) once 046's content exists. Phase 3B; research is in
 
 ```
 1. TICKET-042  stage 1 (Catalog shape)    — Done: types, id/name rules, loader
-2. TICKET-046  (Real catalog content)      — Research is reference only; grip is a version
-3. TICKET-042  stage 2 (App reads catalog) — Firestore + cache, name sites, test-data wipe
+2. TICKET-046  (Real catalog content)      — Done, pending merge: 489 movements, 805 versions
+3. TICKET-042  stage 2 (App reads catalog) — Next. Firestore + cache, name sites,
+                                             test-data wipe. Build with 046's vocabulary
+                                             on phones before the first upload
 4. TICKET-043  (Search + picker)           — After 042; picker built from 041 boards A
 ```
 

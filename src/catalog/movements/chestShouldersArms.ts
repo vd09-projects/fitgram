@@ -636,7 +636,7 @@ export const CHEST_SHOULDERS_ARMS: Movement[] = [
   },
   {
     id: "sots_press",
-    name: "Kettlebell Sots Press",
+    name: "Sots Press",
     primaryMuscles: ["front_delts", "quads"],
     secondaryMuscles: [],
     category: "strength",
@@ -644,7 +644,9 @@ export const CHEST_SHOULDERS_ARMS: Movement[] = [
     mechanic: "compound",
     aliases: [],
     versions: [
-      { id: "sots_press__kettlebell", equipment: "kettlebell", unilateral: false, measure: "weight_reps", fields: FIELDS.weight_reps, aliases: [] },
+      { id: "sots_press__kettlebell", equipment: "kettlebell", unilateral: false, measure: "weight_reps", fields: FIELDS.weight_reps, aliases: ["kettlebell sots press"] },
+      // Stage 5's barbell Sots Press (an olympic entry in the research).
+      { id: "sots_press__barbell", equipment: "barbell", unilateral: false, measure: "weight_reps", fields: FIELDS.weight_reps, aliases: [] },
     ],
   },
   {
