@@ -2754,7 +2754,8 @@ chosen by the user 2026-10-24). A full screen opened by Add exercise, not a drop
 
 ### ~~TICKET-044: Logging Details — Plates as a Weight Unit~~ ✅ DONE
 
-**Priority:** Medium | **Effort:** Small | **Status: DONE** — merged in PR #19
+**Priority:** Medium | **Effort:** Small | **Status: DONE** — merged in PR #19;
+full device test plan (PR #19) reported working 2026-10-24
 
 **Description:**
 Plates as a weight unit, for machines whose real weight is unknown. This ticket once
