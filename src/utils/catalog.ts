@@ -54,11 +54,20 @@ export function buildVersionId(movementId: string, axes: VersionAxes): string {
  *   "an attachment implies cable", a special case for one axis. Cost: adding a
  *   band pushdown later renames the rope one to "Cable, rope", which is wanted
  *   (names are built, so they follow the catalog; ids do not move)
- * - angle, attachment, grip and one side show whenever they are not the
- *   default; defaults never show ("flat", "normal grip")
+ * - one side shows only when the movement's versions differ in it, the same
+ *   rule as equipment (TICKET-046, 2026-10-25). Lateral Raise has both, so
+ *   "Lateral Raise · Cable, one arm"; every lunge is one leg, so "Lunge ·
+ *   Dumbbell". The id keeps `__one_side` either way: it records what the
+ *   exercise is, and a two-sided version added later gets its own id.
+ *   Rejected: always showing it (every lunge reads "one leg", a part that
+ *   tells nothing apart), and dropping `__one_side` from those ids (a
+ *   two-sided kickback added later would find its id taken)
+ * - angle, attachment and grip show whenever they are not the default;
+ *   defaults never show ("flat", "normal grip")
  *
  * Within one movement no two versions get the same name: ids are unique, so
- * some axis differs, and that axis is shown by the rules above.
+ * some axis differs, and that axis is shown by the rules above (equipment and
+ * one side show exactly when they differ).
  */
 export function buildVersionName(movement: Movement, version: MovementVersion): string {
   if (movement.versions.length <= 1) return movement.name;
@@ -71,7 +80,8 @@ export function buildVersionName(movement: Movement, version: MovementVersion): 
   if (version.grip) parts.push(GRIPS[version.grip]);
   // The loader refuses a unilateral version on a movement without `oneSide`;
   // "one side" is the reading if one slips through, never a blank.
-  if (version.unilateral) parts.push(movement.oneSide ? ONE_SIDE_LABELS[movement.oneSide] : "one side");
+  const sidesVary = movement.versions.some((v) => v.unilateral !== version.unilateral);
+  if (version.unilateral && sidesVary) parts.push(movement.oneSide ? ONE_SIDE_LABELS[movement.oneSide] : "one side");
 
   if (parts.length === 0) return movement.name;
   const detail = parts.join(", ");

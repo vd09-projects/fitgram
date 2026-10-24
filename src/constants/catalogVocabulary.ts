@@ -116,6 +116,20 @@ export const EQUIPMENT = {
   weight_vest: "weight vest",
   mace: "mace",
   gada: "gada",
+  // Added by TICKET-046.
+  // Weight hung from a dip belt or held: "Pull-Up · Added weight". A version of
+  // its own, not an optional field on the bodyweight one: an empty weight
+  // field parses to null and empties the whole session's volume
+  // (computeSessionTotalVolume), and most bodyweight sets carry no weight. A
+  // weight vest stays `weight_vest`.
+  added_weight: "added weight",
+  gripper: "gripper",
+  wrist_roller: "wrist roller",
+  tib_bar: "tib bar",
+  farmers_handles: "farmer's handles",
+  punching_bag: "punching bag",
+  // Not `mace`: an Indian club is a light club swung in circles, a different number.
+  indian_club: "Indian club",
 } as const;
 export type EquipmentId = keyof typeof EQUIPMENT;
 
@@ -180,6 +194,8 @@ export const MEASURES = {
   hold: "Hold for time",
   duration: "Duration",
   distance_time: "Distance + time",
+  // TICKET-046: a single short effort (a sprint, a shuttle, a crawl) in m and s.
+  short_distance: "Short distance + time",
   weight_distance: "Weight × distance",
   weight_time: "Weight × time",
   jump_distance: "Jump or throw distance",
