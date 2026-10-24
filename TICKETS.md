@@ -2431,10 +2431,14 @@ interface MovementVersion {
 
 **The version id is a stored contract** (PR #17 second review). It is the history
 key, so it never changes once a version ships:
-- **format:** `{movement}__{equipment}[__{angle}][__{attachment}][__{grip}_grip][__one_arm]`,
+- **format:** `{movement}__{equipment}[__{angle}][__{attachment}][__{grip}_grip][__one_side]`,
   parts in that fixed order, lower snake case: `bench_press__barbell`,
   `bench_press__dumbbell__incline`, `bench_press__barbell__close_grip`,
-  `triceps_pushdown__cable__rope`, `lateral_raise__cable__one_arm`
+  `triceps_pushdown__cable__rope`, `lateral_raise__cable__one_side`
+- **one arm and one leg share one suffix, `__one_side`** (PR #17 third review): one
+  rule instead of a per-movement choice. The display name still says "one arm" or
+  "one leg", from the catalog's label for that movement (Single-Leg Leg Press,
+  Single-Leg RDL: "one leg")
 - **defaults are left out** (flat, normal grip, both arms, no attachment), as they
   are in the name. So adding an axis later leaves every existing id unchanged: old
   versions simply have the new axis at its default
@@ -2508,12 +2512,16 @@ key, so it never changes once a version ships:
       - **when the id is not in the catalog** (PR #17 second review): today's 42 old
         ids, research entries TICKET-046 drops (Pause Bench Press, the banded
         ones), a version removed later. Plans and sessions also keep the name as
-        it read when the exercise was added or logged, a **fallback snapshot**, read
-        only when the catalog has no entry. The name site then shows the snapshot
+        it read when the exercise was added or logged, a **fallback snapshot** in
+        its own field, `nameSnapshot` (PR #17 third review), read only when the
+        catalog has no entry. It is never validated, so the "·" in it never meets
+        the name rule; `Exercise.name` stays for custom exercises only, and the
+        line above holds. The name site then shows the snapshot
         with a small "no longer in the catalog" line, so it never looks current.
         With no snapshot either (data older than this), it shows "Exercise no
         longer in the catalog" and the id: an explicit absence, never a blank
-        (CLAUDE.md 2.4). Test: an unknown id with and without a snapshot
+        (CLAUDE.md 2.4). Tests: an unknown id with and without a snapshot; a plan
+        holding a catalog version ("Bench Press · Dumbbell, incline") saves
       - ~~a custom exercise: a movement with one version and no muscles, or plain
         `Exercise` only~~ **No new custom exercises for now** (user, 2026-10-24; see
         TICKET-043 Design). What remains here: existing custom exercises in plans and
