@@ -3043,7 +3043,7 @@ version, a session never compares across grips, so none of this is built. Boards
 ### TICKET-046: Build the Real Catalog — Movements and Versions
 
 **Priority:** Medium | **Effort:** Large | **Status: IN PROGRESS** — added 2026-10-24;
-open questions settled 2026-10-25; stages 1–2 of 5 built
+open questions settled 2026-10-25; stages 1–3 of 5 built
 
 **Description:**
 The research catalog (`research/exercise-catalog/`, 878 flat entries) was built to
@@ -3269,6 +3269,63 @@ kind of miss a real pass catches.
   version (pin, the "Seated cabled row" row, accounting), close-grip bench
   chest-first against the narrowed test, a back band version given kg, a removed
   pullover version (pin, accounting)
+
+- **Committed** as `2c30926` (2026-10-25), not pushed
+
+**Implementation, stage 3: legs (2026-10-25).**
+- 195 research entries → **89 movements, 183 versions** in `movements/legs.ts`.
+  Accounting: 54 movements of one version, 131 versions, 10 dropped (pause ×2,
+  partial range, bands on a bar ×2, a band around the knees, deficit ×2, stance
+  ×2). Equipment key added: `tib_bar`. One-side label "one leg" here (Turkish
+  Get-Up: "one arm")
+- **Grouping calls a person should check** (all in ACCOUNTING.md):
+  - **Squat is one movement** with barbell (the back squat; "back squat" stays an
+    alias), Smith, safety squat bar, specialty bar (cambered), bodyweight,
+    dumbbell, cable and landmine versions. Low-Bar Back Squat, Front Squat, Zercher,
+    Box, Anderson (dead start from pins, like Pendlay Row), Belt Squat (user) and
+    the machine squats are their own movements. Barbell Hack Squat stays apart from
+    the machine Hack Squat (a different lift)
+  - **Goblet movements are their own** (Goblet Squat, Goblet Box Squat, Goblet
+    Reverse Lunge, Goblet Split Squat, Goblet Bulgarian, Goblet Lateral Lunge,
+    Goblet Step-Up): one weight at the chest is a different number from a weight in
+    each hand. Heel-Elevated Goblet Squat merges into Goblet Squat
+  - **Lunge, Walking Lunge, Reverse Lunge and Split Squat are four movements**, as
+    the user's notes list them; Sled Lunge is its own (weight × distance)
+  - **leg curls by position** (user's rule): Lying (machine, plate-loaded,
+    dumbbell, band), Seated, Standing (machine and cable, one leg), Kneeling; the
+    floor curls (ball, suspension, sliders) are one Hamstring Curl movement.
+    **Calf raises:** Standing (machine, Smith, barbell, dumbbell, bodyweight, one
+    leg) vs Seated (machine, dumbbell); Leg Press, Hack Squat and Donkey calf
+    raises are their own
+  - Leg Press: Hammer Strength merges into plate-loaded (collision
+    `leg_press__plate_loaded_machine`), Smith and the selectorized horizontal press
+    are versions, Vertical Leg Press is its own (same equipment, different numbers)
+  - Deadlift takes the trap bar as a version; High-Handle Trap Bar Deadlift, Sumo,
+    Stiff-Leg, Snatch-Grip and Jefferson are their own. Single-leg RDLs (dumbbell,
+    barbell, and the kettlebell single-leg deadlift) are one-leg versions of RDL
+  - Tib Bar Raise is the `tib_bar` version of Tibialis Raise
+  - Banded Kickback (Glute) is a band version (the band is the load); Banded Glute
+    Bridge is dropped (a band around the knees is an extra, not the load)
+- Checks: 62/91 search targets resolve (21 more; none dropped); 606/625 research
+  aliases carried, the other 19 equal a movement name. Coverage: 139
+  free-exercise-db entries; 93 covered, 17 later stages, 13 MVP extras, **0
+  added, 16 skipped as niche**
+- **Tests:** the 6 leg rows complete the user's notes table, and a new check holds
+  it at 84 names, 81 distinct (the count the table's comment claims); the pin
+  grows to 499. Seen red: a removed leg version (pin, the "Calf raises" row,
+  accounting), a deleted notes row (the count), a leg band version given kg
+- ~~**Open question for the user:** 77 versions in 44 movements (stages 1–3) are
+  `__one_side` in movements that have no two-sided version (every lunge, split
+  squat and step-up, as the research logs them per side). The name then reads "Lunge · Dumbbell, one
+  leg" for every lunge, and the id carries a part that tells nothing apart. Stage 1
+  did the same (kickbacks, concentration curl, external rotation), so this stage
+  follows it rather than diverge. Alternative: `unilateral: false` wherever a
+  movement has no two-sided version ("Lunge · Dumbbell", `lunge__dumbbell`). That
+  changes committed, not yet shipped, stage 1 ids, so it is the user's call~~
+  **Decided (user, 2026-10-25): (c)**, see Decisions above. Ids unchanged; the
+  name shows one side only when versions differ. Committed separately, before
+  this stage
+- all grouping calls above accepted by the user in the stage 3 review (2026-10-25)
 
 **Technical Notes:**
 - Grouping needs a person: "Seated Cable Row" vs "Machine Row (Seated)" (042's note)

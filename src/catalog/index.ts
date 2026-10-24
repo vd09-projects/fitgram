@@ -13,5 +13,6 @@
 import type { Movement } from "../types/catalog";
 import { BACK } from "./movements/back";
 import { CHEST_SHOULDERS_ARMS } from "./movements/chestShouldersArms";
+import { LEGS } from "./movements/legs";
 
-export const CATALOG: Movement[] = [...CHEST_SHOULDERS_ARMS, ...BACK];
+export const CATALOG: Movement[] = [...CHEST_SHOULDERS_ARMS, ...BACK, ...LEGS];

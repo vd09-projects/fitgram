@@ -388,6 +388,211 @@ which lives in the stage 1 file), 0 dropped.
 | Wide-Grip Seated Cable Row | version | `seated_row__cable` | merged: no wide key: merged into the cable version (user, 2026-10-25; collision seated_row__cable) |
 | Yates Row | movement | `yates_row__barbell` | own movement, not a reverse-grip Bent-Over Row: a named exercise |
 
+## Stage 3: legs
+
+195 entries: 54 movements of one version, 131 versions, 10 dropped (pause ×2,
+partial range, bands on a bar ×2, a band around the knees, deficit ×2, stance ×2).
+The Turkish Get-Up (full body) is here too: a full-body strength entry has no
+muscle group of its own.
+
+| Research entry | Outcome | Version id | Note |
+|---|---|---|---|
+| 45-Degree Hip Extension (Glute Bias) | movement | `hip_extension_45__bodyweight` | own movement, apart from Back Extension: same bodyweight equipment, glute-biased |
+| Anderson Squat | movement | `anderson_squat__barbell` | own movement: a dead start from pins, like Pendlay Row |
+| Assisted Pistol Squat | version | `pistol_squat__suspension_trainer__one_side` | suspension version of Pistol Squat (the straps assist) |
+| B-Stance Hip Thrust | dropped |  | stance (MVP extra) |
+| B-Stance Romanian Deadlift | dropped |  | stance (MVP extra) |
+| Back Squat | version | `squat__barbell` | Squat is one movement; the barbell version is the back squat ("back squat" stays an alias) |
+| Band Good Morning | version | `good_morning__band` |  |
+| Band Hip Thrust | version | `hip_thrust__band` |  |
+| Band Lateral Walk | movement | `lateral_band_walk__band` |  |
+| Band Leg Curl | version | `lying_leg_curl__band` | lying band curl: band version |
+| Band Leg Extension | version | `leg_extension__band` |  |
+| Banded Deadlift | dropped |  | bands on a bar (MVP extra; user, 2026-10-25) |
+| Banded Glute Bridge | dropped |  | a band around the knees is an extra, not the load (MVP extra) |
+| Banded Kickback (Glute) | version | `glute_kickback__band` | the band is the load: band version |
+| Banded Squat | dropped |  | bands on a bar (MVP extra; user, 2026-10-25) |
+| Barbell Bulgarian Split Squat | version | `bulgarian_split_squat__barbell__one_side` |  |
+| Barbell Calf Raise | version | `standing_calf_raise__barbell` |  |
+| Barbell Curtsy Lunge | version | `curtsy_lunge__barbell__one_side` |  |
+| Barbell Glute Bridge | version | `glute_bridge__barbell` |  |
+| Barbell Hack Squat | movement | `barbell_hack_squat__barbell` | own movement: the bar behind the legs is a different lift from the machine hack squat |
+| Barbell Hip Thrust (Single-Leg) | version | `hip_thrust__barbell__one_side` |  |
+| Barbell Lateral Lunge | version | `lateral_lunge__barbell__one_side` |  |
+| Barbell Lunge | version | `lunge__barbell__one_side` |  |
+| Barbell Reverse Lunge | version | `reverse_lunge__barbell__one_side` |  |
+| Barbell Single-Leg Romanian Deadlift | version | `romanian_deadlift__barbell__one_side` |  |
+| Barbell Split Squat | version | `split_squat__barbell__one_side` |  |
+| Barbell Step-Up | version | `step_up__barbell__one_side` |  |
+| Barbell Walking Lunge | version | `walking_lunge__barbell__one_side` |  |
+| Belt Squat | movement | `belt_squat__plate_loaded_machine` | its own movement (user, 2026-10-25), not a belt extra |
+| Bodyweight Calf Raise | version | `standing_calf_raise__bodyweight` |  |
+| Bodyweight Squat | version | `squat__bodyweight` |  |
+| Box Squat | version | `box_squat__barbell` |  |
+| Bulgarian Split Squat | version | `bulgarian_split_squat__bodyweight__one_side` |  |
+| Cable Deadlift | version | `deadlift__cable` |  |
+| Cable Glute Kickback | version | `glute_kickback__cable__one_side` |  |
+| Cable Hip Abduction | version | `hip_abduction__cable__one_side` |  |
+| Cable Hip Adduction | version | `hip_adduction__cable__one_side` |  |
+| Cable Hip Flexion (Knee Drive) | movement | `hip_flexion__cable` |  |
+| Cable Leg Curl (Standing) | version | `standing_leg_curl__cable__one_side` |  |
+| Cable Lunge | version | `lunge__cable__one_side` |  |
+| Cable Pull-Through | movement | `cable_pull_through__cable` |  |
+| Cable Romanian Deadlift | version | `romanian_deadlift__cable` |  |
+| Cable Squat | version | `squat__cable` |  |
+| Cambered Bar Squat | version | `squat__specialty_bar` | specialty bar version |
+| Clamshell | movement | `clamshell__band__one_side` |  |
+| Copenhagen Plank | movement | `copenhagen_plank__bodyweight__one_side` |  |
+| Cossack Squat | version | `cossack_squat__bodyweight__one_side` |  |
+| Curtsy Lunge | version | `curtsy_lunge__bodyweight__one_side` |  |
+| Deadlift | version | `deadlift__barbell` |  |
+| Deficit Deadlift | dropped |  | deficit (MVP extra) |
+| Deficit Reverse Lunge | dropped |  | deficit (MVP extra) |
+| Donkey Calf Raise | movement | `donkey_calf_raise__machine` |  |
+| Donkey Kick | movement | `donkey_kick__bodyweight__one_side` |  |
+| Double Kettlebell Front Squat | version | `front_squat__kettlebell` | kettlebell version |
+| Dumbbell Bulgarian Split Squat | version | `bulgarian_split_squat__dumbbell__one_side` |  |
+| Dumbbell Calf Raise | version | `standing_calf_raise__dumbbell` |  |
+| Dumbbell Curtsy Lunge | version | `curtsy_lunge__dumbbell__one_side` |  |
+| Dumbbell Deadlift | version | `deadlift__dumbbell` |  |
+| Dumbbell Front Squat | version | `front_squat__dumbbell` |  |
+| Dumbbell Hip Thrust | version | `hip_thrust__dumbbell` |  |
+| Dumbbell Lateral Lunge | version | `lateral_lunge__dumbbell__one_side` |  |
+| Dumbbell Leg Curl | version | `lying_leg_curl__dumbbell` | lying, with a dumbbell between the feet: dumbbell version |
+| Dumbbell Lunge | version | `lunge__dumbbell__one_side` |  |
+| Dumbbell Rear Lunge to Press | movement | `rear_lunge_to_press__dumbbell__one_side` |  |
+| Dumbbell Reverse Lunge | version | `reverse_lunge__dumbbell__one_side` |  |
+| Dumbbell Romanian Deadlift | version | `romanian_deadlift__dumbbell` |  |
+| Dumbbell Split Squat | version | `split_squat__dumbbell__one_side` |  |
+| Dumbbell Squat | version | `squat__dumbbell` |  |
+| Dumbbell Squat to Press | version | `squat_to_press__dumbbell` |  |
+| Dumbbell Step-Up | version | `step_up__dumbbell__one_side` |  |
+| Dumbbell Stiff-Leg Deadlift | version | `stiff_leg_deadlift__dumbbell` |  |
+| Dumbbell Walking Lunge | version | `walking_lunge__dumbbell__one_side` |  |
+| Fire Hydrant | movement | `fire_hydrant__bodyweight__one_side` |  |
+| Frog Pump | movement | `frog_pump__bodyweight` |  |
+| Frog Squat | movement | `frog_squat__bodyweight` |  |
+| Front Squat | version | `front_squat__barbell` |  |
+| Front-Foot-Elevated Split Squat | movement | `front_foot_elevated_split_squat__dumbbell__one_side` |  |
+| Glute Bridge | version | `glute_bridge__bodyweight` |  |
+| Glute Ham Developer Hip Extension | movement | `ghd_hip_extension__ghd` |  |
+| Glute Kickback Machine | version | `glute_kickback__machine__one_side` |  |
+| Glute-Ham Raise | movement | `glute_ham_raise__ghd` |  |
+| Goblet Box Squat | movement | `goblet_box_squat__kettlebell` | goblet (one weight held at the chest) is its own movement, as Goblet Squat is: the load means something different from a weight in each hand |
+| Goblet Bulgarian Split Squat | movement | `goblet_bulgarian_split_squat__dumbbell__one_side` | goblet (one weight held at the chest) is its own movement, as Goblet Squat is: the load means something different from a weight in each hand |
+| Goblet Lateral Lunge | movement | `goblet_lateral_lunge__kettlebell__one_side` | goblet (one weight held at the chest) is its own movement, as Goblet Squat is: the load means something different from a weight in each hand |
+| Goblet Reverse Lunge | version | `goblet_reverse_lunge__dumbbell__one_side` | goblet (one weight held at the chest) is its own movement, as Goblet Squat is: the load means something different from a weight in each hand |
+| Goblet Split Squat | movement | `goblet_split_squat__dumbbell__one_side` | goblet (one weight held at the chest) is its own movement, as Goblet Squat is: the load means something different from a weight in each hand |
+| Goblet Squat | version | `goblet_squat__dumbbell` |  |
+| Goblet Step-Up | movement | `goblet_step_up__dumbbell__one_side` | goblet (one weight held at the chest) is its own movement, as Goblet Squat is: the load means something different from a weight in each hand |
+| Good Morning | version | `good_morning__barbell` |  |
+| Hack Squat | movement | `hack_squat__plate_loaded_machine` | the machine hack squat |
+| Hack Squat Calf Raise | movement | `hack_squat_calf_raise__plate_loaded_machine` |  |
+| Hammer Strength Leg Press | version | `leg_press__plate_loaded_machine` | merged: Hammer Strength: merged into the plate-loaded version (collision leg_press__plate_loaded_machine) |
+| Heel-Elevated Goblet Squat | version | `goblet_squat__dumbbell` | merged: heel wedge does not change the numbers much: merged into the dumbbell version |
+| High-Handle Trap Bar Deadlift | movement | `high_handle_trap_bar_deadlift__trap_bar` | own movement: the high handles shorten the pull, so the numbers differ from the trap bar version |
+| Hindu Squat | movement | `hindu_squat__bodyweight` |  |
+| Hip Abduction Machine | version | `hip_abduction__machine` |  |
+| Hip Adduction Machine | version | `hip_adduction__machine` |  |
+| Hip Thrust | version | `hip_thrust__barbell` |  |
+| Hip Thrust Machine | version | `hip_thrust__plate_loaded_machine` | plate-loaded version |
+| Horizontal Leg Press | version | `leg_press__machine` | the selectorized machine version |
+| Jefferson Deadlift | movement | `jefferson_deadlift__barbell` |  |
+| Kettlebell Bulgarian Split Squat | version | `bulgarian_split_squat__kettlebell__one_side` |  |
+| Kettlebell Cossack Squat | version | `cossack_squat__kettlebell__one_side` |  |
+| Kettlebell Deadlift | version | `deadlift__kettlebell` |  |
+| Kettlebell Goblet Reverse Lunge | version | `goblet_reverse_lunge__kettlebell__one_side` |  |
+| Kettlebell Goblet Squat | version | `goblet_squat__kettlebell` |  |
+| Kettlebell Lunge | version | `lunge__kettlebell__one_side` |  |
+| Kettlebell Reverse Lunge | version | `reverse_lunge__kettlebell__one_side` |  |
+| Kettlebell Single-Leg Deadlift | version | `romanian_deadlift__kettlebell__one_side` | a single-leg kettlebell deadlift is the one-leg kettlebell RDL |
+| Kettlebell Sumo Deadlift | version | `sumo_deadlift__kettlebell` |  |
+| Kettlebell Sumo Squat | version | `sumo_squat__kettlebell` |  |
+| Kettlebell Swing to Squat | movement | `swing_to_squat__kettlebell` |  |
+| Kettlebell Walking Lunge | version | `walking_lunge__kettlebell__one_side` |  |
+| Kneeling Leg Curl | movement | `kneeling_leg_curl__machine` | kneeling machine: own position, own movement |
+| Landmine Hip Thrust | version | `hip_thrust__landmine` |  |
+| Landmine Reverse Lunge | version | `reverse_lunge__landmine__one_side` |  |
+| Landmine Romanian Deadlift | version | `romanian_deadlift__landmine` |  |
+| Landmine Squat | version | `squat__landmine` |  |
+| Landmine Squat to Press | version | `squat_to_press__landmine` |  |
+| Lateral Lunge | version | `lateral_lunge__bodyweight__one_side` |  |
+| Lateral Step-Up | movement | `lateral_step_up__dumbbell__one_side` |  |
+| Leg Extension | version | `leg_extension__machine` |  |
+| Leg Extension (Plate-Loaded) | version | `leg_extension__plate_loaded_machine` |  |
+| Leg Press | version | `leg_press__plate_loaded_machine` |  |
+| Leg Press Calf Raise | movement | `leg_press_calf_raise__plate_loaded_machine` | own movement: the leg press changes the numbers |
+| Low-Bar Back Squat | movement | `low_bar_back_squat__barbell` | own movement: the bar position changes the numbers |
+| Lunge | version | `lunge__bodyweight__one_side` | Lunge, Walking Lunge, Reverse Lunge and Split Squat are four movements, as the user's notes list them |
+| Lying Leg Curl | version | `lying_leg_curl__machine` | seated vs lying changes the numbers: own movements (user, 2026-10-25) |
+| Lying Leg Curl (Plate-Loaded) | version | `lying_leg_curl__plate_loaded_machine` |  |
+| Multi-Hip Machine | movement | `multi_hip__machine` |  |
+| Nordic Hamstring Curl | movement | `nordic_hamstring_curl__bodyweight` |  |
+| Pause Deadlift | dropped |  | pause (MVP extra) |
+| Pause Squat | dropped |  | pause (MVP extra) |
+| Pendulum Squat | movement | `pendulum_squat__plate_loaded_machine` |  |
+| Pin Squat | dropped |  | partial range (MVP extra) |
+| Pistol Squat | version | `pistol_squat__bodyweight__one_side` |  |
+| Psoas March (Band) | movement | `psoas_march__band` |  |
+| Reverse Hack Squat | movement | `reverse_hack_squat__plate_loaded_machine` |  |
+| Reverse Hyperextension | movement | `reverse_hyperextension__machine` |  |
+| Reverse Lunge | version | `reverse_lunge__bodyweight__one_side` |  |
+| Reverse Nordic | movement | `reverse_nordic__bodyweight` |  |
+| Romanian Deadlift | version | `romanian_deadlift__barbell` |  |
+| Safety Bar Good Morning | version | `good_morning__safety_squat_bar` | safety squat bar version |
+| Safety Bar Squat | version | `squat__safety_squat_bar` | safety squat bar version |
+| Seated Band Abduction | version | `hip_abduction__band` | band version of Hip Abduction (seated, like the machine) |
+| Seated Calf Raise | version | `seated_calf_raise__plate_loaded_machine` |  |
+| Seated Dumbbell Calf Raise | version | `seated_calf_raise__dumbbell` |  |
+| Seated Leg Curl | movement | `seated_leg_curl__machine` |  |
+| Shrimp Squat | movement | `shrimp_squat__bodyweight__one_side` |  |
+| Side-Lying Leg Raise | movement | `side_lying_leg_raise__bodyweight__one_side` |  |
+| Single-Leg Box Squat | version | `box_squat__bodyweight__one_side` | one-leg bodyweight version of Box Squat |
+| Single-Leg Calf Raise | version | `standing_calf_raise__bodyweight__one_side` | one-leg bodyweight version |
+| Single-Leg Extension | version | `leg_extension__machine__one_side` | one-leg machine version |
+| Single-Leg Glute Bridge | version | `glute_bridge__bodyweight__one_side` |  |
+| Single-Leg Hip Thrust | version | `hip_thrust__bodyweight__one_side` |  |
+| Single-Leg Leg Press | version | `leg_press__plate_loaded_machine__one_side` |  |
+| Single-Leg Romanian Deadlift | version | `romanian_deadlift__dumbbell__one_side` | one-leg dumbbell version of RDL |
+| Sissy Squat | movement | `sissy_squat__bodyweight` |  |
+| Sled Lunge | movement | `sled_lunge__sled__one_side` | own movement: logged as weight × distance, unlike every lunge |
+| Slider Hamstring Curl | version | `hamstring_curl__bodyweight` | sliders are where the body works: bodyweight version |
+| Smith Machine Bulgarian Split Squat | version | `bulgarian_split_squat__smith_machine__one_side` |  |
+| Smith Machine Calf Raise | version | `standing_calf_raise__smith_machine` |  |
+| Smith Machine Deadlift | version | `deadlift__smith_machine` |  |
+| Smith Machine Front Squat | version | `front_squat__smith_machine` |  |
+| Smith Machine Glute Kickback | version | `glute_kickback__smith_machine` |  |
+| Smith Machine Good Morning | version | `good_morning__smith_machine` |  |
+| Smith Machine Hip Thrust | version | `hip_thrust__smith_machine` |  |
+| Smith Machine Leg Press | version | `leg_press__smith_machine` | Smith version (the user's notes) |
+| Smith Machine Lunge | version | `lunge__smith_machine__one_side` |  |
+| Smith Machine Reverse Lunge | version | `reverse_lunge__smith_machine__one_side` |  |
+| Smith Machine Romanian Deadlift | version | `romanian_deadlift__smith_machine` |  |
+| Smith Machine Split Squat | version | `split_squat__smith_machine__one_side` |  |
+| Smith Machine Squat | version | `squat__smith_machine` | Smith version |
+| Snatch-Grip Deadlift | movement | `snatch_grip_deadlift__barbell` | own movement: no wide grip key, and the snatch grip changes the pull |
+| Spanish Squat | movement | `spanish_squat__band` |  |
+| Split Squat | version | `split_squat__bodyweight__one_side` |  |
+| Stability Ball Hamstring Curl | version | `hamstring_curl__stability_ball` | the floor curls (ball, straps, sliders) are one movement, apart from the machine curls |
+| Standing Calf Raise | version | `standing_calf_raise__machine` | seated vs standing changes the numbers: own movements (user, 2026-10-25) |
+| Standing Hip Abduction Machine | movement | `standing_hip_abduction__machine` | standing vs seated changes the numbers: own movement |
+| Standing Single-Leg Curl | version | `standing_leg_curl__machine__one_side` | standing is a third position: own movement |
+| Step-Down (Heel Tap) | movement | `step_down__bodyweight__one_side` |  |
+| Step-Up | version | `step_up__bodyweight__one_side` |  |
+| Stiff-Leg Deadlift | version | `stiff_leg_deadlift__barbell` |  |
+| Sumo Deadlift | version | `sumo_deadlift__barbell` |  |
+| Sumo Squat | version | `sumo_squat__dumbbell` |  |
+| Suspension Hamstring Curl | version | `hamstring_curl__suspension_trainer` |  |
+| Tib Bar Raise | version | `tibialis_raise__tib_bar` | tib bar version of Tibialis Raise; new equipment key tib_bar (user, 2026-10-25) |
+| Tibialis Raise | version | `tibialis_raise__bodyweight` |  |
+| Trap Bar Deadlift | version | `deadlift__trap_bar` | trap bar version of Deadlift |
+| Turkish Get-Up | movement | `turkish_get_up__kettlebell__one_side` |  |
+| V-Squat | movement | `v_squat__plate_loaded_machine` |  |
+| Vertical Leg Press | movement | `vertical_leg_press__plate_loaded_machine` | own movement: the same plate-loaded equipment as Leg Press but different numbers, so it cannot be a version |
+| Walking Lunge | version | `walking_lunge__bodyweight__one_side` |  |
+| Wall Sit | movement | `wall_sit__bodyweight` |  |
+| Zercher Squat | movement | `zercher_squat__barbell` |  |
+
 ## Coverage check (free-exercise-db)
 
 Beyond the user's notes, each stage is checked against
@@ -415,6 +620,18 @@ Row suspension), 8 are in the research for a later stage (Deadlift, Good Morning
 Sled Row, the neck resistance work), 4 are MVP extras (bands, chains, deficit). **Added: 0. Skipped as niche: 8:** Gironda Sternum Chins; London Bridges;
 Middle Back Shrug; Mixed Grip Chin; Rocky Pull-Ups/Pulldowns; Side To Side Chins;
 Weighted Ball Hyperextension; Wide-Grip Rear Pull-Up.
+
+**Stage 3** (quadriceps, hamstrings, glutes, calves, adductors, abductors): 139
+reference entries. 75 match by name, 18 are covered under another name ("Thigh
+Abductor" = Hip Abduction, "Natural Glute Ham Raise" = Nordic Hamstring Curl, "Calf
+Press On The Leg Press Machine" = Leg Press Calf Raise), 17 are in the research for a
+later stage (the cleans and jerks, Jump Squat, kettlebell swings, Flutter Kick), 13
+are MVP extras (chains, bands, speed work, stance, pins, an elevated lunge). **Added:
+0. Skipped as niche: 16:** Balance Board; Downward Facing Balance; Hip Extension with
+Bands; Jefferson Squats; Kneeling Squat; Lunge Pass Through; Lunge Sprint; One-Arm
+Overhead Kettlebell Squats; One-Arm Side Deadlift; Physioball Hip Bridge; Prone Manual
+Hamstring; Rocking Standing Calf Raise; Squat with Plate Movers; Suspended Split
+Squat; Weighted Sissy Squat; Weighted Squat.
 
 ## Added (no research entry)
 

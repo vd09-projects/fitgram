@@ -125,6 +125,7 @@ export const EQUIPMENT = {
   added_weight: "added weight",
   gripper: "gripper",
   wrist_roller: "wrist roller",
+  tib_bar: "tib bar",
 } as const;
 export type EquipmentId = keyof typeof EQUIPMENT;
 
