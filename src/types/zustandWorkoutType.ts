@@ -28,6 +28,12 @@ export interface ExerciseSet {
 export interface LoggedExercise {
   id: string;
   name: string;
+  /**
+   * The plan's `Exercise.nameSnapshot` (TICKET-042), so a workout still names
+   * its exercises when an id is missing from the catalog; the session doc keeps
+   * it as `ExerciseSessionDoc.exerciseName`. Nothing copies it yet: stage 2.
+   */
+  nameSnapshot?: string;
   /** Carried from the plan's `Exercise.fields`, roles included. */
   fields: ExerciseField[];
   sets: ExerciseSet[];
