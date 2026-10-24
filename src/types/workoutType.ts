@@ -1,5 +1,9 @@
 // src/types/workoutType.ts
 
+// Units, and all that is known about each, live in one table: constants/units.ts.
+import type { FieldUnit } from "../constants/units";
+export type { FieldUnit };
+
 /**
  * What a logged field *means*, declared once when the exercise is defined.
  *
@@ -9,12 +13,6 @@
  * best, deltas — reads the role, never the name.
  */
 export type FieldRole = "weight" | "reps" | "time" | "distance" | "other";
-
-/**
- * Unit of a numeric field. Used for comparability, not conversion: two sessions
- * are comparable only when the unit matches exactly (see `areFieldsComparable`).
- */
-export type FieldUnit = "kg" | "lb" | "s" | "min" | "m" | "km";
 
 export interface ExerciseField {
   /**

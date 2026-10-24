@@ -26,6 +26,10 @@ const NO_UNIT: ExerciseField[] = [
   { name: "Reps", role: "reps" },
 ];
 const PLANK: ExerciseField[] = [{ name: "Time", role: "other" }];
+const PLATES: ExerciseField[] = [
+  { name: "Weight", role: "weight", unit: "plates" },
+  { name: "Reps", role: "reps" },
+];
 
 const set = (weight: string, reps: string) => ({ Weight: weight, Reps: reps });
 
@@ -37,8 +41,7 @@ describe("computeSessionTotalVolume", () => {
       { fields: KG, sets: [set("20", "10")] },
     ]);
     expect(volume).toEqual({
-      value: 60 * 8 * 2 + 20 * 10,
-      unit: "kg",
+      totals: [{ unit: "kg", value: 60 * 8 * 2 + 20 * 10 }],
       unavailableReason: null,
       exercisesCounted: 2,
       exercisesWeighted: 2,
@@ -51,32 +54,39 @@ describe("computeSessionTotalVolume", () => {
       { fields: KG, sets: [set("60", "8")] },
       { fields: KG, sets: [set("20", "")] },
     ]);
-    expect(volume.value).toBeNull();
+    expect(volume.totals).toEqual([]);
     expect(volume.unavailableReason).toBe("unparseable");
     expect(volume.exercisesCounted).toBe(1);
   });
 
-  it.each([
-    ["kg and lb", LB],
-    ["kg and no unit", NO_UNIT],
-  ])("is null for mixed units: %s", (_label, otherFields) => {
+  it("keeps one total per unit, never converted, in exercise order", () => {
     const volume = computeSessionTotalVolume([
+      { fields: PLATES, sets: [set("5", "12")] },
       { fields: KG, sets: [set("60", "8")] },
-      { fields: otherFields, sets: [set("20", "10")] },
+      { fields: LB, sets: [set("20", "10")] },
+      { fields: NO_UNIT, sets: [set("10", "10")] },
+      { fields: KG, sets: [set("20", "10")] },
     ]);
-    expect(volume.value).toBeNull();
-    expect(volume.unavailableReason).toBe("mixed_units");
+    expect(volume.totals).toEqual([
+      { unit: "plates", value: 60 },
+      { unit: "kg", value: 680 },
+      { unit: "lb", value: 200 },
+      { unit: null, value: 100 },
+    ]);
+    expect(volume.unavailableReason).toBeNull();
   });
 
   it("is written onto the session doc by buildSessionDocs", () => {
     const workout = buildWorkout(["Bench Press"]);
     workout.exercises[0].sets = [{ id: 1, fields: set("60", "8") }];
-    expect(buildSessionDocs(workout, workout.startTime + 1).session.volume?.value).toBe(480);
+    expect(buildSessionDocs(workout, workout.startTime + 1).session.volume?.totals).toEqual([
+      { unit: "kg", value: 480 },
+    ]);
   });
 
   it("reports no_weighted_exercises when every exercise lacks a weight+reps pair", () => {
     const volume = computeSessionTotalVolume([{ fields: PLANK, sets: [{ Time: "60" }] }]);
-    expect(volume.value).toBeNull();
+    expect(volume.totals).toEqual([]);
     expect(volume.unavailableReason).toBe("no_weighted_exercises");
   });
 });
@@ -100,8 +110,7 @@ describe("buildPlanRows", () => {
     exerciseIds: [],
     rollupPending: false,
     volume: {
-      value,
-      unit: "kg",
+      totals: value === null ? [] : [{ unit: "kg", value }],
       unavailableReason: value === null ? "unparseable" : null,
       exercisesCounted: 1,
       exercisesWeighted: 1,
@@ -130,7 +139,7 @@ describe("buildPlanRows", () => {
       "me",
       ""
     );
-    expect(rows.map((r) => [r.id, r.exerciseCount, r.lastDoneAt, r.volume?.value ?? null])).toEqual([
+    expect(rows.map((r) => [r.id, r.exerciseCount, r.lastDoneAt, r.volume?.totals[0]?.value ?? null])).toEqual([
       ["push", 2, 300, 2000],
       ["pull", 1, 200, 1000],
       ["legs", 1, null, null],
@@ -146,7 +155,7 @@ describe("buildPlanRows", () => {
       ""
     );
     expect(rows[0]).toMatchObject({ lastDoneAt: 500, lastDoneSource: "pending" });
-    expect(rows[0].volume?.value).toBe(50 * 10);
+    expect(rows[0].volume?.totals).toEqual([{ unit: "kg", value: 50 * 10 }]);
     expect(rows[1]).toMatchObject({ lastDoneAt: 100, lastDoneSource: "uploaded" });
   });
 
@@ -225,13 +234,15 @@ describe("formatVolume", () => {
     expect(text(volume([{ fields: KG, sets: [set("1000", "5")] }, { fields: PLANK, sets: [{ Time: "60" }] }]))).toBe(
       "5,000 kg · 1 not weighted"
     );
-    expect(text(volume([{ fields: KG, sets: [set("60", "8")] }, { fields: LB, sets: [set("20", "10")] }]))).toBe(
-      "volume n/a · mixed units"
+    expect(text(volume([{ fields: KG, sets: [set("60", "8")] }, { fields: PLATES, sets: [set("5", "23")] }]))).toBe(
+      "480 kg · 115 plates"
     );
     expect(text(volume([{ fields: KG, sets: [set("60", "8")] }, { fields: KG, sets: [set("", "10")] }]))).toBe(
       "volume n/a · 1 of 2 lifts readable"
     );
     expect(text(null)).toBe("volume not recorded");
+    // Stored before TICKET-044, as a single value and unit.
+    expect(text({ value: 480, unit: "kg" } as unknown as ReturnType<typeof volume>)).toBe("volume not recorded");
     expect(text(null, false)).toBe("");
   });
 });

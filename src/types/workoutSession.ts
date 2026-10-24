@@ -42,26 +42,34 @@ export const EFFORTS: readonly Effort[] = [Effort.Easy, Effort.Hard];
 /** One logged set's values, keyed by `ExerciseField.name`. */
 export type StoredSetFields = Record<string, string | number>;
 
-/** Why a session total is null. See `computeSessionTotalVolume`. */
-export type SessionVolumeUnavailableReason =
-  | "unparseable"
-  | "mixed_units"
-  | "no_weighted_exercises";
+/** Why a session has no totals. See `computeSessionTotalVolume`. */
+export type SessionVolumeUnavailableReason = "unparseable" | "no_weighted_exercises";
+
+/** One weight unit's share of a session's volume. */
+export type UnitVolume = {
+  /** null means the weight field has no unit. */
+  unit: string | null;
+  value: number;
+};
 
 /**
  * A whole session's volume, stored at write time (TICKET-022). Stored rather
  * than aggregated on read because the alternative is one exercise read per plan
  * on the Start screen; stored now because the app is pre-launch and adding it
  * after launch means migrating every session.
+ *
+ * One total per weight unit (TICKET-044): kg exercises sum with kg, plates with
+ * plates, and nothing is converted. Replaced a single `value` + `unit` that
+ * went null whenever two units met, which with plates meant most plans.
+ * Pre-launch, so sessions stored in the old shape are not migrated; readers
+ * show them as "volume not recorded".
  */
 export type SessionTotalVolume = {
-  /** Sum of every weighted exercise's volume, or null with `unavailableReason`. */
-  value: number | null;
   /**
-   * The unit every weighted exercise shared. Only meaningful when `value` is
-   * non-null, and then null means "unspecified on every exercise", not unknown.
+   * One entry per weight unit, in the order the units first appear in the
+   * session. Empty when `unavailableReason` is set.
    */
-  unit: string | null;
+  totals: UnitVolume[];
   unavailableReason: SessionVolumeUnavailableReason | null;
   /** Weighted exercises whose volume was summed. */
   exercisesCounted: number;

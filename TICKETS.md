@@ -43,7 +43,6 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
 | 042 | Exercise catalog: movements with versions, loaded into the app | Large | Movement first; history stays per version. 349 entries not weight × reps; **assisted** must not use role `weight` |
 | 043 | Find an exercise: search by muscle, typos, movement-first picker | Large | Ports the prototype and its 91 cases; "Latpulldown", "squad", "bech press" return 0 today |
-| 044 | Plates as a weight unit | Small | Needs only 041 boards C1–C2. Machine settings, per-side and tags dropped or superseded |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap |
 | 046 | Build the real catalog: movements and versions | Large | Research catalog is reference only. Grip is a version; shown by movement |
 | 047 | Switch an exercise's version mid-workout | Medium | Deferred 2026-10-24. For this workout only; the plan keeps its version |
@@ -1595,16 +1594,15 @@ resume banner.
   computed in `buildSessionDocs`. Aggregating exercise stats on read would cost
   one read per exercise per plan; adding the field after launch would mean migrating
   every session. Pre-launch, it is free
-- **Mixed units null the total** (`unavailableReason: "mixed_units"`). "kg" next to
-  no unit counts as mixed, matching `areFieldsComparable`. Rejected: per-unit totals
-  (`{ kg, lb }`), which are more to store and render for a case the precedent
-  already answers with null
+- ~~**Mixed units null the total**~~ **Superseded by TICKET-044 (user, 2026-10-24):**
+  one total per weight unit (`SessionTotalVolume.totals`), "1,955 kg · 115 plates".
+  Once plates existed, nulling any mix hid the volume of most plans
 - **An exercise with no weight+reps pair is excluded, not treated as a failure.** Under
   strict all-or-nothing, any plan with a plank would never show a volume. Counted
   in `exercisesTotal` and not in `exercisesWeighted`, and the row shows "1 not weighted"
 - **One unparseable lift nulls the total** (`"unparseable"`), with counts alongside
   ("2 of 3 lifts readable"). Precedence when several apply: no weighted lifts,
-  then unparseable, then mixed units
+  then unparseable
 - **last done** = the newest session of the plan, from one recent-sessions query
   (20) plus this user's pending uploads. Joined on `workoutId` and compared on
   start time on both sides. On a tie the uploaded copy wins. The volume always
@@ -2754,9 +2752,10 @@ chosen by the user 2026-10-24). A full screen opened by Add exercise, not a drop
 
 ---
 
-### TICKET-044: Logging Details — Plates as a Weight Unit
+### ~~TICKET-044: Logging Details — Plates as a Weight Unit~~ ✅ DONE
 
-**Priority:** Medium | **Effort:** Small | **Status: OPEN**
+**Priority:** Medium | **Effort:** Small | **Status: DONE** — merged in PR #19;
+full device test plan (PR #19) reported working 2026-10-24
 
 **Description:**
 Plates as a weight unit, for machines whose real weight is unknown. This ticket once
@@ -2790,7 +2789,7 @@ session should read as `unit_changed`, exactly like kg vs lb today, without new
 logic. Verify with a test rather than assume it.
 
 **Acceptance Criteria:**
-- [ ] **Stage 1, plates** (needs only TICKET-041 boards C1–C2; can land first):
+- [x] **Stage 1, plates** (needs only TICKET-041 boards C1–C2; can land first):
       - `FieldUnit` gains `"plates"`; the weight unit picker offers kg, lb, plates
       - `stepSizeFor` (`setLogger.ts`) returns 1 for plates (one plate or one pin).
         Today a unit it does not know gives no stepper
@@ -2864,6 +2863,41 @@ version, a session never compares across grips, so none of this is built. Boards
 - Each session stores the tags it was logged with (a copy of the plan's), which is
   what the pill, the line and the sheet read. Untagged sessions show nothing
 - Dropped (MVP): machine settings (C3, C3b) and per-side reps (C4); see Description
+
+**Implementation, stage 1 (2026-10-24):**
+- **Load-bearing fact verified by test, true.** `src/utils/plates.test.ts` runs a kg
+  session then a plates one through the hook derivation: ghost target, set delta,
+  volume comparison and Start Workout's top set all read unit-changed, and bests in
+  plates and kg never touch, with no new comparison logic. Each test seen red by
+  breaking `areFieldsComparable` / the unit in `bestKey` and the best filter
+- **One unit table** (review, 2026-10-24): `src/constants/units.ts` holds every unit
+  with its role, stepper step, singular word and chip hint. `FieldUnit`, the Manage
+  Workout chips, `stepSizeFor`, `unitLabel` and the hint all read it, so a new unit
+  is one entry. Its keys are stored values and must never be renamed
+- **One plural rule:** `unitLabel` / `withUnit` in `exerciseFields.ts`. Every place
+  a unit follows a number goes through it: `setValuesText`, `weightChange`,
+  `volumeText`, `personalBestText`, Start Workout's volume and top set, the history
+  sheet's best card and trend. Singular is exactly "1"; 0.5 reads "plates"
+- **Notice numbers:** "Last time was in kg (40 kg × 12)" uses last session's set at
+  the *same set number*, as the Last time pill does, parsed in that session's own
+  fields. When last time stopped earlier the numbers drop: "Last time was in kg, so
+  no targets". No unit or no weight+reps pair last time keeps the old generic line
+- **Caption (board C2 after kg):** the Today list's line now names the unit too,
+  "Last time was in kg, so no comparison" (was "a different unit")
+- **Unit hint (board C1):** shown only while plates is the selected unit. The board
+  shows only that state; on every kg field the line would be noise
+- **Bar weight:** nothing adds one. Grepped: no code adds to a typed weight
+- **Session volume is one total per unit** (user, 2026-10-24, PR #19 review). A
+  plan mixing kg and plates showed "volume n/a · mixed units" on its Start Workout
+  row, which with plates would be most plans. Now `SessionTotalVolume.totals` holds
+  one `{ unit, value }` per weight unit, in exercise order, and the row reads
+  "1,955 kg · 115 plates". Same for kg + lb, and for a unitless weight (a bare
+  number). Nothing is converted: the app never assumes what a plate weighs. This
+  changes the stored session doc; pre-launch, so not migrated, and a session in the
+  old single-total shape reads "volume not recorded". Supersedes TICKET-022's
+  "mixed units null the total"
+- Not done: the guided tour's optional copy update; the TEMPORARY history debug
+  screen prints `40kg`-style values and was left as is
 
 **Technical Notes:**
 - Nothing here changes `ExerciseSet` or the session entry any more (stage 2 is
@@ -3179,9 +3213,19 @@ a mark that failed to store is not shown; tap-again clears on the Today strip to
 
 Finished tickets have been removed — they are not blockers for anything.
 
-**The next three are decided.** They come first because they are what makes logging
-an exercise match what people actually do, and because 033 changes a stored
-shape: pre-launch is the cheap moment for that.
+**The exercise catalog track goes first** (user's decision, 2026-10-24): 044 → 042 →
+046 → 043, in that order, before 033 / 032 / 029 below. 044 is done (PR #19). Phase 3B; research is in
+`research/exercise-catalog/` (git-ignored, local only).
+
+```
+1. TICKET-042  (Catalog, movement first)   — Decisions first; before or with TICKET-030
+2. TICKET-046  (Real catalog content)      — Research is reference only; grip is a version
+3. TICKET-043  (Search + picker)           — After 042; picker built from 041 boards A
+```
+
+**Then the next three, decided.** They are what makes logging an exercise match what
+people actually do, and 033 changes a stored shape: pre-launch is the cheap moment
+for that.
 
 ```
 1. TICKET-033  (Drop sets)                 — A weight change within one set
@@ -3210,12 +3254,6 @@ Correctness and guards
   TICKET-002  (Remove `any` types)       — ~12 left across 8 files
   TICKET-031  (Palette contrast guards)  — Extends the colors.test.ts pattern
   TICKET-037  (Same-day session chips)   — Two identical chips in the sheet
-
-Exercise catalog (Phase 3B), in this order; research is in research/exercise-catalog/ (git-ignored, local only)
-  TICKET-044  (stage 1: plates unit)     — Small; needs only boards C1–C2 from 041
-  TICKET-042  (Catalog, movement first)  — Decisions first; before or with TICKET-030
-  TICKET-046  (Real catalog content)     — Research is reference only; grip is a version
-  TICKET-043  (Search + picker)          — After 042; picker built from 041 boards A
 
 Decisions before code
   TICKET-035  (Time/distance measures)   — "Which way is better" is a product call

@@ -8,26 +8,31 @@
 
 import { ExerciseHistory, HistorySet } from "../types/exerciseHistory";
 import { ExerciseField } from "../types/workoutType";
-import { NumericFieldMap, parseNumericValue } from "./exerciseFields";
+import { unitSpec } from "../constants/units";
+import {
+  NumericFieldMap,
+  parseNumericValue,
+  parseSet,
+  resolveNumericFields,
+  withUnit,
+} from "./exerciseFields";
 
 /**
  * Stepper increment for a field, by declared role — never by name.
  *
- * - weight: one plate pair's worth. 2.5 kg (two 1.25 kg plates) or 5 lb (two
- *   2.5 lb plates), so a tap moves to the next loadable bar weight.
  * - reps: 1.
+ * - a field with a unit: that unit's `step` in `constants/units.ts` (2.5 kg,
+ *   5 lb, 1 plate; none for time and distance), when the unit belongs to the
+ *   field's role.
  * - anything else, and a weight field with no unit: `null`, meaning no stepper.
  *   A unitless weight could be either scale, and 2.5 is a different jump on
- *   each; time/distance/other have no natural increment. Rejected: a default of
- *   1 for all of them, which is a guessed step dressed as a real one.
+ *   each. Rejected: a default of 1 for all of them, which is a guessed step
+ *   dressed as a real one.
  */
 export function stepSizeFor(field: ExerciseField): number | null {
   if (field.role === "reps") return 1;
-  if (field.role === "weight") {
-    if (field.unit === "kg") return 2.5;
-    if (field.unit === "lb") return 5;
-  }
-  return null;
+  const spec = unitSpec(field.unit);
+  return spec && spec.role === field.role ? spec.step : null;
 }
 
 /**
@@ -84,7 +89,12 @@ export function stepFieldValue(
  * - `firstTime` — fetched, and this exercise has never been done.
  * - `noComparison` — no weight+reps pair (a plank), so no numbers to target.
  * - `unitChanged` — last session used another weight unit. Units are never
- *   converted, so its numbers are not shown as targets.
+ *   converted, so its numbers are not shown as targets. It carries last time's
+ *   unit and its set at this number, parsed in that session's own fields, so
+ *   the notice can say "Last time was in kg (40 kg × 12)" (TICKET-044).
+ *   `lastUnit` is null when last time had no unit or no weight+reps pair;
+ *   `lastSet` is null when that session stopped earlier or the set did not
+ *   parse. Either null drops the detail, never shows a guessed number.
  * - `setNotReached` — last session stopped before this set number.
  * - `available` — `set` is last session's set at this number.
  *
@@ -98,7 +108,11 @@ export type GhostTarget =
   | { kind: "notLoaded" }
   | { kind: "firstTime" }
   | { kind: "noComparison" }
-  | { kind: "unitChanged" }
+  | {
+      kind: "unitChanged";
+      lastUnit: string | null;
+      lastSet: { weight: number; reps: number } | null;
+    }
   | { kind: "setNotReached"; lastSessionSetCount: number }
   | { kind: "available"; set: HistorySet };
 
@@ -112,7 +126,17 @@ export function resolveGhostTarget(
   if (history.status !== "ready") return { kind: "notLoaded" };
   if (!history.hasHistory || !history.lastSession) return { kind: "firstTime" };
   if (!history.numericComparisonAvailable) return { kind: "noComparison" };
-  if (!history.lastSession.comparable) return { kind: "unitChanged" };
+  if (!history.lastSession.comparable) {
+    // `HistorySet.weight` is null on an incomparable session by design, so the
+    // numbers are parsed here from the session's own fields, for the notice only.
+    const own = resolveNumericFields(history.lastSession.fields);
+    const { weight, reps } = parseSet(history.lastSession.sets[setNumber - 1]?.fields, own);
+    return {
+      kind: "unitChanged",
+      lastUnit: own?.weight.unit ?? null,
+      lastSet: weight !== null && reps !== null ? { weight, reps } : null,
+    };
+  }
 
   const set = history.setAt(setNumber);
   if (!set) {
@@ -303,8 +327,15 @@ export function ghostNotice(
       return "First time on this exercise";
     case "noComparison":
       return "No weight and reps to target";
-    case "unitChanged":
-      return "Last time used a different unit, so no targets";
+    case "unitChanged": {
+      if (!target.lastUnit) return "Last time used a different unit, so no targets";
+      const numbers = target.lastSet
+        ? ` (${withUnit(formatStepValue(target.lastSet.weight), target.lastUnit)} × ${formatStepValue(
+            target.lastSet.reps
+          )})`
+        : "";
+      return `Last time was in ${target.lastUnit}${numbers}, so no targets`;
+    }
     case "setNotReached":
       return `Last time stopped at ${target.lastSessionSetCount} ${
         target.lastSessionSetCount === 1 ? "set" : "sets"

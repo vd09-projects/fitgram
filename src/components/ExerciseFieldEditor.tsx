@@ -12,7 +12,8 @@ import { EDITABLE_LIST_STEP_NAMES } from '../tour_steps/commonStepNames';
 import { makeStepId } from '../tour_steps/utils';
 import { MANAGE_WOURKOUT_STEP_NAMES } from '../tour_steps/manageWorkout';
 import { PositionType } from './guide_tour/TourGuideProvider';
-import { ExerciseField, FieldRole, FieldUnit } from '../types/workoutType';
+import { ExerciseField, FieldRole } from '../types/workoutType';
+import { unitSpec, unitsForRole } from '../constants/units';
 
 /**
  * Replaces the old string-list field editor. A field now carries a declared
@@ -29,13 +30,6 @@ const ROLES: { role: FieldRole; label: string }[] = [
   { role: 'distance', label: 'Dist' },
   { role: 'other', label: 'Other' },
 ];
-
-/** Units offered per role. Roles not listed carry no unit. */
-const UNITS: Partial<Record<FieldRole, FieldUnit[]>> = {
-  weight: ['kg', 'lb'],
-  time: ['s', 'min'],
-  distance: ['m', 'km'],
-};
 
 interface ExerciseFieldEditorProps {
   title: string;
@@ -95,7 +89,7 @@ const ExerciseFieldEditor: React.FC<ExerciseFieldEditorProps> = ({
     const updated = [...items];
     const next: ExerciseField = { ...updated[index], ...patch };
     // A role change invalidates whatever unit was set for the old role.
-    if (patch.role && !UNITS[patch.role]) delete next.unit;
+    if (patch.role && unitsForRole(patch.role).length === 0) delete next.unit;
     updated[index] = next;
     onItemsChange(updated);
   };
@@ -122,7 +116,8 @@ const ExerciseFieldEditor: React.FC<ExerciseFieldEditorProps> = ({
         <>
           {items.map((field, index) => {
             const isDuplicate = errorMessage && field.name === newItem.trim();
-            const units = UNITS[field.role];
+            const units = unitsForRole(field.role);
+            const unitHint = unitSpec(field.unit)?.hint;
 
             return (
               <View key={index} style={styles.fieldBlock}>
@@ -168,7 +163,7 @@ const ExerciseFieldEditor: React.FC<ExerciseFieldEditorProps> = ({
                   })}
                 </View>
 
-                {units && (
+                {units.length > 0 && (
                   <View style={styles.chipRow}>
                     {units.map((unit) => {
                       const selected = field.unit === unit;
@@ -189,6 +184,12 @@ const ExerciseFieldEditor: React.FC<ExerciseFieldEditorProps> = ({
                     })}
                   </View>
                 )}
+
+                {/* TICKET-044 board C1: the selected unit's hint, only while it is
+                    selected (on every kg field a plates line would be noise).
+                    Rejected (C1b): switching the unit on the set card; a unit is
+                    changed here, on the plan. */}
+                {unitHint && <TextBase style={styles.unitHint}>{unitHint}</TextBase>}
               </View>
             );
           })}
@@ -294,6 +295,11 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   errorInput: {
     borderColor: t.colors.cancelButton,
     borderWidth: 1,
+  },
+  unitHint: {
+    fontSize: t.fonts.xMedium,
+    color: t.colors.inputSecondaryPlaceholder,
+    marginBottom: SPACING.small,
   },
   emptyHint: {
     fontSize: t.fonts.xMedium,
