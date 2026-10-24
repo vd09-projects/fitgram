@@ -466,8 +466,11 @@ export const LEGS: Movement[] = [
     ],
   },
   {
-    id: "hamstring_curl",
-    name: "Hamstring Curl",
+    // "Floor", not "Hamstring Curl" (PR #21 review): someone typing "hamstring
+    // curl" means the machine, and an exact name match would rank this first.
+    // Lying Leg Curl carries "hamstring curl" as an alias.
+    id: "floor_hamstring_curl",
+    name: "Floor Hamstring Curl",
     primaryMuscles: ["hamstrings"],
     secondaryMuscles: ["glutes"],
     category: "strength",
@@ -475,9 +478,9 @@ export const LEGS: Movement[] = [
     mechanic: "isolation",
     aliases: ["swiss ball leg curl"],
     versions: [
-      { id: "hamstring_curl__stability_ball", equipment: "stability_ball", unilateral: false, measure: "bodyweight_reps", fields: FIELDS.bodyweight_reps, aliases: ["stability ball hamstring curl"] },
-      { id: "hamstring_curl__suspension_trainer", equipment: "suspension_trainer", unilateral: false, measure: "bodyweight_reps", fields: FIELDS.bodyweight_reps, aliases: ["suspension hamstring curl"] },
-      { id: "hamstring_curl__bodyweight", equipment: "bodyweight", unilateral: false, measure: "bodyweight_reps", fields: FIELDS.bodyweight_reps, aliases: ["slider hamstring curl"] },
+      { id: "floor_hamstring_curl__stability_ball", equipment: "stability_ball", unilateral: false, measure: "bodyweight_reps", fields: FIELDS.bodyweight_reps, aliases: ["stability ball hamstring curl"] },
+      { id: "floor_hamstring_curl__suspension_trainer", equipment: "suspension_trainer", unilateral: false, measure: "bodyweight_reps", fields: FIELDS.bodyweight_reps, aliases: ["suspension hamstring curl"] },
+      { id: "floor_hamstring_curl__bodyweight", equipment: "bodyweight", unilateral: false, measure: "bodyweight_reps", fields: FIELDS.bodyweight_reps, aliases: ["slider hamstring curl"] },
     ],
   },
   {

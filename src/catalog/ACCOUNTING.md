@@ -557,7 +557,7 @@ muscle group of its own.
 | Single-Leg Romanian Deadlift | version | `romanian_deadlift__dumbbell__one_side` | one-leg dumbbell version of RDL |
 | Sissy Squat | movement | `sissy_squat__bodyweight` |  |
 | Sled Lunge | movement | `sled_lunge__sled__one_side` | own movement: logged as weight × distance, unlike every lunge |
-| Slider Hamstring Curl | version | `hamstring_curl__bodyweight` | sliders are where the body works: bodyweight version |
+| Slider Hamstring Curl | version | `floor_hamstring_curl__bodyweight` | sliders are where the body works: bodyweight version |
 | Smith Machine Bulgarian Split Squat | version | `bulgarian_split_squat__smith_machine__one_side` |  |
 | Smith Machine Calf Raise | version | `standing_calf_raise__smith_machine` |  |
 | Smith Machine Deadlift | version | `deadlift__smith_machine` |  |
@@ -574,7 +574,7 @@ muscle group of its own.
 | Snatch-Grip Deadlift | movement | `snatch_grip_deadlift__barbell` | own movement: no wide grip key, and the snatch grip changes the pull |
 | Spanish Squat | movement | `spanish_squat__band` |  |
 | Split Squat | version | `split_squat__bodyweight__one_side` |  |
-| Stability Ball Hamstring Curl | version | `hamstring_curl__stability_ball` | the floor curls (ball, straps, sliders) are one movement, apart from the machine curls |
+| Stability Ball Hamstring Curl | version | `floor_hamstring_curl__stability_ball` | the floor curls (ball, straps, sliders) are one movement, Floor Hamstring Curl, apart from the machine curls (named "Floor" in the PR #21 review: "hamstring curl" means the machine, an alias of Lying Leg Curl) |
 | Standing Calf Raise | version | `standing_calf_raise__machine` | seated vs standing changes the numbers: own movements (user, 2026-10-25) |
 | Standing Hip Abduction Machine | movement | `standing_hip_abduction__machine` | standing vs seated changes the numbers: own movement |
 | Standing Single-Leg Curl | version | `standing_leg_curl__machine__one_side` | standing is a third position: own movement |
@@ -583,7 +583,7 @@ muscle group of its own.
 | Stiff-Leg Deadlift | version | `stiff_leg_deadlift__barbell` |  |
 | Sumo Deadlift | version | `sumo_deadlift__barbell` |  |
 | Sumo Squat | version | `sumo_squat__dumbbell` |  |
-| Suspension Hamstring Curl | version | `hamstring_curl__suspension_trainer` |  |
+| Suspension Hamstring Curl | version | `floor_hamstring_curl__suspension_trainer` |  |
 | Tib Bar Raise | version | `tibialis_raise__tib_bar` | tib bar version of Tibialis Raise; new equipment key tib_bar (user, 2026-10-25) |
 | Tibialis Raise | version | `tibialis_raise__bodyweight` |  |
 | Trap Bar Deadlift | version | `deadlift__trap_bar` | trap bar version of Deadlift |

@@ -3304,7 +3304,10 @@ kind of miss a real pass catches.
     the user's notes list them; Sled Lunge is its own (weight × distance)
   - **leg curls by position** (user's rule): Lying (machine, plate-loaded,
     dumbbell, band), Seated, Standing (machine and cable, one leg), Kneeling; the
-    floor curls (ball, suspension, sliders) are one Hamstring Curl movement.
+    floor curls (ball, suspension, sliders) are one movement, ~~Hamstring Curl~~
+    **Floor Hamstring Curl** (`floor_hamstring_curl`; renamed in the PR #21 review,
+    2026-10-25, before any upload: "hamstring curl" means the machine, and an exact
+    name match would have ranked the ball curl above Lying Leg Curl).
     **Calf raises:** Standing (machine, Smith, barbell, dumbbell, bodyweight, one
     leg) vs Seated (machine, dumbbell); Leg Press, Hack Squat and Donkey calf
     raises are their own
@@ -3446,8 +3449,10 @@ mobility, stretching (2026-10-25).**
 - equipment keys added over the ticket: `added_weight`, `gripper`, `wrist_roller`,
   `tib_bar`, `farmers_handles`, `punching_bag`, `indian_club`; measure added:
   `short_distance`. None renamed
-- **Tests:** `src/catalog/catalog.test.ts` (44: loader, pin of 805 ids, ACCOUNTING.md
-  both ways, 36 notes rows plus their count, grip muscles, band weights) and the
+- **Tests:** `src/catalog/catalog.test.ts` (45: loader, pin of 805 ids, ACCOUNTING.md
+  both ways, 36 notes rows plus their count, grip muscles, band weights, and each
+  version's fields match its measure, added in the PR #21 review and seen red by
+  giving Plank weight × reps fields) and the
   one-side name rule in `utils/catalog.test.ts`
 
 **Size (measured 2026-10-25, user's request; also measured by the user):** `CATALOG`

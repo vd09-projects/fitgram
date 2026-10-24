@@ -5,6 +5,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 
 import { validateCatalog } from "../utils/catalog";
+import { FIELDS } from "./fields";
 import { CATALOG } from "./index";
 
 const versions = CATALOG.flatMap((movement) => movement.versions.map((version) => ({ movement, version })));
@@ -395,9 +396,9 @@ const SHIPPED_VERSION_IDS = [
   "standing_leg_curl__machine__one_side",
   "standing_leg_curl__cable__one_side",
   "kneeling_leg_curl__machine",
-  "hamstring_curl__stability_ball",
-  "hamstring_curl__suspension_trainer",
-  "hamstring_curl__bodyweight",
+  "floor_hamstring_curl__stability_ball",
+  "floor_hamstring_curl__suspension_trainer",
+  "floor_hamstring_curl__bodyweight",
   "nordic_hamstring_curl__bodyweight",
   "reverse_nordic__bodyweight",
   "glute_ham_raise__ghd",
@@ -928,6 +929,15 @@ it("band versions log no weight", () => {
     ({ version }) => version.equipment === "band" && version.fields.some((field) => field.role === "weight")
   );
   expect(weighted.map(({ version }) => version.id)).toEqual([]);
+});
+
+// fields.ts promises one field list per measure. The loader does not check it,
+// so a hand edit like `measure: "reps", fields: FIELDS.weight_reps` would put a
+// made-up kg into every plan that adds the version (PR #21 review). Reference
+// equality: every catalog file uses `FIELDS.x`.
+it("every version logs its measure's fields", () => {
+  const off = versions.filter(({ version }) => version.fields !== FIELDS[version.measure]);
+  expect(off.map(({ version }) => `${version.id} (${version.measure})`)).toEqual([]);
 });
 
 // A grip changes the target, so search must see it: "triceps" still finds
