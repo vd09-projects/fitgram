@@ -2756,7 +2756,7 @@ chosen by the user 2026-10-24). A full screen opened by Add exercise, not a drop
 
 ### TICKET-044: Logging Details — Plates as a Weight Unit
 
-**Priority:** Medium | **Effort:** Small | **Status: OPEN**
+**Priority:** Medium | **Effort:** Small | **Status: IN REVIEW** (stage 1 built on branch `TICKET-044`, uncommitted)
 
 **Description:**
 Plates as a weight unit, for machines whose real weight is unknown. This ticket once
@@ -2790,7 +2790,7 @@ session should read as `unit_changed`, exactly like kg vs lb today, without new
 logic. Verify with a test rather than assume it.
 
 **Acceptance Criteria:**
-- [ ] **Stage 1, plates** (needs only TICKET-041 boards C1–C2; can land first):
+- [x] **Stage 1, plates** (needs only TICKET-041 boards C1–C2; can land first):
       - `FieldUnit` gains `"plates"`; the weight unit picker offers kg, lb, plates
       - `stepSizeFor` (`setLogger.ts`) returns 1 for plates (one plate or one pin).
         Today a unit it does not know gives no stepper
@@ -2864,6 +2864,36 @@ version, a session never compares across grips, so none of this is built. Boards
 - Each session stores the tags it was logged with (a copy of the plan's), which is
   what the pill, the line and the sheet read. Untagged sessions show nothing
 - Dropped (MVP): machine settings (C3, C3b) and per-side reps (C4); see Description
+
+**Implementation, stage 1 (2026-10-24):**
+- **Load-bearing fact verified by test, true.** `src/utils/plates.test.ts` runs a kg
+  session then a plates one through the hook derivation: ghost target, set delta,
+  volume comparison and Start Workout's top set all read unit-changed, and bests in
+  plates and kg never touch, with no new comparison logic. Each test seen red by
+  breaking `areFieldsComparable` / the unit in `bestKey` and the best filter
+- **One unit table** (review, 2026-10-24): `src/constants/units.ts` holds every unit
+  with its role, stepper step, singular word and chip hint. `FieldUnit`, the Manage
+  Workout chips, `stepSizeFor`, `unitLabel` and the hint all read it, so a new unit
+  is one entry. Its keys are stored values and must never be renamed
+- **One plural rule:** `unitLabel` / `withUnit` in `exerciseFields.ts`. Every place
+  a unit follows a number goes through it: `setValuesText`, `weightChange`,
+  `volumeText`, `personalBestText`, Start Workout's volume and top set, the history
+  sheet's best card and trend. Singular is exactly "1"; 0.5 reads "plates"
+- **Notice numbers:** "Last time was in kg (40 kg × 12)" uses last session's set at
+  the *same set number*, as the Last time pill does, parsed in that session's own
+  fields. When last time stopped earlier the numbers drop: "Last time was in kg, so
+  no targets". No unit or no weight+reps pair last time keeps the old generic line
+- **Caption (board C2 after kg):** the Today list's line now names the unit too,
+  "Last time was in kg, so no comparison" (was "a different unit")
+- **Unit hint (board C1):** shown only while plates is the selected unit. The board
+  shows only that state; on every kg field the line would be noise
+- **Bar weight:** nothing adds one. Grepped: no code adds to a typed weight
+- **Known gap, not fixed:** a workout mixing kg exercises with a plates one shows
+  "volume n/a · mixed units" on its Start Workout row (`computeSessionTotalVolume`),
+  the rule kg + lb already had. Plates make it common. Per-unit totals were rejected
+  there; revisit with TICKET-036 if it reads badly on a device
+- Not done: the guided tour's optional copy update; the TEMPORARY history debug
+  screen prints `40kg`-style values and was left as is
 
 **Technical Notes:**
 - Nothing here changes `ExerciseSet` or the session entry any more (stage 2 is
@@ -3179,9 +3209,20 @@ a mark that failed to store is not shown; tap-again clears on the Today strip to
 
 Finished tickets have been removed — they are not blockers for anything.
 
-**The next three are decided.** They come first because they are what makes logging
-an exercise match what people actually do, and because 033 changes a stored
-shape: pre-launch is the cheap moment for that.
+**The exercise catalog track goes first** (user's decision, 2026-10-24): 044 → 042 →
+046 → 043, in that order, before 033 / 032 / 029 below. Phase 3B; research is in
+`research/exercise-catalog/` (git-ignored, local only).
+
+```
+1. TICKET-044  (stage 1: plates unit)      — Small; needs only boards C1–C2 from 041
+2. TICKET-042  (Catalog, movement first)   — Decisions first; before or with TICKET-030
+3. TICKET-046  (Real catalog content)      — Research is reference only; grip is a version
+4. TICKET-043  (Search + picker)           — After 042; picker built from 041 boards A
+```
+
+**Then the next three, decided.** They are what makes logging an exercise match what
+people actually do, and 033 changes a stored shape: pre-launch is the cheap moment
+for that.
 
 ```
 1. TICKET-033  (Drop sets)                 — A weight change within one set
@@ -3210,12 +3251,6 @@ Correctness and guards
   TICKET-002  (Remove `any` types)       — ~12 left across 8 files
   TICKET-031  (Palette contrast guards)  — Extends the colors.test.ts pattern
   TICKET-037  (Same-day session chips)   — Two identical chips in the sheet
-
-Exercise catalog (Phase 3B), in this order; research is in research/exercise-catalog/ (git-ignored, local only)
-  TICKET-044  (stage 1: plates unit)     — Small; needs only boards C1–C2 from 041
-  TICKET-042  (Catalog, movement first)  — Decisions first; before or with TICKET-030
-  TICKET-046  (Real catalog content)     — Research is reference only; grip is a version
-  TICKET-043  (Search + picker)          — After 042; picker built from 041 boards A
 
 Decisions before code
   TICKET-035  (Time/distance measures)   — "Which way is better" is a product call
