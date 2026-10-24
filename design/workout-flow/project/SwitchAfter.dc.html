@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TICKET-041 B2 — switch version after sets are logged</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body { margin: 0; }
+a { color: #5FA8B8; } a:hover { color: #8CC6D2; }
+abbr { text-decoration: none; }
+input { font: inherit; color: inherit; background: none; border: none; outline: none; }
+button { font: inherit; color: inherit; background: none; border: none; padding: 0; cursor: pointer; }
+.num { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #121414; color: #E8EDEC; font-family: 'Archivo', 'Helvetica Neue', system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="position: relative; flex-grow: 1; min-height: 0; display: flex; flex-direction: column">
+    <div aria-hidden="true" style="opacity: 0.3; padding: 20px 14px 0; display: flex; flex-direction: column; gap: 16px">
+      <div style="display: flex; align-items: center; gap: 8px">
+        <span style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 14px; background: #1A1D1F; border: 1px solid #2A2F31; display: flex; align-items: center; justify-content: center; color: #8A9593"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg></span>
+        <div style="flex-grow: 1; text-align: center"><div style="font-size: 25px; font-weight: 700; line-height: 1.1">Bench Press <span style="color: #8A9593">· Machine <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8A9593" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align: -1px"><path d="M6 9l6 6 6-6"></path></svg></span></div><div style="margin-top: 4px; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Exercise 1 of 6</div></div>
+        <span style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 14px; background: #1A1D1F; border: 1px solid #2A2F31; display: flex; align-items: center; justify-content: center; color: #8A9593"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg></span>
+      </div>
+      <div style="border-radius: 16px; background: #1A1D1F; border: 1px solid #2A2F31; padding: 14px">
+        <div style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase">Set <span class="num">3</span></span><span style="height: 34px; padding: 0 11px; border-radius: 999px; background: #222628; border: 1px solid #3A4245; display: flex; align-items: center; gap: 7px"><span style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Last time</span><span class="num" style="font-size: 13px">70 × 10</span></span></div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px"><div class="num" style="height: 62px; border-radius: 13px; background: #222628; border: 1px solid #6A7474; display: flex; align-items: center; justify-content: center; font-size: 30px; color: #6E7A78">70</div><div class="num" style="height: 62px; border-radius: 13px; background: #222628; border: 1px solid #6A7474; display: flex; align-items: center; justify-content: center; font-size: 30px; color: #6E7A78">10</div></div>
+      </div>
+      <section style="display: flex; flex-direction: column; gap: 9px">
+        <h2 style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #8A9593">Today</h2>
+        <ul style="margin: 0; padding: 0; list-style: none; background: #1A1D1F; border: 1px solid #2A2F31; border-radius: 14px; overflow: hidden"><li style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 13px;"><span class="num" style="width: 18px; font-size: 12px; color: #8A9593">1</span><span class="num" style="flex-grow: 1; font-size: 15px; font-weight: 500">70 kg × 10</span></li><li style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 13px; border-top: 1px solid #22272A;"><span class="num" style="width: 18px; font-size: 12px; color: #8A9593">2</span><span class="num" style="flex-grow: 1; font-size: 15px; font-weight: 500">70 kg × 9</span></li></ul>
+      </section>
+    </div>
+    <div style="position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; background: rgba(8,10,10,0.55)">
+      <section role="dialog" aria-label="Switch version of Bench Press" style="background: #1A1D1F; border-top: 1px solid #3A4245; border-radius: 22px 22px 0 0; padding: 10px 16px 24px; display: flex; flex-direction: column; gap: 16px">
+        <span style="align-self: center; display: block; width: 40px; height: 4px; border-radius: 2px; background: #3A4245"></span>
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <h2 style="margin: 0; font-size: 20px; font-weight: 700">Switch Bench Press</h2>
+          <div style="font-size: 12.5px; color: #8A9593">For this workout only. Your plan keeps Machine.</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Equipment</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px"><button type="button" aria-pressed="false" style="height: 40px; padding: 0 13px; border-radius: 12px; display: flex; align-items: center; gap: 6px; font-size: 14px; white-space: nowrap; border: 1px solid #3A4245; color: #E8EDEC">Barbell</button><button type="button" aria-pressed="true" style="height: 40px; padding: 0 13px; border-radius: 12px; display: flex; align-items: center; gap: 6px; font-size: 14px; white-space: nowrap; background: #1E3A41; border: 1px solid {{accent}}; color: #E8EDEC; font-weight: 700">Dumbbell<span style="font-size: 11px; font-weight: 500; color: #8A9593">last</span></button><button type="button" aria-pressed="false" style="height: 40px; padding: 0 13px; border-radius: 12px; display: flex; align-items: center; gap: 6px; font-size: 14px; white-space: nowrap; border: 1px solid #3A4245; color: #E8EDEC">Smith</button><button type="button" aria-pressed="false" style="height: 40px; padding: 0 13px; border-radius: 12px; display: flex; align-items: center; gap: 6px; font-size: 14px; white-space: nowrap; border: 1px solid #3A4245; color: #E8EDEC">Machine<span style="font-size: 11px; font-weight: 500; color: #8A9593">planned</span></button><button type="button" aria-pressed="false" style="height: 40px; padding: 0 13px; border-radius: 12px; display: flex; align-items: center; gap: 6px; font-size: 14px; white-space: nowrap; border: 1px solid #3A4245; color: #E8EDEC">Plate-Loaded</button><button type="button" aria-pressed="false" style="height: 40px; padding: 0 13px; border-radius: 12px; display: flex; align-items: center; gap: 6px; font-size: 14px; white-space: nowrap; border: 1px solid #3A4245; color: #E8EDEC">Kettlebell</button><button type="button" aria-pressed="false" style="height: 40px; padding: 0 13px; border-radius: 12px; display: flex; align-items: center; gap: 6px; font-size: 14px; white-space: nowrap; border: 1px solid #3A4245; color: #E8EDEC">Band</button></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Angle</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px"><button type="button" aria-pressed="true" style="height: 40px; padding: 0 13px; border-radius: 12px; display: flex; align-items: center; gap: 6px; font-size: 14px; white-space: nowrap; background: #1E3A41; border: 1px solid {{accent}}; color: #E8EDEC; font-weight: 700">Flat</button><button type="button" aria-pressed="false" style="height: 40px; padding: 0 13px; border-radius: 12px; display: flex; align-items: center; gap: 6px; font-size: 14px; white-space: nowrap; border: 1px solid #3A4245; color: #E8EDEC">Incline</button><button type="button" aria-pressed="false" style="height: 40px; padding: 0 13px; border-radius: 12px; display: flex; align-items: center; gap: 6px; font-size: 14px; white-space: nowrap; border: 1px solid #3A4245; color: #E8EDEC">Decline</button></div>
+        </div>
+        <div style="font-size: 12.5px; line-height: 1.45; color: #8A9593">Sets 1–2 stay on Bench Press · Machine. Dumbbell starts at set 1, next to it in this workout, with its own last time.</div>
+        <button type="button" style="height: 54px; border-radius: 15px; background: {{accent}}; color: #121414; font-size: 15.5px; font-weight: 700">Switch to Dumbbell</button>
+      </section>
+    </div>
+  </div></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5FA8B8","options":["#5FA8B8","#B5A3CF","#D8A13B","#8FB573"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#5FA8B8' };
+  }
+}
+</script>
+</body>
+</html>

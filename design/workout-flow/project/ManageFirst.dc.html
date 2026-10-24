@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TICKET-041 C1 — no plans yet</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body { margin: 0; }
+a { color: #5FA8B8; } a:hover { color: #8CC6D2; }
+abbr { text-decoration: none; }
+input { font: inherit; color: inherit; background: none; border: none; outline: none; }
+button { font: inherit; color: inherit; background: none; border: none; padding: 0; cursor: pointer; }
+.num { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #121414; color: #E8EDEC; font-family: 'Archivo', 'Helvetica Neue', system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+  <header style="padding: 22px 14px 4px; display: flex; align-items: center; gap: 4px">
+    <button type="button" aria-label="Back" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 12px; color: #8A9593">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+    </button>
+    <h1 style="flex-grow: 1; margin: 0 44px 0 0; text-align: center; font-size: 18px; font-weight: 700">Manage Workout</h1>
+  </header>
+  <main style="flex-grow: 1; min-height: 0; padding: 28px 14px 16px; display: flex; flex-direction: column; gap: 10px">
+    <h2 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.01em">Your first plan</h2>
+    <p style="margin: 0 0 8px; font-size: 14px; line-height: 1.45; color: #8A9593">Name it, then add its exercises.</p>
+    <label for="fwname" style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Plan name</label>
+    <div style="display: flex; gap: 8px">
+      <div style="flex-grow: 1; min-width: 0; height: 52px; padding: 0 14px; border-radius: 13px; background: #222628; border: 1px solid #6A7474; display: flex; align-items: center">
+        <input id="fwname" type="text" placeholder="e.g. Push · Chest &amp; Triceps" style="width: 100%; font-size: 15px; font-weight: 600" />
+      </div>
+      <button type="button" disabled aria-disabled="true" style="height: 52px; padding: 0 16px; flex-shrink: 0; border-radius: 13px; background: #222628; color: #6E7A78; font-size: 15px; font-weight: 700">Create</button>
+    </div>
+  </main></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5FA8B8","options":["#5FA8B8","#B5A3CF","#D8A13B","#8FB573"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#5FA8B8' };
+  }
+}
+</script>
+</body>
+</html>

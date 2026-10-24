@@ -136,6 +136,310 @@
       "w": 390,
       "x": 470,
       "y": 5664
+    },
+    "PlatesUnit.dc.html": {
+      "h": 1180,
+      "radius": 28,
+      "title": "C1 \u00b7 Manage Workout: change a plan exercise's unit",
+      "w": 390,
+      "x": 0,
+      "y": 7108
+    },
+    "PlatesCard.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "C2 \u00b7 Set card in plates, volume shown (chosen)",
+      "w": 390,
+      "x": 470,
+      "y": 7108
+    },
+    "PlatesRest.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "C2 \u00b7 Rest: delta and best in plates",
+      "w": 390,
+      "x": 940,
+      "y": 7108
+    },
+    "PlatesSwitched.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "C2 \u00b7 First plates session after kg",
+      "w": 390,
+      "x": 1410,
+      "y": 7108
+    },
+    "PlatesUnitCard.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "C1b \u00b7 Rejected: unit switched on the set card",
+      "w": 390,
+      "x": 0,
+      "y": 9488
+    },
+    "PlatesNoVolume.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "C2b \u00b7 Rejected: volume in plates left out",
+      "w": 390,
+      "x": 470,
+      "y": 9488
+    },
+    "ManageAdd.dc.html": {
+      "h": 960,
+      "radius": 28,
+      "title": "C1 \u00b7 Deferred: adding a custom exercise (not built now)",
+      "w": 390,
+      "x": 0,
+      "y": 8408
+    },
+    "ManageNewInline.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "C1 \u00b7 Rejected: New button beside the picker",
+      "w": 390,
+      "x": 940,
+      "y": 9488
+    },
+    "ManageNewInList.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "C1 \u00b7 New plan: first row of the picker (chosen)",
+      "w": 390,
+      "x": 470,
+      "y": 8408
+    },
+    "ManageNewName.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "C1 \u00b7 New plan: naming it in the picker",
+      "w": 390,
+      "x": 940,
+      "y": 8408
+    },
+    "ManageFirst.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "C1 \u00b7 No plans yet: name the first one",
+      "w": 390,
+      "x": 1410,
+      "y": 8408
+    },
+    "FindEmpty.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "A1 \u00b7 Empty search: recent movements first, three filter menus (chosen)",
+      "w": 390,
+      "x": 0,
+      "y": 10932
+    },
+    "FindResults.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "A2 \u00b7 Results for \u201cchest\u201d: one row per movement (chosen)",
+      "w": 390,
+      "x": 470,
+      "y": 10932
+    },
+    "FindVersion.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "A3 \u00b7 Superseded by P1: version and tags sheet",
+      "w": 390,
+      "x": 940,
+      "y": 10932
+    },
+    "FindVersionAttachment.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "A3 \u00b7 Cable attachment as a version",
+      "w": 390,
+      "x": 1410,
+      "y": 10932
+    },
+    "FindTypo.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "A4 \u00b7 Typo still matches",
+      "w": 390,
+      "x": 0,
+      "y": 11896
+    },
+    "FindNone.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "A4 \u00b7 No results: nothing to add",
+      "w": 390,
+      "x": 470,
+      "y": 11896
+    },
+    "FindEmptyMuscles.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "A1b \u00b7 Rejected: muscle groups as chips in view",
+      "w": 390,
+      "x": 0,
+      "y": 12860
+    },
+    "FindResultsNamed.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "A2b \u00b7 Rejected: versions named, not counted",
+      "w": 390,
+      "x": 470,
+      "y": 12860
+    },
+    "FindVersionIncline.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "A3b \u00b7 Rejected: incline as its own movement",
+      "w": 390,
+      "x": 940,
+      "y": 12860
+    },
+    "NameInline.dc.html": {
+      "h": 1300,
+      "radius": 28,
+      "title": "B1 \u00b7 Name \u00b7 Version, one string (chosen)",
+      "w": 390,
+      "x": 0,
+      "y": 14304
+    },
+    "NameTwoLine.dc.html": {
+      "h": 1400,
+      "radius": 28,
+      "title": "B1b \u00b7 Rejected: version on its own line",
+      "w": 390,
+      "x": 470,
+      "y": 14304
+    },
+    "NameNatural.dc.html": {
+      "h": 1300,
+      "radius": 28,
+      "title": "B1c \u00b7 Rejected: the catalog's own name per version",
+      "w": 390,
+      "x": 940,
+      "y": 14304
+    },
+    "SwitchBefore.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "B2 \u00b7 Deferred (TICKET-047): switch before set 1",
+      "w": 390,
+      "x": 0,
+      "y": 15824
+    },
+    "SwitchAfter.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "B2 \u00b7 Deferred (TICKET-047): switch after sets",
+      "w": 390,
+      "x": 470,
+      "y": 15824
+    },
+    "ManageTags.dc.html": {
+      "h": 1140,
+      "radius": 28,
+      "title": "A3 \u00b7 Rejected: changing a plan exercise's grip and extras",
+      "w": 390,
+      "x": 1410,
+      "y": 11896
+    },
+    "SettingCard.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "C3 \u00b7 Dropped (MVP): machine setting on the set card",
+      "w": 390,
+      "x": 0,
+      "y": 17268
+    },
+    "SettingEdit.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "C3 \u00b7 Dropped (MVP): editing the machine setting",
+      "w": 390,
+      "x": 470,
+      "y": 17268
+    },
+    "PerSide.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "C4 \u00b7 Dropped (MVP): reps per side",
+      "w": 390,
+      "x": 940,
+      "y": 17268
+    },
+    "TagCompare.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "C5 \u00b7 Superseded: tags changed, compare and say so",
+      "w": 390,
+      "x": 1410,
+      "y": 17268
+    },
+    "TagHistory.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "C5 \u00b7 Superseded: history sheet with tags",
+      "w": 390,
+      "x": 0,
+      "y": 18232
+    },
+    "SettingPlan.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "C3b \u00b7 Dropped (MVP): setting kept in the plan",
+      "w": 390,
+      "x": 0,
+      "y": 19196
+    },
+    "TagSameTags.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "C5b \u00b7 Superseded: targets from the same tags",
+      "w": 390,
+      "x": 470,
+      "y": 19196
+    },
+    "VersionGrip.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "P1 \u00b7 A3 sheet: grip is part of the version, no extras (chosen)",
+      "w": 390,
+      "x": 0,
+      "y": 20640
+    },
+    "VersionPlan.dc.html": {
+      "h": 1020,
+      "radius": 28,
+      "title": "P2 \u00b7 Bench and close-grip bench in one plan; version not editable (chosen)",
+      "w": 390,
+      "x": 470,
+      "y": 20640
+    },
+    "VersionLogger.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "P3 \u00b7 Close grip logs against its own history (revisit with TICKET-047)",
+      "w": 390,
+      "x": 940,
+      "y": 20640
+    },
+    "VersionFirst.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "P4 \u00b7 A new combination has no last time (revisit with TICKET-047)",
+      "w": 390,
+      "x": 1410,
+      "y": 20640
+    },
+    "VersionRecent.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "P5 \u00b7 A recent movement opens its sheet, last combination preselected (chosen)",
+      "w": 390,
+      "x": 0,
+      "y": 21780
     }
   },
   "createdOnFiles": {
@@ -213,6 +517,116 @@
       "x": 940,
       "y": 5784,
       "text": "Entry options for TICKET-040.\n\nA (board 9): strip gets Easy / Hard / Clear | Edit. Four controls; reads cluttered.\n\nB (9b): three equal buttons, Easy / Hard / Edit. Clear goes: tapping the chosen mark already clears it (034's toggle), said once in small text. Keeps 034's one-tap marking.\n\nC (9c): no strip. Tapping a row opens the card as EDIT SET 2, with the mark inside it (Felt: Easy / Hard). One place to change anything about a set; mark and numbers save together, Cancel reverts both. Cost: changing only a mark from the list is tap, tap, Save instead of one tap. The rest panel still asks right after each set, so most marks never need the list."
+    },
+    "plates": {
+      "kind": "title1",
+      "maxW": 1800,
+      "text": "TICKET-041 \u00b7 C1\u2013C2 \u2014 plates as a weight unit",
+      "w": 240,
+      "x": 0,
+      "y": 6808
+    },
+    "plateswhy": {
+      "fill": "teal",
+      "w": 300,
+      "x": 1890,
+      "y": 7228,
+      "text": "Plates = the number on a machine's stack or pin, when the real weight is unknown. Never converted; compares only with plates (same rule as kg vs lb).\n\nC1: plates is a third unit chip next to kg and lb, with one line saying what it means. Set in Manage Workout only: expand a plan exercise, change its unit, Save changes. Collapsed rows show each exercise's fields and unit.\nC2: label WEIGHT \u00b7 PLATES, steppers \u22121 / +1, Last time pill 5 \u00d7 12 (no unit, as today). Rows read \"5 plates \u00d7 12\"; 1 reads \"1 plate\" (today's code would print \"1 plates\").\nC2 rest: deltas and the best banner in plates: \"+1 plate\", \"6 plates \u00b7 beat 5 plates from 17 Oct\".\nC2 after kg: no pill, no ghosts. The notice names the old unit and numbers instead of \"a different unit\"; rows show no delta, and one caption says why.\n\nHalf plates (an add-on weight) can be typed as 4.5; the stepper stays whole."
+    },
+    "platesopts": {
+      "fill": "orange",
+      "w": 300,
+      "x": 1410,
+      "y": 9608,
+      "text": "Options for C1\u2013C2.\n\nC1 vs C1b, where the unit is set. CHOSEN: C1 (user, 2026-10-24): the unit is set in Manage Workout only; to change it, change the plan.\nC1b (rejected): also on the set card, tap WEIGHT \u00b7 KG, before set 1 only, saved to the plan. Mixing kg and plates inside one session would break volume and deltas, so it locks after set 1. Costs a new control and a plan write from the logger: more than TICKET-044 stage 1.\n\nC2 vs C2b, volume. CHOSEN: C2 (user, 2026-10-24): \"2 sets \u00b7 115 plates\", shown with its unit. Fair on the same machine.\nC2b (rejected): \"2 sets\", no volume for plates. Loses the volume trend for machine work."
+    },
+    "manageopts": {
+      "fill": "orange",
+      "w": 300,
+      "x": 1890,
+      "y": 8528,
+      "text": "Manage Workout around C1. Today's screen has a New switch on both pickers; these replace it.\n\nAdd exercise: the dashed button under the list opens the exercise picker (group A designs it). A catalog exercise arrives expanded with its catalog fields. DEFERRED (user, 2026-10-24): no new custom exercises for now, so the Custom board with its starting templates is not built; it stays here for TICKET-045. Any exercise can take one more field from the box at the bottom.\n\nNew plan. CHOSEN: first row of the picker's list (user, 2026-10-24). The screen carries no New button; the picker is the only control on top. Tapping New plan turns that row into a name field with Create; the new plan opens with no exercises and saves with its first one.\nRejected: a New button beside the picker. Always visible, one more control on top, and redundant once the list offers it.\n\nNo plans yet: an empty picker would be a dead end, so the screen skips it and asks for a name straight away (Create stays disabled until something is typed). After Create it is the same screen as any new plan: the picker shows its name, Exercises reads None yet, Add exercise below. The picker appears from the second plan on, with New plan as its first row.\n\nWording: \"plan\", matching the Start screen's \"No plans yet \u00b7 Create a plan\" (user, 2026-10-24). The screen title stays Manage Workout."
+    },
+    "find": {
+      "kind": "title1",
+      "maxW": 1800,
+      "text": "TICKET-041 \u00b7 A1\u2013A4 \u2014 finding an exercise",
+      "w": 240,
+      "x": 0,
+      "y": 10632
+    },
+    "findwhy": {
+      "fill": "teal",
+      "w": 300,
+      "x": 1890,
+      "y": 11052,
+      "text": "The picker is a full screen opened by Manage Workout's Add exercise, not a dropdown.\n\nA1: search box focused, filters, then Recent: versions you have logged, newest first, with the date. A recent row adds that version directly (no version step). Rows already in the plan read In plan and do nothing (plan save refuses duplicates today).\nA2: one row per movement: name, main muscle first then the others, and \"19 versions\" only when there is more than one.\nA3: tapping a movement with versions opens a sheet. The version you used last is preselected and marked \"last\". Combinations that do not exist (Band \u00d7 Incline) are disabled, not hidden. One version: no sheet, it is added at once. Equipment typed in the query (\"db bench\") preselects that version instead.\nA3 attachment: a cable movement has an Attachment row (Rope / Straight Bar / V-Bar), shown only for Cable.\nA4 typo: no special state. Results come back under \"Close matches\" when every one is a fuzzy match.\nA4 none: says why (every word must match) and suggests fewer words. Nothing to create.\n\nNames with a version use \"Movement \u00b7 Version\" here as a stand-in; group B decides the format.\n\nNo new custom exercises, for now (user, 2026-10-24): the catalog is the only source. Existing custom exercises in plans and history keep working and are found by name. A missing machine is logged as the closest catalog movement, with a field or (044) a tag. Revisit later: TICKET-045.\n\nTags (user, 2026-10-24): every tag is treated alike. Grip, stance, pause, bands, chains, belt are chosen in A3 with the version, stored on the plan's exercise and used for every set. Changed later in Manage Workout (board A3 \u00b7 tags). Not chosen per set. Changing one for a single workout is TICKET-047, with the version switch. C5 only designs how a session with other tags reads in history."
+    },
+    "findopts": {
+      "fill": "orange",
+      "w": 300,
+      "x": 1410,
+      "y": 13100,
+      "text": "Options for A.\n\nA1 vs A1b, filters. CHOSEN: A1 (user, 2026-10-24). A1: three menus, Muscle / Equipment / Type, each opens a list. One row, nothing to scroll; muscle is two taps. A1b: muscle groups as chips in view (one tap), equipment and type as menus below. Muscle is the filter people use most; costs a second row.\n\nA2 vs A2b, what a row says about versions. CHOSEN: A2 (user, 2026-10-24). A2: a count, \"19 versions\". Quiet; you see which in the next step. A2b: the first few by name, \"Barbell, Dumbbell, Smith, Machine +4\". Tells you before tapping whether your equipment is there; a third line on every row.\n\nA3 vs A3b, incline. CHOSEN: A3 (user, 2026-10-24): incline is an angle of Bench Press. A3: incline is an angle of Bench Press (TICKET-042's recommendation): one row in search, Equipment \u00d7 Angle in the sheet, and Bench Press then has 19 versions. A3b: Incline Bench Press is its own movement: three rows in search (8, 6, 5 versions), one row of chips in the sheet. People say \"incline bench\" either way; A3 keeps it under bench, A3b makes the sheet simpler."
+    },
+    "names": {
+      "kind": "title1",
+      "maxW": 1800,
+      "text": "TICKET-041 \u00b7 B1\u2013B2 \u2014 the name with its version",
+      "w": 240,
+      "x": 0,
+      "y": 14004
+    },
+    "nameopts": {
+      "fill": "orange",
+      "w": 300,
+      "x": 1410,
+      "y": 14424,
+      "text": "CHOSEN: A (2026-10-24; the user leaned B, liked A, and asked for the choice on user-experience grounds).\nWhy A: it is the convention people already know from logging apps (Hevy names it \"Bench Press (Barbell)\": movement first, equipment after). The movement leads, and people scanning a list read about the first two words (NN/g), so a plan reads by movement. One string works where only one string fits: the logs filter's selected value, spoken labels, a toast. Middle dot, not brackets, because names already contain brackets: \"Pec Deck (Machine Fly)\".\nRule that comes with it: never cut a name to one line, wrap to two. Cut, it is the version that disappears. Today the Start plan row and the history sheet title cut to one line; both change.\nPlan-level tags join the version part: \"Bench Press \u00b7 Barbell, close grip, pause\".\n\nRejected B (version on its own line): never cut, but every row in every list grows a line, and the logger header gets a third line.\nRejected C (a written name per version, \"Incline Dumbbell Bench Press\"): versions of one movement do not sort or scan together, and TICKET-046 would have to write ~900 names."
+    },
+    "switchwhy": {
+      "fill": "teal",
+      "w": 300,
+      "x": 940,
+      "y": 15944,
+      "text": "DEFERRED to TICKET-047 (user, 2026-10-24): wanted, not built now. Covers tags too: a different grip or pause for one workout is the same kind of switch.\n\nDecided: a switch is for this workout only, and the plan keeps its version, so next week starts on the planned one again. Changing the plan stays in Manage Workout (same rule as C1). Hevy and Strong do the same by default (their \"update the routine?\" question at Finish is the part left out).\n\nBefore set 1: the exercise is swapped for today. Targets and Last time come from the new version's history.\nAfter sets: logged sets stay on the old version; the new one is added beside it in this workout and starts at set 1."
+    },
+    "c35": {
+      "kind": "title1",
+      "maxW": 1800,
+      "text": "TICKET-041 \u00b7 C3\u2013C5 \u2014 C3, C4 dropped; C5 tags",
+      "w": 240,
+      "x": 0,
+      "y": 16968
+    },
+    "c35why": {
+      "fill": "teal",
+      "w": 300,
+      "x": 1890,
+      "y": 17388,
+      "text": "DROPPED (user, 2026-10-24), MVP with about 5\u201310 users: C3 machine settings and C4 per-side reps. Few people would record them, and each adds stored shape and screens. Reps stay plain; a one-arm exercise is still its own version, without a \"per side\" label. Boards kept for reference.\n\nC5: tags live on the plan (A3), so they change only when the plan changes. These boards are the first session after the plan went from normal to close grip.\nHistory sheet: the selected session's tags join its summary line; the Today column names today's. Date chips stay plain (TICKET-034)."
+    },
+    "c35opts": {
+      "fill": "orange",
+      "w": 300,
+      "x": 940,
+      "y": 19316,
+      "text": "Options for C5 (C3 and C3b dropped).\n\nC5 vs C5b, the first session after tags change. CHOSEN: C5 (user, 2026-10-24): smallest change for an MVP; revisit C5b if the explained \u221210 still misleads.\nC5: compare with last time anyway, and say the tags differed: pill \"80 \u00d7 8 normal grip\", a line on the card, a caption under Today. The delta still reads \u221210 kg, explained but grey.\nC5b: take targets from the last session with the same tags (close grip on 3 Oct), so 70 \u00d7 8 reads \"matched\", not \u221210. If there is none, no targets, as with a unit change. History by version stays one list; only the comparison is filtered."
+    },
+    "proposal": {
+      "kind": "title1",
+      "maxW": 1800,
+      "text": "Decided (PR #17 review) \u2014 stored per combination, shown per movement",
+      "w": 240,
+      "x": 0,
+      "y": 20340
+    },
+    "proposalwhy": {
+      "fill": "orange",
+      "w": 300,
+      "x": 1890,
+      "y": 20760,
+      "text": "DECIDED (user, 2026-10-24), after the PR #17 review.\n\nStored per combination: equipment + angle + grip together are one version, with its own history, bests and targets. Close grip never compares with normal grip; a banded set can never become the normal record; bench and close-grip bench can share a plan.\n\nShown per movement: outside logging and the plan, the user sees movements only. Search and recents show Bench Press once; the combination is picked in the sheet. A combination is named only where it is logged or planned.\n\nP1: grip is a row in the sheet, like angle. No Extras: dropped for the MVP.\nP2: nothing about the version is editable in Manage Workout, equipment, angle and grip alike. To change it, remove the exercise and add the other combination. The first P2 (grip editable here) was rejected: it singled grip out.\nP5: a recent row is a movement; its second line names the combination last logged. Tapping opens the sheet with it preselected; a combination already in the plan is disabled. The first P5 (one recent row per combination) was rejected.\nP3, P4: consequences in the logger; revisit with TICKET-047 (switching for one workout).\n\nSuperseded: C5, C5b, the tags history sheet, the tags board in Manage Workout, and A3's version and tags sheet."
     }
   },
   "order": [
@@ -232,7 +646,45 @@
     "EditResting.dc.html",
     "EditSaved.dc.html",
     "EditStrip3.dc.html",
-    "EditMarks.dc.html"
+    "EditMarks.dc.html",
+    "PlatesUnit.dc.html",
+    "PlatesCard.dc.html",
+    "PlatesRest.dc.html",
+    "PlatesSwitched.dc.html",
+    "PlatesUnitCard.dc.html",
+    "PlatesNoVolume.dc.html",
+    "ManageAdd.dc.html",
+    "ManageNewInline.dc.html",
+    "ManageNewInList.dc.html",
+    "ManageNewName.dc.html",
+    "ManageFirst.dc.html",
+    "FindEmpty.dc.html",
+    "FindResults.dc.html",
+    "FindVersion.dc.html",
+    "FindVersionAttachment.dc.html",
+    "FindTypo.dc.html",
+    "FindNone.dc.html",
+    "FindEmptyMuscles.dc.html",
+    "FindResultsNamed.dc.html",
+    "FindVersionIncline.dc.html",
+    "NameInline.dc.html",
+    "NameTwoLine.dc.html",
+    "NameNatural.dc.html",
+    "SwitchBefore.dc.html",
+    "SwitchAfter.dc.html",
+    "ManageTags.dc.html",
+    "SettingCard.dc.html",
+    "SettingEdit.dc.html",
+    "PerSide.dc.html",
+    "TagCompare.dc.html",
+    "TagHistory.dc.html",
+    "SettingPlan.dc.html",
+    "TagSameTags.dc.html",
+    "VersionGrip.dc.html",
+    "VersionPlan.dc.html",
+    "VersionLogger.dc.html",
+    "VersionFirst.dc.html",
+    "VersionRecent.dc.html"
   ],
   "pages": [],
   "title": "Fitgram Workout Flow Redesign"
