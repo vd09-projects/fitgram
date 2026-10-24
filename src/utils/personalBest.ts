@@ -6,7 +6,7 @@
 
 import { BestSet, ExerciseHistory } from "../types/exerciseHistory";
 import { StoredSetFields } from "../types/workoutSession";
-import { NumericFieldMap, parseSet } from "./exerciseFields";
+import { NumericFieldMap, parseSet, withUnit } from "./exerciseFields";
 import { formatSessionDate } from "./setDeltas";
 import { formatStepValue } from "./setLogger";
 
@@ -112,13 +112,15 @@ export function personalBest(
  */
 export function personalBestText(best: PersonalBest): { reps: string; detail: string } | null {
   if (best.kind !== "beat") return null;
-  const unit = best.unit ? ` ${best.unit}` : "";
   const from =
     best.beaten.source === "stored"
       ? formatSessionDate(best.beaten.record.performedAt)
       : `set ${best.beaten.setNumber} today`;
   return {
     reps: formatStepValue(best.reps),
-    detail: `${formatStepValue(best.weight)}${unit} · beat ${formatStepValue(best.beaten.weight)}${unit} from ${from}`,
+    detail: `${withUnit(formatStepValue(best.weight), best.unit)} · beat ${withUnit(
+      formatStepValue(best.beaten.weight),
+      best.unit
+    )} from ${from}`,
   };
 }

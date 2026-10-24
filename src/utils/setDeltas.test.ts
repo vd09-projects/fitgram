@@ -128,7 +128,7 @@ describe("todaySummary", () => {
   it("has no comparison when last session was in another unit", () => {
     const lb = buildStats("Bench Press", [{ fields: [LB, REPS], sets: [set("135", "10")] }]);
     const summary = todaySummary(historyOf(lb), [set("60", "10")], BENCH);
-    expect(comparisonText(summary.comparison)).toBe("Last time used a different unit, so no comparison");
+    expect(comparisonText(summary.comparison)).toBe("Last time was in lb, so no comparison");
   });
 
   it("gives no percentage of a 0 kg session", () => {

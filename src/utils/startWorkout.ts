@@ -8,7 +8,7 @@ import { ExerciseHistory, ExerciseHistorySession } from "../types/exerciseHistor
 import { SessionTotalVolume, WorkoutSessionDoc } from "../types/workoutSession";
 import { ExerciseField, FieldRole, WorkoutPlan } from "../types/workoutType";
 import { PendingUpload } from "../types/zustandWorkoutType";
-import { parseNumericValue } from "./exerciseFields";
+import { parseNumericValue, unitLabel } from "./exerciseFields";
 import { buildSessionDocs, computeSessionTotalVolume } from "./exerciseStats";
 
 /** Recent sessions read on open. Plans not done within this window show no date. */
@@ -291,22 +291,25 @@ export function formatVolume(
       break;
   }
 
-  const parts: TextPart[] = [num(formatNumber(volume.value ?? 0))];
-  if (volume.unit) parts.push(txt(` ${volume.unit}`));
+  const value = formatNumber(volume.value ?? 0);
+  const parts: TextPart[] = [num(value)];
+  if (volume.unit) parts.push(txt(` ${unitLabel(value, volume.unit)}`));
   if (excluded > 0) parts.push(txt(" · "), num(String(excluded)), txt(" not weighted"));
   return parts;
 }
 
-/** "24 kg × 10", "1.5 min", "20 reps", or why there is no number. */
+/** "24 kg × 10", "1 plate × 12", "1.5 min", "20 reps", or why there is no number. */
 export function formatTopSet(top: TopSet): TextPart[] {
   if (top.kind === "best") {
-    const suffix = top.unit ? ` ${top.unit}` : top.role === "reps" ? " reps" : "";
-    return [num(formatNumber(top.value)), ...(suffix ? [txt(suffix)] : [])];
+    const value = formatNumber(top.value);
+    const suffix = top.unit ? ` ${unitLabel(value, top.unit)}` : top.role === "reps" ? " reps" : "";
+    return [num(value), ...(suffix ? [txt(suffix)] : [])];
   }
   if (top.kind === "set") {
+    const weight = formatNumber(top.weight);
     return [
-      num(formatNumber(top.weight)),
-      ...(top.unit ? [txt(` ${top.unit}`)] : []),
+      num(weight),
+      ...(top.unit ? [txt(` ${unitLabel(weight, top.unit)}`)] : []),
       txt(" × "),
       num(String(top.reps)),
     ];

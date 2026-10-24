@@ -4,6 +4,7 @@
 // exercise is defined, so nothing here infers meaning from a field's name.
 
 import { ExerciseField, FieldRole } from "../types/workoutType";
+import { unitSpec } from "../constants/units";
 
 /**
  * One logged set's values, keyed by `ExerciseField.name`. Structurally the same
@@ -84,6 +85,29 @@ export function areFieldsComparable(
   const right = resolveNumericFields(b);
   if (!left || !right) return false;
   return left.weight.unit === right.weight.unit;
+}
+
+/**
+ * The unit as written after `magnitude`: the unit's `singular` for exactly 1
+ * ("1 plate"), otherwise the unit unchanged. `magnitude` is the number as
+ * displayed, without a sign, so "+1 plate" and "1 plate" both come out singular.
+ *
+ * Symbols (kg, lb, s…) have no `singular` in `constants/units.ts` and never
+ * change. Singular is exactly "1": 0.5 and 0 read "plates", as in English, and
+ * the formatters never write "1.0".
+ */
+export function unitLabel(magnitude: string, unit: string): string {
+  if (magnitude !== "1") return unit;
+  return unitSpec(unit)?.singular ?? unit;
+}
+
+/**
+ * A number with its unit, "60 kg", "5 plates", "1 plate", or the number alone
+ * when there is no unit. The one place a unit is attached to a value, so the
+ * plural rule lives here and not in each text helper.
+ */
+export function withUnit(magnitude: string, unit: string | null | undefined): string {
+  return unit ? `${magnitude} ${unitLabel(magnitude, unit)}` : magnitude;
 }
 
 /**

@@ -16,6 +16,7 @@ import {
 } from "../../utils/historySheet";
 import { formatSessionDate, formatVolume, setCountText } from "../../utils/setDeltas";
 import { formatStepValue, resolveGhostTarget } from "../../utils/setLogger";
+import { withUnit } from "../../utils/exerciseFields";
 import { TextBase, NumericText } from "../TextBase";
 import { DeltaBadge, deltaSpeech } from "./DeltaBadge";
 import { EffortBadge } from "./EffortBadge";
@@ -261,7 +262,7 @@ function BestCard({
   // A plank has no best set at all; the session notice already says why.
   if (!show) return null;
   if (best === null) return <TextBase style={styles.notice}>No best set recorded yet</TextBase>;
-  const weight = `${formatStepValue(best.set.weight)}${unit ? ` ${unit}` : ""}`;
+  const weight = withUnit(formatStepValue(best.set.weight), unit);
   const date = formatSessionDate(best.set.performedAt);
   const title =
     best.kind === "atReps" ? (
@@ -297,12 +298,11 @@ function TrendBars({ trend, unit, styles }: { trend: SheetTrend; unit: string | 
     return trend.reason === null ? null : <TextBase style={styles.notice}>{trend.reason}</TextBase>;
   }
   const { bars, newest } = trend;
-  const suffix = unit ? ` ${unit}` : "";
   const speech = bars
     .map(
       (bar) =>
         `${formatSessionDate(bar.performedAt)} ${
-          bar.volume === null ? "unavailable" : `${formatVolume(bar.volume)}${suffix}`
+          bar.volume === null ? "unavailable" : withUnit(formatVolume(bar.volume), unit)
         }`
     )
     .join(", ");
@@ -337,7 +337,7 @@ function TrendBars({ trend, unit, styles }: { trend: SheetTrend; unit: string | 
         <NumericText style={styles.trendFootText}>{formatSessionDate(bars[0].performedAt)}</NumericText>
         <NumericText style={styles.trendFootText}>
           {newest !== null
-            ? `${formatVolume(newest.volume)}${suffix} · ${formatSessionDate(newest.performedAt)}`
+            ? `${withUnit(formatVolume(newest.volume), unit)} · ${formatSessionDate(newest.performedAt)}`
             : `unavailable · ${formatSessionDate(bars[bars.length - 1].performedAt)}`}
         </NumericText>
       </View>

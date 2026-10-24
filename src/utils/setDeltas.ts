@@ -14,7 +14,7 @@ import { ExerciseHistory, HistorySet } from "../types/exerciseHistory";
 import { StoredSetFields } from "../types/workoutSession";
 import { ExerciseField } from "../types/workoutType";
 import { computeSessionVolume, SessionVolume } from "./exerciseStats";
-import { NumericFieldMap, parseSet, resolveNumericFields } from "./exerciseFields";
+import { NumericFieldMap, parseSet, resolveNumericFields, withUnit } from "./exerciseFields";
 import { formatStepValue, GhostTarget, resolveGhostTarget } from "./setLogger";
 
 /**
@@ -52,10 +52,10 @@ export type SetDelta =
 
 const sign = (n: number): -1 | 0 | 1 => (n > 0 ? 1 : n < 0 ? -1 : 0);
 
-/** "+2.5 kg", "−5 lb", "+2.5" with no unit. Minus is U+2212, as typeset. */
+/** "+2.5 kg", "−5 lb", "+1 plate", "+2.5" with no unit. Minus is U+2212, as typeset. */
 function weightChange(diff: number, unit: string | undefined): string {
   const magnitude = formatStepValue(Math.abs(diff));
-  return `${diff > 0 ? "+" : "−"}${magnitude}${unit ? ` ${unit}` : ""}`;
+  return `${diff > 0 ? "+" : "−"}${withUnit(magnitude, unit)}`;
 }
 
 /** "+1 rep", "−2 reps". */
@@ -151,14 +151,13 @@ export function setValuesText(fields: ExerciseField[], values: StoredSetFields):
   const numeric = resolveNumericFields(fields);
   const { weight, reps } = parseSet(values, numeric);
   if (numeric && weight !== null && reps !== null) {
-    const unit = numeric.weight.unit ? ` ${numeric.weight.unit}` : "";
-    return `${formatStepValue(weight)}${unit} × ${formatStepValue(reps)}`;
+    return `${withUnit(formatStepValue(weight), numeric.weight.unit)} × ${formatStepValue(reps)}`;
   }
   return fields
     .map((field) => {
       const raw = String(values[field.name] ?? "").trim();
       if (raw === "") return null;
-      return field.unit ? `${raw} ${field.unit}` : raw;
+      return withUnit(raw, field.unit);
     })
     .filter((part): part is string => part !== null)
     .join(" · ");
@@ -188,6 +187,11 @@ export type VolumeComparison =
         | "pastZero";
       /** Present for `pastUnavailable`, so the footer can give the counts. */
       pastVolume?: SessionVolume;
+      /**
+       * For `unitChanged`: last session's weight unit, so the caption can name
+       * it ("Last time was in kg"). Null when it had none, or no weight+reps pair.
+       */
+      lastUnit?: string | null;
     }
   | { kind: "percent"; percent: number; direction: -1 | 0 | 1; base: VolumeBase };
 
@@ -241,7 +245,17 @@ export function todaySummary(
   const last = history.lastSession;
   if (!history.hasHistory || !last) return none("firstTime");
   if (!history.numericComparisonAvailable) return none("noComparison");
-  if (!last.comparable) return none("unitChanged");
+  if (!last.comparable) {
+    return {
+      setCount,
+      volume,
+      comparison: {
+        kind: "none",
+        reason: "unitChanged",
+        lastUnit: resolveNumericFields(last.fields)?.weight.unit ?? null,
+      },
+    };
+  }
   if (setCount === 0) return none("noSets");
   if (volume?.value == null) return none("todayUnavailable");
 
@@ -291,7 +305,7 @@ export function setCountText(count: number): string {
 }
 
 /**
- * The volume part of the footer header: "1,955 kg", or the reason there is no
+ * The volume part of the footer header: "1,955 kg", "115 plates", or the reason there is no
  * number — "volume unavailable (3 of 4 sets)" with the counts, never a partial
  * sum. `null` when the exercise has no volume at all (a plank).
  */
@@ -300,7 +314,7 @@ export function volumeText(volume: SessionVolume | null, unit: string | undefine
   if (volume.value === null) {
     return `volume unavailable (${volume.setsCounted} of ${volume.setsTotal} sets)`;
   }
-  return `${formatVolume(volume.value)}${unit ? ` ${unit}` : ""}`;
+  return withUnit(formatVolume(volume.value), unit);
 }
 
 /**
@@ -329,7 +343,9 @@ export function comparisonText(comparison: VolumeComparison): string | null {
     case "noComparison":
       return "No weight × reps to compare";
     case "unitChanged":
-      return "Last time used a different unit, so no comparison";
+      return comparison.lastUnit
+        ? `Last time was in ${comparison.lastUnit}, so no comparison`
+        : "Last time used a different unit, so no comparison";
     case "pastUnavailable": {
       const past = comparison.pastVolume;
       return past
