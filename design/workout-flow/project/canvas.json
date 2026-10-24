@@ -400,6 +400,46 @@
       "w": 390,
       "x": 470,
       "y": 19196
+    },
+    "VersionGrip.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "P1 \u00b7 A3 sheet: grip is part of the version, no extras",
+      "w": 390,
+      "x": 0,
+      "y": 20640
+    },
+    "VersionPlan.dc.html": {
+      "h": 1020,
+      "radius": 28,
+      "title": "P2 \u00b7 Bench and close-grip bench in one plan",
+      "w": 390,
+      "x": 470,
+      "y": 20640
+    },
+    "VersionLogger.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "P3 \u00b7 Close grip logs against its own history",
+      "w": 390,
+      "x": 940,
+      "y": 20640
+    },
+    "VersionFirst.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "P4 \u00b7 The cost: a new combination has no last time",
+      "w": 390,
+      "x": 1410,
+      "y": 20640
+    },
+    "VersionRecent.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "P5 \u00b7 Recents list each combination",
+      "w": 390,
+      "x": 0,
+      "y": 21780
     }
   },
   "createdOnFiles": {
@@ -572,6 +612,21 @@
       "x": 940,
       "y": 19316,
       "text": "Options for C5 (C3 and C3b dropped).\n\nC5 vs C5b, the first session after tags change. CHOSEN: C5 (user, 2026-10-24): smallest change for an MVP; revisit C5b if the explained \u221210 still misleads.\nC5: compare with last time anyway, and say the tags differed: pill \"80 \u00d7 8 normal grip\", a line on the card, a caption under Today. The delta still reads \u221210 kg, explained but grey.\nC5b: take targets from the last session with the same tags (close grip on 3 Oct), so 70 \u00d7 8 reads \"matched\", not \u221210. If there is none, no targets, as with a unit change. History by version stays one list; only the comparison is filtered."
+    },
+    "proposal": {
+      "kind": "title1",
+      "maxW": 1800,
+      "text": "Proposal (PR #17 review) \u2014 every pick is a version",
+      "w": 240,
+      "x": 0,
+      "y": 20340
+    },
+    "proposalwhy": {
+      "fill": "orange",
+      "w": 300,
+      "x": 1890,
+      "y": 20760,
+      "text": "PROPOSAL, not decided. Answers two High review comments on PR #17.\n\nToday's design: grip and extras are tags. A tag never changes the exercise id, so (1) Bench Press and Close-Grip Bench Press cannot both be in one plan (the duplicate check refuses it) and would share one history, and (2) a set with bands or chains can become the stored \"heaviest\" record and later show with no tag.\n\nProposal: everything picked in A3 together is the exercise. Equipment, angle and grip form the version, and each combination has its own history, bests and targets. Extras (pause, bands, chains, belt) are dropped for the MVP.\n\nP1: the sheet looks the same, minus Extras. Search still shows Bench Press once.\nP2: both bench lifts can sit in one plan. Changing grip in Manage Workout switches to that combination's own history.\nP3: close grip compares with close grip, so no \"normal grip\" labels; C5 is no longer needed.\nP4: the cost: a combination you have never done starts with \"First time on this exercise\" and no targets.\nP5: recents list each combination as its own row.\n\nGone with it: tags as a stored concept, copying tags into sessions, C5's labels, a tag vocabulary in TICKET-046 (grip becomes a version axis like angle)."
     }
   },
   "order": [
@@ -624,7 +679,12 @@
     "TagCompare.dc.html",
     "TagHistory.dc.html",
     "SettingPlan.dc.html",
-    "TagSameTags.dc.html"
+    "TagSameTags.dc.html",
+    "VersionGrip.dc.html",
+    "VersionPlan.dc.html",
+    "VersionLogger.dc.html",
+    "VersionFirst.dc.html",
+    "VersionRecent.dc.html"
   ],
   "pages": [],
   "title": "Fitgram Workout Flow Redesign"

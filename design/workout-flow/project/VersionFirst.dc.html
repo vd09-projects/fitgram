@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TICKET-041 proposal — a new combination starts with no last time</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body { margin: 0; }
+a { color: #5FA8B8; } a:hover { color: #8CC6D2; }
+abbr { text-decoration: none; }
+input { font: inherit; color: inherit; background: none; border: none; outline: none; }
+button { font: inherit; color: inherit; background: none; border: none; padding: 0; cursor: pointer; }
+.num { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #121414; color: #E8EDEC; font-family: 'Archivo', 'Helvetica Neue', system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+  <header style="padding: 20px 14px 0; display: flex; align-items: center; gap: 4px">
+    <button type="button" aria-label="Back to workout list" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 12px; color: #8A9593">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+    </button>
+    <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; gap: 3px">
+      <div style="font-size: 14px; font-weight: 600">Push · Chest &amp; Triceps</div>
+      <div style="display: flex; align-items: center; gap: 6px; color: #8A9593; font-size: 11.5px">
+        <span style="display: block; width: 6px; height: 6px; border-radius: 50%; background: {{accent}}"></span>
+        <span class="num">14:05</span>
+        <span>elapsed</span>
+      </div>
+    </div>
+    <button type="button" aria-label="Workout options" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 12px; color: #8A9593">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="19" cy="12" r="1.6"></circle></svg>
+    </button>
+  </header>
+
+  <section style="padding: 12px 14px 0">
+    <div style="display: flex; align-items: center; gap: 8px">
+      <button type="button" aria-label="Previous exercise" style="width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 14px; background: #1A1D1F; border: 1px solid #2A2F31; color: #8A9593">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+      </button>
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px">
+        <h1 style="margin: 0; font-size: 25px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.1; text-align: center">Bench Press <span style="color: #8A9593">· Barbell, reverse grip</span></h1>
+        <div style="font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: #8A9593">Exercise 2 of 7</div>
+      </div>
+      <button type="button" aria-label="Next exercise" style="width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 14px; background: #1A1D1F; border: 1px solid #2A2F31; color: #8A9593">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+      </button>
+    </div>
+    <div style="display: flex; gap: 4px; margin-top: 14px">
+      <span style="display: block; flex-grow: 1; height: 4px; border-radius: 2px; background: {{accent}}"></span><span style="display: flex; flex-grow: 1; height: 4px; border-radius: 2px; background: #2A2F31; overflow: hidden"><span style="display: block; width: 0%; background: {{accent}}"></span></span><span style="display: block; flex-grow: 1; height: 4px; border-radius: 2px; background: #222628"></span><span style="display: block; flex-grow: 1; height: 4px; border-radius: 2px; background: #222628"></span><span style="display: block; flex-grow: 1; height: 4px; border-radius: 2px; background: #222628"></span><span style="display: block; flex-grow: 1; height: 4px; border-radius: 2px; background: #222628"></span><span style="display: block; flex-grow: 1; height: 4px; border-radius: 2px; background: #222628"></span>
+    </div>
+  </section>
+
+  <main style="flex-grow: 1; min-height: 0; padding: 16px 14px 0; display: flex; flex-direction: column; gap: 14px">
+    <section style="position: relative; background: #1A1D1F; border: 1px solid #2A2F31; border-radius: 16px; padding: 14px 14px 16px">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 34px">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #E8EDEC">Set <span class="num">1</span></div>
+        
+      </div>
+      <div style="margin-top: 8px; font-size: 12.5px; color: #8A9593">First time on this exercise</div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px">
+        <div style="display: flex; flex-direction: column; gap: 7px">
+          <label for="p4w" style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Weight · kg</label>
+          <div style="height: 62px; border-radius: 13px; background: #222628; border: 1px solid #6A7474; display: flex; align-items: center; justify-content: center">
+            <input id="p4w" class="num" type="text" inputmode="decimal" style="width: 100%; height: 100%; text-align: center; font-size: 30px; font-weight: 500" />
+          </div>
+          <div style="display: flex; gap: 6px">
+            <button type="button" class="num" aria-label="Decrease Weight by 2.5" style="flex-grow: 1; height: 44px; border-radius: 11px; border: 1px solid #2A2F31; color: #8A9593; font-size: 13px">−2.5</button>
+            <button type="button" class="num" aria-label="Increase Weight by 2.5" style="flex-grow: 1; height: 44px; border-radius: 11px; border: 1px solid #2A2F31; color: #8A9593; font-size: 13px">+2.5</button>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 7px">
+          <label for="p4r" style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Reps</label>
+          <div style="height: 62px; border-radius: 13px; background: #222628; border: 1px solid #6A7474; display: flex; align-items: center; justify-content: center">
+            <input id="p4r" class="num" type="text" inputmode="numeric" style="width: 100%; height: 100%; text-align: center; font-size: 30px; font-weight: 500" />
+          </div>
+          <div style="display: flex; gap: 6px">
+            <button type="button" class="num" aria-label="Decrease Reps by 1" style="flex-grow: 1; height: 44px; border-radius: 11px; border: 1px solid #2A2F31; color: #8A9593; font-size: 13px">−1</button>
+            <button type="button" class="num" aria-label="Increase Reps by 1" style="flex-grow: 1; height: 44px; border-radius: 11px; border: 1px solid #2A2F31; color: #8A9593; font-size: 13px">+1</button>
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; margin-top: 16px">
+        
+        <button type="button" style="flex-grow: 1; height: 56px; border-radius: 15px; background: {{accent}}; color: #121414; font-size: 16.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 9px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>
+          Log set <span class="num">1</span>
+        </button>
+      </div>
+    </section>
+    <section style="display: flex; flex-direction: column; gap: 9px">
+      <h2 style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #8A9593">Today</h2>
+      <div style="font-size: 13px; color: #8A9593">No sets yet</div>
+    </section>
+  </main>
+
+  <footer style="padding: 12px 14px 22px; background: #16191A; border-top: 1px solid #22272A">
+    <button type="button" style="width: 100%; height: 52px; border-radius: 14px; border: 1px solid #3A4245; color: #E8EDEC; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 9px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A9593" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5V12l3 2"></path></svg>
+      Finish workout
+    </button>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5FA8B8","options":["#5FA8B8","#B5A3CF","#D8A13B","#8FB573"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#5FA8B8' };
+  }
+}
+</script>
+</body>
+</html>

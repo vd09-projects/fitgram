@@ -2334,7 +2334,10 @@ needs it, built against the chosen board.
     refuses the duplicate) and would share one history
   - **bests ignore tags:** a banded or chained set can become the stored
     `bestByReps` record and later show untagged (CLAUDE.md 2.4)
-  - confirm the Manage Workout redesign belongs to TICKET-043 stage 3
+  - proposed fix for both, drawn as boards P1–P5 (`Version*.dc.html`): every pick
+    in A3 (equipment, angle, grip) is the version, each combination with its own
+    history; extras dropped for the MVP. Not decided
+- **Manage Workout redesign confirmed for TICKET-043 stage 3** (user, 2026-10-24)
 - **C3 and C4 dropped** (user, 2026-10-24): MVP with about 5–10 users, so no
   machine settings and no per-side reps. Boards drawn and kept, marked dropped.
   Recorded in TICKET-044.
@@ -2607,7 +2610,7 @@ shows movements and then asks for the version.
 - [ ] Measured: search time per keystroke over the full catalog, on a device
 - [ ] Delivered in stages (CLAUDE.md 3.4): 1. the search function and its tests;
       2. typos and joined/split words; 3. the picker
-- [ ] **Scope added by TICKET-041 (proposed there, user to confirm):** the Manage
+- [ ] **Scope added by TICKET-041, confirmed by the user 2026-10-24:** the Manage
       Workout screen around the picker, built in stage 3, since the picker replaces
       both of its dropdowns. See Design below
 
