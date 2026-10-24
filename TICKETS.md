@@ -47,7 +47,6 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap |
 | 046 | Build the real catalog: movements and versions | Large | Research catalog is reference only. Grip is a version; shown by movement |
 | 047 | Switch an exercise's version mid-workout | Medium | Deferred 2026-10-24. For this workout only; the plan keeps its version |
-| 048 | Exercise names with "-" or "()" are refused | Small | **In review (branch TICKET-048);** device run reported working. "Pull-Ups" from today's catalog could not be added to a plan |
 
 ### Not tickets — verification owed
 
@@ -2931,9 +2930,9 @@ TICKET-043's search cases.
 
 ---
 
-### TICKET-048: Exercise Names With "-" or "()" Are Refused
+### ~~TICKET-048: Exercise Names With "-" or "()" Are Refused~~ ✅ DONE
 
-**Priority:** High | **Effort:** Small | **Status: IN REVIEW** (branch TICKET-048) —
+**Priority:** High | **Effort:** Small | **Status: DONE** — merged in PR #18;
 bug, found in TICKET-041, split out in the PR #17 review; device run reported working 2026-10-24
 
 **Description:**
@@ -3007,8 +3006,10 @@ recorded.
 - `ManageAdd.dc.html`: the exercise arrives tagged Custom, with no fields and one row
   of starting templates (Weight × Reps / Reps only / Time / Distance + Time)
 - Open then: a custom exercise has no muscles, so muscle search cannot find it; the
-  name rule for custom names (TICKET-042's validation item); its id scheme next to
-  catalog version ids
+  name rule for custom names (TICKET-042's validation item), including a name of
+  allowed punctuation only ("()", "- &"), which passes the rule but maps to an empty
+  id and is refused as "Exercise ID cannot be empty." (PR #18 review); its id scheme
+  next to catalog version ids
 
 **Dependencies:** TICKET-042, TICKET-043.
 
@@ -3214,7 +3215,6 @@ Exercise catalog (Phase 3B), in this order; research is in research/exercise-cat
   TICKET-044  (stage 1: plates unit)     — Small; needs only boards C1–C2 from 041
   TICKET-042  (Catalog, movement first)  — Decisions first; before or with TICKET-030
   TICKET-046  (Real catalog content)     — Research is reference only; grip is a version
-  TICKET-048  (Name rule bug)            — In review (branch TICKET-048)
   TICKET-043  (Search + picker)          — After 042; picker built from 041 boards A
 
 Decisions before code
