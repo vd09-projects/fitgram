@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TICKET-041 A3 — cable attachment as a version</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body { margin: 0; }
+a { color: #5FA8B8; } a:hover { color: #8CC6D2; }
+abbr { text-decoration: none; }
+input { font: inherit; color: inherit; background: none; border: none; outline: none; }
+button { font: inherit; color: inherit; background: none; border: none; padding: 0; cursor: pointer; }
+.num { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #121414; color: #E8EDEC; font-family: 'Archivo', 'Helvetica Neue', system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+  <header style="padding: 20px 14px 0; display: flex; align-items: center; gap: 4px">
+    <button type="button" aria-label="Back to Manage Workout" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 12px; color: #8A9593">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+    </button>
+    <div style="flex-grow: 1; margin-right: 44px; display: flex; flex-direction: column; align-items: center; gap: 2px">
+      <h1 style="margin: 0; font-size: 17px; font-weight: 700">Add exercise</h1>
+      <div style="font-size: 12px; color: #8A9593">to Shoulders &amp; Arms</div>
+    </div>
+  </header>
+  <div style="position: relative; flex-grow: 1; min-height: 0; display: flex; flex-direction: column">
+    <div aria-hidden="true" style="opacity: 0.3; padding: 12px 14px 0; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 8px; height: 50px; padding: 0 4px 0 14px; border-radius: 13px; background: #222628; border: 1px solid #6A7474">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A9593" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      <input type="search" aria-label="Search exercises" value="pushdown" placeholder="Name, muscle or equipment" style="flex-grow: 1; min-width: 0; font-size: 15px" /><button type="button" aria-label="Clear search" style="width: 40px; height: 40px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #8A9593"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+    </div>
+    <section style="display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; align-items: baseline; justify-content: space-between"><h2 style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #8A9593">Exercises</h2></div>
+      <ul style="margin: 0; padding: 0; list-style: none; background: #1A1D1F; border: 1px solid #2A2F31; border-radius: 14px; overflow: hidden">
+        <li style="">
+          <button type="button" style="width: 100%; min-height: 58px; padding: 9px 14px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; text-align: left">
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+              <span style="font-size: 15px; font-weight: 600; line-height: 1.25; color: #E8EDEC">Triceps Pushdown</span>
+              <span style="font-size: 12px; color: #8A9593">Triceps</span>
+            </span>
+            <span class="num" style="flex-shrink: 0; font-size: 12px; color: #8A9593">4 versions</span>
+          </button>
+        </li>
+        <li style="border-top: 1px solid #22272A; ">
+          <button type="button" style="width: 100%; min-height: 58px; padding: 9px 14px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; text-align: left">
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+              <span style="font-size: 15px; font-weight: 600; line-height: 1.25; color: #E8EDEC">Reverse-Grip Triceps Pushdown</span>
+              <span style="font-size: 12px; color: #8A9593">Triceps</span>
+            </span>
+            
+          </button>
+        </li>
+        <li style="border-top: 1px solid #22272A; ">
+          <button type="button" style="width: 100%; min-height: 58px; padding: 9px 14px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; text-align: left">
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+              <span style="font-size: 15px; font-weight: 600; line-height: 1.25; color: #E8EDEC">Single-Arm Cable Pushdown</span>
+              <span style="font-size: 12px; color: #8A9593">Triceps</span>
+            </span>
+            
+          </button>
+        </li>
+      </ul>
+    </section></div>
+    <div style="position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; background: rgba(8,10,10,0.55)">
+      <section role="dialog" aria-label="Choose a version of Triceps Pushdown" style="background: #1A1D1F; border-top: 1px solid #3A4245; border-radius: 22px 22px 0 0; padding: 10px 16px 24px; display: flex; flex-direction: column; gap: 16px">
+        <span style="align-self: center; display: block; width: 40px; height: 4px; border-radius: 2px; background: #3A4245"></span>
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <h2 style="margin: 0; font-size: 20px; font-weight: 700">Triceps Pushdown</h2>
+          <div style="font-size: 12.5px; color: #8A9593">Triceps</div>
+        </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Equipment</div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;"><button type="button" aria-pressed="true" style="flex-shrink: 0; height: 40px; padding: 0 13px; border-radius: 12px; display: flex; align-items: center; gap: 6px; font-size: 14px; white-space: nowrap; background: #1E3A41; border: 1px solid {{accent}}; color: #E8EDEC; font-weight: 700">Cable</button><button type="button" aria-pressed="false" style="flex-shrink: 0; height: 40px; padding: 0 13px; border-radius: 12px; display: flex; align-items: center; gap: 6px; font-size: 14px; white-space: nowrap; border: 1px solid #3A4245; color: #E8EDEC">Band</button></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Attachment</div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;"><button type="button" aria-pressed="true" style="flex-shrink: 0; height: 40px; padding: 0 13px; border-radius: 12px; display: flex; align-items: center; gap: 6px; font-size: 14px; white-space: nowrap; background: #1E3A41; border: 1px solid {{accent}}; color: #E8EDEC; font-weight: 700">Rope<span style="font-size: 11px; font-weight: 500; color: #8A9593">last</span></button><button type="button" aria-pressed="false" style="flex-shrink: 0; height: 40px; padding: 0 13px; border-radius: 12px; display: flex; align-items: center; gap: 6px; font-size: 14px; white-space: nowrap; border: 1px solid #3A4245; color: #E8EDEC">Straight Bar</button><button type="button" aria-pressed="false" style="flex-shrink: 0; height: 40px; padding: 0 13px; border-radius: 12px; display: flex; align-items: center; gap: 6px; font-size: 14px; white-space: nowrap; border: 1px solid #3A4245; color: #E8EDEC">V-Bar</button></div>
+      </div>
+        <div style="font-size: 12.5px; color: #8A9593">Rope was your last pushdown, 17 Oct</div>
+        <button type="button" style="height: 54px; border-radius: 15px; background: {{accent}}; color: #121414; font-size: 15.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Add Triceps Pushdown · Rope</button>
+      </section>
+    </div>
+  </div></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5FA8B8","options":["#5FA8B8","#B5A3CF","#D8A13B","#8FB573"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#5FA8B8' };
+  }
+}
+</script>
+</body>
+</html>

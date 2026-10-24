@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TICKET-041 C3 — editing the machine setting</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body { margin: 0; }
+a { color: #5FA8B8; } a:hover { color: #8CC6D2; }
+abbr { text-decoration: none; }
+input { font: inherit; color: inherit; background: none; border: none; outline: none; }
+button { font: inherit; color: inherit; background: none; border: none; padding: 0; cursor: pointer; }
+.num { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #121414; color: #E8EDEC; font-family: 'Archivo', 'Helvetica Neue', system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="position: relative; flex-grow: 1; min-height: 0; display: flex; flex-direction: column">
+    <div aria-hidden="true" style="opacity: 0.3; display: flex; flex-direction: column">
+  <header style="padding: 20px 14px 0; display: flex; align-items: center; gap: 4px">
+    <button type="button" aria-label="Back to workout list" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 12px; color: #8A9593">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+    </button>
+    <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; gap: 3px">
+      <div style="font-size: 14px; font-weight: 600">Push · Chest &amp; Triceps</div>
+      <div style="display: flex; align-items: center; gap: 6px; color: #8A9593; font-size: 11.5px">
+        <span style="display: block; width: 6px; height: 6px; border-radius: 50%; background: {{accent}}"></span>
+        <span class="num">31:58</span>
+        <span>elapsed</span>
+      </div>
+    </div>
+    <button type="button" aria-label="Workout options" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 12px; color: #8A9593">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="19" cy="12" r="1.6"></circle></svg>
+    </button>
+  </header>
+
+  <section style="padding: 12px 14px 0">
+    <div style="display: flex; align-items: center; gap: 8px">
+      <button type="button" aria-label="Previous exercise" style="width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 14px; background: #1A1D1F; border: 1px solid #2A2F31; color: #8A9593">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+      </button>
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px">
+        <h1 style="margin: 0; font-size: 25px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.1; text-align: center">Pec Deck (Machine Fly)</h1>
+        <div style="font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: #8A9593">Exercise 4 of 6</div>
+      </div>
+      <button type="button" aria-label="Next exercise" style="width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 14px; background: #1A1D1F; border: 1px solid #2A2F31; color: #8A9593">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+      </button>
+    </div>
+    <div style="display: flex; gap: 4px; margin-top: 14px">
+      <span style="display: block; flex-grow: 1; height: 4px; border-radius: 2px; background: {{accent}}"></span><span style="display: block; flex-grow: 1; height: 4px; border-radius: 2px; background: {{accent}}"></span><span style="display: block; flex-grow: 1; height: 4px; border-radius: 2px; background: {{accent}}"></span><span style="display: flex; flex-grow: 1; height: 4px; border-radius: 2px; background: #2A2F31; overflow: hidden"><span style="display: block; width: 0%; background: {{accent}}"></span></span><span style="display: block; flex-grow: 1; height: 4px; border-radius: 2px; background: #222628"></span><span style="display: block; flex-grow: 1; height: 4px; border-radius: 2px; background: #222628"></span>
+    </div>
+  </section>
+
+  <main style="flex-grow: 1; min-height: 0; padding: 16px 14px 0; display: flex; flex-direction: column; gap: 14px">
+    <section style="position: relative; background: #1A1D1F; border: 1px solid #2A2F31; border-radius: 16px; padding: 14px 14px 16px">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 34px">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #E8EDEC">Set <span class="num">1</span></div>
+        <button type="button" aria-label="Last time" style="display: flex; align-items: center; gap: 7px; height: 34px; padding: 0 11px; border-radius: 999px; background: #222628; border: 1px solid #3A4245; color: #E8EDEC">
+          <span style="font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #8A9593">Last time</span>
+          <span class="num" style="font-size: 13px; font-weight: 500">5 × 12</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8A9593" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 15l-6-6-6 6"></path></svg>
+        </button>
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 8px; margin-top: 10px; min-height: 40px; padding: 0 2px 0 12px; border-radius: 11px; background: #222628; border: 1px solid #2A2F31">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8A9593" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"></path><circle cx="16" cy="7" r="2"></circle><circle cx="10" cy="17" r="2"></circle></svg><span class="num" style="flex-grow: 1; font-size: 14px">Seat 4 · Handles 2</span><button type="button" aria-label="Edit machine setting" style="width: 40px; height: 40px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 10px; color: #8A9593"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path></svg></button>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px">
+        <div style="display: flex; flex-direction: column; gap: 7px">
+          <label for="c3w" style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Weight · plates</label>
+          <div style="height: 62px; border-radius: 13px; background: #222628; border: 1px solid #6A7474; display: flex; align-items: center; justify-content: center">
+            <input id="c3w" class="num" type="text" inputmode="decimal" placeholder="5" style="width: 100%; height: 100%; text-align: center; font-size: 30px; font-weight: 500" />
+          </div>
+          <div style="display: flex; gap: 6px">
+            <button type="button" class="num" aria-label="Decrease Weight by 1" style="flex-grow: 1; height: 44px; border-radius: 11px; border: 1px solid #2A2F31; color: #8A9593; font-size: 13px">−1</button>
+            <button type="button" class="num" aria-label="Increase Weight by 1" style="flex-grow: 1; height: 44px; border-radius: 11px; border: 1px solid #2A2F31; color: #8A9593; font-size: 13px">+1</button>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 7px">
+          <label for="c3r" style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Reps</label>
+          <div style="height: 62px; border-radius: 13px; background: #222628; border: 1px solid #6A7474; display: flex; align-items: center; justify-content: center">
+            <input id="c3r" class="num" type="text" inputmode="numeric" placeholder="12" style="width: 100%; height: 100%; text-align: center; font-size: 30px; font-weight: 500" />
+          </div>
+          <div style="display: flex; gap: 6px">
+            <button type="button" class="num" aria-label="Decrease Reps by 1" style="flex-grow: 1; height: 44px; border-radius: 11px; border: 1px solid #2A2F31; color: #8A9593; font-size: 13px">−1</button>
+            <button type="button" class="num" aria-label="Increase Reps by 1" style="flex-grow: 1; height: 44px; border-radius: 11px; border: 1px solid #2A2F31; color: #8A9593; font-size: 13px">+1</button>
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; margin-top: 16px">
+        
+        <button type="button" style="flex-grow: 1; height: 56px; border-radius: 15px; background: {{accent}}; color: #121414; font-size: 16.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 9px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>
+          Log set <span class="num">1</span>
+        </button>
+      </div>
+    </section>
+  </main>
+</div>
+    <div style="position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; background: rgba(8,10,10,0.55)">
+      <section role="dialog" aria-label="Machine setting for Pec Deck (Machine Fly)" style="background: #1A1D1F; border-top: 1px solid #3A4245; border-radius: 22px 22px 0 0; padding: 10px 16px 24px; display: flex; flex-direction: column; gap: 14px">
+        <span style="align-self: center; display: block; width: 40px; height: 4px; border-radius: 2px; background: #3A4245"></span>
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <h2 style="margin: 0; font-size: 20px; font-weight: 700">Machine setting</h2>
+          <div style="font-size: 12.5px; color: #8A9593">Pec Deck (Machine Fly). Kept for this machine in every plan.</div>
+        </div>
+        <ul style="margin: 0; padding: 0; list-style: none">
+          <li style="display: flex; align-items: center; gap: 10px; padding: 8px 0">
+            <span style="flex-grow: 1; font-size: 15px">Seat</span>
+            <button type="button" aria-label="Lower Seat" style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 11px; border: 1px solid #3A4245; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #E8EDEC">−</button>
+            <span class="num" style="width: 36px; text-align: center; font-size: 22px; font-weight: 500">4</span>
+            <button type="button" aria-label="Raise Seat" style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 11px; border: 1px solid #3A4245; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #E8EDEC">+</button>
+            <button type="button" aria-label="Remove Seat" style="width: 36px; height: 44px; display: flex; align-items: center; justify-content: center; color: #8A9593"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+          </li>
+          <li style="border-top: 1px solid #22272A; display: flex; align-items: center; gap: 10px; padding: 8px 0">
+            <span style="flex-grow: 1; font-size: 15px">Handles</span>
+            <button type="button" aria-label="Lower Handles" style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 11px; border: 1px solid #3A4245; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #E8EDEC">−</button>
+            <span class="num" style="width: 36px; text-align: center; font-size: 22px; font-weight: 500">2</span>
+            <button type="button" aria-label="Raise Handles" style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 11px; border: 1px solid #3A4245; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #E8EDEC">+</button>
+            <button type="button" aria-label="Remove Handles" style="width: 36px; height: 44px; display: flex; align-items: center; justify-content: center; color: #8A9593"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+          </li>
+        </ul>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Add</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px"><button type="button" style="height: 40px; padding: 0 12px; border-radius: 12px; border: 1px dashed #3A4245; display: flex; align-items: center; gap: 6px; font-size: 14px"><span style="color: {{accent}}; display: flex"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span>Back pad</button><button type="button" style="height: 40px; padding: 0 12px; border-radius: 12px; border: 1px dashed #3A4245; display: flex; align-items: center; gap: 6px; font-size: 14px"><span style="color: {{accent}}; display: flex"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span>Foot plate</button><button type="button" style="height: 40px; padding: 0 12px; border-radius: 12px; border: 1px dashed #3A4245; display: flex; align-items: center; gap: 6px; font-size: 14px"><span style="color: {{accent}}; display: flex"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span>Range</button></div>
+        </div>
+        <button type="button" style="height: 54px; border-radius: 15px; background: {{accent}}; color: #121414; font-size: 15.5px; font-weight: 700">Save</button>
+      </section>
+    </div>
+  </div></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5FA8B8","options":["#5FA8B8","#B5A3CF","#D8A13B","#8FB573"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#5FA8B8' };
+  }
+}
+</script>
+</body>
+</html>
