@@ -47,7 +47,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap |
 | 046 | Build the real catalog: movements and versions | Large | Research catalog is reference only. Grip is a version; shown by movement |
 | 047 | Switch an exercise's version mid-workout | Medium | Deferred 2026-10-24. For this workout only; the plan keeps its version |
-| 048 | Exercise names with "-" or "()" are refused | Small | **Live bug:** "Pull-Ups" from today's catalog cannot be added to a plan |
+| 048 | Exercise names with "-" or "()" are refused | Small | **In review (branch TICKET-048);** device run reported working. "Pull-Ups" from today's catalog could not be added to a plan |
 
 ### Not tickets — verification owed
 
@@ -2933,8 +2933,8 @@ TICKET-043's search cases.
 
 ### TICKET-048: Exercise Names With "-" or "()" Are Refused
 
-**Priority:** High | **Effort:** Small | **Status: OPEN** — bug, found in TICKET-041,
-split out in the PR #17 review
+**Priority:** High | **Effort:** Small | **Status: IN REVIEW** (branch TICKET-048) —
+bug, found in TICKET-041, split out in the PR #17 review; device run reported working 2026-10-24
 
 **Description:**
 Adding an exercise to a plan runs `getInvalidExerciseNameCharacter`
@@ -2942,14 +2942,31 @@ Adding an exercise to a plan runs `getInvalidExerciseNameCharacter`
 It runs in `validateExerciseSelection` (`src/utils/exerciseValidations.ts`) and again
 for every exercise in `validateWorkoutAndExercises`. Today's own catalog has
 "Pull-Ups" (`src/scripts/uploadExercises.ts`), so it cannot be added to a plan. The
-rule dates from fd88aba (2025-05-04). Read from the code; not run on a device.
+rule dates from fd88aba (2025-05-04), confirmed with `git log -S`: both the function
+and its `/^[a-zA-Z\s]$/` pattern first appear there. Confirmed by a unit test
+calling `validateExerciseSelection` with "Pull-Ups", which got the refusal.
 
 **Acceptance Criteria:**
-- [ ] Names may hold letters, digits, spaces, "-", "(", ")", "/", "'" and "&"; other
+- [x] Names may hold letters, digits, spaces, "-", "(", ")", "/", "'" and "&"; other
       characters are still refused, with the message naming the allowed set
-- [ ] A test with "Pull-Ups" and "Pec Deck (Machine Fly)" passing and one refused
-      character, seen red against today's rule
-- [ ] The id rule (`isValidId`: letters, digits, underscore) is unchanged
+- [x] A test with "Pull-Ups" and "Pec Deck (Machine Fly)" passing and one refused
+      character, seen red against today's rule (`src/utils/exerciseValidations.test.ts`)
+- [x] The id rule (`isValidId`: letters, digits, underscore) is unchanged
+
+**Deviations, found while building:**
+- **The typographic apostrophe ’ is allowed too.** Today's catalog has
+  "Farmer’s Walk" with ’, not ', so the ticket's set alone still refused it; iOS
+  keyboards type ’ by default. The message lists ' only.
+- **`toExerciseId` changed** (scope growth beyond the name rule). A custom exercise's
+  id is derived from its typed name; under the old mapping "Pull-Ups" became
+  `pull-ups`, which `isValidId` refuses, so the bug would only have moved to a
+  different message. It now drops apostrophes and turns any other run of
+  non-alphanumerics into one underscore. All 42 catalog names in
+  `uploadExercises.ts` map to their own ids (checked once, not kept as a test), and
+  any name of letters and spaces only — everything the old rule allowed — maps
+  exactly as before, so no stored id moves.
+- The user-name rule (`getInvalidUserNameCharacter`, sign-up) has the same pattern
+  and message and is deliberately left alone: it is a different rule.
 
 **Dependencies:** none. Before TICKET-042.
 
@@ -3197,7 +3214,7 @@ Exercise catalog (Phase 3B), in this order; research is in research/exercise-cat
   TICKET-044  (stage 1: plates unit)     — Small; needs only boards C1–C2 from 041
   TICKET-042  (Catalog, movement first)  — Decisions first; before or with TICKET-030
   TICKET-046  (Real catalog content)     — Research is reference only; grip is a version
-  TICKET-048  (Name rule bug)            — Small and live; any time, before 042
+  TICKET-048  (Name rule bug)            — In review (branch TICKET-048)
   TICKET-043  (Search + picker)          — After 042; picker built from 041 boards A
 
 Decisions before code
