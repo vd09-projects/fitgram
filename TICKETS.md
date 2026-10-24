@@ -41,7 +41,6 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
-| 041 | Design every screen the catalog changes | Medium | Canvas first; plates boards (C1–C2) first so 044 stage 1 is not held up |
 | 042 | Exercise catalog: movements with versions, loaded into the app | Large | Movement first; history stays per version. 349 entries not weight × reps; **assisted** must not use role `weight` |
 | 043 | Find an exercise: search by muscle, typos, movement-first picker | Large | Ports the prototype and its 91 cases; "Latpulldown", "squad", "bech press" return 0 today |
 | 044 | Plates as a weight unit | Small | Needs only 041 boards C1–C2. Machine settings, per-side and tags dropped or superseded |
@@ -2252,10 +2251,10 @@ a version mid-workout (047).
 
 ---
 
-### TICKET-041: Design Every Screen the Catalog Changes
+### ~~TICKET-041: Design Every Screen the Catalog Changes~~ ✅ DONE
 
-**Priority:** Medium | **Effort:** Medium | **Status: IN REVIEW** — all groups
-approved 2026-10-24; boards and ticket edits in a PR
+**Priority:** Medium | **Effort:** Medium | **Status: DONE** — all groups
+approved 2026-10-24; merged in PR #17
 
 **Description:**
 TICKET-042 to TICKET-044 change what the user sees in several places, and some of
@@ -3195,7 +3194,6 @@ Correctness and guards
   TICKET-037  (Same-day session chips)   — Two identical chips in the sheet
 
 Exercise catalog (Phase 3B), in this order; research is in research/exercise-catalog/ (git-ignored, local only)
-  TICKET-041  (Design all catalog UI)    — Canvas boards; plates group first
   TICKET-044  (stage 1: plates unit)     — Small; needs only boards C1–C2 from 041
   TICKET-042  (Catalog, movement first)  — Decisions first; before or with TICKET-030
   TICKET-046  (Real catalog content)     — Research is reference only; grip is a version
