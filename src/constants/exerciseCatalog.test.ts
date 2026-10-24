@@ -24,7 +24,7 @@ const SHIPPED_VERSION_IDS = [
   "lateral_raise__cable__one_side",
   "pec_deck__machine",
   "plank__bodyweight",
-  "pull_up__pull_up_bar",
+  "pull_up__bodyweight",
   "pull_up__assisted_machine",
 ];
 

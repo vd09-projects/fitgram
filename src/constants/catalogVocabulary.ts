@@ -65,6 +65,15 @@ export type MuscleId = keyof typeof MUSCLES;
 /**
  * Labels are lower case: the display name capitalises only its first part
  * ("Bench Press · Dumbbell, incline"), so a label reads right in either place.
+ *
+ * THE RULE (PR #20 review): equipment is what carries the load, or what
+ * changes the numbers. Something that is only where the body works is not
+ * equipment: a pull-up on a bar, a dip on a station, a bench dip, a wall sit and
+ * a box jump are all `bodyweight` (`pull_up__bodyweight`). Rings, a suspension
+ * trainer and parallettes stay, because a ring dip is a different number from a
+ * bar dip. There is no "none": an implement not listed here (wrist roller,
+ * gripper, tib bar) gets its own key when the catalog needs it, rather than an
+ * id that says nothing (`tib_bar_raise__none`).
  */
 export const EQUIPMENT = {
   barbell: "barbell",
@@ -90,11 +99,7 @@ export const EQUIPMENT = {
   suspension_trainer: "suspension trainer",
   sled: "sled",
   rings: "rings",
-  pull_up_bar: "pull-up bar",
-  dip_station: "dip station",
   parallettes: "parallettes",
-  bench: "bench",
-  box: "box",
   weight_plate: "weight plate",
   sandbag: "sandbag",
   battle_rope: "battle rope",
@@ -111,8 +116,6 @@ export const EQUIPMENT = {
   weight_vest: "weight vest",
   mace: "mace",
   gada: "gada",
-  wall: "wall",
-  none: "no equipment",
 } as const;
 export type EquipmentId = keyof typeof EQUIPMENT;
 

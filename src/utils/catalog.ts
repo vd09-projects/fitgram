@@ -145,37 +145,68 @@ export function fieldNameCarriesUnit(name: string): boolean {
   return name.split(/\s+/).some((word) => unitSpec(word.toLowerCase()) !== null);
 }
 
+/** Movement ids are the first part of every version id, so they are lower snake case. */
+const MOVEMENT_ID = /^[a-z0-9]+(_[a-z0-9]+)*$/;
+
+// Deliberately not a type guard: the typed shape is kept, and these checks are
+// what make it true for untyped input.
+const isObject = (value: unknown): boolean => typeof value === "object" && value !== null && !Array.isArray(value);
+
 /**
  * Every problem in a catalog, one line each; empty means valid. Collects them
  * all rather than stopping at the first, so one run lists every fix.
  *
  * Checks values against the closed sets at runtime too, not only through the
- * types: in stage 2 the catalog arrives from Firestore as untyped JSON.
+ * types: in stage 2 the catalog arrives from Firestore as untyped JSON, so a
+ * list may be an object and an entry may be null. Those are refused here, and
+ * `loadCatalog` turns anything this still misses into `invalid`, never a throw.
  */
 export function validateCatalog(movements: readonly Movement[]): string[] {
   const errors: string[] = [];
   const movementIds = new Set<string>();
   const versionIds = new Set<string>();
 
-  const checkMuscles = (where: string, muscles: unknown) => {
+  const checkMuscles = (where: string, muscles: unknown, { required }: { required: boolean }) => {
     if (!Array.isArray(muscles)) return errors.push(`${where}: muscles must be a list`);
+    // Search ranks by the first primary muscle, so an empty primary list is refused.
+    if (required && muscles.length === 0) errors.push(`${where}: has no primary muscle`);
     for (const muscle of muscles) if (!has(MUSCLES, muscle)) errors.push(`${where}: unknown muscle "${muscle}"`);
   };
+  const checkAliases = (where: string, aliases: unknown) => {
+    if (!Array.isArray(aliases) || aliases.some((alias) => typeof alias !== "string"))
+      errors.push(`${where}: aliases must be a list of strings`);
+  };
+
+  if (!Array.isArray(movements)) return ["catalog: must be a list of movements"];
 
   for (const movement of movements) {
+    if (!isObject(movement)) {
+      errors.push("catalog: a movement is not an object");
+      continue;
+    }
     const m = movement.id;
+    if (typeof m !== "string" || !MOVEMENT_ID.test(m)) errors.push(`${m}: movement id must be lower snake case`);
     if (movementIds.has(m)) errors.push(`${m}: duplicate movement id`);
     movementIds.add(m);
-    checkMuscles(m, movement.primaryMuscles);
-    checkMuscles(m, movement.secondaryMuscles);
+    if (typeof movement.name !== "string" || movement.name.trim() === "") errors.push(`${m}: has no name`);
+    checkMuscles(m, movement.primaryMuscles, { required: true });
+    checkMuscles(m, movement.secondaryMuscles, { required: false });
+    checkAliases(m, movement.aliases);
     if (!has(CATEGORIES, movement.category)) errors.push(`${m}: unknown category "${movement.category}"`);
     if (movement.pattern !== undefined && !has(PATTERNS, movement.pattern))
       errors.push(`${m}: unknown pattern "${movement.pattern}"`);
     if (movement.oneSide !== undefined && !has(ONE_SIDE_LABELS, movement.oneSide))
       errors.push(`${m}: unknown one-side label "${movement.oneSide}"`);
-    if (!movement.versions?.length) errors.push(`${m}: has no versions`);
+    if (!Array.isArray(movement.versions) || movement.versions.length === 0) {
+      errors.push(`${m}: has no versions`);
+      continue;
+    }
 
-    for (const version of movement.versions ?? []) {
+    for (const version of movement.versions) {
+      if (!isObject(version)) {
+        errors.push(`${m}: a version is not an object`);
+        continue;
+      }
       const v = version.id;
       if (versionIds.has(v)) errors.push(`${v}: duplicate version id`);
       versionIds.add(v);
@@ -186,19 +217,35 @@ export function validateCatalog(movements: readonly Movement[]): string[] {
         errors.push(`${v}: unknown attachment "${version.attachment}"`);
       if (version.grip !== undefined && !has(GRIPS, version.grip)) errors.push(`${v}: unknown grip "${version.grip}"`);
       if (!has(MEASURES, version.measure)) errors.push(`${v}: unknown measure "${version.measure}"`);
-      if (version.primaryMuscles !== undefined) checkMuscles(v, version.primaryMuscles);
+      if (version.primaryMuscles !== undefined) checkMuscles(v, version.primaryMuscles, { required: true });
+      checkAliases(v, version.aliases);
       if (version.unilateral && movement.oneSide === undefined)
         errors.push(`${v}: unilateral, but ${m} has no oneSide label ("arm" or "leg")`);
 
       const expected = buildVersionId(m, version);
       if (v !== expected) errors.push(`${v}: id does not match its axes, expected "${expected}"`);
 
-      if (!version.fields?.length) errors.push(`${v}: has no fields`);
-      for (const field of version.fields ?? []) {
-        if (!FIELD_ROLES.includes(field.role)) errors.push(`${v}: field "${field.name}" has no valid role`);
-        if (fieldNameCarriesUnit(field.name))
-          errors.push(`${v}: field "${field.name}" carries a unit in its name; use \`unit\``);
+      if (!Array.isArray(version.fields) || version.fields.length === 0) {
+        errors.push(`${v}: has no fields`);
+        continue;
       }
+      for (const field of version.fields) {
+        if (!isObject(field)) {
+          errors.push(`${v}: a field is not an object`);
+          continue;
+        }
+        if (!FIELD_ROLES.includes(field.role)) errors.push(`${v}: field "${field.name}" has no valid role`);
+        if (typeof field.name !== "string" || field.name.trim() === "") errors.push(`${v}: a field has no name`);
+        else if (fieldNameCarriesUnit(field.name))
+          errors.push(`${v}: field "${field.name}" carries a unit in its name; use \`unit\``);
+        if (field.unit !== undefined && unitSpec(field.unit) === null)
+          errors.push(`${v}: field "${field.name}" has unknown unit "${field.unit}"`);
+      }
+      // TICKET-042's measure table: assistance as a weight reads less assistance
+      // (progress) as a regression and adds it to volume. Role `other` until
+      // TICKET-035's `better` exists.
+      if (version.measure === "assisted" && version.fields.some((field) => isObject(field) && field.role === "weight"))
+        errors.push(`${v}: assisted, so no field may have role "weight"; use "other"`);
     }
   }
   return errors;
@@ -209,12 +256,19 @@ export type CatalogLoad =
   | { kind: "invalid"; errors: string[] };
 
 /**
- * A catalog ready to use, or every reason it is not. Never a partial catalog:
- * one bad version makes the whole load invalid, so stage 2 keeps the previous
- * catalog instead of showing some exercises and silently dropping others.
+ * A catalog ready to use, or every reason it is not. Never a partial catalog
+ * and never a throw: one bad version makes the whole load invalid, so stage 2
+ * keeps the previous catalog instead of showing some exercises and silently
+ * dropping others, or crashing.
  */
 export function loadCatalog(movements: readonly Movement[]): CatalogLoad {
-  const errors = validateCatalog(movements);
+  let errors: string[];
+  try {
+    errors = validateCatalog(movements);
+  } catch (error) {
+    // Input shaped in a way the checks above did not foresee.
+    return { kind: "invalid", errors: [`catalog: could not be read (${String(error)})`] };
+  }
   if (errors.length > 0) return { kind: "invalid", errors };
   return { kind: "ok", movements, index: buildCatalogIndex(movements) };
 }

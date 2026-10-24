@@ -2362,8 +2362,7 @@ needs it, built against the chosen board.
 ### TICKET-042: Exercise Catalog — Movements with Versions, Loaded into the App
 
 **Priority:** Medium | **Effort:** Large | **Status: IN PROGRESS** — open decisions
-settled and stage 1 built 2026-10-24 (branch `TICKET-042`, uncommitted); stage 2
-waits for TICKET-046
+settled 2026-10-24; stage 1 in PR #20; stage 2 waits for TICKET-046
 
 **Description:**
 Replace today's 42 exercises (`src/scripts/uploadExercises.ts`) with the research
@@ -2627,7 +2626,7 @@ key, so it never changes once a version ships:
 nothing in the app imports them yet, so the app behaves as before.
 - `src/types/catalog.ts`: `Movement`, `MovementVersion` as proposed.
   `src/constants/catalogVocabulary.ts`: the closed sets (29 muscles in 9 groups,
-  43 equipment, 11 categories, 24 patterns, 11 measures, the axes), from the
+  37 equipment, 11 categories, 24 patterns, 11 measures, the axes), from the
   research with its short codes spelled out (`bb` → `barbell`). Equipment keys
   are inside version ids, so they are stored values: never renamed
 - `src/utils/catalog.ts`: `buildVersionId` (checks ids, never makes them),
@@ -2659,10 +2658,25 @@ nothing in the app imports them yet, so the app behaves as before.
     without it)
   - unit in a field name = any parenthesis, or a word that is a unit key
     ("Time s"). Not every spelling of a unit
-- **Tests:** 13 in `src/utils/catalog.test.ts` + 1 pin. Each covered line was
+  - **equipment is what carries the load, or what changes the numbers** (PR #20
+    review). A bar, station, bench, box or wall is where the body works, not
+    equipment: those movements are `bodyweight` (`pull_up__bodyweight`). Rings,
+    suspension trainer and parallettes stay (a ring dip is a different number).
+    No `none`: in the research it meant "an implement we did not model", which
+    would freeze ids like `tib_bar_raise__none`; TICKET-046 adds a key for each
+    such implement instead. Rule written at `EQUIPMENT`
+  - **the loader never throws** (PR #20 review): untyped Firestore JSON (a list
+    that is an object, a null field) is refused with a message, and anything
+    unforeseen is caught and returned as `invalid`. Also refused: an unknown
+    unit, a movement id not in lower snake case (it would be frozen into every
+    version id), an empty name, no primary muscle, aliases that are not a list,
+    and an `assisted` version with a `weight` field (the measure table's rule,
+    now a check rather than a comment)
+- **Tests:** 22 in `src/utils/catalog.test.ts` + 1 pin. Each covered line was
   broken and seen red (axis order, `_grip`, `one_side`, single version, equipment
-  rule, capital, one-arm label, snapshot trim, both fallbacks, each of the 7
-  refusals); the pin seen red by renaming `pec_deck__machine`
+  rule, capital, one-arm label, snapshot trim, both fallbacks, each of the 16
+  refusals including the never-throw ones); the pin seen red by renaming
+  `pec_deck__machine`
 - **Not checked:** that a version's fields match its measure; that grip
   versions carry a muscle override (TICKET-046's criterion)
 
@@ -3063,6 +3077,10 @@ kind of miss a real pass catches.
       today. Decide a check (a reference list, or the user's other notes) and report
       the number, with what was added
 - [ ] Ships in the shape TICKET-042 defines, and passes its loader's checks
+- [ ] Equipment follows the rule at `EQUIPMENT` (`catalogVocabulary.ts`, PR #20
+      review): what carries the load or changes the numbers. Bodyweight movements
+      on a bar, station, bench, box or wall are `bodyweight`; an implement the
+      vocabulary lacks gets its own key, never `none`
 - [ ] TICKET-043's search cases rewritten against it still pass
 
 **Technical Notes:**

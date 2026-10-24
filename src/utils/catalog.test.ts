@@ -113,6 +113,24 @@ describe("loadCatalog refuses", () => {
     ["an unknown measure", (c) => (c[0].versions[0].measure = "wr" as never), 'unknown measure "wr"'],
     ["a field without a role", (c) => (c[0].versions[0].fields[1] = { name: "Reps" } as never), 'field "Reps" has no valid role'],
     ["a unit in a field name", (c) => (c[0].versions[0].fields[0].name = "Weight (kg)"), 'field "Weight (kg)" carries a unit'],
+    ["an unknown unit", (c) => (c[0].versions[0].fields[0].unit = "kgs" as never), 'unknown unit "kgs"'],
+    ["a movement id that is not snake case", (c) => (c[0].id = "Row Barbell"), "movement id must be lower snake case"],
+    ["an empty name", (c) => (c[0].name = " "), "row: has no name"],
+    ["no primary muscle", (c) => (c[0].primaryMuscles = []), "row: has no primary muscle"],
+    ["missing aliases", (c) => delete (c[0] as Partial<Movement>).aliases, "row: aliases must be a list"],
+    [
+      "assisted with a weight field",
+      (c) => (c[0].versions[0].measure = "assisted"),
+      'assisted, so no field may have role "weight"',
+    ],
+    // Untyped Firestore JSON: refused, not thrown.
+    ["versions that are not a list", (c) => (c[0].versions = {} as never), "row: has no versions"],
+    ["a null field", (c) => (c[0].versions[0].fields[1] = null as never), "a field is not an object"],
+    [
+      "input that throws while being read",
+      (c) => Object.defineProperty(c[0], "id", { get: () => { throw new Error("boom"); } }),
+      "could not be read (Error: boom)",
+    ],
   ])("%s", (_, breakIt, message) => {
     const catalog = [valid()];
     breakIt(catalog);

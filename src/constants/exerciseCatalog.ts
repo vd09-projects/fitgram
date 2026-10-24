@@ -148,7 +148,7 @@ export const EXERCISE_CATALOG: Movement[] = [
     mechanic: "compound",
     aliases: ["pullup", "pull up"],
     versions: [
-      { id: "pull_up__pull_up_bar", equipment: "pull_up_bar", unilateral: false, measure: "bodyweight_reps", fields: REPS, aliases: [] },
+      { id: "pull_up__bodyweight", equipment: "bodyweight", unilateral: false, measure: "bodyweight_reps", fields: REPS, aliases: [] },
       { id: "pull_up__assisted_machine", equipment: "assisted_machine", unilateral: false, measure: "assisted", fields: ASSISTED, aliases: ["gravitron", "assisted pull up"] },
     ],
   },
