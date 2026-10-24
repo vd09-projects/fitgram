@@ -41,7 +41,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
-| 042 | Exercise catalog: movements with versions, loaded into the app | Large | Movement first; history stays per version. 349 entries not weight × reps; **assisted** must not use role `weight` |
+| 042 | Exercise catalog: movements with versions, loaded into the app | Large | **Stage 1 done** (types, id and name rules, loader, hand-made catalog). Stage 2 after 046. Movement first; history stays per version; catalog in Firestore, cached |
 | 043 | Find an exercise: search by muscle, typos, movement-first picker | Large | Ports the prototype and its 91 cases; "Latpulldown", "squad", "bech press" return 0 today |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap |
 | 046 | Build the real catalog: movements and versions | Large | Research catalog is reference only. Grip is a version; shown by movement |
@@ -2361,7 +2361,9 @@ needs it, built against the chosen board.
 
 ### TICKET-042: Exercise Catalog — Movements with Versions, Loaded into the App
 
-**Priority:** Medium | **Effort:** Large | **Status: OPEN**
+**Priority:** Medium | **Effort:** Large | **Status: IN PROGRESS** — open decisions
+settled and stage 1 built 2026-10-24 (branch `TICKET-042`, uncommitted); stage 2
+waits for TICKET-046
 
 **Description:**
 Replace today's 42 exercises (`src/scripts/uploadExercises.ts`) with the research
@@ -2474,16 +2476,75 @@ key, so it never changes once a version ships:
           decision, boards C5 and `ManageTags.dc.html`): a close-grip set would
           compare with a normal one, a banded set could become the heaviest
           record, and bench plus close-grip bench could not share a plan
-      - **storage:** ship the catalog in the app bundle (research measured 21 KB
+      - ~~**storage:** ship the catalog in the app bundle (research measured 21 KB
         gzipped for the search fields; offline search, zero Firestore reads) or keep
         `predefined_exercises` in Firestore. Recommend the bundle: Firestore then
         holds only custom exercises. Today `usePredefinedExercises` re-reads the
-        whole collection every time a screen using it mounts
-      - **old ids:** today's 42 use `deadlifts`, `pull_ups`, `bicep_curls`. Map them to
+        whole collection every time a screen using it mounts~~ **Decided (user,
+        2026-10-24): Firestore, cached on the phone, refetched only when its
+        version changes.** Built in stage 2:
+        - a new collection `exercise_catalog`, not `predefined_exercises`, so the
+          42 old docs never mix with the new ones: one `meta` doc (`version`, a
+          content hash; `updatedAt` for display only) and 2–3 `chunk_N` docs, each
+          a list of movements with their versions nested. Not one doc per
+          version: that is ~878 reads per phone per catalog change. The research
+          catalog is 628 KB raw (35 KB gzipped); grouped by movement it is smaller,
+          but a Firestore doc is capped at 1 MiB, hence chunks
+        - the phone keeps the catalog and its `version` in AsyncStorage, loads it
+          into memory at app start, and reads `meta` (1 read) at app start and
+          when Manage Workout opens. Same `version`: use the cache. Empty cache or
+          a different `version`: fetch the chunks again. A content hash, not a
+          date: re-uploading the same content refetches nothing, and phone clocks
+          do not matter
+        - **every screen needs it, not only Manage Workout:** names are built from
+          the catalog (below), so the logger header, history sheet, Start row and
+          logs filter read it too, offline included. Safe because the first
+          sign-in needs a network anyway, so the catalog is fetched then. **Sign-out
+          must not clear it** (it is not account data; TICKET-026)
+        - a fetched catalog runs through `loadCatalog`; invalid means keep the
+          previous cache, never apply part of one
+        - **the vocabulary stays in code** (user, 2026-10-24, MVP): muscles,
+          groups, equipment, categories, patterns, measures and the axes live in
+          `catalogVocabulary.ts`, not Firestore. Search, the picker and
+          TICKET-035 are written against exact values (`"cable"` shows the
+          Attachment row, `hammies` → `hamstrings`, `assisted` is "lower is
+          better"), and `MuscleId` / `EquipmentId` let `tsc` catch a typo in
+          them. Consequence: a catalog that uses a new equipment or muscle needs
+          an app build **before** its upload, or older builds refuse the whole
+          catalog and keep their cache. Stage 2 logs that refusal loudly, so it
+          is never a silent "the update did not show". Rejected for now: muscle
+          and equipment labels in the catalog's `meta` doc (no build for a new
+          equipment). Revisit if that build-first order becomes a real cost
+        - an unknown id while online triggers a refetch (a plan made on a phone
+          with a newer catalog)
+        - rules: `exercise_catalog` readable when signed in, no client writes.
+          `firestore.rules` is an unreconciled proposal: diff with the console
+          before the user deploys. No new indexes (reads are doc gets by id)
+        - why not the bundle: `expo-updates` is not installed (`eas.json` has no
+          update channel), so every catalog fix during TICKET-046 would be a new
+          EAS build and a reinstall for every tester
+        - evidence: `usePredefinedExercises` has one caller
+          (`AddExerciseScreen.tsx`); `addPredefinedExercise` has none, so custom
+          exercises live only inside plan docs, not in a catalog collection (the
+          recommendation's "Firestore then holds only custom exercises" was off)
+      - ~~**old ids:** today's 42 use `deadlifts`, `pull_ups`, `bicep_curls`. Map them to
         versions, or accept losing device test history (pre-launch: no migration
-        owed, but it should be a choice, not a surprise)
-      - **old ambiguous names:** "Bicep Curls", "Squats", "Lunges", "Rowing" and
-        "Cycling" are movements now; pick which version each old id becomes
+        owed, but it should be a choice, not a surprise)~~ **Decided (user,
+        2026-10-24): not mapped. The test data is wiped when stage 2 lands**: plans,
+        `sessions`, `exercise_sessions`, `exercise_stats`, the 42
+        `predefined_exercises` docs, and the phone's active workout and pending
+        uploads. A script with `--dry-run`, run by the user (CLAUDE.md 1.3). Not
+        now: until stage 2 nothing reads the new catalog. Why mapping was a
+        migration, not a lookup: the id is inside doc ids
+        (`exercise_stats/{exerciseId}`, `exercise_sessions/{sessionId}__{exerciseId}`)
+        and inside every plan doc; and mapped history would still read
+        `weight: null`, because old sets are keyed "Weight (kg)" and the new
+        fields are "Weight" (TICKET-030 open)
+      - ~~**old ambiguous names:** "Bicep Curls", "Squats", "Lunges", "Rowing" and
+        "Cycling" are movements now; pick which version each old id becomes~~
+        **Moot (2026-10-24):** nothing is mapped. For the record, "Rowing" has
+        Weight × Reps fields, so it was a row lift, not the erg, and which row was
+        not recoverable from the data
       - ~~a plan stores the version, so changing the version mid-workout means
         swapping the exercise. Decide whether the logger offers that~~ **Decided
         (user, 2026-10-24): yes, later, as TICKET-047.** A switch is for this workout
@@ -2509,7 +2570,8 @@ key, so it never changes once a version ships:
         ids, research entries TICKET-046 drops (Pause Bench Press, the banded
         ones), a version removed later. Plans and sessions also keep the name as
         it read when the exercise was added or logged, a **fallback snapshot** in
-        its own field, `nameSnapshot` (PR #17 third review), read only when the
+        its own field, `nameSnapshot` (PR #17 third review; on the session doc it
+        is the existing `exerciseName`, decided 2026-10-24), read only when the
         catalog has no entry. It is never validated, so the "·" in it never meets
         the name rule; `Exercise.name` stays for custom exercises only, and the
         line above holds. The name site then shows the snapshot
@@ -2550,16 +2612,65 @@ key, so it never changes once a version ships:
 - [ ] Catalog names are not run through the custom-name rule (names are built,
       see above). The live bug in that rule is split out as TICKET-048 (PR #17
       review), so it does not wait for this Large ticket
-- [ ] If storage stays in Firestore: the upload runs with `--dry-run` first and its
-      output is shown; the user triggers the real write (CLAUDE.md 1.3).
-      `uploadExercises.ts` never deletes, so today's 42 docs would stay next to the
-      new ones; removing them is a separate user-triggered step
+- [ ] Storage is Firestore (`exercise_catalog`, decided above): the upload runs
+      with `--dry-run` first and its output is shown; the user triggers the real
+      write (CLAUDE.md 1.3). Today's 42 `predefined_exercises` docs go in the
+      user-triggered wipe, not in the upload
 - [ ] The user's own exercises resolve: the 84 versions from their Back, Chest and
       Leg notes each map to a movement + version
 - [ ] Delivered in stages that each typecheck and run (CLAUDE.md 3.4):
       1. types and the generated catalog, no visible change
       2. the app reads the new catalog; the exercise picker still lists by name
          (TICKET-043 replaces it)
+
+**Implementation, stage 1 (2026-10-24):** types, rules and a hand-made catalog;
+nothing in the app imports them yet, so the app behaves as before.
+- `src/types/catalog.ts`: `Movement`, `MovementVersion` as proposed.
+  `src/constants/catalogVocabulary.ts`: the closed sets (29 muscles in 9 groups,
+  43 equipment, 11 categories, 24 patterns, 11 measures, the axes), from the
+  research with its short codes spelled out (`bb` → `barbell`). Equipment keys
+  are inside version ids, so they are stored values: never renamed
+- `src/utils/catalog.ts`: `buildVersionId` (checks ids, never makes them),
+  `buildVersionName`, `resolveExerciseName` (catalog → snapshot with "No longer
+  in the catalog" → "Exercise no longer in the catalog" + id), `validateCatalog`
+  / `loadCatalog` (all errors at once; invalid is never a partial catalog)
+- `src/constants/exerciseCatalog.ts`: 6 movements, 18 versions. Bench Press
+  (equipment × angle + close grip), Triceps Pushdown (attachments), Lateral Raise
+  (cable one arm), Pec Deck (single version), Plank (time only), Pull-Up
+  (assisted). `exerciseCatalog.test.ts` pins all 18 ids; replaced wholesale,
+  deliberately, by TICKET-046's
+- `nameSnapshot?` on `Exercise` and `LoggedExercise`; `ExerciseSessionDoc.exerciseName`
+  documented as the session's snapshot. Nothing writes them yet (stage 2)
+- **Choices made while building, each with a comment at the code:**
+  - **names show equipment only when the movement's versions differ in it**, so
+    "Triceps Pushdown · Rope". Rejected: "an attachment implies cable", a special
+    case. Cost: a band pushdown added later renames the rope one "Cable, rope"
+  - a single version shows the movement name even with a non-default axis (a
+    rope-only Face Pull reads "Face Pull")
+  - **deviation: `angle` has no `"flat"` value**; absent is flat, so a flat version
+    has one spelling and the id rule has nothing to drop
+  - **deviation: assisted is equipment `assisted_machine`**, not a new id axis:
+    "Pull-Up · Machine" would not say the number is assistance. Its field is
+    "Assistance", role `other`, unit kg (the set card still says kg; nothing sums
+    or compares `other`)
+  - added to the proposed shape: `measure` on each version (the loader checks
+    it; it is a label until TICKET-035), and `oneSide: "arm" | "leg"` on the
+    movement, required when a version is unilateral (the loader refuses one
+    without it)
+  - unit in a field name = any parenthesis, or a word that is a unit key
+    ("Time s"). Not every spelling of a unit
+- **Tests:** 13 in `src/utils/catalog.test.ts` + 1 pin. Each covered line was
+  broken and seen red (axis order, `_grip`, `one_side`, single version, equipment
+  rule, capital, one-arm label, snapshot trim, both fallbacks, each of the 7
+  refusals); the pin seen red by renaming `pec_deck__machine`
+- **Not checked:** that a version's fields match its measure; that grip
+  versions carry a muscle override (TICKET-046's criterion)
+
+**Stage 2 needs, from TICKET-046:** the real catalog in this shape, passing
+`validateCatalog`, with its ids frozen into the pin list; the per-movement
+`oneSide` label; each grip version's muscle override. Not run on the hand-made
+catalog: the picker would shrink from 42 exercises to 6 movements, and versions
+picked on a device would be ids TICKET-046 may not keep.
 
 **Technical Notes:**
 - The research also derives `region`, `push_pull`, `primary_groups` and a `staple`
@@ -3214,13 +3325,16 @@ a mark that failed to store is not shown; tap-again clears on the Today strip to
 Finished tickets have been removed — they are not blockers for anything.
 
 **The exercise catalog track goes first** (user's decision, 2026-10-24): 044 → 042 →
-046 → 043, in that order, before 033 / 032 / 029 below. 044 is done (PR #19). Phase 3B; research is in
+046 → 043, in that order, before 033 / 032 / 029 below. 044 is done (PR #19). 042 runs
+in two parts around 046 (2026-10-25): stage 1 (the shape) first, stage 2 (the app reads
+it) once 046's content exists. Phase 3B; research is in
 `research/exercise-catalog/` (git-ignored, local only).
 
 ```
-1. TICKET-042  (Catalog, movement first)   — Decisions first; before or with TICKET-030
+1. TICKET-042  stage 1 (Catalog shape)    — Done: types, id/name rules, loader
 2. TICKET-046  (Real catalog content)      — Research is reference only; grip is a version
-3. TICKET-043  (Search + picker)           — After 042; picker built from 041 boards A
+3. TICKET-042  stage 2 (App reads catalog) — Firestore + cache, name sites, test-data wipe
+4. TICKET-043  (Search + picker)           — After 042; picker built from 041 boards A
 ```
 
 **Then the next three, decided.** They are what makes logging an exercise match what
