@@ -43,7 +43,6 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
 | 042 | Exercise catalog: movements with versions, loaded into the app | Large | Movement first; history stays per version. 349 entries not weight × reps; **assisted** must not use role `weight` |
 | 043 | Find an exercise: search by muscle, typos, movement-first picker | Large | Ports the prototype and its 91 cases; "Latpulldown", "squad", "bech press" return 0 today |
-| 044 | Plates as a weight unit | Small | Needs only 041 boards C1–C2. Machine settings, per-side and tags dropped or superseded |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap |
 | 046 | Build the real catalog: movements and versions | Large | Research catalog is reference only. Grip is a version; shown by movement |
 | 047 | Switch an exercise's version mid-workout | Medium | Deferred 2026-10-24. For this workout only; the plan keeps its version |
@@ -1595,16 +1594,15 @@ resume banner.
   computed in `buildSessionDocs`. Aggregating exercise stats on read would cost
   one read per exercise per plan; adding the field after launch would mean migrating
   every session. Pre-launch, it is free
-- **Mixed units null the total** (`unavailableReason: "mixed_units"`). "kg" next to
-  no unit counts as mixed, matching `areFieldsComparable`. Rejected: per-unit totals
-  (`{ kg, lb }`), which are more to store and render for a case the precedent
-  already answers with null
+- ~~**Mixed units null the total**~~ **Superseded by TICKET-044 (user, 2026-10-24):**
+  one total per weight unit (`SessionTotalVolume.totals`), "1,955 kg · 115 plates".
+  Once plates existed, nulling any mix hid the volume of most plans
 - **An exercise with no weight+reps pair is excluded, not treated as a failure.** Under
   strict all-or-nothing, any plan with a plank would never show a volume. Counted
   in `exercisesTotal` and not in `exercisesWeighted`, and the row shows "1 not weighted"
 - **One unparseable lift nulls the total** (`"unparseable"`), with counts alongside
   ("2 of 3 lifts readable"). Precedence when several apply: no weighted lifts,
-  then unparseable, then mixed units
+  then unparseable
 - **last done** = the newest session of the plan, from one recent-sessions query
   (20) plus this user's pending uploads. Joined on `workoutId` and compared on
   start time on both sides. On a tie the uploaded copy wins. The volume always
@@ -2754,9 +2752,9 @@ chosen by the user 2026-10-24). A full screen opened by Add exercise, not a drop
 
 ---
 
-### TICKET-044: Logging Details — Plates as a Weight Unit
+### ~~TICKET-044: Logging Details — Plates as a Weight Unit~~ ✅ DONE
 
-**Priority:** Medium | **Effort:** Small | **Status: IN REVIEW** (stage 1 built on branch `TICKET-044`, uncommitted)
+**Priority:** Medium | **Effort:** Small | **Status: DONE** — merged in PR #19
 
 **Description:**
 Plates as a weight unit, for machines whose real weight is unknown. This ticket once
@@ -2888,10 +2886,15 @@ version, a session never compares across grips, so none of this is built. Boards
 - **Unit hint (board C1):** shown only while plates is the selected unit. The board
   shows only that state; on every kg field the line would be noise
 - **Bar weight:** nothing adds one. Grepped: no code adds to a typed weight
-- **Known gap, not fixed:** a workout mixing kg exercises with a plates one shows
-  "volume n/a · mixed units" on its Start Workout row (`computeSessionTotalVolume`),
-  the rule kg + lb already had. Plates make it common. Per-unit totals were rejected
-  there; revisit with TICKET-036 if it reads badly on a device
+- **Session volume is one total per unit** (user, 2026-10-24, PR #19 review). A
+  plan mixing kg and plates showed "volume n/a · mixed units" on its Start Workout
+  row, which with plates would be most plans. Now `SessionTotalVolume.totals` holds
+  one `{ unit, value }` per weight unit, in exercise order, and the row reads
+  "1,955 kg · 115 plates". Same for kg + lb, and for a unitless weight (a bare
+  number). Nothing is converted: the app never assumes what a plate weighs. This
+  changes the stored session doc; pre-launch, so not migrated, and a session in the
+  old single-total shape reads "volume not recorded". Supersedes TICKET-022's
+  "mixed units null the total"
 - Not done: the guided tour's optional copy update; the TEMPORARY history debug
   screen prints `40kg`-style values and was left as is
 
@@ -3210,14 +3213,13 @@ a mark that failed to store is not shown; tap-again clears on the Today strip to
 Finished tickets have been removed — they are not blockers for anything.
 
 **The exercise catalog track goes first** (user's decision, 2026-10-24): 044 → 042 →
-046 → 043, in that order, before 033 / 032 / 029 below. Phase 3B; research is in
+046 → 043, in that order, before 033 / 032 / 029 below. 044 is done (PR #19). Phase 3B; research is in
 `research/exercise-catalog/` (git-ignored, local only).
 
 ```
-1. TICKET-044  (stage 1: plates unit)      — Small; needs only boards C1–C2 from 041
-2. TICKET-042  (Catalog, movement first)   — Decisions first; before or with TICKET-030
-3. TICKET-046  (Real catalog content)      — Research is reference only; grip is a version
-4. TICKET-043  (Search + picker)           — After 042; picker built from 041 boards A
+1. TICKET-042  (Catalog, movement first)   — Decisions first; before or with TICKET-030
+2. TICKET-046  (Real catalog content)      — Research is reference only; grip is a version
+3. TICKET-043  (Search + picker)           — After 042; picker built from 041 boards A
 ```
 
 **Then the next three, decided.** They are what makes logging an exercise match what
