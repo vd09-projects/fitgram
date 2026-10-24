@@ -41,14 +41,12 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
-| 041 | Design every screen the catalog changes | Medium | Canvas first; plates boards (C1–C2) first so 044 stage 1 is not held up |
 | 042 | Exercise catalog: movements with versions, loaded into the app | Large | Movement first; history stays per version. 349 entries not weight × reps; **assisted** must not use role `weight` |
 | 043 | Find an exercise: search by muscle, typos, movement-first picker | Large | Ports the prototype and its 91 cases; "Latpulldown", "squad", "bech press" return 0 today |
 | 044 | Plates as a weight unit | Small | Needs only 041 boards C1–C2. Machine settings, per-side and tags dropped or superseded |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap |
 | 046 | Build the real catalog: movements and versions | Large | Research catalog is reference only. Grip is a version; shown by movement |
 | 047 | Switch an exercise's version mid-workout | Medium | Deferred 2026-10-24. For this workout only; the plan keeps its version |
-| 048 | Exercise names with "-" or "()" are refused | Small | **Live bug:** "Pull-Ups" from today's catalog cannot be added to a plan |
 
 ### Not tickets — verification owed
 
@@ -2252,10 +2250,10 @@ a version mid-workout (047).
 
 ---
 
-### TICKET-041: Design Every Screen the Catalog Changes
+### ~~TICKET-041: Design Every Screen the Catalog Changes~~ ✅ DONE
 
-**Priority:** Medium | **Effort:** Medium | **Status: IN REVIEW** — all groups
-approved 2026-10-24; boards and ticket edits in a PR
+**Priority:** Medium | **Effort:** Medium | **Status: DONE** — all groups
+approved 2026-10-24; merged in PR #17
 
 **Description:**
 TICKET-042 to TICKET-044 change what the user sees in several places, and some of
@@ -2932,10 +2930,10 @@ TICKET-043's search cases.
 
 ---
 
-### TICKET-048: Exercise Names With "-" or "()" Are Refused
+### ~~TICKET-048: Exercise Names With "-" or "()" Are Refused~~ ✅ DONE
 
-**Priority:** High | **Effort:** Small | **Status: OPEN** — bug, found in TICKET-041,
-split out in the PR #17 review
+**Priority:** High | **Effort:** Small | **Status: DONE** — merged in PR #18;
+bug, found in TICKET-041, split out in the PR #17 review; device run reported working 2026-10-24
 
 **Description:**
 Adding an exercise to a plan runs `getInvalidExerciseNameCharacter`
@@ -2943,14 +2941,31 @@ Adding an exercise to a plan runs `getInvalidExerciseNameCharacter`
 It runs in `validateExerciseSelection` (`src/utils/exerciseValidations.ts`) and again
 for every exercise in `validateWorkoutAndExercises`. Today's own catalog has
 "Pull-Ups" (`src/scripts/uploadExercises.ts`), so it cannot be added to a plan. The
-rule dates from fd88aba (2025-05-04). Read from the code; not run on a device.
+rule dates from fd88aba (2025-05-04), confirmed with `git log -S`: both the function
+and its `/^[a-zA-Z\s]$/` pattern first appear there. Confirmed by a unit test
+calling `validateExerciseSelection` with "Pull-Ups", which got the refusal.
 
 **Acceptance Criteria:**
-- [ ] Names may hold letters, digits, spaces, "-", "(", ")", "/", "'" and "&"; other
+- [x] Names may hold letters, digits, spaces, "-", "(", ")", "/", "'" and "&"; other
       characters are still refused, with the message naming the allowed set
-- [ ] A test with "Pull-Ups" and "Pec Deck (Machine Fly)" passing and one refused
-      character, seen red against today's rule
-- [ ] The id rule (`isValidId`: letters, digits, underscore) is unchanged
+- [x] A test with "Pull-Ups" and "Pec Deck (Machine Fly)" passing and one refused
+      character, seen red against today's rule (`src/utils/exerciseValidations.test.ts`)
+- [x] The id rule (`isValidId`: letters, digits, underscore) is unchanged
+
+**Deviations, found while building:**
+- **The typographic apostrophe ’ is allowed too.** Today's catalog has
+  "Farmer’s Walk" with ’, not ', so the ticket's set alone still refused it; iOS
+  keyboards type ’ by default. The message lists ' only.
+- **`toExerciseId` changed** (scope growth beyond the name rule). A custom exercise's
+  id is derived from its typed name; under the old mapping "Pull-Ups" became
+  `pull-ups`, which `isValidId` refuses, so the bug would only have moved to a
+  different message. It now drops apostrophes and turns any other run of
+  non-alphanumerics into one underscore. All 42 catalog names in
+  `uploadExercises.ts` map to their own ids (checked once, not kept as a test), and
+  any name of letters and spaces only — everything the old rule allowed — maps
+  exactly as before, so no stored id moves.
+- The user-name rule (`getInvalidUserNameCharacter`, sign-up) has the same pattern
+  and message and is deliberately left alone: it is a different rule.
 
 **Dependencies:** none. Before TICKET-042.
 
@@ -2991,8 +3006,10 @@ recorded.
 - `ManageAdd.dc.html`: the exercise arrives tagged Custom, with no fields and one row
   of starting templates (Weight × Reps / Reps only / Time / Distance + Time)
 - Open then: a custom exercise has no muscles, so muscle search cannot find it; the
-  name rule for custom names (TICKET-042's validation item); its id scheme next to
-  catalog version ids
+  name rule for custom names (TICKET-042's validation item), including a name of
+  allowed punctuation only ("()", "- &"), which passes the rule but maps to an empty
+  id and is refused as "Exercise ID cannot be empty." (PR #18 review); its id scheme
+  next to catalog version ids
 
 **Dependencies:** TICKET-042, TICKET-043.
 
@@ -3195,11 +3212,9 @@ Correctness and guards
   TICKET-037  (Same-day session chips)   — Two identical chips in the sheet
 
 Exercise catalog (Phase 3B), in this order; research is in research/exercise-catalog/ (git-ignored, local only)
-  TICKET-041  (Design all catalog UI)    — Canvas boards; plates group first
   TICKET-044  (stage 1: plates unit)     — Small; needs only boards C1–C2 from 041
   TICKET-042  (Catalog, movement first)  — Decisions first; before or with TICKET-030
   TICKET-046  (Real catalog content)     — Research is reference only; grip is a version
-  TICKET-048  (Name rule bug)            — Small and live; any time, before 042
   TICKET-043  (Search + picker)          — After 042; picker built from 041 boards A
 
 Decisions before code

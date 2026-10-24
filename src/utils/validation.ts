@@ -49,27 +49,43 @@ export const getInvalidUserNameCharacter = (name: string): string | null => {
  *
  * Exercise identity is the join key for cross-workout history: "my last bench
  * press" only works if bench press carries one id in every plan. Catalog ids are
- * lowercase_snake, and names are letters and whitespace only, so lowercasing and
- * collapsing whitespace reproduces that convention exactly — a custom
- * "Bench Press" lands on `bench_press`, the same id the catalog uses, and the
- * two share one history instead of silently splitting.
+ * lowercase_snake, so a custom "Bench Press" must land on `bench_press`, the same
+ * id the catalog uses, or the two silently split into two histories.
  *
- * Case and spacing variants ("Cable Fly", "cable  fly") collapse to one id for
- * the same reason.
+ * Apostrophes are dropped ("Farmer’s Walk" → `farmers_walk`); every other run of
+ * spaces or allowed punctuation becomes one underscore ("Pull-Ups" → `pull_ups`,
+ * "Pec Deck (Machine Fly)" → `pec_deck_machine_fly`), trimmed at the ends. That
+ * reproduces every catalog id, and for a name of letters and spaces only — all the
+ * old name rule allowed — the result is unchanged, so no stored id moves.
+ *
+ * Case, spacing and punctuation variants ("Cable Fly", "cable  fly", "Pull Ups",
+ * "Pull-Ups") collapse to one id for the same reason.
  */
 export const toExerciseId = (name: string): string =>
-  name.trim().toLowerCase().replace(/\s+/g, "_");
+  name
+    .trim()
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+/**
+ * Exercise names allow letters, digits, spaces and - ( ) / ' &, which covers the
+ * catalog's own names ("Pull-Ups", "Pec Deck (Machine Fly)", "Farmer’s Walk").
+ * The typographic apostrophe ’ is allowed alongside ' because the catalog uses it
+ * and iOS keyboards type it by default; it is not listed separately in the message.
+ * Anything else is refused rather than stripped, so the name the user sees is the
+ * name that is stored. Ids keep their own, narrower rule (isValidId).
+ */
+const EXERCISE_NAME_CHARACTER = /^[a-zA-Z0-9\s\-()/'’&]$/;
+
+export const EXERCISE_NAME_ALLOWED =
+  "Only letters, numbers, spaces and - ( ) / ' & are allowed.";
 
 export const getInvalidExerciseNameCharacter = (name: string): string | null => {
-  const trimmed = name.trim();
-  const validPattern = /^[a-zA-Z\s]$/;
-
-  for (let char of trimmed) {
-    if (!validPattern.test(char)) {
-      return char;
-    }
+  for (const char of name.trim()) {
+    if (!EXERCISE_NAME_CHARACTER.test(char)) return char;
   }
-
   return null;
 };
 

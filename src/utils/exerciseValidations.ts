@@ -5,6 +5,7 @@ import {
   findDuplicate,
   getInvalidFieldCharacter,
   getInvalidExerciseNameCharacter,
+  EXERCISE_NAME_ALLOWED,
 } from "./validation";
 
 export const validateWorkoutSelection = (
@@ -26,7 +27,7 @@ export const validateExerciseSelection = (
 
   const invalidChar = getInvalidExerciseNameCharacter(exercise.label);
   if (invalidChar)
-    return `Exercise Name contains an invalid character: "${invalidChar}". Only letters and spaces are allowed.`;
+    return `Exercise Name contains an invalid character: "${invalidChar}". ${EXERCISE_NAME_ALLOWED}`;
 
   if (!ex.id.trim()) return "Exercise ID cannot be empty.";
   if (!isValidId(ex.id))
@@ -85,7 +86,7 @@ export const validateWorkoutAndExercises = (
 
     const invalidChar = getInvalidExerciseNameCharacter(ex.name);
     if (invalidChar)
-      return `Exercise Name contains an invalid character: "${invalidChar}". Only letters and spaces are allowed.`;
+      return `Exercise Name contains an invalid character: "${invalidChar}". ${EXERCISE_NAME_ALLOWED}`;
 
     if (exerciseIds.has(ex.id)) return `Exercise "${ex.name}" is duplicated.`;
 
