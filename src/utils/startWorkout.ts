@@ -258,11 +258,12 @@ export function formatNumber(value: number): string {
  * The row's volume figure. Every state of `SessionTotalVolume` says something,
  * so the stored shape can be judged on a device:
  *
- *   value             "4,980 kg"      (+ " · 1 not weighted" when a plank was excluded)
+ *   totals            "4,980 kg", "1,955 kg · 115 plates" (one per unit, never
+ *                     converted; + " · 1 not weighted" when a plank was excluded)
  *   unparseable       "volume n/a · 2 of 3 lifts readable"
- *   mixed_units       "volume n/a · mixed units"
  *   no weighted lifts "no weighted lifts"
- *   field absent      "volume not recorded" (a session saved before TICKET-022)
+ *   field absent      "volume not recorded" (a session saved before TICKET-022,
+ *                     or in the single-total shape before TICKET-044)
  *
  * `null` input (no known session) renders nothing — the row has no date either.
  */
@@ -271,14 +272,13 @@ export function formatVolume(
   hasSession: boolean
 ): TextPart[] {
   if (!hasSession) return [];
-  if (!volume) return [txt("volume not recorded")];
+  // A doc stored before TICKET-044 has `value`/`unit` and no `totals`.
+  if (!volume || !Array.isArray(volume.totals)) return [txt("volume not recorded")];
 
   const excluded = volume.exercisesTotal - volume.exercisesWeighted;
   switch (volume.unavailableReason) {
     case "no_weighted_exercises":
       return [txt("no weighted lifts")];
-    case "mixed_units":
-      return [txt("volume n/a · mixed units")];
     case "unparseable":
       return [
         txt("volume n/a · "),
@@ -291,9 +291,13 @@ export function formatVolume(
       break;
   }
 
-  const value = formatNumber(volume.value ?? 0);
-  const parts: TextPart[] = [num(value)];
-  if (volume.unit) parts.push(txt(` ${unitLabel(value, volume.unit)}`));
+  const parts: TextPart[] = [];
+  volume.totals.forEach((total, index) => {
+    const value = formatNumber(total.value);
+    if (index > 0) parts.push(txt(" · "));
+    parts.push(num(value));
+    if (total.unit) parts.push(txt(` ${unitLabel(value, total.unit)}`));
+  });
   if (excluded > 0) parts.push(txt(" · "), num(String(excluded)), txt(" not weighted"));
   return parts;
 }

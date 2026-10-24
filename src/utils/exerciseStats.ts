@@ -69,60 +69,54 @@ export function computeSessionVolume(
 
 /**
  * Session total volume = sum of `computeSessionVolume` over the session's
- * exercises. Carries `SessionVolume`'s all-or-nothing rule up a level, with two
- * additions that only exist once exercises are summed together:
+ * exercises, **one total per weight unit**. Carries `SessionVolume`'s
+ * all-or-nothing rule up a level, with two additions that only exist once
+ * exercises are summed together:
  *
  * - **Exercises with no weight+reps pair are excluded, not failures.** A plank
  *   has no volume by definition; treating it as unparseable would mean any plan
  *   containing one never shows a total. It is counted in `exercisesTotal` but
  *   not `exercisesWeighted`, so the exclusion stays visible.
- * - **Mixed units null the total.** `ExerciseField.unit` is per exercise, so one
- *   session can hold a kg barbell lift and lb dumbbells. Units are never
- *   converted (see `areFieldsComparable`), and summing them means nothing. Same
- *   comparison as there: `"kg"` vs no unit is mixed; no unit on every exercise
- *   matches. Rejected alternative: per-unit totals (`{ kg, lb }`) — more to
- *   render and store for a case the precedent already answers with null.
+ * - **Each unit sums only with itself** (TICKET-044). `ExerciseField.unit` is
+ *   per exercise, so one session holds a kg barbell lift and a plates machine.
+ *   Units are never converted (see `areFieldsComparable`), so a plate is never
+ *   given a weight in kg: the session reports "1,955 kg · 115 plates". No unit
+ *   is its own total, the same comparison as there. Rejected: null for any mix
+ *   (the old rule), which hid the volume of most plans once plates existed.
  *
- * Reason precedence when several apply: `no_weighted_exercises`, then
- * `unparseable` (a broken set is the fixable cause), then `mixed_units`. Fixed so
- * the same input always reports the same reason.
+ * One unparseable exercise still empties every total, rather than leaving its
+ * unit's total short: a partial sum reads as a genuinely smaller session.
+ * Reason precedence: `no_weighted_exercises`, then `unparseable`.
  */
 export function computeSessionTotalVolume(
   exercises: Pick<ExerciseSessionDoc, "fields" | "sets">[]
 ): SessionTotalVolume {
-  let total = 0;
+  const totals = new Map<string | null, number>();
   let exercisesCounted = 0;
   let exercisesWeighted = 0;
   let unparseable = false;
-  const units = new Set<string | null>();
 
   for (const exercise of exercises) {
     const numeric = resolveNumericFields(exercise.fields);
     if (!numeric) continue;
     exercisesWeighted += 1;
-    units.add(numeric.weight.unit ?? null);
 
     const { value } = computeSessionVolume(exercise.sets, numeric);
     if (value === null) {
       unparseable = true;
       continue;
     }
-    total += value;
+    const unit = numeric.weight.unit ?? null;
+    totals.set(unit, (totals.get(unit) ?? 0) + value);
     exercisesCounted += 1;
   }
 
   const unavailableReason: SessionVolumeUnavailableReason | null =
-    exercisesWeighted === 0
-      ? "no_weighted_exercises"
-      : unparseable
-        ? "unparseable"
-        : units.size > 1
-          ? "mixed_units"
-          : null;
+    exercisesWeighted === 0 ? "no_weighted_exercises" : unparseable ? "unparseable" : null;
 
   return {
-    value: unavailableReason === null ? total : null,
-    unit: unavailableReason === null ? ([...units][0] ?? null) : null,
+    // A Map keeps insertion order, so totals follow the session's exercise order.
+    totals: unavailableReason === null ? [...totals].map(([unit, value]) => ({ unit, value })) : [],
     unavailableReason,
     exercisesCounted,
     exercisesWeighted,
