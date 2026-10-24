@@ -593,6 +593,92 @@ muscle group of its own.
 | Wall Sit | movement | `wall_sit__bodyweight` |  |
 | Zercher Squat | movement | `zercher_squat__barbell` |  |
 
+## Stage 4: core
+
+79 entries: 52 movements of one version, 27 versions, 0 dropped.
+
+| Research entry | Outcome | Version id | Note |
+|---|---|---|---|
+| Ab Coaster | movement | `ab_coaster__machine` |  |
+| Ab Wheel Rollout | version | `rollout__ab_wheel` | rollouts are one movement: ab wheel, barbell, stability ball, suspension |
+| Band Pallof Press | version | `pallof_press__band__one_side` |  |
+| Barbell Rollout | version | `rollout__barbell` |  |
+| Bear Crawl | movement | `bear_crawl__bodyweight` |  |
+| Bear Plank Hold | movement | `bear_plank_hold__bodyweight` |  |
+| Bicycle Crunch | movement | `bicycle_crunch__bodyweight` |  |
+| Bird Dog | movement | `bird_dog__bodyweight__one_side` |  |
+| Body Saw | movement | `body_saw__bodyweight` |  |
+| Butterfly Sit-Up | movement | `butterfly_sit_up__bodyweight` |  |
+| Cable Crunch | version | `crunch__cable` |  |
+| Cable Side Bend | version | `side_bend__cable__one_side` |  |
+| Cable Woodchop (High to Low) | version | `woodchop__cable__one_side` | high to low is the woodchop; low to high is its own movement, as the cable flys split by direction (collision woodchop__cable__one_side) |
+| Cable Woodchop (Low to High) | movement | `low_to_high_woodchop__cable__one_side` | direction changes the numbers: own movement |
+| Captain's Chair Leg Raise | movement | `captains_chair_leg_raise__bodyweight` | the chair is a station, where the body works: bodyweight (equipment rule) |
+| Crunch | version | `crunch__bodyweight` |  |
+| Dead Bug | movement | `dead_bug__bodyweight` |  |
+| Decline Crunch | version | `crunch__bodyweight__decline` |  |
+| Decline Sit-Up | version | `sit_up__bodyweight__decline` |  |
+| Dragon Flag | movement | `dragon_flag__bodyweight` |  |
+| Dumbbell Side Bend | version | `side_bend__dumbbell__one_side` |  |
+| Dumbbell Woodchop | version | `woodchop__dumbbell__one_side` |  |
+| Flutter Kick | movement | `flutter_kick__bodyweight` |  |
+| GHD Sit-Up | movement | `ghd_sit_up__ghd` |  |
+| Half-Kneeling Cable Lift | movement | `half_kneeling_cable_lift__cable__one_side` |  |
+| Hanging Knee Raise | movement | `hanging_knee_raise__bodyweight` |  |
+| Hanging Leg Raise | movement | `hanging_leg_raise__bodyweight` |  |
+| Hanging Oblique Knee Raise | movement | `hanging_oblique_knee_raise__bodyweight` |  |
+| Heel Touch | movement | `heel_touch__bodyweight` |  |
+| High Plank | movement | `high_plank__bodyweight` | on the hands: own movement, apart from the forearm Plank |
+| Hollow Body Hold | movement | `hollow_body_hold__bodyweight` |  |
+| Hollow Body Rock | movement | `hollow_body_rock__bodyweight` |  |
+| Kegel / Pelvic Floor | movement | `kegel__bodyweight` |  |
+| Kettlebell Around-the-World | movement | `around_the_world__kettlebell` |  |
+| Kettlebell Figure-8 | movement | `figure_8__kettlebell` |  |
+| Kettlebell Windmill | movement | `windmill__kettlebell__one_side` |  |
+| Knees-to-Elbows | movement | `knees_to_elbows__bodyweight` |  |
+| L-Sit | movement | `l_sit__parallettes` |  |
+| Landmine Rotation | movement | `landmine_rotation__landmine` |  |
+| Long-Lever Plank | movement | `long_lever_plank__bodyweight` |  |
+| Lying Leg Raise | movement | `lying_leg_raise__bodyweight` |  |
+| Machine Crunch | version | `crunch__machine` |  |
+| Medicine Ball Rotational Throw | movement | `rotational_throw__medicine_ball__one_side` |  |
+| Oblique Crunch | movement | `oblique_crunch__bodyweight__one_side` |  |
+| Pallof Press | version | `pallof_press__cable__one_side` |  |
+| Pelvic Tilt | movement | `pelvic_tilt__bodyweight` |  |
+| Plank | version | `plank__bodyweight` |  |
+| Plank Jack | movement | `plank_jack__bodyweight` |  |
+| Plank Shoulder Tap | movement | `plank_shoulder_tap__bodyweight` |  |
+| Plank Up-Down | movement | `plank_up_down__bodyweight` |  |
+| Reverse Crunch | movement | `reverse_crunch__bodyweight` |  |
+| RKC Plank | movement | `rkc_plank__bodyweight` |  |
+| Russian Twist | version | `russian_twist__bodyweight` |  |
+| Scissor Kick | movement | `scissor_kick__bodyweight` |  |
+| Seated Knee Tuck | movement | `seated_knee_tuck__bodyweight` |  |
+| Side Plank | movement | `side_plank__bodyweight__one_side` |  |
+| Side Plank Hip Dip | movement | `side_plank_hip_dip__bodyweight__one_side` |  |
+| Sit-Up | version | `sit_up__bodyweight` |  |
+| Stability Ball Crunch | version | `crunch__stability_ball` |  |
+| Stability Ball Knee Tuck | version | `knee_tuck__stability_ball` |  |
+| Stability Ball Pike | version | `pike__stability_ball` |  |
+| Stability Ball Rollout | version | `rollout__stability_ball` |  |
+| Stability Ball Stir the Pot | movement | `stir_the_pot__stability_ball` |  |
+| Suitcase Carry | movement | `suitcase_carry__dumbbell__one_side` |  |
+| Suitcase Hold | movement | `suitcase_hold__dumbbell__one_side` |  |
+| Suspension Fallout | version | `rollout__suspension_trainer` | a fallout is the suspension rollout: suspension version |
+| Suspension Knee Tuck | version | `knee_tuck__suspension_trainer` |  |
+| Suspension Pike | version | `pike__suspension_trainer` |  |
+| Toe Touch Crunch | movement | `toe_touch_crunch__bodyweight` |  |
+| Toes-to-Bar | movement | `toes_to_bar__bodyweight` |  |
+| Torso Rotation Machine | movement | `torso_rotation__machine` |  |
+| Tuck-Up | movement | `tuck_up__bodyweight` |  |
+| V-Up | movement | `v_up__bodyweight` |  |
+| Vacuum (Stomach) | movement | `vacuum__bodyweight` |  |
+| Weighted Crunch | version | `crunch__weight_plate` | a plate held at the chest: the weight_plate version |
+| Weighted Decline Sit-Up | version | `sit_up__weight_plate__decline` | a plate held at the chest, as Weighted Crunch: weight_plate, Weight × Reps (not added_weight, which is for a belt or held load on a bodyweight lift whose weight the body carries) |
+| Weighted Plank | version | `plank__weight_plate` | a plate on the back: the weight_plate version, Weight × Time |
+| Weighted Russian Twist | version | `russian_twist__weight_plate` | a plate held: the weight_plate version |
+| Windshield Wiper | movement | `windshield_wiper__bodyweight` |  |
+
 ## Coverage check (free-exercise-db)
 
 Beyond the user's notes, each stage is checked against
@@ -632,6 +718,15 @@ Bands; Jefferson Squats; Kneeling Squat; Lunge Pass Through; Lunge Sprint; One-A
 Overhead Kettlebell Squats; One-Arm Side Deadlift; Physioball Hip Bridge; Prone Manual
 Hamstring; Rocking Standing Calf Raise; Squat with Plate Movers; Suspended Split
 Squat; Weighted Sissy Squat; Weighted Squat.
+
+**Stage 4** (abdominals): 81 reference entries. 33 match by name, 30 are covered
+under another name (the leg pull-ins = Lying Leg Raise or Seated Knee Tuck, "Butt-Ups"
+= Reverse Crunch, "Hanging Pike" = Toes-to-Bar, "Suspended Fallout" = Rollout), 2 are
+in the research for stage 5 (Air Bike, Medicine Ball Slam), 0 are MVP extras. **Added:
+0. Skipped as niche: 16:** Bosu Ball Cable Crunch With Side Bends; Bottoms Up; Cable
+Judo Flip; Cocoons; Frog Sit-Ups; Gorilla Chin/Crunch; Janda Sit-Up; Kettlebell Pass
+Between The Legs; Otis-Up; Pallof Press With Rotation; Press Sit-Up; Side Jackknife;
+Smith Machine Hip Raise; Spell Caster; Spider Crawl; Wind Sprints.
 
 ## Added (no research entry)
 

@@ -3043,7 +3043,7 @@ version, a session never compares across grips, so none of this is built. Boards
 ### TICKET-046: Build the Real Catalog — Movements and Versions
 
 **Priority:** Medium | **Effort:** Large | **Status: IN PROGRESS** — added 2026-10-24;
-open questions settled 2026-10-25; stages 1–3 of 5 built
+open questions settled 2026-10-25; stages 1–4 of 5 built
 
 **Description:**
 The research catalog (`research/exercise-catalog/`, 878 flat entries) was built to
@@ -3326,6 +3326,40 @@ kind of miss a real pass catches.
   name shows one side only when versions differ. Committed separately, before
   this stage
 - all grouping calls above accepted by the user in the stage 3 review (2026-10-25)
+
+- **Committed** as `8ed0456` (2026-10-25), after the name rule fix `e73f270`; not
+  pushed
+
+**Implementation, stage 4: core (2026-10-25).**
+- 79 research entries → **62 movements, 79 versions** in `movements/core.ts`.
+  Accounting: 52 movements of one version, 27 versions, 0 dropped. No new
+  equipment key
+- **Grouping calls a person should check** (all in ACCOUNTING.md):
+  - **a plate held for a core lift is `weight_plate`, not `added_weight`**:
+    Weighted Crunch, Weighted Decline Sit-Up (the research's "Added Weight" became
+    a plain Weight field), Weighted Russian Twist, Weighted Plank (Weight × Time).
+    `added_weight` stays for loading a bodyweight lift the body itself moves
+  - Rollout is one movement: ab wheel, barbell, stability ball, and the
+    suspension fallout. Knee Tuck and Pike each take ball and suspension versions
+  - Woodchop splits by direction, as the cable flys did: high to low (cable,
+    dumbbell) vs Low-to-High Woodchop (collision `woodchop__cable__one_side`)
+  - Captain's Chair Leg Raise is `bodyweight` (a station, the equipment rule; the
+    research had machine). Hanging Leg Raise, Hanging Knee Raise, Toes-to-Bar and
+    Knees-to-Elbows stay apart
+  - High Plank (hands) is apart from Plank (forearms)
+  - Dead Bug (Breathing / 90-90), the other half of the probe's `dead_bug`
+    collision, is mobility: called in stage 5
+- Checks: 70/91 search targets resolve (8 more; none dropped); 691/714 research
+  aliases carried, the other 23 equal a movement name. Coverage: 81
+  free-exercise-db abdominal entries; 63 covered, 2 stage 5, 0 MVP extras, **0
+  added, 16 skipped as niche**
+- **Tests:** no new kind; the pin grows to 578. Seen red on core content: a removed
+  version (pin, accounting), the band Pallof press given kg
+- **Known gap, for stage 5:** Bear Crawl logs Distance + Time in `km` and `min`
+  (the measure's units). A 20 m crawl reads 0.02 km. Stage 5's cardio has the same
+  question for short distances (sprints, sled); raised there rather than decided
+  per movement here
+- all grouping calls accepted by the user in the stage 4 review (2026-10-25)
 
 **Technical Notes:**
 - Grouping needs a person: "Seated Cable Row" vs "Machine Row (Seated)" (042's note)
