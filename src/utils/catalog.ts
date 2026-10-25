@@ -17,7 +17,7 @@ import {
 } from "../constants/catalogVocabulary";
 import { unitSpec } from "../constants/units";
 import type { Movement, MovementVersion } from "../types/catalog";
-import type { FieldRole } from "../types/workoutType";
+import type { Exercise, FieldRole } from "../types/workoutType";
 
 /** The axes that make up a version id. A subset of `MovementVersion`. */
 type VersionAxes = Pick<MovementVersion, "equipment" | "angle" | "attachment" | "grip" | "unilateral">;
@@ -136,6 +136,73 @@ export function resolveExerciseName(
   const snapshot = nameSnapshot?.trim();
   if (snapshot) return { title: snapshot, subtitle: NOT_IN_CATALOG, inCatalog: false };
   return { title: UNKNOWN_EXERCISE, subtitle: exerciseId, inCatalog: false };
+}
+
+/**
+ * Every version as a plan exercise, for the interim picker (TICKET-042 stage 2;
+ * TICKET-043 replaces it): one row per version, sorted by built name. A
+ * catalog exercise stores `name: ""` and the built name as `nameSnapshot`, the
+ * fallback for when the id leaves the catalog. Fields are copies, so editing
+ * them in a plan never touches the loaded catalog.
+ */
+export function catalogPlanExercises(movements: readonly Movement[]): Exercise[] {
+  return movements
+    .flatMap((movement) =>
+      movement.versions.map((version) => ({
+        id: version.id,
+        name: "",
+        nameSnapshot: buildVersionName(movement, version),
+        fields: version.fields.map((field) => ({ ...field })),
+      }))
+    )
+    .sort((a, b) => a.nameSnapshot.localeCompare(b.nameSnapshot));
+}
+
+/**
+ * What adding a picked exercise to a plan stores. A catalog version: its id,
+ * `name: ""` and its built name as `nameSnapshot` (TICKET-042; the name is
+ * built, not stored). A custom exercise: its typed name, no snapshot.
+ */
+export function planExerciseFromPick(picked: Exercise, label: string, fields: Exercise["fields"]): Exercise {
+  const fieldsToStore = fields.map((field) => ({ ...field, name: field.name.trim() }));
+  return picked.nameSnapshot
+    ? { id: picked.id, name: "", nameSnapshot: picked.nameSnapshot, fields: fieldsToStore }
+    : { id: picked.id, name: label, fields: fieldsToStore };
+}
+
+/** What a name site needs from a plan or logged exercise. */
+export type ExerciseNameRef = { id: string; name?: string; nameSnapshot?: string };
+
+export const CATALOG_NOT_LOADED = "Exercise catalog not loaded yet";
+
+/**
+ * A custom exercise names itself: it has its own `name` and no `nameSnapshot`.
+ * A catalog exercise is the reverse (`name: ""`, `nameSnapshot` = the built name
+ * when it was added; TICKET-042 stage 2). Keyed on the stored snapshot, not on
+ * "id is in the catalog", which a version removed later would flip.
+ */
+export function isCustomExercise(exercise: ExerciseNameRef): boolean {
+  return !exercise.nameSnapshot?.trim() && !!exercise.name?.trim();
+}
+
+/**
+ * THE name for a plan or logged exercise; every name site goes through this.
+ * Catalog first (built from the id, so a rename reaches old plans too), then a
+ * custom exercise's own name, then the snapshot with a line saying why it is
+ * not current. `index` null means no catalog on the phone yet (first launch
+ * offline, or before the first upload): the snapshot shows with "not loaded
+ * yet", not "no longer in the catalog", which would be a false claim.
+ */
+export function exerciseDisplayName(exercise: ExerciseNameRef, index: CatalogIndex | null): ExerciseNameDisplay {
+  if (index?.has(exercise.id)) return resolveExerciseName(index, exercise.id);
+  if (isCustomExercise(exercise)) return { title: exercise.name!.trim(), subtitle: null, inCatalog: false };
+  if (index === null) {
+    const snapshot = exercise.nameSnapshot?.trim();
+    return snapshot
+      ? { title: snapshot, subtitle: CATALOG_NOT_LOADED, inCatalog: false }
+      : { title: CATALOG_NOT_LOADED, subtitle: exercise.id, inCatalog: false };
+  }
+  return resolveExerciseName(index, exercise.id, exercise.nameSnapshot);
 }
 
 const FIELD_ROLES: readonly FieldRole[] = ["weight", "reps", "time", "distance", "other"];

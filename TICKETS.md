@@ -41,7 +41,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
-| 042 | Exercise catalog: movements with versions, loaded into the app | Large | **Stage 1 done**. **Stage 2A in review** (catalog store, upload script, rules entry); 2B (app reads it) and 2C (wipe, cleanup) next. Console rules diff owed before 2C. An app build with 046's vocabulary must be on phones before the first upload. Movement first; history stays per version; catalog in Firestore, cached |
+| 042 | Exercise catalog: movements with versions, loaded into the app | Large | **Stage 1 done**. **Stage 2A committed**, **2B in review** (names, picker, local clear); 2C (wipe, cleanup) next. Console rules diff owed before 2C. An app build with 046's vocabulary must be on phones before the first upload. Movement first; history stays per version; catalog in Firestore, cached |
 | 043 | Find an exercise: search by muscle, typos, movement-first picker | Large | Ports the prototype and its 91 cases; "Latpulldown", "squad", "bech press" return 0 today |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap |
 | 046 | Build the real catalog: movements and versions | Large | **Done, pending merge** (2026-10-25): 489 movements, 805 versions, all 878 research entries accounted for. Unblocks 042 stage 2 |
@@ -2363,7 +2363,7 @@ needs it, built against the chosen board.
 
 **Priority:** Medium | **Effort:** Large | **Status: IN PROGRESS** — open decisions
 settled 2026-10-24; stage 1 in PR #20; stage 2 decisions settled 2026-10-25, stage
-2A (catalog store, upload script) in review, 2B and 2C next
+2A committed (808d490); 2B (app reads the catalog) in review; 2C next
 
 **Description:**
 Replace today's 42 exercises (`src/scripts/uploadExercises.ts`) with the research
@@ -2694,6 +2694,48 @@ nothing in the app imports them yet, so the app behaves as before.
   bytes as JSON (27% of Firestore's 1 MiB doc cap), 22.8 KiB gzipped; the largest
   movement, Bench Press, is 7.9 KiB. The `chunk_N` design above still works, but a
   single doc beside `meta` is enough for now
+
+**Implementation, stage 2B: the app reads the catalog (2026-10-25).**
+- **Names:** `exerciseDisplayName` (`utils/catalog.ts`): catalog (built from the
+  id) → a custom exercise's own name → the snapshot, marked "No longer in the
+  catalog", or "Exercise catalog not loaded yet" when the phone has no catalog
+  (first launch offline, or between the wipe and the upload): that claim would
+  otherwise be false. `useExerciseNames` / `useExerciseName` wrap it for screens.
+  Every display reader on the probe list goes through them: logger header and
+  prev/next (with a subtitle line), history sheet title (now 2 lines),
+  `PlanRow` (2 lines), `CollapsibleExerciseList`, the logs filter's dropdown,
+  its table model and the "No logs found" label, `ExerciseHistoryDebugScreen`,
+  validation messages. A second probe after the change leaves only writes, the
+  custom-name rule, the session snapshot and `services/db/exercises.ts:45` (2C)
+- **Unknown id:** the hook asks the store for its check from an effect keyed on
+  a boolean, after the cache is read. Gap: if that one check runs offline, it is
+  spent for the run; Manage Workout's own meta check still covers it
+- **Picker:** `catalogPlanExercises` lists all 805 versions by built name in
+  today's dropdown; `usePredefinedExercises` no longer used (deleted in 2C).
+  Adding stores `planExerciseFromPick`: version id, `name: ""`, `nameSnapshot`,
+  a copy of the version's fields. The custom-entry ("New") switch stays (043)
+- **Plan save:** the name rule runs only when `nameSnapshot` is absent, in both
+  `validateExerciseSelection` and `validateWorkoutAndExercises`
+- **Session snapshot:** `startWorkout` copies `nameSnapshot`, refreshed from the
+  catalog as it reads then; `buildSessionDocs` writes it as `exerciseName`
+  (a custom exercise: its name)
+- **Local clear:** `LOCAL_DATA_VERSION = "2"` (`useWorkoutStore.tsx`), first in
+  `loadWorkoutFromStorage`, before the queue loads or drains. A build constant, not
+  a server flag or the catalog hash: it describes what this code can read, and must
+  decide offline before the drain. **If the clear throws** (review fix): nothing is
+  loaded or drained this run, `console.error` "LOCAL CLEAR FAILED", the marker
+  stays unset so the next launch retries. Gap: a workout started or finished
+  offline in that run lands in the keys the retry clears (AsyncStorage failing at
+  all is the precondition)
+- Tests (9 new; the failed clear: AsyncStorage throws → no upload attempted,
+  marker unset): `exerciseDisplayName` (catalog with `name: ""`, snapshot, not
+  loaded), the stored pick, plan save with a catalog version plus the custom refusal
+  and the duplicate message, a `PlanRow` render (built name, unknown id's snapshot
+  and one check), the session snapshot, the local clear. The three existing
+  restart tests now set the current data version (they restart the same build).
+  Each seen red by breaking its line (11 breaks)
+- Not verified: any of it on a device; 805-row scroll; the ids a real pick writes
+  against real Firestore
 
 **Stage 2 needs, from TICKET-046:** the real catalog in this shape, passing
 `validateCatalog`, with its ids frozen into the pin list; the per-movement

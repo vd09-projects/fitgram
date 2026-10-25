@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   Text,
@@ -12,7 +12,6 @@ import { BORDER_RADIUS, SPACING } from '../../constants/styles';
 import ScrollableScreen from '../../components/ScrollableScreen';
 import SearchableInputDropdown, { DropdownSelection } from '../../components/SearchableInputDropdown';
 import ExerciseFieldEditor from '../../components/ExerciseFieldEditor';
-import usePredefinedExercises from '../../hooks/usePredefinedExercises';
 import useWorkoutPlans from '../../hooks/useWorkoutPlans';
 import show from '../../utils/toastUtils';
 import { overrideWorkoutDetails } from '../../services/db/userDB';
@@ -27,6 +26,7 @@ import { useThemeStyles } from '../../utils/useThemeStyles';
 import { MANAGE_WOURKOUT_STEP_NAMES } from '../../tour_steps/manageWorkout';
 import { MaybeTourStep } from '../../components/guide_tour/MaybeTourStep';
 import { useCatalogStore } from '../../stores/useCatalogStore';
+import { catalogPlanExercises, planExerciseFromPick } from '../../utils/catalog';
 
 export default function AddExerciseScreen() {
   const { styles, t } = useThemeStyles(createStyles);
@@ -41,7 +41,19 @@ export default function AddExerciseScreen() {
 
   const [reload, setReload] = useState<boolean>(false);
 
-  const { predefinedExercises, loadingPredefinedExercises } = usePredefinedExercises();
+  // Interim picker (TICKET-042 stage 2): all 805 versions by built name in
+  // today's dropdown, whose search is a label substring ("bench" leaves ~20).
+  // TICKET-043 replaces it with movement-first search. Scroll performance with
+  // 805 rows is untested on a device.
+  const catalog = useCatalogStore((s) => s.catalog);
+  const catalogLoaded = useCatalogStore((s) => s.cacheLoaded);
+  const catalogOptions = useMemo(
+    () => (catalog ? catalogPlanExercises(catalog.movements) : []).map((exercise) => ({
+      label: exercise.nameSnapshot ?? exercise.id,
+      value: exercise,
+    })),
+    [catalog]
+  );
   const { workoutPlans, loadingWorkoutPlans } = useWorkoutPlans(reload);
 
   // One meta read each time Manage Workout opens (TICKET-042); the catalog
@@ -121,11 +133,7 @@ export default function AddExerciseScreen() {
       const fieldError = validateCustomFields(fieldsToSave);
       if (fieldError) return show.alert("Fields Invalid", fieldError);
 
-      wk.exercises.push({
-        id: selectedExercise.value.id,
-        name: selectedExercise.label,
-        fields: fieldsToSave.map((f) => ({ ...f, name: f.name.trim() })),
-      });
+      wk.exercises.push(planExerciseFromPick(selectedExercise.value, selectedExercise.label, fieldsToSave));
     }
 
     const saveWorkout = async () => {
@@ -177,13 +185,13 @@ export default function AddExerciseScreen() {
 
       {/* 🔹 Select Exercise */}
       <SearchableInputDropdown<Exercise>
-        data={predefinedExercises.map((exercise) => ({ label: exercise.name, value: exercise }))}
-        placeholder="Exercise"
+        data={catalogOptions}
+        placeholder={catalogLoaded && !catalog ? "Exercise (catalog not loaded yet)" : "Exercise"}
         value={selectedExercise}
         onChange={handleSelectExercise}
         title={"Exercise" + (selectedExercise?.value ? ` : ${selectedExercise.label}` : '')}
         conatinerStyle={{ marginBottom: SPACING.large }}
-        isDataLoading={loadingPredefinedExercises}
+        isDataLoading={!catalogLoaded}
         tourStepPrefix={MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_SEARCHABLE}
         positionType="above"
       />

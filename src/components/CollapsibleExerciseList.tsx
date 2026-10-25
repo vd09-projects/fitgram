@@ -8,6 +8,7 @@ import { TextBase } from './TextBase';
 import CollapsibleSection from './CollapsibleSection'; // ✅ make sure this is the reusable component you already created
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
+import { useExerciseName } from "../hooks/useExerciseNames";
 
 interface CollapsibleExerciseListProps {
   exercises: Exercise[];
@@ -25,13 +26,19 @@ const CollapsibleExerciseItem = memo(
     onUpdate: (index: number, updatedExercise?: Exercise) => void;
   }) => {
   const { styles, t } = useThemeStyles(createStyles);
+  const name = useExerciseName(exercise);
 
     return (
     <CollapsibleSection
       defaultCollapsed={true}
       collapsibleStyle={styles.exerciseContainer}
       collapsibleIconColor={t.colors.textPrimary}
-      title={<TextBase style={styles.exerciseText}>{exercise.name}</TextBase>}
+      title={
+        <View>
+          <TextBase style={styles.exerciseText}>{name.title}</TextBase>
+          {name.subtitle !== null && <TextBase>{name.subtitle}</TextBase>}
+        </View>
+      }
       rightElement={
         <TouchableOpacity onPress={() => onUpdate(index, undefined)} style={{ paddingRight: SPACING.xSmall }}>
           <Ionicons name="trash-outline" size={20} color={t.colors.cancelButton} />
@@ -39,7 +46,7 @@ const CollapsibleExerciseItem = memo(
       }
     >
       <ExerciseFieldEditor
-        title={`Edit "${exercise.name}" Fields`}
+        title={`Edit "${name.title}" Fields`}
         items={exercise.fields}
         onItemsChange={(updatedFields) => {
           const updatedExercise = { ...exercise, fields: updatedFields };

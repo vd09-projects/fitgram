@@ -7,6 +7,7 @@ import { SPACING } from "../../constants/styles";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 import { useExerciseHistory } from "../../hooks/useExerciseHistory";
+import { useExerciseName } from "../../hooks/useExerciseNames";
 import { Exercise } from "../../types/workoutType";
 import {
   PlanRow as PlanRowModel,
@@ -106,6 +107,7 @@ export function PlanRow({
 function ExerciseLine({ exercise }: { exercise: Exercise }) {
   const { styles } = useThemeStyles(createStyles);
   const history = useExerciseHistory(exercise.id, { fields: exercise.fields });
+  const name = useExerciseName(exercise);
 
   // Idle (not prefetched yet) and loading both mean "not known yet", which is
   // not the same as "never done" — so neither says "not done yet".
@@ -118,9 +120,13 @@ function ExerciseLine({ exercise }: { exercise: Exercise }) {
 
   return (
     <View style={styles.exercise}>
-      <TextBase style={styles.exerciseName} numberOfLines={1}>
-        {exercise.name}
-      </TextBase>
+      <View style={styles.nameBlock}>
+        {/* Wraps to two lines, never cut (TICKET-041 board B1). */}
+        <TextBase style={styles.exerciseName} numberOfLines={2}>
+          {name.title}
+        </TextBase>
+        {name.subtitle !== null && <TextBase style={styles.topSet}>{name.subtitle}</TextBase>}
+      </View>
       <PartsText parts={value} style={styles.topSet} testID={`top-set-${exercise.id}`} />
     </View>
   );
@@ -189,8 +195,8 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
       alignItems: "center",
       gap: SPACING.small,
     },
+    nameBlock: { flex: 1 },
     exerciseName: {
-      flex: 1,
       fontSize: t.fonts.xMedium,
       color: t.colors.role.textPrimary,
     },
