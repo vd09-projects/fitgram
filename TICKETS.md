@@ -41,12 +41,12 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
-| 042 | Exercise catalog: movements with versions, loaded into the app | Large | **Stage 1 done**. **Stages 2A–2C committed**, PR open; then the user's landing run and device checks. Console rules diff owed before the rules deploy. An app build with 046's vocabulary must be on phones before the first upload. Movement first; history stays per version; catalog in Firestore, cached |
+| 042 | Exercise catalog: movements with versions, loaded into the app | Large | **Stage 1 done**. **Stages 2A–2C committed**, PR open; then the user's landing run and device checks. Console rules diffed 2026-10-26: only `predefined_exercises` differs; rules deploy moves after the wipe. An app build with 046's vocabulary must be on phones before the first upload. Movement first; history stays per version; catalog in Firestore, cached |
 | 043 | Find an exercise: search by muscle, typos, movement-first picker | Large | Ports the prototype and its 91 cases; "Latpulldown", "squad", "bech press" return 0 today |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap |
 | 046 | Build the real catalog: movements and versions | Large | **Done, pending merge** (2026-10-25): 489 movements, 805 versions, all 878 research entries accounted for. Unblocks 042 stage 2 |
 | 047 | Switch an exercise's version mid-workout | Medium | Deferred 2026-10-24. For this workout only; the plan keeps its version |
-| 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: after 042's rules deploy, `rebuildExerciseStats` (the app's own log names it) gets PERMISSION_DENIED |
+| 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
 
 ### Not tickets — verification owed
 
@@ -2759,8 +2759,10 @@ nothing in the app imports them yet, so the app behaves as before.
   (`getAllPredefinedExercises`, `addPredefinedExercise`), `uploadExercises.ts`,
   `tables.users.predefinedExercises`, and `signInForScripts` / `auth` in
   `src/scripts/firebase.ts` (only `uploadExercises` used them)
-- **Rules:** the `predefined_exercises` block stays until the wipe has run;
-  remove it in the first rules deploy after
+- **Rules:** ~~the `predefined_exercises` block stays until the wipe has run~~
+  **Removed from `firestore.rules` (user, 2026-10-26):** the wipe deletes the docs
+  in step 4 and every phone is on the new build from step 2; the deploy after the
+  wipe takes it out of the live rules
 - Tests (4): the wipe against an in-memory Firestore deletes only the four
   collections (now with `workout_logs`) and `predefined_exercises`, keeps `info`,
   `settings` and `exercise_catalog`, and includes a uid with no own doc; the
@@ -2768,10 +2770,12 @@ nothing in the app imports them yet, so the app behaves as before.
   `--dry-run`, skipping a uid with no own doc
 - Not verified: the real dry run (needs the key, which only you have); without
   `GOOGLE_APPLICATION_CREDENTIALS` both modes exit 1 before any network call
-- **Inherited gap (after the rules deploy):** `rebuildExerciseStats.ts`,
-  `patchMissingUserDocs.ts` and `addExerciseToUserWorkout.ts` use the client SDK
-  unauthenticated (`verifyHistoryReads.ts` reads local files only). Under owner-only
-  rules they get PERMISSION_DENIED. Split out as **TICKET-049** (user, 2026-10-26)
+- **Inherited gap:** `rebuildExerciseStats.ts`, `patchMissingUserDocs.ts` and
+  `addExerciseToUserWorkout.ts` use the client SDK unauthenticated
+  (`verifyHistoryReads.ts` reads local files only). ~~Broken by the rules deploy~~
+  **Already broken** (corrected 2026-10-26 from the console diff): owner-only
+  `users/**` is live and the open rule expired 2025-08-25. Split out as
+  **TICKET-049** (user, 2026-10-26)
 
 **TEMPORARY Catalog debug screen: removal, after the device run.** Delete
 `src/screens/workout_management/CatalogDebugScreen.tsx`; its route in
@@ -2780,19 +2784,21 @@ nothing in the app imports them yet, so the app behaves as before.
 `catalogReadCounter` and its two increments in `src/services/db/catalog.ts`. Each
 is marked `TEMPORARY`; `grep -rn TEMPORARY src` must then show none of them.
 
-**Landing order (user runs every step, CLAUDE.md 1.3).** Key outside the repo:
+**Landing order (user runs every step, CLAUDE.md 1.3).** ~~build → install →
+rules diff + deploy → wipe → upload → checks~~ **Revised (user, 2026-10-26),
+after the console diff:** no rules step before the wipe (the `exercise_catalog`
+rule is already live); the deploy moves after the wipe, where it removes
+`predefined_exercises` and its hard-coded-uid write. Key outside the repo:
 `export GOOGLE_APPLICATION_CREDENTIALS=~/.config/fitgram/service-account.json`.
 1. Build: `npx eas-cli build --profile preview --platform android` (or the
    usual tester route)
 2. Install on **every** tester's phone and open it once (the local clear runs).
-   No workouts logged from here until step 5
-3. Rules: paste the console rules into a file and `diff` it with
-   `firestore.rules`; then deploy with
-   `npx firebase-tools deploy --only firestore:rules --project gymexerciselogger-fb`
-   (or paste into the console and Publish). Deploying replaces the whole live
-   ruleset
-4. `npx tsx src/scripts/wipeTestData.ts` (dry run: check the uids, counts, "kept")
-5. `npx tsx src/scripts/wipeTestData.ts --confirm` (ends "✅ Wiped.", all counts 0)
+   No workouts logged from here until step 4
+3. `npx tsx src/scripts/wipeTestData.ts` (dry run: check the uids, counts, "kept")
+4. `npx tsx src/scripts/wipeTestData.ts --confirm` (ends "✅ Wiped.", all counts 0)
+5. Rules: `npx firebase-tools deploy --only firestore:rules --project gymexerciselogger-fb`.
+   Replaces the whole live ruleset; the only change from live is that
+   `predefined_exercises` goes
 6. `npx tsx src/scripts/uploadCatalog.ts --dry-run` (489 movements, 805 versions, 26.9%)
 7. `npx tsx src/scripts/uploadCatalog.ts`
 8. Device checks on the Catalog debug screen: first start after upload meta 1 ·
@@ -2801,7 +2807,15 @@ is marked `TEMPORARY`; `grep -rn TEMPORARY src` must then show none of them.
    local cache" and restart meta 1 · catalog 1; sign out and in, version
    unchanged, catalog +0. Then the stage B checks (picker, plan save, name
    sites, session doc)
-9. Next rules deploy: drop the `predefined_exercises` block
+
+**Console rules diff (user, 2026-10-26)** against the branch's `firestore.rules`:
+- `users/{uid}/**` owner-only: identical
+- `exercise_catalog` (signed-in read, no client write): identical, **already live**
+- The 2025 open rule (`request.time < 2025-08-25`) is commented out and expired.
+  Nothing is open now
+- Only difference: `predefined_exercises`. Live: read if signed in **and** the
+  user doc exists; write for one hard-coded uid. Branch: block removed
+- `firestore.rules` is now the source (header says so)
 
 **Stage 2 needs, from TICKET-046:** the real catalog in this shape, passing
 `validateCatalog`, with its ids frozen into the pin list; the per-movement
@@ -2820,8 +2834,9 @@ picked on a device would be ids TICKET-046 may not keep.
   ignores `*firebase-adminsdk*.json`, `service-account*.json`,
   `serviceAccount*.json` as a backstop. How the 42 `predefined_exercises` docs were
   written: the 2025-03-09 script (51fd364) used the client SDK **without signing
-  in**, so the console rules then allowed unsigned writes. Whether they still do is
-  unknown: the console rules are not yet diffed (owed before stage C)
+  in**, so the console rules then allowed unsigned writes. ~~Whether they still do
+  is unknown~~ **Answered (console diff, 2026-10-26):** a time-boxed open rule
+  (`request.time < 2025-08-25`), now commented out and expired. Nothing is open
 - ~~2–3 `chunk_N` docs~~ **One `catalog` doc** beside `meta` (27% of 1 MiB). Reads:
   1 per check, 2 when the hash changed or the cache is empty. The phone caches
   under the **catalog doc's own** `version`, not meta's, so an upload between the
@@ -2830,11 +2845,12 @@ picked on a device would be ids TICKET-046 may not keep.
   removes `activeWorkout` and `pendingUploads` before the queue is loaded or
   drained. In stage B (the first build that writes new ids), not C
 - **The order to land it**, each step run by the user (CLAUDE.md 1.3):
-  ~~1. rules first, 2. install, 3. wipe, 4. upload~~ **Revised (user,
-  2026-10-26): build → install on every phone → rules diff + deploy → wipe
-  --dry-run → wipe → upload --dry-run → upload → device checks.** Rules no longer
-  need to go first: the device run showed the live console rules already allow a
-  signed-in read of `exercise_catalog/meta` (no permission error). Full commands
+  ~~1. rules first, 2. install, 3. wipe, 4. upload~~ ~~build → install → rules
+  diff + deploy → wipe → upload → checks (2026-10-26)~~ **Revised again (user,
+  2026-10-26, after the console diff): build → install on every phone → wipe
+  --dry-run → wipe → rules deploy → upload --dry-run → upload → device checks.**
+  The `exercise_catalog` rule is already live (the device run's meta read
+  succeeded; the diff confirms it), so no rules step is needed before the wipe. Full commands
   under "Landing order" below. **No workouts logged from install until the
   wipe**: the wipe deletes them. Between the wipe and the upload the picker is
   empty and names show "Exercise catalog not loaded yet"; minutes
@@ -3814,8 +3830,10 @@ movement altogether, uses the same sheet.
 `rebuildExerciseStats.ts`, `patchMissingUserDocs.ts` and
 `addExerciseToUserWorkout.ts` write through `src/scripts/firebase.ts`, the client
 SDK, without signing in. They only ever worked because the console rules allowed
-unauthenticated access. TICKET-042 deploys `firestore.rules` (owner-only under
-`users/{uid}`), after which all three get PERMISSION_DENIED. Signing in would not
+unauthenticated access, through a time-boxed open rule that expired on
+2025-08-25. ~~TICKET-042's deploy breaks them~~ **They are already broken**
+(console diff, 2026-10-26): owner-only `users/{uid}/**` is live today, so all
+three get PERMISSION_DENIED now. Signing in would not
 help: one user cannot reach another's data under owner-only rules.
 
 **Why it matters before the next repair:** the app points at

@@ -1,11 +1,9 @@
-// PROPOSAL — not reconciled with what is live.
-//
-// This project had no rules file; the deployed rules live only in the Firebase
-// console. Diff this against the console before deploying anything, because
-// deploying a narrower ruleset than the live one will break existing reads.
+// Reconciled with the console 2026-10-26; this file is now the source. Deploy
+// with `npx firebase-tools deploy --only firestore:rules`; a deploy replaces the
+// whole live ruleset, so a rule kept only in the console is lost.
 //
 // What it covers: everything under users/{uid} is private to that user, which is
-// what the new exercise-first collections need (sessions, exercise_sessions,
+// what the exercise-first collections need (sessions, exercise_sessions,
 // exercise_stats). No collection-group queries are used, so no collection-group
 // rules are required.
 rules_version = '2';
@@ -25,15 +23,6 @@ service cloud.firestore {
     // every signed-in phone, written only by src/scripts/uploadCatalog.ts with
     // admin credentials, which bypass these rules.
     match /exercise_catalog/{docId} {
-      allow read: if request.auth != null;
-      allow write: if false;
-    }
-
-    // The old 42-exercise catalog. No app code reads it any more (TICKET-042
-    // stage 2C). KEEP until src/scripts/wipeTestData.ts --confirm has run, so an
-    // old build still installed keeps working until then; remove this block in
-    // the first rules deploy after the wipe.
-    match /predefined_exercises/{exerciseId} {
       allow read: if request.auth != null;
       allow write: if false;
     }
