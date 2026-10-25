@@ -1,7 +1,7 @@
 // src/scripts/firebaseAdmin.ts
 //
 // Admin Firestore for the scripts that write shared or other users' data
-// (uploadCatalog, and the TICKET-042 wipe). The admin SDK bypasses the rules,
+// (uploadCatalog, wipeTestData). The admin SDK bypasses the rules,
 // which is why `exercise_catalog` can say `allow write: if false` for every
 // client, and why one script can wipe every tester's `users/{uid}/...`, which no
 // signed-in user can under owner-only rules.

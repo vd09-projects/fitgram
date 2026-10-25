@@ -29,8 +29,10 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // The old 42-exercise catalog. Deleted by the TICKET-042 wipe; remove this
-    // block after it runs.
+    // The old 42-exercise catalog. No app code reads it any more (TICKET-042
+    // stage 2C). KEEP until src/scripts/wipeTestData.ts --confirm has run, so an
+    // old build still installed keeps working until then; remove this block in
+    // the first rules deploy after the wipe.
     match /predefined_exercises/{exerciseId} {
       allow read: if request.auth != null;
       allow write: if false;

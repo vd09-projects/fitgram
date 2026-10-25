@@ -44,7 +44,8 @@ export const tables = {
             },
 
             // Legacy: written by the removed saveActiveWorkoutLog, read by
-            // nothing. Kept for reference only; no code path touches it.
+            // nothing. Deleted by the TICKET-042 wipe (wipeTestData.ts); the
+            // names stay only as a record of the old shape.
             workout_logs: {
                 collection: "workout_logs",
                 fields: {
@@ -65,6 +66,5 @@ export const tables = {
                 },
             },
         },
-        predefinedExercises: "predefined_exercises",
     },
 };

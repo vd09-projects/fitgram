@@ -17,6 +17,6 @@ module.exports = {
   },
   setupFilesAfterEnv: ["./src/test/jest.setup.ts"],
   // Tests sit next to the code they cover. `src/scripts/` holds hand-run
-  // verification scripts (verifyHistoryReads.ts), not Jest suites.
+  // scripts; only their I/O-free cores have suites (wipe.test.ts).
   testMatch: ["<rootDir>/src/**/*.test.ts", "<rootDir>/src/**/*.test.tsx"],
 };

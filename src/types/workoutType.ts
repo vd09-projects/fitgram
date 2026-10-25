@@ -34,8 +34,8 @@ export interface ExerciseField {
 
 export interface Exercise {
   /**
-   * Shared across every workout that contains this exercise — a
-   * `predefined_exercises` doc id, or a slug of the name for a custom one. This
+   * Shared across every workout that contains this exercise — a catalog
+   * version id (TICKET-042), or a slug of the name for a custom one. This
    * is what makes cross-workout history ("my last bench press, in any workout")
    * a real join.
    */

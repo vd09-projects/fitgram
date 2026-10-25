@@ -41,11 +41,12 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
-| 042 | Exercise catalog: movements with versions, loaded into the app | Large | **Stage 1 done**. **Stage 2A committed**, **2B in review** (names, picker, local clear); 2C (wipe, cleanup) next. Console rules diff owed before 2C. An app build with 046's vocabulary must be on phones before the first upload. Movement first; history stays per version; catalog in Firestore, cached |
+| 042 | Exercise catalog: movements with versions, loaded into the app | Large | **Stage 1 done**. **Stages 2A–2C committed**, PR open; then the user's landing run and device checks. Console rules diff owed before the rules deploy. An app build with 046's vocabulary must be on phones before the first upload. Movement first; history stays per version; catalog in Firestore, cached |
 | 043 | Find an exercise: search by muscle, typos, movement-first picker | Large | Ports the prototype and its 91 cases; "Latpulldown", "squad", "bech press" return 0 today |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap |
 | 046 | Build the real catalog: movements and versions | Large | **Done, pending merge** (2026-10-25): 489 movements, 805 versions, all 878 research entries accounted for. Unblocks 042 stage 2 |
 | 047 | Switch an exercise's version mid-workout | Medium | Deferred 2026-10-24. For this workout only; the plan keeps its version |
+| 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: after 042's rules deploy, `rebuildExerciseStats` (the app's own log names it) gets PERMISSION_DENIED |
 
 ### Not tickets — verification owed
 
@@ -2363,7 +2364,8 @@ needs it, built against the chosen board.
 
 **Priority:** Medium | **Effort:** Large | **Status: IN PROGRESS** — open decisions
 settled 2026-10-24; stage 1 in PR #20; stage 2 decisions settled 2026-10-25, stage
-2A committed (808d490); 2B (app reads the catalog) in review; 2C next
+2A (808d490), 2B (b584798) and 2C committed, PR open; then the user's landing
+run and device checks, then the debug screen's removal
 
 **Description:**
 Replace today's 42 exercises (`src/scripts/uploadExercises.ts`) with the research
@@ -2737,6 +2739,70 @@ nothing in the app imports them yet, so the app behaves as before.
 - Not verified: any of it on a device; 805-row scroll; the ids a real pick writes
   against real Firestore
 
+**Implementation, stage 2C: wipe script and cleanup (2026-10-26).**
+- **Wipe:** `src/scripts/wipe.ts` (the logic, takes an injected db) and
+  `src/scripts/wipeTestData.ts` (CLI, admin SDK). Dry run is the default and
+  prints, per uid, top-level doc counts in `workouts`, `sessions`,
+  `exercise_sessions`, `exercise_stats`, the other subcollections it **keeps**,
+  then `predefined_exercises` and a total. A real run needs `--confirm`
+  (`--dry-run` anywhere wins), deletes with `recursiveDelete`, then recounts and
+  fails if anything is left. Paths touched, listed in both headers:
+  `users/{uid}/{workouts,sessions,exercise_sessions,exercise_stats,workout_logs}/**` and
+  `predefined_exercises/*`. Never `users/{uid}` itself, `info`, or any other
+  subcollection. Users are listed with `listDocuments`, so a uid with no
+  `users/{uid}` doc of its own (patchMissingUserDocs.ts) is still wiped. The dry
+  run needs the admin key too: counting other users' data is beyond the rules
+- ~~Kept: `users/{uid}/workout_logs`~~ **Wiped too (user, 2026-10-26):** legacy,
+  read by nothing in `src`, holds old ids. Its nested `logs/.../exercises`
+  go with it (`recursiveDelete`); counts are top-level only
+- **Removed:** `usePredefinedExercises`, `services/db/exercises.ts`
+  (`getAllPredefinedExercises`, `addPredefinedExercise`), `uploadExercises.ts`,
+  `tables.users.predefinedExercises`, and `signInForScripts` / `auth` in
+  `src/scripts/firebase.ts` (only `uploadExercises` used them)
+- **Rules:** the `predefined_exercises` block stays until the wipe has run;
+  remove it in the first rules deploy after
+- Tests (4): the wipe against an in-memory Firestore deletes only the four
+  collections (now with `workout_logs`) and `predefined_exercises`, keeps `info`,
+  `settings` and `exercise_catalog`, and includes a uid with no own doc; the
+  `--confirm` gate (3 cases). Seen red: deleting kept collections, ignoring
+  `--dry-run`, skipping a uid with no own doc
+- Not verified: the real dry run (needs the key, which only you have); without
+  `GOOGLE_APPLICATION_CREDENTIALS` both modes exit 1 before any network call
+- **Inherited gap (after the rules deploy):** `rebuildExerciseStats.ts`,
+  `patchMissingUserDocs.ts` and `addExerciseToUserWorkout.ts` use the client SDK
+  unauthenticated (`verifyHistoryReads.ts` reads local files only). Under owner-only
+  rules they get PERMISSION_DENIED. Split out as **TICKET-049** (user, 2026-10-26)
+
+**TEMPORARY Catalog debug screen: removal, after the device run.** Delete
+`src/screens/workout_management/CatalogDebugScreen.tsx`; its route in
+`src/constants/routes.tsx`; its `Stack.Screen` in
+`src/navigation/WorkoutNavigator.tsx`; its tile in `src/screens/WorkoutScreen.tsx`;
+`catalogReadCounter` and its two increments in `src/services/db/catalog.ts`. Each
+is marked `TEMPORARY`; `grep -rn TEMPORARY src` must then show none of them.
+
+**Landing order (user runs every step, CLAUDE.md 1.3).** Key outside the repo:
+`export GOOGLE_APPLICATION_CREDENTIALS=~/.config/fitgram/service-account.json`.
+1. Build: `npx eas-cli build --profile preview --platform android` (or the
+   usual tester route)
+2. Install on **every** tester's phone and open it once (the local clear runs).
+   No workouts logged from here until step 5
+3. Rules: paste the console rules into a file and `diff` it with
+   `firestore.rules`; then deploy with
+   `npx firebase-tools deploy --only firestore:rules --project gymexerciselogger-fb`
+   (or paste into the console and Publish). Deploying replaces the whole live
+   ruleset
+4. `npx tsx src/scripts/wipeTestData.ts` (dry run: check the uids, counts, "kept")
+5. `npx tsx src/scripts/wipeTestData.ts --confirm` (ends "✅ Wiped.", all counts 0)
+6. `npx tsx src/scripts/uploadCatalog.ts --dry-run` (489 movements, 805 versions, 26.9%)
+7. `npx tsx src/scripts/uploadCatalog.ts`
+8. Device checks on the Catalog debug screen: first start after upload meta 1 ·
+   catalog 1, source `network`, 489 movements / 805 versions; restart meta 1 ·
+   catalog 0, `cache`; Manage Workout and back meta +1 · catalog +0; "Clear
+   local cache" and restart meta 1 · catalog 1; sign out and in, version
+   unchanged, catalog +0. Then the stage B checks (picker, plan save, name
+   sites, session doc)
+9. Next rules deploy: drop the `predefined_exercises` block
+
 **Stage 2 needs, from TICKET-046:** the real catalog in this shape, passing
 `validateCatalog`, with its ids frozen into the pin list; the per-movement
 `oneSide` label; each grip version's muscle override. Not run on the hand-made
@@ -2764,15 +2830,14 @@ picked on a device would be ids TICKET-046 may not keep.
   removes `activeWorkout` and `pendingUploads` before the queue is loaded or
   drained. In stage B (the first build that writes new ids), not C
 - **The order to land it**, each step run by the user (CLAUDE.md 1.3):
-  1. diff `firestore.rules` with the console; deploy rules (the
-     `exercise_catalog` read must exist before phones look for it)
-  2. install the stage 2 build on **every** tester's phone and open it once (the
-     local clear runs). **No workouts logged from here until step 3**: the wipe
-     deletes them
-  3. wipe (`--dry-run` first)
-  4. upload the catalog (`--dry-run` first)
-  Between 3 and 4 the picker is empty and names show the snapshot fallback;
-  minutes, since the user runs both
+  ~~1. rules first, 2. install, 3. wipe, 4. upload~~ **Revised (user,
+  2026-10-26): build → install on every phone → rules diff + deploy → wipe
+  --dry-run → wipe → upload --dry-run → upload → device checks.** Rules no longer
+  need to go first: the device run showed the live console rules already allow a
+  signed-in read of `exercise_catalog/meta` (no permission error). Full commands
+  under "Landing order" below. **No workouts logged from install until the
+  wipe**: the wipe deletes them. Between the wipe and the upload the picker is
+  empty and names show "Exercise catalog not loaded yet"; minutes
 - **Interim picker:** one flat list of all 805 versions by built name in today's
   `SearchableInputDropdown` (its search is a label substring, so "bench" leaves
   ~20). **Scroll performance with 805 rows is untested on a device.** Rejected:
@@ -3737,6 +3802,35 @@ exercise. Wanted (user, 2026-10-24), not built now.
 movement altogether, uses the same sheet.
 
 **Dependencies:** TICKET-042 (versions), TICKET-043 (the sheet).
+
+
+---
+
+### TICKET-049: Move the Client-SDK Scripts to the Admin SDK
+
+**Priority:** Medium | **Effort:** Small | **Status: OPEN** — raised 2026-10-26 in TICKET-042 stage 2C
+
+**Description:**
+`rebuildExerciseStats.ts`, `patchMissingUserDocs.ts` and
+`addExerciseToUserWorkout.ts` write through `src/scripts/firebase.ts`, the client
+SDK, without signing in. They only ever worked because the console rules allowed
+unauthenticated access. TICKET-042 deploys `firestore.rules` (owner-only under
+`users/{uid}`), after which all three get PERMISSION_DENIED. Signing in would not
+help: one user cannot reach another's data under owner-only rules.
+
+**Why it matters before the next repair:** the app points at
+`rebuildExerciseStats` as the fix for a failed rollup (`useWorkoutStore.tsx`,
+"Workout saved, history rollup pending." and the comment beside it; also
+`exerciseStats.ts`, `workoutSessions.ts`, `workoutSession.ts`). Today that repair
+would fail the first time it is needed.
+
+**Scope:**
+- Switch the three to `getAdminFirestore()` (`src/scripts/firebaseAdmin.ts`):
+  admin SDK API (`db.collection(...)`, `batch()`, `collectionGroup`), not the
+  client SDK's `doc()` / `getDocs()`
+- Give each writing script `--dry-run`, as `uploadCatalog` and `wipeTestData` have
+- Then delete `src/scripts/firebase.ts` if nothing else uses it
+- Not in scope: what the scripts compute (`rebuildStatsFromSessions` stays)
 
 ---
 
