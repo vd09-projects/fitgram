@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   Text,
   TouchableOpacity,
@@ -25,6 +26,7 @@ import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeCont
 import { useThemeStyles } from '../../utils/useThemeStyles';
 import { MANAGE_WOURKOUT_STEP_NAMES } from '../../tour_steps/manageWorkout';
 import { MaybeTourStep } from '../../components/guide_tour/MaybeTourStep';
+import { useCatalogStore } from '../../stores/useCatalogStore';
 
 export default function AddExerciseScreen() {
   const { styles, t } = useThemeStyles(createStyles);
@@ -41,6 +43,10 @@ export default function AddExerciseScreen() {
 
   const { predefinedExercises, loadingPredefinedExercises } = usePredefinedExercises();
   const { workoutPlans, loadingWorkoutPlans } = useWorkoutPlans(reload);
+
+  // One meta read each time Manage Workout opens (TICKET-042); the catalog
+  // itself is fetched only if its hash changed.
+  useFocusEffect(useCallback(() => { useCatalogStore.getState().sync(); }, []));
 
   const handleReload = () => setReload((prev) => !prev);
 

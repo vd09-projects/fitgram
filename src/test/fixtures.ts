@@ -11,6 +11,7 @@ import {
   StoredSetFields,
 } from "../types/workoutSession";
 import { rebuildStatsFromSessions } from "../utils/exerciseStats";
+import type { Movement } from "../types/catalog";
 
 /** A weight/reps exercise with no sets logged. Id is a slug of the name. */
 export function buildExercise(name: string, overrides: Partial<LoggedExercise> = {}): LoggedExercise {
@@ -93,3 +94,27 @@ export function buildStats(name: string, sessions: StatsSessionSpec[]): Exercise
   }
   return stats;
 }
+
+/** A one-version movement that passes `loadCatalog`, for catalog cache tests. */
+export const CATALOG_ROW: Movement = {
+  id: "row",
+  name: "Row",
+  primaryMuscles: ["lats"],
+  secondaryMuscles: [],
+  category: "strength",
+  mechanic: "compound",
+  aliases: [],
+  versions: [
+    {
+      id: "row__barbell",
+      equipment: "barbell",
+      unilateral: false,
+      measure: "weight_reps",
+      fields: [
+        { name: "Weight", role: "weight", unit: "kg" },
+        { name: "Reps", role: "reps" },
+      ],
+      aliases: [],
+    },
+  ],
+};

@@ -41,7 +41,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
-| 042 | Exercise catalog: movements with versions, loaded into the app | Large | **Stage 1 done** (types, id and name rules, loader, hand-made catalog). **Stage 2 next** (046 done, pending merge). An app build with 046's vocabulary must be on phones before the first upload. Movement first; history stays per version; catalog in Firestore, cached |
+| 042 | Exercise catalog: movements with versions, loaded into the app | Large | **Stage 1 done**. **Stage 2A in review** (catalog store, upload script, rules entry); 2B (app reads it) and 2C (wipe, cleanup) next. Console rules diff owed before 2C. An app build with 046's vocabulary must be on phones before the first upload. Movement first; history stays per version; catalog in Firestore, cached |
 | 043 | Find an exercise: search by muscle, typos, movement-first picker | Large | Ports the prototype and its 91 cases; "Latpulldown", "squad", "bech press" return 0 today |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap |
 | 046 | Build the real catalog: movements and versions | Large | **Done, pending merge** (2026-10-25): 489 movements, 805 versions, all 878 research entries accounted for. Unblocks 042 stage 2 |
@@ -2362,7 +2362,8 @@ needs it, built against the chosen board.
 ### TICKET-042: Exercise Catalog — Movements with Versions, Loaded into the App
 
 **Priority:** Medium | **Effort:** Large | **Status: IN PROGRESS** — open decisions
-settled 2026-10-24; stage 1 in PR #20; stage 2 waits for TICKET-046
+settled 2026-10-24; stage 1 in PR #20; stage 2 decisions settled 2026-10-25, stage
+2A (catalog store, upload script) in review, 2B and 2C next
 
 **Description:**
 Replace today's 42 exercises (`src/scripts/uploadExercises.ts`) with the research
@@ -2699,6 +2700,97 @@ nothing in the app imports them yet, so the app behaves as before.
 `oneSide` label; each grip version's muscle override. Not run on the hand-made
 catalog: the picker would shrink from 42 exercises to 6 movements, and versions
 picked on a device would be ids TICKET-046 may not keep.
+
+**Stage 2 decisions (user, 2026-10-25), settled before code:**
+- ~~Upload as a signed-in user (`FS_SEED_EMAIL`)~~ **Admin credentials:**
+  `firebase-admin` (devDependency, imported only from `src/scripts/`) with a
+  service-account key kept **outside the repo**, named by
+  `GOOGLE_APPLICATION_CREDENTIALS`. Why: the rule is `allow write: if false`, and
+  the wipe must delete under every tester's `users/{uid}`, which no signed-in user
+  can under owner-only rules. `src/scripts/firebaseAdmin.ts` refuses a key inside
+  the repo or for a project other than `FS_DB_PROJECT_ID`; `.gitignore` also
+  ignores `*firebase-adminsdk*.json`, `service-account*.json`,
+  `serviceAccount*.json` as a backstop. How the 42 `predefined_exercises` docs were
+  written: the 2025-03-09 script (51fd364) used the client SDK **without signing
+  in**, so the console rules then allowed unsigned writes. Whether they still do is
+  unknown: the console rules are not yet diffed (owed before stage C)
+- ~~2–3 `chunk_N` docs~~ **One `catalog` doc** beside `meta` (27% of 1 MiB). Reads:
+  1 per check, 2 when the hash changed or the cache is empty. The phone caches
+  under the **catalog doc's own** `version`, not meta's, so an upload between the
+  two reads costs one extra fetch, never a mislabelled cache. Chunk past ~70%
+- **Phone-side data:** a one-time local clear keyed on a `localDataVersion` marker
+  removes `activeWorkout` and `pendingUploads` before the queue is loaded or
+  drained. In stage B (the first build that writes new ids), not C
+- **The order to land it**, each step run by the user (CLAUDE.md 1.3):
+  1. diff `firestore.rules` with the console; deploy rules (the
+     `exercise_catalog` read must exist before phones look for it)
+  2. install the stage 2 build on **every** tester's phone and open it once (the
+     local clear runs). **No workouts logged from here until step 3**: the wipe
+     deletes them
+  3. wipe (`--dry-run` first)
+  4. upload the catalog (`--dry-run` first)
+  Between 3 and 4 the picker is empty and names show the snapshot fallback;
+  minutes, since the user runs both
+- **Interim picker:** one flat list of all 805 versions by built name in today's
+  `SearchableInputDropdown` (its search is a label substring, so "bench" leaves
+  ~20). **Scroll performance with 805 rows is untested on a device.** Rejected:
+  movement then version (a second control 043's A3 sheet replaces)
+- **Unknown id:** one meta check per app run, from an effect, never from render;
+  an id still unknown after it shows the snapshot fallback until the next start
+- **Edges:** 043 keeps search, recents, the version sheet and the Manage Workout
+  redesign; 047 keeps switching (each logged exercise names itself from its own id
+  and snapshot, never the plan's); 048 is done, stage 2 only skips the name rule
+  for catalog exercises. `PlanRow` names wrap to 2 lines (board B1). Sign-out
+  clears nothing today (TICKET-026 open); a comment at `CATALOG_CACHE_KEY` keeps
+  it out of 026's clear
+- **Catalog exercises in a plan:** `name: ""`, `nameSnapshot` = the built name;
+  plan save skips the name rule when `nameSnapshot` is set (not "id is in the
+  catalog", which a later removal would turn into an unsaveable plan). One helper,
+  `exerciseDisplayName`, serves every name site. Readers found by renaming the
+  field and running `tsc` (making it optional surfaced none):
+  - `Exercise.name`: `CollapsibleExerciseList.tsx:34,42`, `PlanRow.tsx:122`,
+    `WorkoutHistoricalLogsFilter.tsx:77,208`, `AddExerciseScreen.tsx:53,120,174`,
+    `ExerciseHistoryDebugScreen.tsx:52,158`, `exerciseValidations.ts:87,91,96`,
+    `useWorkoutStore.tsx:160`, `services/db/exercises.ts:45`, plus the scripts
+    (`uploadExercises.ts`, `verifyHistoryReads.ts:153`)
+  - `LoggedExercise.name`: `ActiveWorkoutScreen.tsx:143,146,147`,
+    `ExerciseHistorySheet.tsx:104`, `exerciseStats.ts:304`,
+    `verifyHistoryReads.ts:203`
+  - `exerciseName` (session snapshot): `WorkoutHistoricalLogsFilter.tsx:24,31`,
+    `exerciseStats.ts:247,300`
+
+**Implementation, stage 2A: the catalog store (2026-10-25).** Nothing reads the
+catalog yet; Manage Workout still lists the 42.
+- `src/utils/catalogSync.ts` (pure): `planCatalogSync` (cached hash, meta hash →
+  fetch or keep), `decideFetchedCatalog` (the `loadCatalog` gate; refuses a doc
+  with no hash), `readCachedCatalog` (an unreadable cache is absent)
+- `src/services/db/catalog.ts`: the two doc gets. `src/stores/useCatalogStore.ts`:
+  cache → memory at app start (`startCatalog`, from `AppControlProvider`), the
+  meta check once a user is signed in and on each Manage Workout focus,
+  single-flight; a refusal keeps the cache and logs `CATALOG REFUSED …`
+- **Refusal loop fixed in review (user, 2026-10-25):** after a refusal the cached
+  hash still differs from meta's, so every check re-downloaded and re-refused the
+  catalog. Now a meta hash equal to this run's `lastRefusal.version` keeps the
+  cache with no fetch and no second log; the next app run tries once more (a
+  reinstall may have brought the vocabulary). Test: refuse, check again → 1 read;
+  seen red (an extra catalog read)
+- `src/scripts/uploadCatalog.ts`: meta + catalog in one batch, SHA-256 `version`,
+  skips the write when the hash is already live; refuses a catalog `loadCatalog`
+  refuses, arrays inside arrays, or one over 90% of 1 MiB
+- `firestore.rules`: `exercise_catalog` read when signed in, no client writes.
+  `firebase.json` now names the rules file
+- TEMPORARY `CatalogDebugScreen` (behind `SHOW_DEBUG_SCREENS`): version, source,
+  reads since start. Removal: the file, its route, Stack.Screen, tile, and
+  `catalogReadCounter` in `services/db/catalog.ts`
+- **Measured** (mocked Firestore, counted at `getDoc`): app start with an unchanged
+  hash 1 read; changed hash 2; empty cache 2; opening Manage Workout 1; two
+  unknown-id checks 1 in total. Not measured: the same on a device, against real
+  Firestore and real rules
+- Tests: 8 in `catalogSync.test.ts`, 6 in `useCatalogStore.test.ts` (the refusal test also covers the loop). Each seen red
+  by breaking its line (same hash fetching, the `loadCatalog` gate, a sign-out
+  clear, the unknown-id guard, the refusal log, a corrupt cache accepted). The
+  sign-out test first passed against a sign-out clear, because a later sync
+  refetched; fixed by not syncing after sign-out
 
 **Technical Notes:**
 - The research also derives `region`, `push_pull`, `primary_groups` and a `staple`

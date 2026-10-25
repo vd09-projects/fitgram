@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useTourStore } from '../../stores/useTourStore';
 import { useWorkoutStore } from '../../stores/useWorkoutStore';
+import { startCatalog } from '../../stores/useCatalogStore';
 
 type AppControlContextType = {
   forceReload: () => void;
@@ -28,6 +29,8 @@ export const AppControlProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     useTourStore.getState().loadSeenTours();
     useWorkoutStore.getState().loadWorkoutFromStorage();
+    // Cache into memory now; the meta check waits for a signed-in user.
+    startCatalog();
   }, []);
 
   return (

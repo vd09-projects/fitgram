@@ -21,8 +21,16 @@ service cloud.firestore {
       }
     }
 
-    // Shared exercise catalog. Seeded by src/scripts/uploadExercises.ts, which
-    // should run with admin credentials, not as a signed-in user.
+    // The exercise catalog (TICKET-042 stage 2): `meta` and `catalog`, read by
+    // every signed-in phone, written only by src/scripts/uploadCatalog.ts with
+    // admin credentials, which bypass these rules.
+    match /exercise_catalog/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // The old 42-exercise catalog. Deleted by the TICKET-042 wipe; remove this
+    // block after it runs.
     match /predefined_exercises/{exerciseId} {
       allow read: if request.auth != null;
       allow write: if false;

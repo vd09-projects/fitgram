@@ -38,6 +38,13 @@ yarn-error.*
 google-services.json
 GoogleService-Info.plist
 
+# Firebase admin service-account keys. Keep the key OUTSIDE the repo
+# (GOOGLE_APPLICATION_CREDENTIALS, src/scripts/firebaseAdmin.ts refuses one
+# inside it); these patterns are only a backstop.
+*firebase-adminsdk*.json
+service-account*.json
+serviceAccount*.json
+
 # typescript
 *.tsbuildinfo
 

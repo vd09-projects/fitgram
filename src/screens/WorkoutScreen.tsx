@@ -68,6 +68,13 @@ const debugOptions: (typeof workoutOptions)[number][] = [
     description: 'Temporary: finished workouts not uploaded yet (TICKET-028).',
     icon: 'cloud-upload-outline',
     action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.PendingUploadsDebug),
+  },
+  // TEMPORARY — remove with CatalogDebugScreen.
+  {
+    title: 'Catalog',
+    description: 'Temporary: catalog version, source and Firestore reads (TICKET-042).',
+    icon: 'library-outline',
+    action: (navigation: workoutScreenNavigationProp) => navigation.navigate(WorkoutRoutes.CatalogDebug),
   }
 ];
 
