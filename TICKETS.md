@@ -3284,6 +3284,32 @@ or after the build reaches phones.
   stage 3
 - Not verified: anything on a device
 
+**Refactor after stage 2: the text layer split out (user, 2026-10-27).** Asked: is
+the typo and word matching tied to muscles and axes, or reusable? It was pure but
+lived in the exercise file. Now:
+- `src/utils/textSearch.ts` knows nothing about exercises: `stem` / `stemmed` /
+  `normalized`, `editDistance`, `maxTypoEdits`, `buildTextDictionary` +
+  `correctWord` (thresholds, closest candidates only, mid-typing), `wordAt` /
+  `wordsAt` (prefix and joined words), `matchWithSplitWords`, `inOrder`,
+  `equalsWithCorrections`, `fuzzyLast`. For a later search over plans, logs or
+  custom exercises (TICKET-045). ~~TICKET-052~~ removed (user review, 2026-10-27):
+  052 is New plan / First plan and has no search
+- `exerciseSearch.ts` keeps what is exercise-specific: the vocabulary, muscle and
+  equipment scoring, preselection, staple and tie-breaks, and what a correction
+  means (a sole vocabulary candidate becomes that word)
+- Rejected: a configurable engine taking "axes" and weights. The hard part is the
+  exercise rules, which do not carry over; it would be designed for one user
+- **No behaviour change:** the 117 search tests pass with one line changed (the
+  `maxTypoEdits` import moved). Timing within noise: normal typing median
+  0.19 ms, typo typing 0.52–0.62 ms
+- **Contract tests** (`textSearch.test.ts`, 4, on small word lists, not the catalog).
+  Seen red, by breaking: 3-letter edits, no swap, early stop too soon, no
+  known-prefix guard, every candidate within the limit (caught only after adding
+  "dumbell" vs "dumbbells"), no mid-typing compare, substring instead of prefix,
+  joined words where one word is asked, split retry before the words as typed
+  (caught only after adding a name where both readings match), any order counted
+  as in order
+
 **Dependencies:** TICKET-042. TICKET-041 boards A2–A4.
 
 ---

@@ -13,11 +13,11 @@ import type { Exercise } from "../types/workoutType";
 import {
   buildSearchCatalog,
   customExercisesFromPlans,
-  maxTypoEdits,
   searchExercises,
   type SearchResult,
   type VersionPick,
 } from "./exerciseSearch";
+import { maxTypoEdits } from "./textSearch";
 
 const catalog = buildSearchCatalog(CATALOG, SEARCH_WORDS);
 const idOf = (r: SearchResult) => (r.kind === "movement" ? r.movement.id : r.exercise.id);

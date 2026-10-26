@@ -5,6 +5,11 @@
 // reference only), whose rules each fixed a bug it hit. They are restated where
 // they are implemented below.
 //
+// Word matching itself (prefixes, plurals, typos, joined and split words, word
+// order) is textSearch.ts, which knows nothing about exercises. This file is
+// what is specific to them: the vocabulary, how muscles, equipment and
+// versions score, and what the version sheet preselects.
+//
 // Pure: the catalog and the search words are passed in, never imported. The app
 // reads both from the catalog store (TICKET-042); tests pass `src/catalog`.
 
@@ -26,29 +31,20 @@ import {
 } from "../constants/catalogVocabulary";
 import type { AxisWord, Movement, MovementVersion, SearchWords } from "../types/catalog";
 import type { Exercise } from "../types/workoutType";
-
-// ---------------------------------------------------------------------------
-// Words
-
-/**
- * Crude plural fold, from the prototype: deadlifts → deadlift, flies → fly,
- * pull-ups → up. 10 of the app's 42 old names ("Deadlifts", "Pull-Ups") found
- * nothing before it. Applied to every word on both sides, vocabulary keys
- * included, so "calves" and "calf" both reach their table entry.
- */
-export function stem(word: string): string {
-  if (word.length > 4 && word.endsWith("ies")) return word.slice(0, -3) + "y";
-  if (word.length > 2 && word.endsWith("s") && !word.endsWith("ss")) return word.slice(0, -1);
-  return word;
-}
-
-/** Lower case, apostrophes dropped ("Farmer's" = "farmers"), split on anything else. */
-function words(text: string): string[] {
-  return text.toLowerCase().replace(/['’]/g, "").match(/[a-z0-9]+/g) ?? [];
-}
-
-const stemmed = (text: string): string[] => words(text).map(stem);
-const normalized = (text: string): string => stemmed(text).join(" ");
+import {
+  buildTextDictionary,
+  correctWord,
+  equalsWithCorrections,
+  fuzzyLast,
+  inOrder,
+  matchWithSplitWords as withSplitWords,
+  normalized,
+  prefixOfAny,
+  stem,
+  stemmed,
+  wordsAt,
+  type TextDictionary,
+} from "./textSearch";
 
 // ---------------------------------------------------------------------------
 // Vocabulary: what a typed word means. Two sources, merged once per catalog in
@@ -229,74 +225,9 @@ function queryTerms(vocab: Vocabulary, query: string): Term[] {
 }
 
 // ---------------------------------------------------------------------------
-// Typos (stage 2). Only for a word that matched NOTHING: not a vocabulary word
-// and not a prefix of any word in the catalog. "row" and "curl" keep exactly
-// their results (19 and 27, the stage 1 baselines) because only the CLOSEST
-// candidates are kept: a word that matches something is 0 edits from itself,
-// so it can only be "corrected" to itself. The `knownPrefixes` check skips the
-// dictionary scan for those words; it is a shortcut, not what protects them
-// (removing it changes no result; keeping every candidate within the limit
-// breaks "curl" and 29 other cases). Rejected: Fuse.js, which scores whole
-// strings and could not hold the thresholds below or keep fuzzy below prefix
-// matches.
-
-/**
- * Edits allowed for a typed word of this length (TICKET-043, user 2026-10-27):
- * - 1–3 letters: none. "row" must not start matching "rod" or "bow"
- * - 4–5 letters: 1 ("bech" → bench, "squad" → squat)
- * - 6 or more: 2 ("incliend" → incline, "dumbell" needs 1)
- */
-export function maxTypoEdits(length: number): number {
-  return length <= 3 ? 0 : length <= 5 ? 1 : 2;
-}
-
-/**
- * Damerau-Levenshtein distance, optimal string alignment variant: insert,
- * delete, substitute, or swap two adjacent letters ("bnech" → bench is 1).
- * Stops early once every alignment needs more than `limit` edits and returns
- * `limit + 1`: it runs over the whole dictionary on a typo, on every keystroke.
- */
-export function editDistance(a: string, b: string, limit = Infinity): number {
-  let prev2: number[] = [];
-  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
-  for (let i = 1; i <= a.length; i++) {
-    const row = [i];
-    let rowMin = i;
-    for (let j = 1; j <= b.length; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      let d = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + cost);
-      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d = Math.min(d, prev2[j - 2] + 1);
-      row.push(d);
-      rowMin = Math.min(rowMin, d);
-    }
-    if (rowMin > limit) return limit + 1;
-    prev2 = prev;
-    prev = row;
-  }
-  return prev[b.length];
-}
-
-/**
- * The catalog words a missed word may mean: those at the smallest distance
- * within its limit. Compared with the whole word and with the word's start of
- * the same length, so a typo while still typing counts ("dumbe" → dumbbell).
- */
-function typoCandidates(dictionary: readonly string[], word: string): { words: string[]; distance: number } | null {
-  const limit = maxTypoEdits(word.length);
-  if (limit === 0) return null;
-  let best = limit + 1;
-  let words: string[] = [];
-  for (const candidate of dictionary) {
-    let distance = Math.abs(candidate.length - word.length) <= limit ? editDistance(word, candidate, limit) : Infinity;
-    if (candidate.length > word.length)
-      distance = Math.min(distance, editDistance(word, candidate.slice(0, word.length), limit));
-    if (distance < best) {
-      best = distance;
-      words = [candidate];
-    } else if (distance === best) words.push(candidate);
-  }
-  return best <= limit ? { words, distance: best } : null;
-}
+// Typos (stage 2): which words are corrected, and to what, is textSearch.ts
+// (`correctWord`: thresholds, closest candidates only). What a correction
+// means for an exercise query is decided here.
 
 /**
  * Correct each plain word that matched nothing. When its only candidate is a
@@ -306,16 +237,15 @@ function typoCandidates(dictionary: readonly string[], word: string): { words: s
  * and "quad", and turning it into the quads muscle would hide Squat.
  */
 function correctTypos(catalog: SearchCatalog, terms: readonly Term[]): Term[] {
-  const { vocabulary, knownPrefixes, dictionary } = catalog;
+  const { vocabulary, dictionary } = catalog;
   return terms.map((term) => {
     const plain = !term.muscle && !term.equipment && !term.axis && !term.region && term.words.length === 1;
-    const word = term.words[0];
-    if (!plain || knownPrefixes.has(word)) return term;
-    const found = typoCandidates(dictionary, word);
+    const found = plain ? correctWord(dictionary, term.words[0]) : null;
     if (!found) return term;
-    if (found.words.length === 1 && isPhrase(vocabulary, found.words[0]))
-      return { ...termFor(vocabulary, found.words[0]), typo: found.distance, corrected: found.words };
-    return { words: [word], candidates: found.words, typo: found.distance, corrected: found.words };
+    const { candidates, distance } = found;
+    if (candidates.length === 1 && isPhrase(vocabulary, candidates[0]))
+      return { ...termFor(vocabulary, candidates[0]), typo: distance, corrected: candidates };
+    return { words: term.words, candidates, typo: distance, corrected: candidates };
   });
 }
 
@@ -348,10 +278,8 @@ export type SearchCatalog = {
   movements: MovementEntry[];
   custom: CustomEntry[];
   vocabulary: Vocabulary;
-  /** Every prefix of every searchable word: a typed word in here matched something and is never corrected. */
-  knownPrefixes: Set<string>;
-  /** Every searchable word once, what typos are corrected to. */
-  dictionary: string[];
+  /** Every searchable word: names, aliases, pattern and category words, vocabulary. What typos are corrected to. */
+  dictionary: TextDictionary;
 };
 
 const UPPER_GROUPS: ReadonlySet<MuscleGroupId> = new Set(["chest", "back", "shoulders", "arms", "neck"]);
@@ -450,10 +378,7 @@ export function buildSearchCatalog(
   for (const e of customEntries) for (const w of e.nameWords) words.add(w);
   for (const map of [vocabulary.muscles, vocabulary.equipment, vocabulary.axes, vocabulary.regions, vocabulary.synonyms] as Map<string, unknown>[])
     for (const key of map.keys()) for (const w of key.split(" ")) words.add(w);
-  const knownPrefixes = new Set<string>();
-  for (const w of words) for (let i = 1; i <= w.length; i++) knownPrefixes.add(w.slice(0, i));
-
-  return { vocabulary, movements: entries, custom: customEntries, knownPrefixes, dictionary: [...words] };
+  return { vocabulary, movements: entries, custom: customEntries, dictionary: buildTextDictionary(words) };
 }
 
 // ---------------------------------------------------------------------------
@@ -505,30 +430,10 @@ const CATEGORY_RANK: Record<CategoryId, number> = Object.fromEntries(
   ).map((c, i) => [c, i])
 ) as Record<CategoryId, number>;
 
-/** Word-PREFIX, not substring: substring made "rdl" match HuRDLe Hop. Prefixes keep "bulg" working. */
-const prefixOf = (word: string, list: readonly string[]): boolean => list.some((w) => w.startsWith(word));
-const allPrefix = (term: Term, list: readonly string[]): boolean => term.words.every((w) => prefixOf(w, list));
+const allPrefix = (term: Term, list: readonly string[]): boolean => term.words.every((w) => prefixOfAny(w, list));
 
-/**
- * Where a typed word matches in a word list: a prefix of one word, or JOINED
- * words, a prefix of several words run together from a word boundary
- * ("latpulldown" → Lat Pulldown). Boundaries still hold, so "rdl" never
- * matches inside HuRDLe. -1 = no match.
- */
-function wordAt(word: string, list: readonly string[], joined = true): number {
-  for (let i = 0; i < list.length; i++) {
-    if (list[i].startsWith(word)) return i;
-    if (!joined) continue;
-    if (word.length > list[i].length && word.startsWith(list[i]) && list.slice(i).join("").startsWith(word)) return i;
-  }
-  return -1;
-}
-
-/** Index of the term's first word in the list, or -1 unless every word matches. */
-function termAt(term: Term, list: readonly string[]): number {
-  const at = term.words.map((w) => wordAt(w, list, !term.split));
-  return at.every((i) => i >= 0) ? at[0] : -1;
-}
+/** A split pair (`term.split`) must match inside one word; see `matchSplit`. */
+const termAt = (term: Term, list: readonly string[]): number => wordsAt(term.words, list, !term.split);
 
 const hasEquipment = (m: Movement, ids: readonly EquipmentId[]) => m.versions.some((v) => ids.includes(v.equipment));
 const hasAxis = (m: Movement, a: AxisValue) =>
@@ -653,23 +558,16 @@ function matchTerms(entry: MovementEntry, terms: readonly Term[]): TermsMatch | 
 }
 
 /**
- * SPLIT words: when the words fail one by one, try each adjacent pair run
- * together ("push down" → Pushdown, "kick back" → Kickback). Only on failure,
- * so a query that already matches keeps its meaning ("pull down" is "pull" +
- * "down"). The pair becomes a plain word, matched by name and alias.
+ * Split words ("push down" → Pushdown), with textSearch's retry. A joined pair
+ * matches inside ONE word only: across words it would be the two words again,
+ * and "machine squat" would find Squat through its alias "smith machine squat".
  */
-function matchWithSplitWords(entry: MovementEntry, terms: readonly Term[]): TermsMatch | null {
-  const direct = matchTerms(entry, terms);
-  if (direct) return direct;
-  for (let i = 0; i + 1 < terms.length; i++) {
-    // Inside one word only: across words it would be the two words again, and
-    // "machine squat" would find Squat through its alias "smith machine squat".
-    const joined: Term = { words: [terms[i].words.join("") + terms[i + 1].words.join("")], split: true };
-    const match = matchTerms(entry, [...terms.slice(0, i), joined, ...terms.slice(i + 2)]);
-    if (match) return match;
-  }
-  return null;
-}
+const matchSplit = (entry: MovementEntry, terms: readonly Term[]): TermsMatch | null =>
+  withSplitWords(
+    terms,
+    (t) => matchTerms(entry, t),
+    (a, b): Term => ({ words: [a.words.join("") + b.words.join("")], split: true })
+  );
 
 /**
  * The query, corrected, equals this word list exactly: each position is the
@@ -678,7 +576,7 @@ function matchWithSplitWords(entry: MovementEntry, terms: readonly Term[]): Term
  */
 function exactCorrected(terms: readonly Term[], words: readonly string[]): boolean {
   const positions = terms.flatMap((t) => (t.corrected && t.candidates ? [t.corrected] : (t.corrected ?? t.words).map((w) => [w])));
-  return positions.length === words.length && positions.every((options, i) => options.includes(words[i]));
+  return equalsWithCorrections(positions, words);
 }
 
 function scoreMovement(entry: MovementEntry, query: string, terms: readonly Term[]): Scored | null {
@@ -692,7 +590,7 @@ function scoreMovement(entry: MovementEntry, query: string, terms: readonly Term
     exact = exactCorrected(terms, entry.nameWords) ? SCORE.exactName : alias ? SCORE.exactAlias : 0;
   }
 
-  const match = matchWithSplitWords(entry, terms);
+  const match = matchSplit(entry, terms);
   // AN EXACT NAME OR ALIAS IS ALWAYS A RESULT. "grip" is a muscle word
   // (forearms), so "neutral grip fly" returned nothing until this rule.
   if (!match && !exact) return null;
@@ -700,8 +598,7 @@ function scoreMovement(entry: MovementEntry, query: string, terms: readonly Term
   if (score === 0) return null;
   // ORDER: name words typed in the name's own order. "low to high fly" scored
   // 40 for both Low-to-High and High-to-Low Cable Fly in the prototype.
-  const at = match?.nameAts ?? [];
-  if (at.length >= 2 && at.every((i, k) => k === 0 || i > at[k - 1])) score += SCORE.order;
+  if (inOrder(match?.nameAts ?? [])) score += SCORE.order;
   if (entry.staple) score += SCORE.staple;
   const fuzzy = corrected && (match ? match.fuzzy || exact > 0 : true);
 
@@ -771,7 +668,7 @@ export function searchExercises(catalog: SearchCatalog, query: string, limit: nu
   }
   scored.sort(
     (a, b) =>
-      Number(a.result.fuzzy) - Number(b.result.fuzzy) ||
+      fuzzyLast(a.result, b.result) ||
       b.result.score - a.result.score ||
       a.category - b.category ||
       a.isolation - b.isolation ||
