@@ -5,6 +5,10 @@ import type { Movement, MovementVersion } from "../types/catalog";
 import {
   buildCatalogIndex,
   buildVersionId,
+  CATALOG_NOT_LOADED,
+  catalogPlanExercises,
+  exerciseDisplayName,
+  planExerciseFromPick,
   loadCatalog,
   NOT_IN_CATALOG,
   resolveExerciseName,
@@ -130,6 +134,38 @@ describe("display names", () => {
       inCatalog: false,
     });
     expect(resolveExerciseName(index, "deadlifts", "  ").title).toBe(UNKNOWN_EXERCISE);
+  });
+});
+
+// TICKET-042 stage 2: what every name site shows for a plan or logged exercise.
+describe("exerciseDisplayName", () => {
+  const index = buildCatalogIndex(FIXTURE);
+
+  it("builds a catalog exercise's name from its id, whatever its stored name and snapshot say", () => {
+    const added = { id: "bench_press__dumbbell__incline", name: "", nameSnapshot: "Incline DB Bench (old)" };
+    expect(exerciseDisplayName(added, index)).toEqual({
+      title: "Bench Press · Dumbbell, incline",
+      subtitle: null,
+      inCatalog: true,
+    });
+    // A custom exercise has no snapshot and names itself.
+    expect(exerciseDisplayName({ id: "my_sled", name: "My Sled" }, index).title).toBe("My Sled");
+  });
+
+  it("falls back to the snapshot: 'no longer in the catalog', or 'not loaded yet' with no catalog", () => {
+    const removed = { id: "bench_press__pause", name: "", nameSnapshot: "Pause Bench Press" };
+    expect(exerciseDisplayName(removed, index)).toEqual({ title: "Pause Bench Press", subtitle: NOT_IN_CATALOG, inCatalog: false });
+    expect(exerciseDisplayName(removed, null).subtitle).toBe(CATALOG_NOT_LOADED);
+  });
+
+  it("adding a picked version stores its id, a snapshot and its fields, with name blank", () => {
+    const pick = catalogPlanExercises(FIXTURE).find((e) => e.id === "bench_press__dumbbell__incline")!;
+    expect(planExerciseFromPick(pick, pick.nameSnapshot!, pick.fields)).toEqual({
+      id: "bench_press__dumbbell__incline",
+      name: "",
+      nameSnapshot: "Bench Press · Dumbbell, incline",
+      fields: FIXTURE[0].versions[1].fields,
+    });
   });
 });
 

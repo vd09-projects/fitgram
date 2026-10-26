@@ -12,6 +12,7 @@ import WorkoutProgressBar from "../../components/active_workout/WorkoutProgressB
 import { SPACING } from "../../constants/styles";
 import { useAuthUser } from "../../hooks/useAuthUser";
 import { useExerciseHistory } from "../../hooks/useExerciseHistory";
+import { useExerciseNames } from "../../hooks/useExerciseNames";
 import show from "../../utils/toastUtils";
 import { buildProgressSegments, resolveCurrentIndex } from "../../utils/workoutProgress";
 import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
@@ -46,6 +47,8 @@ export default function ActiveWorkoutScreen() {
   const exercises = activeWorkout?.exercises ?? [];
   const currentIndex = resolveCurrentIndex(activeWorkout?.currentExerciseIndex ?? null, exercises.length);
   const currentExercise = currentIndex === null ? null : exercises[currentIndex];
+  // Built from the catalog, never `exercise.name` (TICKET-042).
+  const names = useExerciseNames(exercises);
 
   // Cache-only read: this hook issues no network request (see its doc). Last
   // session's set count is the denominator for the current progress segment;
@@ -140,11 +143,12 @@ export default function ActiveWorkoutScreen() {
               <View style={styles.exerciseSection}>
                 <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.SELECTED_WORKOUT_EXERCISE}>
                   <ExerciseNavHeader
-                    exerciseName={currentExercise.name}
+                    exerciseName={names[currentIndex].title}
+                    exerciseSubtitle={names[currentIndex].subtitle}
                     index={currentIndex}
                     count={exercises.length}
-                    previousName={exercises[currentIndex - 1]?.name ?? null}
-                    nextName={exercises[currentIndex + 1]?.name ?? null}
+                    previousName={names[currentIndex - 1]?.title ?? null}
+                    nextName={names[currentIndex + 1]?.title ?? null}
                     onPrevious={goPrevious}
                     onNext={goNext}
                   />

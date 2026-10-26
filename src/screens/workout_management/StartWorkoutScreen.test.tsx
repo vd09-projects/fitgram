@@ -9,6 +9,9 @@ import { LayoutRoutes } from "../../constants/routes";
 import { WorkoutPlan } from "../../types/workoutType";
 import { WorkoutSessionDoc } from "../../types/workoutSession";
 import { PendingUpload } from "../../types/zustandWorkoutType";
+import { useCatalogStore } from "../../stores/useCatalogStore";
+import { loadCatalog } from "../../utils/catalog";
+import { CATALOG_ROW } from "../../test/fixtures";
 
 jest.mock("../../services/db/userDB", () => ({
   ...jest.requireActual("../../services/db/userDB"),
@@ -178,5 +181,41 @@ describe("StartWorkoutScreen", () => {
     expect(primaryButton()).toBeDisabled();
     fireEvent.press(primaryButton());
     expect(startWorkout).not.toHaveBeenCalled();
+  });
+
+  // TICKET-042 stage 2: a plan row names catalog exercises from the catalog, and
+  // an id the catalog lacks shows its snapshot, marked, and asks for one meta check.
+  it("names plan exercises from the catalog, an unknown id by its snapshot", async () => {
+    const fields = CATALOG_ROW.versions[0].fields;
+    const plan: WorkoutPlan = {
+      id: "back",
+      name: "Back",
+      exercises: [
+        { id: "row__barbell", name: "", nameSnapshot: "Barbell Row (old name)", fields },
+        { id: "bench_press__pause", name: "", nameSnapshot: "Pause Bench Press", fields },
+      ],
+    };
+    mockPlans.mockResolvedValue([plan]);
+    mockSessions.mockResolvedValue({ sessions: [], lastDoc: null });
+    mockStats.mockResolvedValue({});
+    renderScreen(StartWorkoutScreen, { route: LayoutRoutes.Home });
+    const load = loadCatalog([CATALOG_ROW]);
+    if (load.kind !== "ok") throw new Error("fixture catalog refused");
+    const checkUnknownId = jest.fn(async () => {});
+    act(() =>
+      useCatalogStore.setState({
+        catalog: { version: "h1", movements: load.movements, index: load.index },
+        cacheLoaded: true,
+        checkUnknownId,
+      })
+    );
+
+    fireEvent.press(await screen.findByRole("button", { name: "Back" }));
+
+    expect(screen.getByText("Row")).toBeOnTheScreen();
+    expect(screen.getByText("Pause Bench Press")).toBeOnTheScreen();
+    expect(screen.getByText("No longer in the catalog")).toBeOnTheScreen();
+    await waitFor(() => expect(checkUnknownId).toHaveBeenCalled());
+    expect(checkUnknownId).toHaveBeenCalledTimes(1);
   });
 });

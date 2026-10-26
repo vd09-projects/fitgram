@@ -31,7 +31,8 @@ export interface LoggedExercise {
   /**
    * The plan's `Exercise.nameSnapshot` (TICKET-042), so a workout still names
    * its exercises when an id is missing from the catalog; the session doc keeps
-   * it as `ExerciseSessionDoc.exerciseName`. Nothing copies it yet: stage 2.
+   * it as `ExerciseSessionDoc.exerciseName`. Copied by `startWorkout`, refreshed
+   * from the catalog as it reads then.
    */
   nameSnapshot?: string;
   /** Carried from the plan's `Exercise.fields`, roles included. */

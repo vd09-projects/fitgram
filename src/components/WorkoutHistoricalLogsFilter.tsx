@@ -12,6 +12,9 @@ import { WorkoutLog } from "../types/workoutLogs";
 import { ExerciseSessionDoc } from "../types/workoutSession";
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
+import { useExerciseNames } from "../hooks/useExerciseNames";
+import { useCatalogStore } from "../stores/useCatalogStore";
+import { exerciseDisplayName, type CatalogIndex } from "../utils/catalog";
 
 /**
  * Adapt stored, exercise-first sessions into the table view model. `SetLog.id`
@@ -19,7 +22,8 @@ import { useThemeStyles } from "../utils/useThemeStyles";
  */
 const toWorkoutLogs = (
   sessions: ExerciseSessionDoc[],
-  userId: string
+  userId: string,
+  catalogIndex: CatalogIndex | null
 ): WorkoutLog[] =>
   sessions.map((session) => ({
     id: session.sessionId,
@@ -28,7 +32,12 @@ const toWorkoutLogs = (
     exercises: [
       {
         exerciseId: session.exerciseId,
-        exerciseName: session.exerciseName,
+        // Built from the session's own version id; its stored name is the
+        // fallback (TICKET-042).
+        exerciseName: exerciseDisplayName(
+          { id: session.exerciseId, nameSnapshot: session.exerciseName },
+          catalogIndex
+        ).title,
         timestamp: session.performedAt,
         sets: session.sets.map((fields, index) => ({
           id: index + 1,
@@ -72,13 +81,16 @@ export default function WorkoutHistoricalLogsFilter({
   );
   const [selectedWorkout, setSelectedWorkout] = useState<DropdownSelection<WorkoutPlan> | undefined>(convertedWorkoutPlans[0]);
 
+  const catalogIndex = useCatalogStore((s) => s.catalog?.index ?? null);
+  const planExercises = useMemo(() => selectedWorkout?.value?.exercises ?? [], [selectedWorkout]);
+  const exerciseNames = useExerciseNames(planExercises);
   const convertedExercises = useMemo(() => {
-    return selectedWorkout?.value?.exercises.map((exercise) => ({
-      label: exercise.name,
+    return planExercises.map((exercise, index) => ({
+      label: exerciseNames[index].title,
       value: exercise,
       isCustom: false,
-    })) || [];
-  }, [selectedWorkout]);
+    }));
+  }, [planExercises, exerciseNames]);
   const [selectedExercises, setSelectedExercises] = useState<DropdownSelection<Exercise> | undefined>(convertedExercises ? convertedExercises[0] : undefined);
 
   const setNumberAllLabel = "All";
@@ -153,7 +165,8 @@ export default function WorkoutHistoricalLogsFilter({
           sessions.filter(
             (session) => session.workoutId === selectedWorkout.value!.id
           ),
-          user.uid
+          user.uid,
+          catalogIndex
         );
         setWorkoutLogs(logs);
         workoutLogsForDisplay = logs;
@@ -205,7 +218,7 @@ export default function WorkoutHistoricalLogsFilter({
     const displayLog: WorkoutHistoricalDisplayLog = {
       displayType: isExerciseDisplayType ? "ExerciseData" : "SetData",
       WorkoutName: selectedWorkout.value.name,
-      ExerciseName: selectedExercises.value.name,
+      ExerciseName: selectedExercises.label,
       SetNumber: selectedSetNumber?.value,
       displayData: filteredLogs,
     };

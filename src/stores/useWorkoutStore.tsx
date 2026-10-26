@@ -12,6 +12,8 @@ import { extendRest, RestTimer } from "../utils/restTimer";
 import { buildSessionDocs, buildSessionId } from "../utils/exerciseStats";
 import { useAuthStore } from "./authStore";
 import { useExerciseHistoryStore } from "./useExerciseHistoryStore";
+import { useCatalogStore } from "./useCatalogStore";
+import { exerciseDisplayName } from "../utils/catalog";
 
 /**
  * In-flight uploads per session (`buildSessionId`), outside the store for the
@@ -28,6 +30,25 @@ const savesInFlight = new Map<string, Promise<boolean>>();
 
 /** AsyncStorage key of the upload queue, separate from `activeWorkout`. */
 const PENDING_UPLOADS_KEY = "pendingUploads";
+
+/**
+ * Local data written by an older build is dropped once, at the first launch of
+ * a build with a higher number (TICKET-042 stage 2). Version 2: exercise ids
+ * moved to the catalog's version ids and the test data was wiped, so a queued
+ * upload from before would write old ids back into the wiped Firestore, and an
+ * active workout would log against them. Raise it only for another reset like
+ * that one; bumping it discards unsent workouts.
+ */
+export const LOCAL_DATA_VERSION = "2";
+export const LOCAL_DATA_VERSION_KEY = "localDataVersion";
+
+/** Remove `activeWorkout` and the upload queue if they predate LOCAL_DATA_VERSION. */
+async function clearLocalDataFromOlderBuilds(): Promise<void> {
+  if ((await AsyncStorage.getItem(LOCAL_DATA_VERSION_KEY)) === LOCAL_DATA_VERSION) return;
+  await AsyncStorage.multiRemove(["activeWorkout", PENDING_UPLOADS_KEY]);
+  await AsyncStorage.setItem(LOCAL_DATA_VERSION_KEY, LOCAL_DATA_VERSION);
+  console.log(`Local workout data from an older build cleared (data version ${LOCAL_DATA_VERSION}).`);
+}
 
 /**
  * How long Finish waits on the upload before telling the user it will upload
@@ -150,6 +171,9 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       .catch(() => {});
 
     const startTime = Date.now();
+    // The snapshot is refreshed from the catalog as it reads now, so the
+    // session doc keeps the name as it read when logged (its `exerciseName`).
+    const catalogIndex = useCatalogStore.getState().catalog?.index ?? null;
     const newWorkout: ActiveWorkout = {
       id: workout.id,
       name: workout.name,
@@ -158,6 +182,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       exercises: workout.exercises.map((ex) => ({
         id: ex.id,
         name: ex.name,
+        ...(ex.nameSnapshot ? { nameSnapshot: exerciseDisplayName(ex, catalogIndex).title } : {}),
         fields: ex.fields,
         sets: [], // Empty sets initially
       })),
@@ -511,6 +536,20 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
    * uploading the queue (it waits for each entry's user to be signed in).
    */
   loadWorkoutFromStorage: async () => {
+    // First, before the queue is loaded or drained: an old build's queue must
+    // never replay. If the clear fails, load nothing this run: carrying on would
+    // replay exactly what the clear exists to drop. The marker is set only after
+    // the remove succeeds, so the next launch retries. Rejected: logging and
+    // continuing (the old queue then uploads into the wiped Firestore).
+    try {
+      await clearLocalDataFromOlderBuilds();
+    } catch (error) {
+      console.error(
+        "LOCAL CLEAR FAILED: older build's activeWorkout and upload queue not loaded this run; retried next launch.",
+        error
+      );
+      return;
+    }
     // A queue that cannot be read must not also cost the active workout.
     await loadPendingUploads().catch((error) => console.log("Failed to load upload queue:", error));
     watchSignInForUploads();

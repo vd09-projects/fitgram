@@ -23,6 +23,7 @@ import { EffortBadge } from "./EffortBadge";
 import { effortSpeech } from "../../utils/effort";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
+import { useExerciseName } from "../../hooks/useExerciseNames";
 
 const HIT = 44;
 const TREND_HEIGHT = 46;
@@ -62,6 +63,7 @@ export default function ExerciseHistorySheet({ visible, onClose, exercise, histo
   const { styles, t } = useThemeStyles(createStyles);
   const insets = useSafeAreaInsets();
   const [selected, setSelected] = useState(0);
+  const name = useExerciseName(exercise);
 
   const status = sheetStatusMessage(history);
   const sessions = history.sessions;
@@ -100,9 +102,11 @@ export default function ExerciseHistorySheet({ visible, onClose, exercise, histo
           <View style={styles.handle} />
           <View style={styles.header}>
             <View style={styles.headerText}>
-              <TextBase style={styles.title} accessibilityRole="header" numberOfLines={1}>
-                {exercise.name}
+              {/* Wraps to two lines, never cut (TICKET-041 board B1). */}
+              <TextBase style={styles.title} accessibilityRole="header" numberOfLines={2}>
+                {name.title}
               </TextBase>
+              {name.subtitle !== null && <TextBase style={styles.subtitle}>{name.subtitle}</TextBase>}
               <TextBase style={styles.subtitle}>History · pick a session to compare</TextBase>
             </View>
             <TouchableOpacity

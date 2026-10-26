@@ -9,10 +9,19 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { User } from "firebase/auth";
 import { saveWorkoutSession } from "../services/db/workoutSessions";
 import show from "../utils/toastUtils";
-import { drainPendingUploads, UPLOAD_GRACE_MS, useWorkoutStore } from "./useWorkoutStore";
+import {
+  drainPendingUploads,
+  LOCAL_DATA_VERSION,
+  LOCAL_DATA_VERSION_KEY,
+  UPLOAD_GRACE_MS,
+  useWorkoutStore,
+} from "./useWorkoutStore";
 import { useAuthStore } from "./authStore";
 import { resetStores } from "../test/renderScreen";
-import { buildExercise, buildWorkout } from "../test/fixtures";
+import { buildExercise, buildWorkout, CATALOG_ROW } from "../test/fixtures";
+import { useCatalogStore } from "./useCatalogStore";
+import { loadCatalog } from "../utils/catalog";
+import { buildSessionDocs } from "../utils/exerciseStats";
 import { Effort } from "../types/workoutSession";
 
 jest.mock("../services/db/workoutSessions", () => ({
@@ -168,8 +177,50 @@ describe("upload queue", () => {
   });
 
   // Tests that call `loadWorkoutFromStorage` stay last: loading installs the
-  // sign-in watch for the rest of the run.
+  // sign-in watch for the rest of the run. Each restarts the SAME build, so
+  // the data-version marker is current and the one-time clear does not run.
+  const sameBuild = () => AsyncStorage.setItem(LOCAL_DATA_VERSION_KEY, LOCAL_DATA_VERSION);
+
+  // TICKET-042 stage 2: a queue from before the version-id reset would write
+  // old ids back into the wiped Firestore.
+  it("drops an older build's queue and active workout once, before anything uploads", async () => {
+    const workout = seedWorkout();
+    save.mockRejectedValueOnce(new Error("offline"));
+    await store().endWorkout("u1");
+    await AsyncStorage.setItem("activeWorkout", JSON.stringify(workout));
+    useWorkoutStore.setState({ activeWorkout: null, pendingUploads: [] });
+
+    await store().loadWorkoutFromStorage();
+    signIn("u1");
+    await jest.advanceTimersByTimeAsync(0);
+
+    expect(queue()).toEqual([]);
+    expect(store().activeWorkout).toBeNull();
+    expect(save).toHaveBeenCalledTimes(1); // the original offline attempt only
+    expect(await AsyncStorage.getItem("pendingUploads")).toBeNull();
+    expect(await AsyncStorage.getItem(LOCAL_DATA_VERSION_KEY)).toBe(LOCAL_DATA_VERSION);
+  });
+
+  it("a failed clear loads nothing: the older build's queue is not uploaded, and is retried next launch", async () => {
+    seedWorkout();
+    save.mockRejectedValueOnce(new Error("offline"));
+    await store().endWorkout("u1");
+    useWorkoutStore.setState({ activeWorkout: null, pendingUploads: [] });
+    jest.spyOn(AsyncStorage, "multiRemove").mockRejectedValueOnce(new Error("disk full"));
+    const error = jest.spyOn(console, "error").mockImplementation(() => {});
+
+    await store().loadWorkoutFromStorage();
+    signIn("u1");
+    await jest.advanceTimersByTimeAsync(0);
+
+    expect(save).toHaveBeenCalledTimes(1); // the original offline attempt only
+    expect(queue()).toEqual([]);
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("LOCAL CLEAR FAILED"), expect.any(Error));
+    expect(await AsyncStorage.getItem(LOCAL_DATA_VERSION_KEY)).toBeNull();
+  });
+
   it("survives a restart: the queue is reloaded from disk and uploads on sign-in", async () => {
+    await sameBuild();
     seedWorkout();
     save.mockRejectedValueOnce(new Error("offline"));
     await store().endWorkout("u1");
@@ -190,6 +241,7 @@ describe("upload queue", () => {
   // active, the user would keep logging into a finished workout whose older copy
   // uploads, and the next Finish would overwrite it under the same session id.
   it("drops an active workout that is already queued (app died between queue write and slot clear)", async () => {
+    await sameBuild();
     const workout = seedWorkout();
     save.mockRejectedValueOnce(new Error("offline"));
     await store().endWorkout("u1");
@@ -207,6 +259,7 @@ describe("upload queue", () => {
   // Overwritten instead, the next queue write would replace every
   // finished-but-not-uploaded workout with an empty list.
   it("copies an unreadable queue aside intact instead of losing it", async () => {
+    await sameBuild();
     await AsyncStorage.setItem("pendingUploads", "{ not json");
 
     await store().loadWorkoutFromStorage();
@@ -330,6 +383,26 @@ describe("updateSet", () => {
 });
 
 describe("startWorkout", () => {
+  // TICKET-042 stage 2: the session doc's `exerciseName` is the name as it read
+  // when logged, so the snapshot is refreshed from the catalog at start.
+  it("carries a catalog exercise's snapshot, refreshed from the catalog, into the session doc", async () => {
+    const load = loadCatalog([CATALOG_ROW]);
+    if (load.kind !== "ok") throw new Error("fixture catalog refused");
+    useCatalogStore.setState({ catalog: { version: "h1", movements: load.movements, index: load.index } });
+    const fields = CATALOG_ROW.versions[0].fields;
+
+    await store().startWorkout({
+      id: "back",
+      name: "Back",
+      exercises: [{ id: "row__barbell", name: "", nameSnapshot: "Barbell Row (old name)", fields }],
+    });
+    const logged = store().activeWorkout!.exercises[0];
+    expect(logged).toMatchObject({ name: "", nameSnapshot: "Row" });
+
+    const withSet = { ...store().activeWorkout!, exercises: [{ ...logged, sets: [{ id: 1, fields: { Weight: 60, Reps: 8 } }] }] };
+    expect(buildSessionDocs(withSet, Date.now()).exerciseSessions[0].exerciseName).toBe("Row");
+  });
+
   it("refuses while a workout is in progress and leaves it untouched", async () => {
     const running = seedWorkout();
     await AsyncStorage.setItem("activeWorkout", JSON.stringify(running));

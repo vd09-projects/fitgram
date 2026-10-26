@@ -41,11 +41,12 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
-| 042 | Exercise catalog: movements with versions, loaded into the app | Large | **Stage 1 done** (types, id and name rules, loader, hand-made catalog). **Stage 2 next** (046 done, pending merge). An app build with 046's vocabulary must be on phones before the first upload. Movement first; history stays per version; catalog in Firestore, cached |
+| 042 | Exercise catalog: movements with versions, loaded into the app | Large | **Stage 1 done. Stage 2 in PR #22:** wipe and upload done 2026-10-26, device checks passed 2026-10-27, debug screen removed. **Left: rules deploy** (drops `predefined_exercises`, still in the console), run by the user. An app build with 046's vocabulary must be on phones before the first upload. Movement first; history stays per version; catalog in Firestore, cached |
 | 043 | Find an exercise: search by muscle, typos, movement-first picker | Large | Ports the prototype and its 91 cases; "Latpulldown", "squad", "bech press" return 0 today |
-| 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap |
+| 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap. Storage: per-plan copies today, library undecided |
 | 046 | Build the real catalog: movements and versions | Large | **Done, pending merge** (2026-10-25): 489 movements, 805 versions, all 878 research entries accounted for. Unblocks 042 stage 2 |
 | 047 | Switch an exercise's version mid-workout | Medium | Deferred 2026-10-24. For this workout only; the plan keeps its version |
+| 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
 
 ### Not tickets — verification owed
 
@@ -2361,8 +2362,12 @@ needs it, built against the chosen board.
 
 ### TICKET-042: Exercise Catalog — Movements with Versions, Loaded into the App
 
-**Priority:** Medium | **Effort:** Large | **Status: IN PROGRESS** — open decisions
-settled 2026-10-24; stage 1 in PR #20; stage 2 waits for TICKET-046
+**Priority:** Medium | **Effort:** Large | **Status: IN REVIEW** — open decisions
+settled 2026-10-24; stage 1 in PR #20; stage 2 in PR #22: 2A (808d490), 2B
+(b584798), 2C (c96b510), rules reconciled (000fcac). Wipe and catalog upload done
+2026-10-26 (version 889393c5…, `predefined_exercises` gone); device checks passed
+2026-10-27; Catalog debug screen removed. Left: the rules deploy (landing step
+5), run by the user after the removal commit
 
 **Description:**
 Replace today's 42 exercises (`src/scripts/uploadExercises.ts`) with the research
@@ -2694,11 +2699,228 @@ nothing in the app imports them yet, so the app behaves as before.
   movement, Bench Press, is 7.9 KiB. The `chunk_N` design above still works, but a
   single doc beside `meta` is enough for now
 
+**Implementation, stage 2B: the app reads the catalog (2026-10-25).**
+- **Names:** `exerciseDisplayName` (`utils/catalog.ts`): catalog (built from the
+  id) → a custom exercise's own name → the snapshot, marked "No longer in the
+  catalog", or "Exercise catalog not loaded yet" when the phone has no catalog
+  (first launch offline, or between the wipe and the upload): that claim would
+  otherwise be false. `useExerciseNames` / `useExerciseName` wrap it for screens.
+  Every display reader on the probe list goes through them: logger header and
+  prev/next (with a subtitle line), history sheet title (now 2 lines),
+  `PlanRow` (2 lines), `CollapsibleExerciseList`, the logs filter's dropdown,
+  its table model and the "No logs found" label, `ExerciseHistoryDebugScreen`,
+  validation messages. A second probe after the change leaves only writes, the
+  custom-name rule, the session snapshot and `services/db/exercises.ts:45` (2C)
+- **Unknown id:** the hook asks the store for its check from an effect keyed on
+  a boolean, after the cache is read. Gap: if that one check runs offline, it is
+  spent for the run; Manage Workout's own meta check still covers it
+- **Picker:** `catalogPlanExercises` lists all 805 versions by built name in
+  today's dropdown; `usePredefinedExercises` no longer used (deleted in 2C).
+  Adding stores `planExerciseFromPick`: version id, `name: ""`, `nameSnapshot`,
+  a copy of the version's fields. The custom-entry ("New") switch stays (043)
+- **Plan save:** the name rule runs only when `nameSnapshot` is absent, in both
+  `validateExerciseSelection` and `validateWorkoutAndExercises`
+- **Session snapshot:** `startWorkout` copies `nameSnapshot`, refreshed from the
+  catalog as it reads then; `buildSessionDocs` writes it as `exerciseName`
+  (a custom exercise: its name)
+- **Local clear:** `LOCAL_DATA_VERSION = "2"` (`useWorkoutStore.tsx`), first in
+  `loadWorkoutFromStorage`, before the queue loads or drains. A build constant, not
+  a server flag or the catalog hash: it describes what this code can read, and must
+  decide offline before the drain. **If the clear throws** (review fix): nothing is
+  loaded or drained this run, `console.error` "LOCAL CLEAR FAILED", the marker
+  stays unset so the next launch retries. Gap: a workout started or finished
+  offline in that run lands in the keys the retry clears (AsyncStorage failing at
+  all is the precondition)
+- Tests (9 new; the failed clear: AsyncStorage throws → no upload attempted,
+  marker unset): `exerciseDisplayName` (catalog with `name: ""`, snapshot, not
+  loaded), the stored pick, plan save with a catalog version plus the custom refusal
+  and the duplicate message, a `PlanRow` render (built name, unknown id's snapshot
+  and one check), the session snapshot, the local clear. The three existing
+  restart tests now set the current data version (they restart the same build).
+  Each seen red by breaking its line (11 breaks)
+- Not verified: any of it on a device; 805-row scroll; the ids a real pick writes
+  against real Firestore
+
+**Implementation, stage 2C: wipe script and cleanup (2026-10-26).**
+- **Wipe:** `src/scripts/wipe.ts` (the logic, takes an injected db) and
+  `src/scripts/wipeTestData.ts` (CLI, admin SDK). Dry run is the default and
+  prints, per uid, top-level doc counts in `workouts`, `sessions`,
+  `exercise_sessions`, `exercise_stats`, the other subcollections it **keeps**,
+  then `predefined_exercises` and a total. A real run needs `--confirm`
+  (`--dry-run` anywhere wins), deletes with `recursiveDelete`, then recounts and
+  fails if anything is left. Paths touched, listed in both headers:
+  `users/{uid}/{workouts,sessions,exercise_sessions,exercise_stats,workout_logs}/**` and
+  `predefined_exercises/*`. Never `users/{uid}` itself, `info`, or any other
+  subcollection. Users are listed with `listDocuments`, so a uid with no
+  `users/{uid}` doc of its own (patchMissingUserDocs.ts) is still wiped. The dry
+  run needs the admin key too: counting other users' data is beyond the rules
+- ~~Kept: `users/{uid}/workout_logs`~~ **Wiped too (user, 2026-10-26):** legacy,
+  read by nothing in `src`, holds old ids. Its nested `logs/.../exercises`
+  go with it (`recursiveDelete`); counts are top-level only
+- **Removed:** `usePredefinedExercises`, `services/db/exercises.ts`
+  (`getAllPredefinedExercises`, `addPredefinedExercise`), `uploadExercises.ts`,
+  `tables.users.predefinedExercises`, and `signInForScripts` / `auth` in
+  `src/scripts/firebase.ts` (only `uploadExercises` used them)
+- **Rules:** ~~the `predefined_exercises` block stays until the wipe has run~~
+  **Removed from `firestore.rules` (user, 2026-10-26):** the wipe deletes the docs
+  in step 4 and every phone is on the new build from step 2; the deploy after the
+  wipe takes it out of the live rules
+- Tests (4): the wipe against an in-memory Firestore deletes only the four
+  collections (now with `workout_logs`) and `predefined_exercises`, keeps `info`,
+  `settings` and `exercise_catalog`, and includes a uid with no own doc; the
+  `--confirm` gate (3 cases). Seen red: deleting kept collections, ignoring
+  `--dry-run`, skipping a uid with no own doc
+- Not verified: the real dry run (needs the key, which only you have); without
+  `GOOGLE_APPLICATION_CREDENTIALS` both modes exit 1 before any network call
+- **Inherited gap:** `rebuildExerciseStats.ts`, `patchMissingUserDocs.ts` and
+  `addExerciseToUserWorkout.ts` use the client SDK unauthenticated
+  (`verifyHistoryReads.ts` reads local files only). ~~Broken by the rules deploy~~
+  **Already broken** (corrected 2026-10-26 from the console diff): owner-only
+  `users/**` is live and the open rule expired 2025-08-25. Split out as
+  **TICKET-049** (user, 2026-10-26)
+
+**TEMPORARY Catalog debug screen: removal, after the device run.** **Done
+2026-10-27** (device checks passed); the History and Pending Uploads debug
+screens stay. Delete
+`src/screens/workout_management/CatalogDebugScreen.tsx`; its route in
+`src/constants/routes.tsx`; its `Stack.Screen` in
+`src/navigation/WorkoutNavigator.tsx`; its tile in `src/screens/WorkoutScreen.tsx`;
+`catalogReadCounter` and its two increments in `src/services/db/catalog.ts`. Each
+is marked `TEMPORARY`; `grep -rn TEMPORARY src` must then show none of them.
+
+**Landing order (user runs every step, CLAUDE.md 1.3).** ~~build → install →
+rules diff + deploy → wipe → upload → checks~~ **Revised (user, 2026-10-26),
+after the console diff:** no rules step before the wipe (the `exercise_catalog`
+rule is already live); the deploy moves after the wipe, where it removes
+`predefined_exercises` and its hard-coded-uid write. Key outside the repo:
+`export GOOGLE_APPLICATION_CREDENTIALS=~/.config/fitgram/service-account.json`.
+1. Build: `npx eas-cli build --profile preview --platform android` (or the
+   usual tester route)
+2. Install on **every** tester's phone and open it once (the local clear runs).
+   No workouts logged from here until step 4
+3. `npx tsx src/scripts/wipeTestData.ts` (dry run: check the uids, counts, "kept")
+4. `npx tsx src/scripts/wipeTestData.ts --confirm` (ends "✅ Wiped.", all counts 0)
+5. Rules: `npx firebase-tools deploy --only firestore:rules --project gymexerciselogger-fb`.
+   Replaces the whole live ruleset; the only change from live is that
+   `predefined_exercises` goes. ~~Run between the wipe and the upload~~ **Not run
+   in the landing (2026-10-27): the console still has the `predefined_exercises`
+   block.** Harmless meanwhile (its docs are wiped; no build reads them). The
+   user deploys it after the debug-screen removal commit
+6. `npx tsx src/scripts/uploadCatalog.ts --dry-run` (489 movements, 805 versions, 26.9%)
+7. `npx tsx src/scripts/uploadCatalog.ts`
+8. Device checks on the Catalog debug screen: first start after upload meta 1 ·
+   catalog 1, source `network`, 489 movements / 805 versions; restart meta 1 ·
+   catalog 0, `cache`; Manage Workout and back meta +1 · catalog +0; "Clear
+   local cache" and restart meta 1 · catalog 1; sign out and in, version
+   unchanged, catalog +0. Then the stage B checks (picker, plan save, name
+   sites, session doc)
+
+**Console rules diff (user, 2026-10-26)** against the branch's `firestore.rules`:
+- `users/{uid}/**` owner-only: identical
+- `exercise_catalog` (signed-in read, no client write): identical, **already live**
+- The 2025 open rule (`request.time < 2025-08-25`) is commented out and expired.
+  Nothing is open now
+- Only difference: `predefined_exercises`. Live: read if signed in **and** the
+  user doc exists; write for one hard-coded uid. Branch: block removed
+- `firestore.rules` is now the source (header says so)
+
 **Stage 2 needs, from TICKET-046:** the real catalog in this shape, passing
 `validateCatalog`, with its ids frozen into the pin list; the per-movement
 `oneSide` label; each grip version's muscle override. Not run on the hand-made
 catalog: the picker would shrink from 42 exercises to 6 movements, and versions
 picked on a device would be ids TICKET-046 may not keep.
+
+**Stage 2 decisions (user, 2026-10-25), settled before code:**
+- ~~Upload as a signed-in user (`FS_SEED_EMAIL`)~~ **Admin credentials:**
+  `firebase-admin` (devDependency, imported only from `src/scripts/`) with a
+  service-account key kept **outside the repo**, named by
+  `GOOGLE_APPLICATION_CREDENTIALS`. Why: the rule is `allow write: if false`, and
+  the wipe must delete under every tester's `users/{uid}`, which no signed-in user
+  can under owner-only rules. `src/scripts/firebaseAdmin.ts` refuses a key inside
+  the repo or for a project other than `FS_DB_PROJECT_ID`; `.gitignore` also
+  ignores `*firebase-adminsdk*.json`, `service-account*.json`,
+  `serviceAccount*.json` as a backstop. How the 42 `predefined_exercises` docs were
+  written: the 2025-03-09 script (51fd364) used the client SDK **without signing
+  in**, so the console rules then allowed unsigned writes. ~~Whether they still do
+  is unknown~~ **Answered (console diff, 2026-10-26):** a time-boxed open rule
+  (`request.time < 2025-08-25`), now commented out and expired. Nothing is open
+- ~~2–3 `chunk_N` docs~~ **One `catalog` doc** beside `meta` (27% of 1 MiB). Reads:
+  1 per check, 2 when the hash changed or the cache is empty. The phone caches
+  under the **catalog doc's own** `version`, not meta's, so an upload between the
+  two reads costs one extra fetch, never a mislabelled cache. Chunk past ~70%
+- **Phone-side data:** a one-time local clear keyed on a `localDataVersion` marker
+  removes `activeWorkout` and `pendingUploads` before the queue is loaded or
+  drained. In stage B (the first build that writes new ids), not C
+- **The order to land it**, each step run by the user (CLAUDE.md 1.3):
+  ~~1. rules first, 2. install, 3. wipe, 4. upload~~ ~~build → install → rules
+  diff + deploy → wipe → upload → checks (2026-10-26)~~ **Revised again (user,
+  2026-10-26, after the console diff): build → install on every phone → wipe
+  --dry-run → wipe → rules deploy → upload --dry-run → upload → device checks.**
+  The `exercise_catalog` rule is already live (the device run's meta read
+  succeeded; the diff confirms it), so no rules step is needed before the wipe. Full commands
+  under "Landing order" below. **No workouts logged from install until the
+  wipe**: the wipe deletes them. Between the wipe and the upload the picker is
+  empty and names show "Exercise catalog not loaded yet"; minutes
+- **Interim picker:** one flat list of all 805 versions by built name in today's
+  `SearchableInputDropdown` (its search is a label substring, so "bench" leaves
+  ~20). **Scroll performance with 805 rows is untested on a device.** Rejected:
+  movement then version (a second control 043's A3 sheet replaces)
+- **Unknown id:** one meta check per app run, from an effect, never from render;
+  an id still unknown after it shows the snapshot fallback until the next start
+- **Edges:** 043 keeps search, recents, the version sheet and the Manage Workout
+  redesign; 047 keeps switching (each logged exercise names itself from its own id
+  and snapshot, never the plan's); 048 is done, stage 2 only skips the name rule
+  for catalog exercises. `PlanRow` names wrap to 2 lines (board B1). Sign-out
+  clears nothing today (TICKET-026 open); a comment at `CATALOG_CACHE_KEY` keeps
+  it out of 026's clear
+- **Catalog exercises in a plan:** `name: ""`, `nameSnapshot` = the built name;
+  plan save skips the name rule when `nameSnapshot` is set (not "id is in the
+  catalog", which a later removal would turn into an unsaveable plan). One helper,
+  `exerciseDisplayName`, serves every name site. Readers found by renaming the
+  field and running `tsc` (making it optional surfaced none):
+  - `Exercise.name`: `CollapsibleExerciseList.tsx:34,42`, `PlanRow.tsx:122`,
+    `WorkoutHistoricalLogsFilter.tsx:77,208`, `AddExerciseScreen.tsx:53,120,174`,
+    `ExerciseHistoryDebugScreen.tsx:52,158`, `exerciseValidations.ts:87,91,96`,
+    `useWorkoutStore.tsx:160`, `services/db/exercises.ts:45`, plus the scripts
+    (`uploadExercises.ts`, `verifyHistoryReads.ts:153`)
+  - `LoggedExercise.name`: `ActiveWorkoutScreen.tsx:143,146,147`,
+    `ExerciseHistorySheet.tsx:104`, `exerciseStats.ts:304`,
+    `verifyHistoryReads.ts:203`
+  - `exerciseName` (session snapshot): `WorkoutHistoricalLogsFilter.tsx:24,31`,
+    `exerciseStats.ts:247,300`
+
+**Implementation, stage 2A: the catalog store (2026-10-25).** Nothing reads the
+catalog yet; Manage Workout still lists the 42.
+- `src/utils/catalogSync.ts` (pure): `planCatalogSync` (cached hash, meta hash →
+  fetch or keep), `decideFetchedCatalog` (the `loadCatalog` gate; refuses a doc
+  with no hash), `readCachedCatalog` (an unreadable cache is absent)
+- `src/services/db/catalog.ts`: the two doc gets. `src/stores/useCatalogStore.ts`:
+  cache → memory at app start (`startCatalog`, from `AppControlProvider`), the
+  meta check once a user is signed in and on each Manage Workout focus,
+  single-flight; a refusal keeps the cache and logs `CATALOG REFUSED …`
+- **Refusal loop fixed in review (user, 2026-10-25):** after a refusal the cached
+  hash still differs from meta's, so every check re-downloaded and re-refused the
+  catalog. Now a meta hash equal to this run's `lastRefusal.version` keeps the
+  cache with no fetch and no second log; the next app run tries once more (a
+  reinstall may have brought the vocabulary). Test: refuse, check again → 1 read;
+  seen red (an extra catalog read)
+- `src/scripts/uploadCatalog.ts`: meta + catalog in one batch, SHA-256 `version`,
+  skips the write when the hash is already live; refuses a catalog `loadCatalog`
+  refuses, arrays inside arrays, or one over 90% of 1 MiB
+- `firestore.rules`: `exercise_catalog` read when signed in, no client writes.
+  `firebase.json` now names the rules file
+- TEMPORARY `CatalogDebugScreen` (behind `SHOW_DEBUG_SCREENS`): version, source,
+  reads since start. Removal: the file, its route, Stack.Screen, tile, and
+  `catalogReadCounter` in `services/db/catalog.ts`
+- **Measured** (mocked Firestore, counted at `getDoc`): app start with an unchanged
+  hash 1 read; changed hash 2; empty cache 2; opening Manage Workout 1; two
+  unknown-id checks 1 in total. Not measured: the same on a device, against real
+  Firestore and real rules
+- Tests: 8 in `catalogSync.test.ts`, 6 in `useCatalogStore.test.ts` (the refusal test also covers the loop). Each seen red
+  by breaking its line (same hash fetching, the `loadCatalog` gate, a sign-out
+  clear, the unknown-id guard, the refusal log, a corrupt cache accepted). The
+  sign-out test first passed against a sign-out clear, because a later sync
+  refetched; fixed by not syncing after sign-out
 
 **Technical Notes:**
 - The research also derives `region`, `push_pull`, `primary_groups` and a `staple`
@@ -3564,6 +3786,23 @@ recorded.
   id and is refused as "Exercise ID cannot be empty." (PR #18 review); its id scheme
   next to catalog version ids
 
+**Storage, found 2026-10-26 (TICKET-042 stage 2 review):**
+- Today a custom exercise lives only inside the plan doc that holds it
+  (`users/{uid}/workouts/{planId}`): no per-user list, nothing shared between
+  plans, never in `exercise_catalog`. The same exercise in a second plan is a
+  second copy, typed again
+- Decide when reopened: a per-user library (`users/{uid}/custom_exercises`, picked
+  like a catalog version, one id across plans so history joins), or keep per-plan
+  copies. History joins on the id (TICKET-042), so two copies with different ids
+  split one exercise's history
+  - Checked in code: a custom id is `toExerciseId(name)` (`utils/validation.ts`),
+    a slug of the typed name. Two copies spelled alike ("Cable Fly" in both plans)
+    get the same id and do join; a different spelling ("Cable Flys") splits
+- Editing a custom exercise's name or fields: does it reach every plan using it?
+  Only a library answers yes
+- What exists today and must keep working: custom exercises store `name` and no
+  `nameSnapshot`; `exerciseDisplayName` shows `name`; the custom-name rule applies
+
 **Dependencies:** TICKET-042, TICKET-043.
 
 ---
@@ -3603,6 +3842,37 @@ exercise. Wanted (user, 2026-10-24), not built now.
 movement altogether, uses the same sheet.
 
 **Dependencies:** TICKET-042 (versions), TICKET-043 (the sheet).
+
+
+---
+
+### TICKET-049: Move the Client-SDK Scripts to the Admin SDK
+
+**Priority:** Medium | **Effort:** Small | **Status: OPEN** — raised 2026-10-26 in TICKET-042 stage 2C
+
+**Description:**
+`rebuildExerciseStats.ts`, `patchMissingUserDocs.ts` and
+`addExerciseToUserWorkout.ts` write through `src/scripts/firebase.ts`, the client
+SDK, without signing in. They only ever worked because the console rules allowed
+unauthenticated access, through a time-boxed open rule that expired on
+2025-08-25. ~~TICKET-042's deploy breaks them~~ **They are already broken**
+(console diff, 2026-10-26): owner-only `users/{uid}/**` is live today, so all
+three get PERMISSION_DENIED now. Signing in would not
+help: one user cannot reach another's data under owner-only rules.
+
+**Why it matters before the next repair:** the app points at
+`rebuildExerciseStats` as the fix for a failed rollup (`useWorkoutStore.tsx`,
+"Workout saved, history rollup pending." and the comment beside it; also
+`exerciseStats.ts`, `workoutSessions.ts`, `workoutSession.ts`). Today that repair
+would fail the first time it is needed.
+
+**Scope:**
+- Switch the three to `getAdminFirestore()` (`src/scripts/firebaseAdmin.ts`):
+  admin SDK API (`db.collection(...)`, `batch()`, `collectionGroup`), not the
+  client SDK's `doc()` / `getDocs()`
+- Give each writing script `--dry-run`, as `uploadCatalog` and `wipeTestData` have
+- Then delete `src/scripts/firebase.ts` if nothing else uses it
+- Not in scope: what the scripts compute (`rebuildStatsFromSessions` stays)
 
 ---
 

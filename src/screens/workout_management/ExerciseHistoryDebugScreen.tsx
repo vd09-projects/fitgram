@@ -27,6 +27,7 @@ import { Exercise, WorkoutPlan } from "../../types/workoutType";
 import { BORDER_RADIUS, SPACING } from "../../constants/styles";
 import { ReturnTypeUseThemeTokens } from "../../components/app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
+import { useExerciseNames } from "../../hooks/useExerciseNames";
 
 const when = (ms: number) =>
   ms ? new Date(ms).toLocaleDateString() + " " + new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
@@ -46,14 +47,16 @@ export default function ExerciseHistoryDebugScreen() {
     () => workoutPlans.map((p) => ({ label: p.name, value: p, isCustom: false })),
     [workoutPlans]
   );
+  const planExercises = useMemo(() => plan?.value?.exercises ?? [], [plan]);
+  const exerciseNames = useExerciseNames(planExercises);
   const exerciseOptions = useMemo(
     () =>
-      (plan?.value?.exercises ?? []).map((e) => ({
-        label: e.name,
+      planExercises.map((e, i) => ({
+        label: exerciseNames[i].title,
         value: e,
         isCustom: false,
       })),
-    [plan]
+    [planExercises, exerciseNames]
   );
 
   // The one number that matters: every Firestore history fetch this app session.
@@ -149,13 +152,13 @@ export default function ExerciseHistoryDebugScreen() {
       {(plan?.value?.exercises ?? []).length === 0 ? (
         <TextBase style={styles.empty}>Pick a plan.</TextBase>
       ) : (
-        (plan?.value?.exercises ?? []).map((ex) => {
+        planExercises.map((ex, i) => {
           const entry = entries[ex.id];
           const sessions = entry?.stats?.recentSessions?.length ?? 0;
           return (
             <Row
               key={ex.id}
-              label={ex.name}
+              label={exerciseNames[i].title}
               value={`${entry?.status ?? "idle"} · ${sessions} sessions · ${
                 entry?.fetchedAt ? when(entry.fetchedAt) : "never fetched"
               }`}

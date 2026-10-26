@@ -34,20 +34,27 @@ export interface ExerciseField {
 
 export interface Exercise {
   /**
-   * Shared across every workout that contains this exercise — a
-   * `predefined_exercises` doc id, or a slug of the name for a custom one. This
+   * Shared across every workout that contains this exercise — a catalog
+   * version id (TICKET-042), or a slug of the name for a custom one. This
    * is what makes cross-workout history ("my last bench press, in any workout")
    * a real join.
    */
   id: string;
+  /**
+   * A custom exercise's own name. `""` for a catalog exercise, whose name is
+   * built from `id` (TICKET-042). Never display it directly: go through
+   * `exerciseDisplayName` / `useExerciseNames`.
+   */
   name: string;
   /**
    * The name as it read when the exercise was added to the plan (TICKET-042),
    * e.g. "Bench Press · Dumbbell, incline". A FALLBACK, read only when `id` is
    * not in the catalog (`resolveExerciseName`): catalog names are built from
    * the id, never stored. Never run through the custom-name rule, so its "·"
-   * never meets it. Optional: plans saved before 042 lack it. Nothing writes
-   * it yet: stage 2.
+   * never meets it. Optional: plans saved before 042 lack it, and custom
+   * exercises never have it. Written by the picker (AddExerciseScreen) with
+   * `name: ""`. Its presence is what marks a catalog exercise
+   * (`isCustomExercise`). Read every name through `exerciseDisplayName`.
    */
   nameSnapshot?: string;
   fields: ExerciseField[];

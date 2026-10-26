@@ -7,6 +7,7 @@ import {
   getInvalidExerciseNameCharacter,
   EXERCISE_NAME_ALLOWED,
 } from "./validation";
+import { exerciseDisplayName } from "./catalog";
 
 export const validateWorkoutSelection = (
   workout: DropdownSelection<WorkoutPlan> | undefined
@@ -25,9 +26,13 @@ export const validateExerciseSelection = (
 
   if (!exercise.label.trim()) return "Exercise name cannot be empty.";
 
-  const invalidChar = getInvalidExerciseNameCharacter(exercise.label);
-  if (invalidChar)
-    return `Exercise Name contains an invalid character: "${invalidChar}". ${EXERCISE_NAME_ALLOWED}`;
+  // A catalog pick's label is the built name ("Bench Press · Dumbbell,
+  // incline"); the name rule is for typed custom names only (TICKET-042).
+  if (!ex.nameSnapshot?.trim()) {
+    const invalidChar = getInvalidExerciseNameCharacter(exercise.label);
+    if (invalidChar)
+      return `Exercise Name contains an invalid character: "${invalidChar}". ${EXERCISE_NAME_ALLOWED}`;
+  }
 
   if (!ex.id.trim()) return "Exercise ID cannot be empty.";
   if (!isValidId(ex.id))
@@ -84,16 +89,25 @@ export const validateWorkoutAndExercises = (
     if (!ex.id.trim() || !isValidId(ex.id))
       return `Exercise ${index} has an invalid ID. Only letters, numbers, and underscores are allowed.`;
 
-    const invalidChar = getInvalidExerciseNameCharacter(ex.name);
-    if (invalidChar)
-      return `Exercise Name contains an invalid character: "${invalidChar}". ${EXERCISE_NAME_ALLOWED}`;
+    // Only a custom exercise's own name meets the name rule. A catalog
+    // exercise stores `name: ""` and its built name as `nameSnapshot`, which is
+    // display only and never validated (TICKET-042). Keyed on the snapshot, not
+    // on "id is in the catalog": a version removed later would otherwise make
+    // the plan unsaveable over a "·" in a name it never typed.
+    if (!ex.nameSnapshot?.trim()) {
+      const invalidChar = getInvalidExerciseNameCharacter(ex.name);
+      if (invalidChar)
+        return `Exercise Name contains an invalid character: "${invalidChar}". ${EXERCISE_NAME_ALLOWED}`;
+    }
 
-    if (exerciseIds.has(ex.id)) return `Exercise "${ex.name}" is duplicated.`;
+    // Messages name the exercise as the user sees it, never a blank catalog `name`.
+    const label = exerciseDisplayName(ex, null).title;
+    if (exerciseIds.has(ex.id)) return `Exercise "${label}" is duplicated.`;
 
     exerciseIds.add(ex.id);
 
     const fieldError = validateCustomFields(ex.fields);
-    if (fieldError) return `In exercise "${ex.name}": ${fieldError}`;
+    if (fieldError) return `In exercise "${label}": ${fieldError}`;
   }
 
   return null;

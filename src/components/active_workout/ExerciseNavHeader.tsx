@@ -10,6 +10,8 @@ const HIT = 44;
 
 type Props = {
   exerciseName: string;
+  /** Why the name is not current ("No longer in the catalog"); null when it is. */
+  exerciseSubtitle?: string | null;
   /** 0-based. */
   index: number;
   count: number;
@@ -29,6 +31,7 @@ type Props = {
  */
 export default function ExerciseNavHeader({
   exerciseName,
+  exerciseSubtitle = null,
   index,
   count,
   previousName,
@@ -55,6 +58,7 @@ export default function ExerciseNavHeader({
 
       <View style={styles.titleBlock}>
         <TextBase style={styles.exerciseName} numberOfLines={2}>{exerciseName}</TextBase>
+        {exerciseSubtitle !== null && <TextBase style={styles.positionLabel}>{exerciseSubtitle}</TextBase>}
         <View style={styles.positionRow} accessible accessibilityLabel={`Exercise ${index + 1} of ${count}`}>
           <TextBase style={styles.positionLabel}>EXERCISE </TextBase>
           <NumericText style={styles.positionLabel}>{index + 1}</NumericText>

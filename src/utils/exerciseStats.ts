@@ -301,7 +301,9 @@ export function buildSessionDocs(
     .filter((exercise) => exercise.sets.length > 0)
     .map((exercise) => ({
       exerciseId: exercise.id,
-      exerciseName: exercise.name,
+      // The session's name snapshot (TICKET-042): the built name for a catalog
+      // exercise, refreshed at workout start; a custom exercise's own name.
+      exerciseName: exercise.nameSnapshot?.trim() || exercise.name,
       sessionId,
       workoutId: workout.id,
       workoutName: workout.name,
