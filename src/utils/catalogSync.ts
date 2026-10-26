@@ -5,7 +5,8 @@
 // catalog replaces the cache. `useCatalogStore` does the I/O around them.
 
 import { loadCatalog, type CatalogIndex } from "./catalog";
-import type { Movement } from "../types/catalog";
+import { loadSearchWords } from "./searchWords";
+import type { Movement, SearchWords } from "../types/catalog";
 
 /** What the phone keeps in AsyncStorage: the catalog and the hash it was uploaded under. */
 export type CachedCatalog = { version: string; movements: readonly Movement[] };
@@ -57,20 +58,61 @@ export function decideFetchedCatalog(doc: unknown): FetchedCatalogDecision {
 }
 
 /**
+ * The search words (TICKET-043), as the phone keeps them: their own doc,
+ * `exercise_catalog/search_words`, under their own hash (`meta.searchWordsVersion`),
+ * so a new slang word downloads about 1 KB, not the 282 KB catalog. Rejected:
+ * a field in the catalog doc, which made every slang change a full re-download
+ * and let one bad word block a catalog update (user, 2026-10-27).
+ */
+export type LoadedSearchWords = { version: string; words: SearchWords };
+
+/** As `decideFetchedCatalog`, for the search-words doc: whole or refused. */
+export function decideFetchedSearchWords(
+  doc: unknown
+): { kind: "apply"; searchWords: LoadedSearchWords } | { kind: "refuse"; errors: string[] } {
+  if (typeof doc !== "object" || doc === null) return { kind: "refuse", errors: ["search words doc: missing"] };
+  const { version, words } = doc as { version?: unknown; words?: unknown };
+  if (typeof version !== "string" || version === "")
+    return { kind: "refuse", errors: ["search words doc: no version hash"] };
+  const load = loadSearchWords(words);
+  if (load.kind === "invalid") return { kind: "refuse", errors: load.errors };
+  return { kind: "apply", searchWords: { version, words: load.words } };
+}
+
+/** JSON from AsyncStorage through a doc's own decision. Unreadable or refused = absent. */
+function readCached<T>(
+  raw: string | null,
+  decide: (doc: unknown) => { kind: "apply"; value: T } | { kind: "refuse"; errors: string[] }
+): { value: T | null; errors: string[] } {
+  if (raw === null) return { value: null, errors: [] };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    return { value: null, errors: [`cache: unreadable JSON (${String(error)})`] };
+  }
+  const decision = decide(parsed);
+  return decision.kind === "apply" ? { value: decision.value, errors: [] } : { value: null, errors: decision.errors };
+}
+
+/**
  * The cache read back from AsyncStorage, or null. A cache that no longer loads
  * (written by a build whose vocabulary this one lacks, or a corrupt write) is
  * treated as absent, so the next meta check fetches a fresh copy.
  */
 export function readCachedCatalog(raw: string | null): { catalog: LoadedCatalog | null; errors: string[] } {
-  if (raw === null) return { catalog: null, errors: [] };
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (error) {
-    return { catalog: null, errors: [`cache: unreadable JSON (${String(error)})`] };
-  }
-  const decision = decideFetchedCatalog(parsed);
-  return decision.kind === "apply"
-    ? { catalog: decision.catalog, errors: [] }
-    : { catalog: null, errors: decision.errors };
+  const { value, errors } = readCached(raw, (doc) => {
+    const d = decideFetchedCatalog(doc);
+    return d.kind === "apply" ? { kind: "apply", value: d.catalog } : d;
+  });
+  return { catalog: value, errors };
+}
+
+/** As `readCachedCatalog`, for the search words. */
+export function readCachedSearchWords(raw: string | null): { searchWords: LoadedSearchWords | null; errors: string[] } {
+  const { value, errors } = readCached(raw, (doc) => {
+    const d = decideFetchedSearchWords(doc);
+    return d.kind === "apply" ? { kind: "apply", value: d.searchWords } : d;
+  });
+  return { searchWords: value, errors };
 }

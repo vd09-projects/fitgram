@@ -3006,11 +3006,17 @@ Recents, filter menus and "last used" preselection are TICKET-050.
       thresholds pinned in a comment. Short words stay exact, or "row" starts
       matching "rod". A fuzzy match always ranks below an exact or prefix match
 - [ ] Joined and split words: also compare with spaces and hyphens removed
-- [ ] Negatives fuzzy matching could break: "row" (45 results today) and "curl" (61)
-      keep their current top results
+- [ ] Negatives fuzzy matching could break: "row" ~~(45 results today)~~ and "curl"
+      ~~(61)~~ keep their current top results. **Baselines re-measured on movements
+      (2026-10-27, end of stage 1)**: the 45/61 were the flat research catalog. Stage
+      2 pins these: "row" 19 results, top 5 Bent-Over Row, Chest-Supported Row,
+      Rear Delt Row, Seal Row, Seated Row; "curl" 27 results, top 5 Bicep Curl,
+      Floor Hamstring Curl, Hammer Curl, Lying Leg Curl, Preacher Curl
 - [ ] Custom exercises and the user's plan exercises are searched too, by name only
-- [ ] Decided: does "machine" include Smith Machine? Does "back" include Back Squat?
-      (The prototype says no to both.)
+- [x] Decided: does "machine" include Smith Machine? Does "back" include Back Squat?
+      (The prototype says no to both.) **No to both (user, 2026-10-27)**; see
+      Decisions below. "back" still lists Low-Bar Back Squat far down, for its
+      secondary lower back (score 1), never for "Back" in its name
 - [ ] Empty query, until TICKET-050 adds Recent: every movement A–Z, so browsing
       works (default chosen 2026-10-27; the user can overrule it)
 - [ ] Picker built from TICKET-041 boards A2–A4, opened from today's Manage Workout
@@ -3076,9 +3082,153 @@ page) is TICKET-050:
 - The picker is its own list (it needs the version step); `react-native-element-dropdown`'s
   `searchQuery` is a yes/no filter per label and cannot rank (checked 2026-10-27)
 - "push day", "leg day", "upper body" need a split vocabulary mapping to pattern +
-  region. In scope if small; otherwise split off
+  region. In scope if small; otherwise split off. **In scope (user, 2026-10-27)**:
+  filler words plus two region phrases, below
 - Later idea, not in scope: a "my gym" equipment profile that hides versions the user
   has no equipment for
+
+**Decisions (user, 2026-10-27), before code:**
+- **The 91 cases** are rewritten to movement ids through `src/catalog/ACCOUNTING.md`:
+  91/91 targets exist; none dropped. 16 cases that name equipment or an axis gain
+  an expected preselection. Top-N is tightened to 1 only where the query is the
+  movement's exact name or alias, never to the rank today's catalog happens to
+  give (a new movement would break unrelated cases). Tightened, 3 → 1: Bicep
+  Curls, Treadmill, Cycling, Lunges, Leg Raises, Chest Flys, Reverse Lunges,
+  Step-Ups, bss. "upper chest" used to expect the incline entry; it now expects
+  Bench Press and no preselection (no axis is typed). The scratch mapping stays
+  out of `src/`; the Jest table is the record
+- **Staple +3, derived:** a movement with more than one version, no catalog field;
+  a proxy until real pick counts exist (TICKET-042). Measured on the 91: dropping
+  the rule fails 9 cases, this proxy 2, the research's hand-picked 96 fail 1
+- **Equipment words are an explicit table:** "machine" → machine, plate-loaded
+  machine, assisted machine; "smith" → Smith machine. Not label words
+- **"back" does not mean Back Squat**; muscle words score from muscle data only
+- **"push day" / "leg day" in scope:** "day" and "workout" are filler; "upper body"
+  and "lower body" are regions. Split off if it grows past ~5 lines and 3 cases
+- **Typos (stage 2):** hand-written Damerau-Levenshtein on words that matched
+  nothing; 1–3 letters exact, 4–5 one edit, 6+ two. A fuzzy match always ranks
+  below exact and prefix matches, with a test that breaks if not. Joined and split
+  words: compare with spaces and hyphens removed
+- **Custom exercises** come from the user's plans, one per id, name words only,
+  second line "Custom". Unit test only: after the 2026-10-26 wipe no device has
+  one, and none can be created (TICKET-045)
+- **Preselection: any axis named in the query** (equipment, angle, attachment,
+  grip, one side), when that combination exists
+- **The sheet (stage 3):** Equipment starts empty; Angle and Grip start on their
+  defaults (Flat, Normal). After equipment is picked, an axis whose default does
+  not exist for that equipment moves to its only valid value, or stays empty when
+  there are several. Today: `bench_press__ez_bar__close_grip`,
+  `triceps_pushdown__cable__reverse_grip`, `sit_up__weight_plate__decline`, each a
+  test case. A combination that does not exist must never be reachable
+- **"In plan":** a single-version movement already in the plan shows "In plan",
+  row disabled (board A2), in this ticket
+- **Left out of the boards:** the filter row (TICKET-050), the Extras row and the
+  Wide grip (dropped), "19 versions" (Bench Press has 26)
+
+**Decision, the search vocabulary (user, 2026-10-27, after stage 1's first draft):**
+the first draft hard-coded every search word in `exerciseSearch.ts`. Rejected: it
+copied the labels already in `catalogVocabulary.ts`, and every new slang word
+needed an app build. Now:
+- **Derived, stored nowhere:** every muscle, muscle group, equipment, angle,
+  attachment, grip and one-side label is a search word ("upper chest", "smith
+  machine", "close grip", "one arm")
+- **Slang in Firestore:** `exercise_catalog/search_words { version, words }`,
+  source `src/catalog/searchWords.ts`, uploaded by `uploadCatalog.ts` in the same
+  batch as the catalog. 57 entries, ~1.7 KB: muscle groups ("pecs"), muscles
+  ("hammies", "inner thigh"), equipment ("db", "machine" → three machines), axes
+  ("hammer grip", "single arm"). A slang entry overrides a derived one
+- **Its own doc and hash** (`meta.searchWordsVersion`). Rejected: a field in the
+  catalog doc, which re-downloads 282 KB for one new word and lets one bad word
+  block a catalog update. Another name for one exercise ("rdl", "gravitron") is
+  not slang: it stays an alias in the catalog
+- **Fetching:** no new read. The existing meta read (app start once signed in,
+  each Manage Workout open, one unknown-id check per run) carries both hashes;
+  each doc is fetched only when its own hash changed, then cached on the phone
+  (`exerciseSearchWords`). Not uploaded yet, or refused: search knows the labels
+  only; slang finds nothing until it loads
+- **Refusal:** `loadSearchWords` refuses the whole doc if any entry names a key
+  this build lacks ("pecs" → "chets"), logs `SEARCH WORDS REFUSED`, keeps the
+  cached words, and never blocks the catalog (and the reverse)
+- **Upload writes only what changed:** meta always (both hashes); `catalog` and
+  `search_words` only when their own hash differs from live. Dry run today: catalog
+  hash unchanged, so a real run writes `search_words` and meta only
+- **Stays in code (rules, not words):** "day"/"workout" as filler, "upper/lower
+  body" regions, "stretch"/"warmup" → category, "cardio" never a muscle word,
+  "abs" also counting the rest of the core
+- **Rules deploy: none needed.** The live rule is `match /exercise_catalog/{docId}`
+  (signed-in read, no client write), which covers the new doc
+
+**Landing step: the search-words upload (user, 2026-10-27).** Run by the user from
+the merge commit, before stage 3's device test (CLAUDE.md 1.3):
+1. `npx tsx src/scripts/uploadCatalog.ts --dry-run`: catalog hash `889393c5…`
+   (unchanged from live), search words `888ae196…`, `loadSearchWords: ok`
+2. `npx tsx src/scripts/uploadCatalog.ts`: expect "catalog unchanged, search words
+   written"
+Builds without this ticket never read `search_words`, so the upload is safe before
+or after the build reaches phones.
+
+**Stage 3 device test plan must include (user, 2026-10-27):**
+- before the first sync on a fresh install (or offline with no cached search
+  words): search works with labels only ("upper chest", "smith squat"); slang such
+  as "pecs" or "db" finds nothing beyond name matches
+- after the first sync: "db bench" lists Bench Press with Dumbbell preselected,
+  which proves `search_words` arrived
+
+**Implementation, stage 1: the search function (2026-10-27).**
+- `src/utils/exerciseSearch.ts`: `searchExercises(catalog, query, limit)` returns
+  `{ results, total }`, one row per movement (or custom exercise), each movement
+  with the `preselect` its query names. **Deviation from the criterion's
+  signature:** `catalog` is a `SearchCatalog` from `buildSearchCatalog(movements,
+  searchWords, custom)`, built once per catalog (2.2 ms in Node), so no word list
+  is rebuilt per keystroke. `customExercisesFromPlans(plans)` feeds it
+- Search words (decision above): `src/catalog/searchWords.ts` (source, never
+  imported by app code), `src/utils/searchWords.ts` (loader), `catalogSync.ts`
+  (`decideFetchedSearchWords`, `readCachedSearchWords`), `services/db/catalog.ts`
+  (`fetchCatalogMeta` returns both hashes, `fetchSearchWordsDoc`),
+  `useCatalogStore` (`searchWords`, `searchWordsRefusal`), `uploadCatalog.ts`
+- **Rules added in stage 1, each stated where it is implemented:**
+  - equipment and axis words score from version data (4); only a word no version
+    has falls back to the name ("reverse" in Reverse Lunge). Rejected: name first,
+    which put Cable Lat Prayer and Cable Shrug-In above Seated Row for "cable back"
+  - ties: score, category, **compound before isolation** (a muscle search wants the
+    main lift before its accessories), name. This is the one-line rule that fixed
+    "db shoulders" (6th → 3rd); no other case changes result
+  - preselection: an exact version alias picks that version ("hex bar deadlift",
+    "12-3-30"); otherwise named values the movement has; a value it lacks is
+    dropped; an equipment word naming two of its equipment picks neither; a
+    combination no version has preselects nothing
+  - a word of 4+ letters that is an unambiguous prefix of an equipment or axis
+    word names it ("incl" → incline)
+- **Known failing case: "rear delts"** wants Reverse Pec Deck in the top 5; it is 6th,
+  tied at 10 with Band Pull-Apart (sorted by name) and with no staple (one
+  version). No ranking rule with a reason fixes it; it is a `test.failing` row,
+  which turns red the day it passes
+- **Tests** (`exerciseSearch.test.ts`, 99): the 91 cases (90 pass, 1 known
+  failing), 5 rules, 2 custom, 1 staple. Each rule broken in turn, with what went
+  red: prefix → substring: "rdl" ✗ Hurdle Hop; muscle words from the name: both
+  "chest" negatives and the Back Squat check; no phrases: inner thigh, hex bar,
+  push/leg day ("rear delts" starts passing); no plural fold: 10 cases (Deadlifts, Pull-Ups, Face Pulls…); no
+  exact rescue: "cable standing neutral grip fly"; equipment from name first:
+  "cable back"; no staple: 5 cases (Triceps Dips, core, glutes, db
+  shoulders, bodyweight chest) and the staple test ("rear delts" starts passing); no compound-first: "db
+  shoulders"; no filler: push/leg day; Smith in "machine"; keeping an axis the
+  movement lacks; offering a missing combination; no version-alias pick
+  (gravitron, 12-3-30); custom exercises keeping catalog ones or matching muscles.
+  A "one row per movement" test was dropped: no break turned it red
+- **Search words tests (5):** labels work with no search words loaded and slang
+  needs them (`exerciseSearch.test.ts`); the loader accepts the source and refuses
+  "chets", "hover_board" and a "wide" grip (`searchWords.test.ts`, 2); a new slang
+  word reads meta + `search_words` only, never the catalog, and a third check reads
+  meta only; refused words keep the old ones and the catalog still updates
+  (`useCatalogStore.test.ts`, 2). Seen red: no derived muscle labels; slang
+  ignored (8 red, incl. "pecs", "db shoulders", "hex bar"); loader skipping
+  muscles; search words fetched every sync (also turns 4 existing read-count tests
+  red: with no `searchWordsVersion` in meta it would read a missing doc each time);
+  catalog refetched on any hash change; a words refusal blocking the catalog. All 21
+  rule breaks re-run after the move: each still red
+- **Per keystroke (Node 25, M1 Pro, full catalog, 1,960 keystrokes typing 7
+  queries):** median 0.047 ms, p95 0.107 ms, max 0.78 ms. Device: stage 3
+- Not verified: anything on a device; custom exercises against real plans
 
 **Dependencies:** TICKET-042. TICKET-041 boards A2–A4.
 

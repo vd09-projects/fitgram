@@ -12,6 +12,7 @@ import type {
   EquipmentId,
   GripId,
   MeasureId,
+  MuscleGroupId,
   MuscleId,
   OneSideLabelId,
   PatternId,
@@ -68,3 +69,30 @@ export interface MovementVersion {
   /** Only where the version changes the target: incline puts upper chest first. */
   primaryMuscles?: MuscleId[];
 }
+
+/**
+ * What users type for a muscle, a piece of equipment or a version axis, beyond
+ * the labels the app already has (TICKET-043). Its own Firestore doc,
+ * `exercise_catalog/search_words`, with its own hash, so a new word downloads
+ * about 1 KB instead of the whole catalog. Source: `src/catalog/searchWords.ts`.
+ *
+ * Labels ("Upper chest", "Smith machine", "close grip") are searchable without
+ * an entry here; `exerciseSearch.ts` derives them. Keys are written as typed,
+ * lower case; the search folds plurals on both sides.
+ */
+export interface SearchWords {
+  /** "pecs" → chest: the whole group, as typing "chest" does. */
+  muscleGroups: Record<string, MuscleGroupId>;
+  /** "hammies" → hamstrings, "inner thigh" → adductors. */
+  muscles: Record<string, MuscleId[]>;
+  /** "db" → dumbbell; "machine" → machine, plate-loaded, assisted. */
+  equipment: Record<string, EquipmentId[]>;
+  /** "hammer grip" → neutral grip, "single arm" → one side. */
+  axes: Record<string, AxisWord>;
+}
+
+export type AxisWord =
+  | { axis: "angle"; value: AngleId }
+  | { axis: "attachment"; value: AttachmentId }
+  | { axis: "grip"; value: GripId }
+  | { axis: "unilateral"; value: true };

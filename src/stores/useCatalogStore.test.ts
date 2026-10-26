@@ -8,6 +8,7 @@ import { getDoc } from "firebase/firestore";
 import { useAuthStore } from "./authStore";
 import { CATALOG_CACHE_KEY, startCatalog, useCatalogStore } from "./useCatalogStore";
 import { CATALOG_ROW as ROW } from "../test/fixtures";
+import { SEARCH_WORDS } from "../catalog/searchWords";
 
 const server: Record<string, unknown> = {};
 
@@ -21,8 +22,12 @@ jest.mock("firebase/firestore", () => ({
 
 const reads = () => (getDoc as jest.Mock).mock.calls.map(([path]) => path);
 const upload = (version: string, movements: unknown[] = [ROW]) => {
-  server["exercise_catalog/meta"] = { version };
+  server["exercise_catalog/meta"] = { ...(server["exercise_catalog/meta"] as object), version };
   server["exercise_catalog/catalog"] = { version, movements };
+};
+const uploadWords = (version: string, words: unknown = SEARCH_WORDS) => {
+  server["exercise_catalog/meta"] = { ...(server["exercise_catalog/meta"] as object), searchWordsVersion: version };
+  server["exercise_catalog/search_words"] = { version, words };
 };
 const cacheOnPhone = (version: string) =>
   AsyncStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify({ version, movements: [ROW] }));
@@ -101,4 +106,37 @@ it("sign-out keeps the catalog, in memory and on disk", async () => {
   useAuthStore.getState().setUser(null);
   expect(useCatalogStore.getState().catalog?.version).toBe("h1");
   expect(await cachedVersion()).toBe("h1");
+});
+
+describe("search words: their own doc and hash (TICKET-043)", () => {
+  it("a new slang word fetches only the search words, never the catalog again", async () => {
+    upload("h1");
+    uploadWords("w1");
+    await sync();
+    expect(reads()).toEqual(["exercise_catalog/meta", "exercise_catalog/catalog", "exercise_catalog/search_words"]);
+
+    uploadWords("w2", { ...SEARCH_WORDS, muscles: { ...SEARCH_WORDS.muscles, guns: ["biceps"] } });
+    await sync();
+    expect(reads().slice(3)).toEqual(["exercise_catalog/meta", "exercise_catalog/search_words"]);
+    expect(useCatalogStore.getState().searchWords?.words.muscles.guns).toEqual(["biceps"]);
+
+    await sync(); // nothing changed: meta only
+    expect(reads().slice(5)).toEqual(["exercise_catalog/meta"]);
+  });
+
+  it("refused search words keep the old ones and do not block a catalog update", async () => {
+    const error = jest.spyOn(console, "error").mockImplementation(() => {});
+    upload("h1");
+    uploadWords("w1");
+    await sync();
+
+    upload("h2");
+    uploadWords("w2", { ...SEARCH_WORDS, muscles: { pecs: ["chets"] } });
+    await sync();
+
+    expect(useCatalogStore.getState().searchWords?.version).toBe("w1");
+    expect(useCatalogStore.getState().catalog?.version).toBe("h2");
+    expect(error).toHaveBeenCalledWith(expect.stringMatching(/^SEARCH WORDS REFUSED/), expect.anything());
+    error.mockRestore();
+  });
 });
