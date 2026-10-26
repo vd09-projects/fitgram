@@ -41,7 +41,10 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
-| 043 | Find an exercise: search by muscle, typos, movement-first picker | Large | Ports the prototype and its 91 cases; "Latpulldown", "squad", "bech press" return 0 today |
+| 043 | Exercise search and picker | Large | **Next.** Ports the prototype and its 91 cases; "Latpulldown", "squad", "bech press" return 0 today. Opens from today's Manage Workout. Split 2026-10-27 into 043 / 050 / 051 / 052, each done by a device test |
+| 050 | Picker start page: recents, filters, last-used version | Medium | After 043 |
+| 051 | Manage Workout: exercise list and Save changes | Medium | After 043; can run alongside 050 |
+| 052 | Manage Workout: new plan and first plan | Small–Medium | After 051 |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap. Storage: per-plan copies today, library undecided |
 | 047 | Switch an exercise's version mid-workout | Medium | Deferred 2026-10-24. For this workout only; the plan keeps its version |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
@@ -2940,15 +2943,23 @@ TICKET-035 for the 349, but this ticket does not wait for it. Blocks TICKET-043.
 
 ---
 
-### TICKET-043: Find an Exercise — Search by Muscle, Typos, and a Movement-First Picker
+### TICKET-043: Exercise Search and Picker
 
-**Priority:** Medium | **Effort:** Large | **Status: OPEN**
+**Priority:** Medium | **Effort:** Large | **Status: OPEN** — split 2026-10-27 into
+four tickets, each finished by a device test (user): **043** search + picker,
+**050** picker start page, **051** Manage Workout exercise list, **052** Manage
+Workout plans. Nothing temporary: each lands in the screens that exist when it does
 
 **Description:**
 Today exercise search is `react-native-element-dropdown`'s built-in `search` over the
-item label (`SearchableInputDropdown.tsx`): name only, so "chest" cannot find Bench
-Press. Replace it with the prototype's search, extended for typos, and a picker that
-shows movements and then asks for the version.
+item label (`SearchableInputDropdown.tsx`), now over 805 built version names
+(TICKET-042 stage 2's interim picker): name only, so "chest" cannot find Bench
+Press, and "bench" leaves ~20 rows. Replace it with the prototype's search, extended
+for typos, and a full-screen picker that shows movements and then asks for the
+version. **Opened from today's Manage Workout screen**, in place of its Exercise
+dropdown: the picker returns the same plan exercise the dropdown does
+(`planExerciseFromPick`), so the field editor and Save work unchanged. TICKET-051
+rebuilds the screen around it later.
 
 **Search rules the prototype settled** (each is a bug it hit):
 - **Word-prefix match, not substring.** Substring made "rdl" match **Hurdle** Hop.
@@ -2981,13 +2992,9 @@ shows movements and then asks for the version.
 | "low to high fly" | Low-to-High Cable Fly | Ties with High-to-Low (score 40 each); High-to-Low lists first. Word order is ignored |
 | "push day" | push exercises | 0 results: no split vocabulary |
 
-**The picker:**
-1. **Recents and frequent first.** Most searches are for something already logged
-2. **Filter chips:** muscle group × equipment × category. "Chest exercises with
-   dumbbells" in two taps
-3. **Movement, then version.** Pick Bench Press, then Barbell / Dumbbell / Smith /
-   Machine, defaulting to the version used last. A movement with one version skips
-   this step
+**The picker (this ticket):** movement, then version. Pick Bench Press, then
+Barbell / Dumbbell / Smith / Machine. A movement with one version skips this step.
+Recents, filter menus and "last used" preselection are TICKET-050.
 
 **Acceptance Criteria:**
 - [ ] `searchExercises(catalog, query, limit)` is a pure exported function
@@ -3003,78 +3010,35 @@ shows movements and then asks for the version.
       keep their current top results
 - [ ] Custom exercises and the user's plan exercises are searched too, by name only
 - [ ] Decided: does "machine" include Smith Machine? Does "back" include Back Squat?
-      (The prototype says no to both.) What shows for an empty query (recommend
-      recents)?
-- [ ] Recents come from data the app already has (history by `exerciseId`), with no
-      Firestore read per keystroke
-- [ ] Picker built from TICKET-041's chosen boards (A1–A4). 4 or 5 tests on its main
-      behaviours
+      (The prototype says no to both.)
+- [ ] Empty query, until TICKET-050 adds Recent: every movement A–Z, so browsing
+      works (default chosen 2026-10-27; the user can overrule it)
+- [ ] Picker built from TICKET-041 boards A2–A4, opened from today's Manage Workout
+      in place of the Exercise dropdown. 4 or 5 tests on its main behaviours
 - [ ] Measured: search time per keystroke over the full catalog, on a device
+- [ ] Guided tour: `EXERCISE_SEARCHABLE` → `DROPDOWN_BUTTON` retargeted to the
+      control that opens the picker; new steps for the search box and the version
+      sheet. No step points at a control that is gone
 - [ ] Delivered in stages (CLAUDE.md 3.4): 1. the search function and its tests;
-      2. typos and joined/split words; 3. the picker
-- [ ] **Scope added by TICKET-041, confirmed by the user 2026-10-24:** the Manage
-      Workout screen around the picker, built in stage 3, since the picker replaces
-      both of its dropdowns. See Design below
-
-**Design, Manage Workout** (TICKET-041 group C1, `design/workout-flow/project/Manage*.dc.html`
-and `PlatesUnit.dc.html`; chosen by the user 2026-10-24):
-- **The plan's exercises are a list on the screen,** one collapsed row each with its
-  fields and unit ("Weight kg · Reps"). Tapping a row expands it to the field
-  editor (rename, role, unit, remove, one more field from the box at the bottom)
-  and a trash button for the exercise. Replaces "Existing Exercises" /
-  `CollapsibleExerciseList`. One footer button, **Save changes**, for the plan.
-- **Add exercise:** a dashed button under the list opens the picker (boards A1–A4).
-  The exercise arrives expanded with its catalog fields.
-- **No new custom exercises, for now (user, 2026-10-24).** The catalog is the only
-  source: either the exercise is in it or there is nothing to add. Today's "New"
-  switch on the Exercise picker goes and is not replaced. Why: 878 entries cover
-  every exercise in the user's own notes, and one source means one id scheme, real
-  muscles for search, and no typo saved as an exercise. Limits:
-  - existing custom exercises in plans and history keep loading, logging and
-    showing; search still finds them by name (the criterion above stays). Nothing
-    is deleted or migrated
-  - a machine the catalog lacks is logged as the closest catalog movement, plus a
-    field ("Seat")
-  - the Custom board with starting templates (`ManageAdd.dc.html`) is kept on the
-    canvas, marked deferred, for TICKET-045, which reopens this
-- **New plan: first row of the plan picker (chosen).** No New button on the screen;
-  tapping "New plan" turns that row into a name field with Create. The new plan
-  opens with no exercises and saves with its first one. Rejected: a New button
-  beside the picker (`ManageNewInline.dc.html`): always visible, one more control
-  on top, and redundant once the list offers it. Both replace today's New switch.
-- **No plans yet (`ManageFirst.dc.html`):** an empty picker would be a dead end, so
-  the screen skips it: "Your first plan", a name field, Create (disabled until
-  something is typed). Reached from the Start screen's existing "No plans yet ·
-  Create a plan" button.
-- **Wording: "plan",** matching the Start screen. The screen title stays Manage
-  Workout.
-- **Guided tour, broken:** `WORKOUT_SEARCHABLE` → `NEW_BUTTON` and `INPUT_AND_SAVE`
-  (the switch is gone; retarget to the New plan row and its Create);
-  `EXERCISE_SEARCHABLE` → `DROPDOWN_BUTTON` (retarget to Add exercise);
-  `EXERCISE_EDITABLE_LIST` → `EXISTING_ITEM` / `ADD_NEW_ITEM` (now inside an
-  expanded row, so the tour must expand one first); `SAVE_BUTTON` (copy says
-  "Save Workout"; the button reads Save changes).
+      2. typos and joined/split words; 3. the picker screen
+- [ ] **Device test (done when it passes):** Manage Workout → choose a plan → open
+      the picker → "bech press", "Latpulldown", "chest", "db bench" each return the
+      expected movements → pick Bench Press → choose Dumbbell, incline (a
+      combination already in the plan is disabled) → edit fields as today → Save.
+      The plan shows the built name; Start Workout logs it
 
 **Design, the picker** (TICKET-041 group A, `design/workout-flow/project/Find*.dc.html`;
-chosen by the user 2026-10-24). A full screen opened by Add exercise, not a dropdown:
-- **A1, empty query (chosen).** Search box focused; one row of three filter menus,
-  Muscle / Equipment / Type; then **Recent**: **movements** the user has logged,
-  newest first, never one row per combination (user, 2026-10-24, after the PR #17 review). The second line is the
-  combination last logged and its date ("Barbell, close grip · 22 Oct"). Tapping
-  opens A3's sheet with that combination preselected (`VersionRecent.dc.html`); a
-  single-version movement is added at once, and reads "In plan" (disabled) if it
-  is already there. In the sheet, a combination already in the plan is disabled.
-  This settles the empty-query criterion above: recents. Rejected:
-  A1b, muscle groups as chips in view, which made muscle one tap instead of two but
-  cost a second row.
+chosen by the user 2026-10-24). A full screen, not a dropdown. A1 (the empty-query
+page) is TICKET-050:
 - **A2, results (chosen).** One row per movement: name, then the main muscle
   followed by the others ("Chest · triceps, front delts"), and a count ("19
   versions") only when there is more than one. Rejected: A2b, the first few versions
   named ("Barbell, Dumbbell, Smith, Machine +4"), a third line on every row.
 - **A3, the version step (chosen).** Tapping a movement with versions opens a sheet:
   Equipment, and Angle where the movement has one. The version used last is
-  preselected and marked "last"; equipment typed in the query ("db bench")
-  preselects that version instead. A combination that does not exist (Band ×
+  preselected and marked "last" (**TICKET-050**; until then nothing is preselected);
+  equipment typed in the query ("db bench") preselects that version instead
+  (this ticket). A combination that does not exist (Band ×
   Incline) is disabled, not hidden. One version: no sheet. A cable movement gets an
   Attachment row (Rope / Straight Bar / V-Bar), shown only for Cable. **Incline is
   an angle of Bench Press**, so Bench Press has about 20 versions (TICKET-042 records
@@ -3097,21 +3061,163 @@ chosen by the user 2026-10-24). A full screen opened by Add exercise, not a drop
   suggestion (fewer words, the movement, a muscle). Nothing to create (above).
 - Names with a version are drawn as "Movement · Version" as a stand-in; group B
   settles the format.
-- **Guided tour:** the picker replaces `EXERCISE_SEARCHABLE` → `DROPDOWN_BUTTON`
-  and the Exercise picker's `NEW_BUTTON` / `INPUT_AND_SAVE` steps, which go with the
-  switch. New steps are needed for the search box, the filters and the version sheet.
+- **No new custom exercises, for now (user, 2026-10-24).** The catalog is the only
+  source: either the exercise is in it or there is nothing to add. Today's "New"
+  switch on the Exercise picker goes and is not replaced. Why: 878 entries cover
+  every exercise in the user's own notes, and one source means one id scheme, real
+  muscles for search, and no typo saved as an exercise. Existing custom exercises
+  in plans and history keep loading, logging and showing; search still finds them
+  by name. A machine the catalog lacks is logged as the closest catalog movement,
+  plus a field ("Seat"). TICKET-045 reopens custom exercises
 
 **Technical Notes:**
 - Typo options: Fuse.js, or Damerau-Levenshtein only on words that missed. The
   catalog is small enough for either
-- Check whether `react-native-element-dropdown` accepts a custom search function, or
-  whether the picker needs its own list (likely, for the version step)
+- The picker is its own list (it needs the version step); `react-native-element-dropdown`'s
+  `searchQuery` is a yes/no filter per label and cannot rank (checked 2026-10-27)
 - "push day", "leg day", "upper body" need a split vocabulary mapping to pattern +
   region. In scope if small; otherwise split off
 - Later idea, not in scope: a "my gym" equipment profile that hides versions the user
   has no equipment for
 
-**Dependencies:** TICKET-042. TICKET-041 boards A1–A4 for the picker (stage 3).
+**Dependencies:** TICKET-042. TICKET-041 boards A2–A4.
+
+---
+
+### TICKET-050: Picker Start Page — Recents, Filters, Last-Used Version
+
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — split from TICKET-043
+2026-10-27
+
+**Description:**
+What the picker shows before anything is typed, and what it remembers. Most
+searches are for something already logged, so the empty query lists those first;
+filter menus answer "chest exercises with dumbbells" in two taps; the version
+sheet preselects the version used last.
+
+**Acceptance Criteria:**
+- [ ] Empty query shows **Recent** (board A1), replacing TICKET-043's A–Z list
+- [ ] Recents come from data the app already has (history by `exerciseId`, mapped
+      to its movement through the catalog), with no Firestore read per keystroke
+- [ ] Filter menus Muscle / Equipment / Type (muscle group × equipment ×
+      category), combinable with a typed query (AND)
+- [ ] The version sheet preselects the version used last, marked "last"; equipment
+      typed in the query ("db bench") still wins
+- [ ] A recent single-version movement is added at once, or reads "In plan"
+      (disabled) when it is already there
+- [ ] Guided tour: a step for the filter menus
+- [ ] 4 or 5 tests on the main behaviours, each seen red
+- [ ] **Device test (done when it passes):** log one workout (the 2026-10-26 wipe
+      emptied history) → open the picker → its movement is under Recent with the
+      combination and date → tap it, the sheet has that combination preselected →
+      filter Chest + Dumbbell, only matching movements remain
+
+**Design** (TICKET-041 group A, chosen by the user 2026-10-24):
+- **A1, empty query (chosen).** Search box focused; one row of three filter menus,
+  Muscle / Equipment / Type; then **Recent**: **movements** the user has logged,
+  newest first, never one row per combination (user, 2026-10-24, after the PR #17 review). The second line is the
+  combination last logged and its date ("Barbell, close grip · 22 Oct"). Tapping
+  opens A3's sheet with that combination preselected (`VersionRecent.dc.html`); a
+  single-version movement is added at once, and reads "In plan" (disabled) if it
+  is already there. In the sheet, a combination already in the plan is disabled.
+  This settles the empty-query criterion above: recents. Rejected:
+  A1b, muscle groups as chips in view, which made muscle one tap instead of two but
+  cost a second row.
+
+**Dependencies:** TICKET-043.
+
+---
+
+### TICKET-051: Manage Workout — Exercise List and Save Changes
+
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — split from TICKET-043
+2026-10-27 (scope TICKET-041 added to 043, confirmed by the user 2026-10-24)
+
+**Description:**
+Rebuild Manage Workout's exercise part from TICKET-041 group C1: the plan's
+exercises as a list on the screen, edited in place, with one Save changes. Plan
+selection stays as it is today (TICKET-052 changes it).
+
+**Acceptance Criteria:**
+- [ ] The plan's exercises are a list, one collapsed row each with its fields and
+      unit ("Weight kg · Reps"); tapping expands the field editor (rename, role,
+      unit, remove a field, add one) and a trash button for the exercise. Replaces
+      "Existing Exercises" / `CollapsibleExerciseList`
+- [ ] A dashed **Add exercise** button under the list opens TICKET-043's picker;
+      the exercise arrives expanded with its catalog fields
+- [ ] One footer button, **Save changes**, for the plan
+- [ ] The version is not editable here (see Design)
+- [ ] Guided tour: `EXERCISE_EDITABLE_LIST` → `EXISTING_ITEM` / `ADD_NEW_ITEM`
+      (now inside an expanded row, so the tour expands one first) and
+      `SAVE_BUTTON` (copy says "Save Workout"; the button reads Save changes)
+      retargeted. No step points at a control that is gone
+- [ ] 4 or 5 tests on the main behaviours, each seen red
+- [ ] **Device test (done when it passes):** choose a plan → expand a row → rename
+      a field and switch kg to plates → remove an exercise → add one through the
+      picker → Save changes → leave and reopen: every change persisted, and Start
+      Workout shows the plan as saved
+
+**Design** (TICKET-041 group C1, `design/workout-flow/project/Manage*.dc.html` and
+`PlatesUnit.dc.html`; chosen by the user 2026-10-24):
+- **The plan's exercises are a list on the screen,** one collapsed row each with its
+  fields and unit ("Weight kg · Reps"). Tapping a row expands it to the field
+  editor (rename, role, unit, remove, one more field from the box at the bottom)
+  and a trash button for the exercise. One footer button, **Save changes**, for the
+  plan.
+- **Add exercise:** a dashed button under the list opens the picker (TICKET-043).
+  The exercise arrives expanded with its catalog fields.
+- **The version is not editable in Manage Workout** (user, 2026-10-24, after the
+  PR #17 review): equipment, angle and grip can't be changed on a plan exercise;
+  remove it and add the other combination. The expanded row edits fields and units
+  only. A plan may hold two combinations of one movement (`VersionPlan.dc.html`). A
+  change for one workout only is TICKET-047
+- **Wording: "plan",** matching the Start screen. The screen title stays Manage
+  Workout.
+
+**Dependencies:** TICKET-043 (the picker Add exercise opens).
+
+---
+
+### TICKET-052: Manage Workout — New Plan and First Plan
+
+**Priority:** Medium | **Effort:** Small–Medium | **Status: OPEN** — split from
+TICKET-043 2026-10-27
+
+**Description:**
+Creating a plan, from TICKET-041 group C1: "New plan" as the first row of the plan
+picker, and a first-plan screen for someone with none. Both replace today's New
+switch on the Workout picker.
+
+**Acceptance Criteria:**
+- [ ] "New plan" is the first row of the plan picker; tapping it turns the row into
+      a name field with Create. The new plan opens with no exercises and saves with
+      its first one
+- [ ] With no plans, the screen skips the picker: "Your first plan", a name field,
+      Create (disabled until something is typed), reached from the Start screen's
+      "No plans yet · Create a plan"
+- [ ] Today's New switch on the Workout picker is gone
+- [ ] Guided tour: `WORKOUT_SEARCHABLE` → `NEW_BUTTON` and `INPUT_AND_SAVE`
+      retargeted to the New plan row and its Create. No step points at a control
+      that is gone
+- [ ] 4 or 5 tests on the main behaviours, each seen red
+- [ ] **Device test (done when it passes):** create a plan from the New plan row,
+      add an exercise, Save changes, and it appears on Start. Then with an account
+      that has no plans: Start → Create a plan → first-plan screen → Create is
+      disabled until a name is typed → Create → the plan opens empty → add one
+      exercise → saved
+
+**Design** (TICKET-041 group C1, chosen by the user 2026-10-24):
+- **New plan: first row of the plan picker (chosen).** No New button on the screen;
+  tapping "New plan" turns that row into a name field with Create. The new plan
+  opens with no exercises and saves with its first one. Rejected: a New button
+  beside the picker (`ManageNewInline.dc.html`): always visible, one more control
+  on top, and redundant once the list offers it.
+- **No plans yet (`ManageFirst.dc.html`):** an empty picker would be a dead end, so
+  the screen skips it: "Your first plan", a name field, Create (disabled until
+  something is typed). Reached from the Start screen's existing "No plans yet ·
+  Create a plan" button.
+
+**Dependencies:** TICKET-051 (the rebuilt screen).
 
 ---
 
@@ -4014,7 +4120,10 @@ it) once 046's content exists. Phase 3B; research is in
 2. TICKET-046  (Real catalog content)      — Done (PR #21): 489 movements, 805 versions
 3. TICKET-042  stage 2 (App reads catalog) — Done (PR #22, 2026-10-27): Firestore + cache,
                                              name sites, test-data wipe, rules deployed
-4. TICKET-043  (Search + picker)           — Next; picker built from 041 boards A
+4. TICKET-043  (Search + picker)           — Next; opens from today's Manage Workout
+5. TICKET-050  (Picker start page)        — After 043: recents, filters, last used
+6. TICKET-051  (Manage Workout list)      — After 043; alongside 050 if wanted
+7. TICKET-052  (New plan, first plan)     — After 051
 ```
 
 **Then the next three, decided.** They are what makes logging an exercise match what
