@@ -19,16 +19,8 @@ export const CATALOG_COLLECTION = "exercise_catalog";
 export const CATALOG_META_DOC = "meta";
 export const CATALOG_DOC = "catalog";
 
-/**
- * TEMPORARY — remove with CatalogDebugScreen. Firestore reads issued by this
- * module since the app started, so the "refetched only when its version
- * changes" claim can be counted on a device.
- */
-export const catalogReadCounter = { meta: 0, catalog: 0 };
-
 /** `meta.version`, or null when no catalog has been uploaded. Throws offline or on a refusal. */
 export async function fetchCatalogMetaVersion(): Promise<string | null> {
-  catalogReadCounter.meta += 1; // TEMPORARY
   const snap = await getDoc(doc(db, CATALOG_COLLECTION, CATALOG_META_DOC));
   if (!snap.exists()) return null;
   const version = snap.data()?.version;
@@ -37,7 +29,6 @@ export async function fetchCatalogMetaVersion(): Promise<string | null> {
 
 /** The catalog doc's raw data, untyped: `decideFetchedCatalog` checks it. Null when absent. */
 export async function fetchCatalogDoc(): Promise<unknown> {
-  catalogReadCounter.catalog += 1; // TEMPORARY
   const snap = await getDoc(doc(db, CATALOG_COLLECTION, CATALOG_DOC));
   return snap.exists() ? snap.data() : null;
 }

@@ -41,9 +41,9 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
-| 042 | Exercise catalog: movements with versions, loaded into the app | Large | **Stage 1 done**. **Stages 2A–2C committed**, PR open; then the user's landing run and device checks. Console rules diffed 2026-10-26: only `predefined_exercises` differs; rules deploy moves after the wipe. An app build with 046's vocabulary must be on phones before the first upload. Movement first; history stays per version; catalog in Firestore, cached |
+| 042 | Exercise catalog: movements with versions, loaded into the app | Large | **Stage 1 done. Stage 2 in PR #22:** wipe and upload done 2026-10-26, device checks passed 2026-10-27, debug screen removed. **Left: rules deploy** (drops `predefined_exercises`, still in the console), run by the user. An app build with 046's vocabulary must be on phones before the first upload. Movement first; history stays per version; catalog in Firestore, cached |
 | 043 | Find an exercise: search by muscle, typos, movement-first picker | Large | Ports the prototype and its 91 cases; "Latpulldown", "squad", "bech press" return 0 today |
-| 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap |
+| 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap. Storage: per-plan copies today, library undecided |
 | 046 | Build the real catalog: movements and versions | Large | **Done, pending merge** (2026-10-25): 489 movements, 805 versions, all 878 research entries accounted for. Unblocks 042 stage 2 |
 | 047 | Switch an exercise's version mid-workout | Medium | Deferred 2026-10-24. For this workout only; the plan keeps its version |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
@@ -2362,10 +2362,12 @@ needs it, built against the chosen board.
 
 ### TICKET-042: Exercise Catalog — Movements with Versions, Loaded into the App
 
-**Priority:** Medium | **Effort:** Large | **Status: IN PROGRESS** — open decisions
-settled 2026-10-24; stage 1 in PR #20; stage 2 decisions settled 2026-10-25, stage
-2A (808d490), 2B (b584798) and 2C committed, PR open; then the user's landing
-run and device checks, then the debug screen's removal
+**Priority:** Medium | **Effort:** Large | **Status: IN REVIEW** — open decisions
+settled 2026-10-24; stage 1 in PR #20; stage 2 in PR #22: 2A (808d490), 2B
+(b584798), 2C (c96b510), rules reconciled (000fcac). Wipe and catalog upload done
+2026-10-26 (version 889393c5…, `predefined_exercises` gone); device checks passed
+2026-10-27; Catalog debug screen removed. Left: the rules deploy (landing step
+5), run by the user after the removal commit
 
 **Description:**
 Replace today's 42 exercises (`src/scripts/uploadExercises.ts`) with the research
@@ -2777,7 +2779,9 @@ nothing in the app imports them yet, so the app behaves as before.
   `users/**` is live and the open rule expired 2025-08-25. Split out as
   **TICKET-049** (user, 2026-10-26)
 
-**TEMPORARY Catalog debug screen: removal, after the device run.** Delete
+**TEMPORARY Catalog debug screen: removal, after the device run.** **Done
+2026-10-27** (device checks passed); the History and Pending Uploads debug
+screens stay. Delete
 `src/screens/workout_management/CatalogDebugScreen.tsx`; its route in
 `src/constants/routes.tsx`; its `Stack.Screen` in
 `src/navigation/WorkoutNavigator.tsx`; its tile in `src/screens/WorkoutScreen.tsx`;
@@ -2798,7 +2802,10 @@ rule is already live); the deploy moves after the wipe, where it removes
 4. `npx tsx src/scripts/wipeTestData.ts --confirm` (ends "✅ Wiped.", all counts 0)
 5. Rules: `npx firebase-tools deploy --only firestore:rules --project gymexerciselogger-fb`.
    Replaces the whole live ruleset; the only change from live is that
-   `predefined_exercises` goes
+   `predefined_exercises` goes. ~~Run between the wipe and the upload~~ **Not run
+   in the landing (2026-10-27): the console still has the `predefined_exercises`
+   block.** Harmless meanwhile (its docs are wiped; no build reads them). The
+   user deploys it after the debug-screen removal commit
 6. `npx tsx src/scripts/uploadCatalog.ts --dry-run` (489 movements, 805 versions, 26.9%)
 7. `npx tsx src/scripts/uploadCatalog.ts`
 8. Device checks on the Catalog debug screen: first start after upload meta 1 ·
@@ -3778,6 +3785,23 @@ recorded.
   allowed punctuation only ("()", "- &"), which passes the rule but maps to an empty
   id and is refused as "Exercise ID cannot be empty." (PR #18 review); its id scheme
   next to catalog version ids
+
+**Storage, found 2026-10-26 (TICKET-042 stage 2 review):**
+- Today a custom exercise lives only inside the plan doc that holds it
+  (`users/{uid}/workouts/{planId}`): no per-user list, nothing shared between
+  plans, never in `exercise_catalog`. The same exercise in a second plan is a
+  second copy, typed again
+- Decide when reopened: a per-user library (`users/{uid}/custom_exercises`, picked
+  like a catalog version, one id across plans so history joins), or keep per-plan
+  copies. History joins on the id (TICKET-042), so two copies with different ids
+  split one exercise's history
+  - Checked in code: a custom id is `toExerciseId(name)` (`utils/validation.ts`),
+    a slug of the typed name. Two copies spelled alike ("Cable Fly" in both plans)
+    get the same id and do join; a different spelling ("Cable Flys") splits
+- Editing a custom exercise's name or fields: does it reach every plan using it?
+  Only a library answers yes
+- What exists today and must keep working: custom exercises store `name` and no
+  `nameSnapshot`; `exerciseDisplayName` shows `name`; the custom-name rule applies
 
 **Dependencies:** TICKET-042, TICKET-043.
 

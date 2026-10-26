@@ -21,6 +21,4 @@ export const WorkoutRoutes = {
     HistoryDebug: "HistoryDebug",
     // TEMPORARY — remove with PendingUploadsDebugScreen.
     PendingUploadsDebug: "PendingUploadsDebug",
-    // TEMPORARY — remove with CatalogDebugScreen.
-    CatalogDebug: "CatalogDebug",
 } as const;
