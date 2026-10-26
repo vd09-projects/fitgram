@@ -13,6 +13,7 @@ import type { Exercise } from "../types/workoutType";
 import {
   buildSearchCatalog,
   customExercisesFromPlans,
+  maxTypoEdits,
   searchExercises,
   type SearchResult,
   type VersionPick,
@@ -241,5 +242,87 @@ describe("staple: a proxy for the lifts people mean", () => {
     });
     const tiny = buildSearchCatalog([one("a_single", 1), one("b_multi", 2)], null);
     expect(searchExercises(tiny, "zz", 2).results.map(idOf)).toEqual(["b_multi", "a_single"]);
+  });
+});
+
+// Stage 2: the ticket's failing table (measured 2026-10-23 on the prototype),
+// one case per row. Top 1 only where the query, corrected or joined, is the
+// movement's exact name; otherwise top 3.
+const TYPO_CASES: Case[] = [
+  ["Latpulldown", "lat_pulldown", 1], // joined
+  ["push down", "triceps_pushdown", 3], // split
+  ["kick back", "triceps_kickback", 3],
+  ["kick back", "glute_kickback", 3],
+  ["Incliend", "bench_press", 3, { angle: "incline" }],
+  ["squad", "squat", 1],
+  ["bech press", "bench_press", 1],
+  ["dumbell curl", "bicep_curl", 3, { equipment: "dumbbell" }],
+  ["low to high fly", "low_to_high_cable_fly", 1],
+  // Beyond the table: a swap counts as one edit, and a typo while still typing
+  ["bnech press", "bench_press", 1],
+  ["dumbe bench", "bench_press", 3, { equipment: "dumbbell" }],
+];
+
+describe("stage 2: typos, joined and split words", () => {
+  test.each(TYPO_CASES.map(([q, id, n, pre]) => [q, id, n, pre ?? null] as const))("%s → %s in top %i", (query, movementId, topN, pre) => {
+    const results = top(query, topN);
+    const hit = results.find((r) => idOf(r) === movementId);
+    expect(results.map(idOf)).toContain(movementId);
+    if (pre && hit?.kind === "movement") expect(hit.preselect).toEqual(pre);
+  });
+
+  test('"Cabled" is the cable: every result has a cable version, preselected', () => {
+    const results = top("Cabled", 500);
+    expect(results.length).toBeGreaterThan(0);
+    for (const r of results) expect(r.kind === "movement" && r.preselect.equipment).toBe("cable");
+  });
+
+  test("word order: Low-to-High above High-to-Low for \"low to high fly\"", () => {
+    const order = ids("low to high fly");
+    expect(order.indexOf("low_to_high_cable_fly")).toBeLessThan(order.indexOf("high_to_low_cable_fly"));
+  });
+
+  // Pinned to the movement baselines recorded at the end of stage 1.
+  test.each([
+    ["row", 19, ["bent_over_row", "chest_supported_row", "rear_delt_row", "seal_row", "seated_row"]],
+    ["curl", 27, ["bicep_curl", "floor_hamstring_curl", "hammer_curl", "lying_leg_curl", "preacher_curl"]],
+  ] as const)('"%s" keeps its %i results and top 5, none fuzzy', (query, total, top5) => {
+    const found = searchExercises(catalog, query, 500);
+    expect(found.total).toBe(total);
+    expect(found.results.slice(0, 5).map(idOf)).toEqual(top5);
+    expect(found.results.some((r) => r.fuzzy)).toBe(false);
+  });
+
+  test("short words stay exact: 1–3 letters get no edits", () => {
+    expect(maxTypoEdits(3)).toBe(0);
+    expect(ids("rwo")).toEqual([]); // "row" mistyped: not corrected
+  });
+
+  test("a fuzzy match ranks below an exact or prefix match, even with a higher score", () => {
+    const movement = (id: string, name: string, versions: number): Movement => ({
+      id,
+      name,
+      primaryMuscles: ["triceps"],
+      secondaryMuscles: [],
+      category: "strength",
+      mechanic: "isolation",
+      aliases: [],
+      versions: Array.from({ length: versions }, (_, i) => ({
+        id: `${id}__v${i}`,
+        equipment: "cable",
+        unilateral: false,
+        measure: "weight_reps",
+        fields: [],
+        aliases: [],
+      })),
+    });
+    // "down" matches no word here, so it is corrected to "dowm" (1 edit).
+    // Push Dowm scores higher (two words, order, staple) but only by the typo;
+    // Pushdown matches exactly, as split words.
+    const tiny = buildSearchCatalog([movement("push_dowm", "Push Dowm", 2), movement("pushdown", "Pushdown", 1)], null);
+    const results = searchExercises(tiny, "push down", 5).results;
+    expect(results.map(idOf)).toEqual(["pushdown", "push_dowm"]);
+    expect(results.map((r) => r.fuzzy)).toEqual([false, true]);
+    expect(results[1].score).toBeGreaterThan(results[0].score);
   });
 });

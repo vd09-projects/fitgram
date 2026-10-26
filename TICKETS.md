@@ -3001,7 +3001,8 @@ Recents, filter menus and "last used" preselection are TICKET-050.
 - [ ] The 91 cases in `search_cases.py` become a Jest table test, rewritten to expect
       movements. Break one rule at a time (prefix → substring, muscle words from
       the name) and watch its cases go red
-- [ ] Every row of the failing table above passes and is a test case
+- [x] Every row of the failing table above passes and is a test case (stage 2,
+      2026-10-27)
 - [ ] Typo tolerance: edit distance 1 for words of 4 or 5 letters, 2 for longer;
       thresholds pinned in a comment. Short words stay exact, or "row" starts
       matching "rod". A fuzzy match always ranks below an exact or prefix match
@@ -3229,6 +3230,59 @@ or after the build reaches phones.
 - **Per keystroke (Node 25, M1 Pro, full catalog, 1,960 keystrokes typing 7
   queries):** median 0.047 ms, p95 0.107 ms, max 0.78 ms. Device: stage 3
 - Not verified: anything on a device; custom exercises against real plans
+
+**Implementation, stage 2: typos, joined and split words (2026-10-27).** All in
+`src/utils/exerciseSearch.ts`; each rule is commented where it is implemented.
+- **Typos only for a word that matched nothing** (not a vocabulary word, not a
+  prefix of any catalog word). Hand-written Damerau-Levenshtein (optimal string
+  alignment: a swap of two letters is 1 edit), with an early stop past the limit.
+  Thresholds as decided: 1–3 letters none, 4–5 one, 6+ two. Compared with the whole
+  word and with its start of the same length, so a typo mid-typing counts ("dumbe"
+  → dumbbell). Only the closest candidates are kept
+- **A correction becomes a vocabulary word only when it is the only candidate**
+  ("dumbell" → dumbbell, which preselects; "incliend" → incline; "cabled" →
+  cable). "squad" is 1 edit from both "squat" and "quad"; turning it into the quads
+  muscle hid Squat, so it matches either word in names instead
+- **A corrected query can be an exact name** ("bech press" = Bench Press, "squad" =
+  Squat), and still counts as fuzzy
+- **Fuzzy results always sort after every exact or prefix result**, whatever their
+  score (sort key first, then score). `fuzzy` is on each result for A4's "Close
+  matches" header (stage 3)
+- **Joined words:** a typed word may run across several name or alias words from
+  a word boundary ("latpulldown" → Lat Pulldown). Boundaries keep "rdl" out of
+  Hurdle
+- **Split words:** only when the words fail one by one, each adjacent pair is
+  tried run together, and must match inside ONE word ("push down" → Pushdown,
+  "kick back" → Kickback). Across words it brought Smith back into "machine
+  squat" through the alias "smith machine squat" (caught by stage 1's test)
+- **Word order:** +2 when the query's name words appear in the name's own order.
+  "low to high fly" now ranks Low-to-High (42) above High-to-Low (40); they tied
+  at 40 in the prototype
+- Custom exercises get typo correction too (name words only)
+- **Negatives, pinned to stage 1's baselines:** "row" 19 results and "curl" 27,
+  same top 5, no result fuzzy. What protects them is "closest candidates only": a
+  word that matches something is 0 edits from itself. The `knownPrefixes` check is a
+  shortcut that skips the dictionary scan; removing it changes no result. "row" is
+  3 letters, so it is never corrected (the "rwo" test)
+- **"rear delts" stays a known failing case**: no stage 2 rule touches it
+- **Tests** (17 new, `exerciseSearch.test.ts` now 117): one case per row of the
+  failing table, plus "bnech press" (swap) and "dumbe bench" (mid-typing); "Cabled"
+  preselects cable on every result; word order; the two negatives; short words
+  exact; fuzzy below exact on a two-movement catalog where the fuzzy one scores
+  higher. Seen red, by breaking: no typo correction (8 red); edits for 3-letter
+  words; no swap; no mid-typing compare; fuzzy not sorted last; no joined words;
+  no split words (4); split matching across words ("machine" test); no order bonus
+  (2); any vocabulary candidate wins ("squad"); no corrected exact ("squad"); early
+  stop one edit too soon (6); correcting matched words and keeping every candidate
+  within the limit (30 red, "curl" among them)
+- **Per keystroke** (Node 25, M1 Pro, full catalog, slang loaded): normal typing
+  (7 queries, 1,960 keystrokes) median 0.18 ms, p95 0.43–0.71 ms; typo typing (8
+  queries from the table, 1,920 keystrokes) median 0.53 ms, p95 1.1–1.2 ms. Stage
+  1 was 0.05 ms median: the joined-word check reads every alias. Max per keystroke
+  varied 1.6–26 ms between identical runs (GC or JIT), so it is not reported as a
+  stable figure. Building the index: 3.6–4 ms (was 2.1, the prefix set). Device:
+  stage 3
+- Not verified: anything on a device
 
 **Dependencies:** TICKET-042. TICKET-041 boards A2–A4.
 

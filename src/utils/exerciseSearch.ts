@@ -187,6 +187,14 @@ type Term = {
   equipment?: EquipmentId[];
   axis?: AxisValue;
   region?: Region;
+  /** Set when the typed word matched nothing and was corrected (stage 2): its edit distance. */
+  typo?: number;
+  /** A corrected plain word: the catalog words it may have meant, all at `typo` edits. */
+  candidates?: string[];
+  /** The corrected spelling, for the exact-name check ("bech press" = "bench press"). */
+  corrected?: string[];
+  /** Two typed words run together (split-word retry): must match inside ONE word. */
+  split?: true;
 };
 
 function termFor(vocab: Vocabulary, key: string): Term {
@@ -221,6 +229,97 @@ function queryTerms(vocab: Vocabulary, query: string): Term[] {
 }
 
 // ---------------------------------------------------------------------------
+// Typos (stage 2). Only for a word that matched NOTHING: not a vocabulary word
+// and not a prefix of any word in the catalog. "row" and "curl" keep exactly
+// their results (19 and 27, the stage 1 baselines) because only the CLOSEST
+// candidates are kept: a word that matches something is 0 edits from itself,
+// so it can only be "corrected" to itself. The `knownPrefixes` check skips the
+// dictionary scan for those words; it is a shortcut, not what protects them
+// (removing it changes no result; keeping every candidate within the limit
+// breaks "curl" and 29 other cases). Rejected: Fuse.js, which scores whole
+// strings and could not hold the thresholds below or keep fuzzy below prefix
+// matches.
+
+/**
+ * Edits allowed for a typed word of this length (TICKET-043, user 2026-10-27):
+ * - 1–3 letters: none. "row" must not start matching "rod" or "bow"
+ * - 4–5 letters: 1 ("bech" → bench, "squad" → squat)
+ * - 6 or more: 2 ("incliend" → incline, "dumbell" needs 1)
+ */
+export function maxTypoEdits(length: number): number {
+  return length <= 3 ? 0 : length <= 5 ? 1 : 2;
+}
+
+/**
+ * Damerau-Levenshtein distance, optimal string alignment variant: insert,
+ * delete, substitute, or swap two adjacent letters ("bnech" → bench is 1).
+ * Stops early once every alignment needs more than `limit` edits and returns
+ * `limit + 1`: it runs over the whole dictionary on a typo, on every keystroke.
+ */
+export function editDistance(a: string, b: string, limit = Infinity): number {
+  let prev2: number[] = [];
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    let rowMin = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      let d = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d = Math.min(d, prev2[j - 2] + 1);
+      row.push(d);
+      rowMin = Math.min(rowMin, d);
+    }
+    if (rowMin > limit) return limit + 1;
+    prev2 = prev;
+    prev = row;
+  }
+  return prev[b.length];
+}
+
+/**
+ * The catalog words a missed word may mean: those at the smallest distance
+ * within its limit. Compared with the whole word and with the word's start of
+ * the same length, so a typo while still typing counts ("dumbe" → dumbbell).
+ */
+function typoCandidates(dictionary: readonly string[], word: string): { words: string[]; distance: number } | null {
+  const limit = maxTypoEdits(word.length);
+  if (limit === 0) return null;
+  let best = limit + 1;
+  let words: string[] = [];
+  for (const candidate of dictionary) {
+    let distance = Math.abs(candidate.length - word.length) <= limit ? editDistance(word, candidate, limit) : Infinity;
+    if (candidate.length > word.length)
+      distance = Math.min(distance, editDistance(word, candidate.slice(0, word.length), limit));
+    if (distance < best) {
+      best = distance;
+      words = [candidate];
+    } else if (distance === best) words.push(candidate);
+  }
+  return best <= limit ? { words, distance: best } : null;
+}
+
+/**
+ * Correct each plain word that matched nothing. When its only candidate is a
+ * vocabulary word, it becomes that word ("dumbell" → equipment dumbbell, which
+ * then preselects; "incliend" → the incline angle). Otherwise it matches any
+ * of its candidates in names and aliases: "squad" is 1 edit from both "squat"
+ * and "quad", and turning it into the quads muscle would hide Squat.
+ */
+function correctTypos(catalog: SearchCatalog, terms: readonly Term[]): Term[] {
+  const { vocabulary, knownPrefixes, dictionary } = catalog;
+  return terms.map((term) => {
+    const plain = !term.muscle && !term.equipment && !term.axis && !term.region && term.words.length === 1;
+    const word = term.words[0];
+    if (!plain || knownPrefixes.has(word)) return term;
+    const found = typoCandidates(dictionary, word);
+    if (!found) return term;
+    if (found.words.length === 1 && isPhrase(vocabulary, found.words[0]))
+      return { ...termFor(vocabulary, found.words[0]), typo: found.distance, corrected: found.words };
+    return { words: [word], candidates: found.words, typo: found.distance, corrected: found.words };
+  });
+}
+
+// ---------------------------------------------------------------------------
 // The searchable catalog, built once per catalog (not per keystroke).
 
 type MovementEntry = {
@@ -228,6 +327,8 @@ type MovementEntry = {
   movement: Movement;
   nameWords: string[];
   aliasWords: string[];
+  /** Each alias (movement and version) as its own word list, for joined words and corrected exact matches. */
+  aliasLists: Array<{ words: string[]; version?: MovementVersion }>;
   name: string;
   aliases: Set<string>;
   /** Normalized version alias → that version, for an exact alias hit. */
@@ -243,7 +344,15 @@ type MovementEntry = {
 
 type CustomEntry = { kind: "custom"; exercise: Exercise; nameWords: string[]; name: string };
 
-export type SearchCatalog = { movements: MovementEntry[]; custom: CustomEntry[]; vocabulary: Vocabulary };
+export type SearchCatalog = {
+  movements: MovementEntry[];
+  custom: CustomEntry[];
+  vocabulary: Vocabulary;
+  /** Every prefix of every searchable word: a typed word in here matched something and is never corrected. */
+  knownPrefixes: Set<string>;
+  /** Every searchable word once, what typos are corrected to. */
+  dictionary: string[];
+};
 
 const UPPER_GROUPS: ReadonlySet<MuscleGroupId> = new Set(["chest", "back", "shoulders", "arms", "neck"]);
 
@@ -257,6 +366,10 @@ function movementEntry(movement: Movement): MovementEntry {
   const versionAliases = new Map<string, MovementVersion>();
   for (const version of movement.versions) for (const alias of version.aliases) versionAliases.set(normalized(alias), version);
   const allAliases = [...movement.aliases, ...movement.versions.flatMap((v) => v.aliases)];
+  const aliasLists = [
+    ...movement.aliases.map((alias) => ({ words: stemmed(alias) })),
+    ...movement.versions.flatMap((version) => version.aliases.map((alias) => ({ words: stemmed(alias), version }))),
+  ];
 
   // Region from primary muscle groups, as in the prototype's `enrich()`:
   // upper only when every primary is upper body, lower only when every one is legs.
@@ -273,6 +386,7 @@ function movementEntry(movement: Movement): MovementEntry {
     movement,
     nameWords: stemmed(movement.name),
     aliasWords: allAliases.flatMap(stemmed),
+    aliasLists,
     name: normalized(movement.name),
     aliases: new Set(movement.aliases.map(normalized)),
     versionAliases,
@@ -322,16 +436,24 @@ export function buildSearchCatalog(
   searchWords: SearchWords | null,
   custom: readonly Exercise[] = []
 ): SearchCatalog {
-  return {
-    vocabulary: buildVocabulary(searchWords),
-    movements: movements.map(movementEntry),
-    custom: custom.map((exercise) => ({
-      kind: "custom",
-      exercise,
-      nameWords: stemmed(exercise.name),
-      name: normalized(exercise.name),
-    })),
-  };
+  const vocabulary = buildVocabulary(searchWords);
+  const entries = movements.map(movementEntry);
+  const customEntries: CustomEntry[] = custom.map((exercise) => ({
+    kind: "custom",
+    exercise,
+    nameWords: stemmed(exercise.name),
+    name: normalized(exercise.name),
+  }));
+
+  const words = new Set<string>();
+  for (const e of entries) for (const w of [...e.nameWords, ...e.aliasWords, ...e.other]) words.add(w);
+  for (const e of customEntries) for (const w of e.nameWords) words.add(w);
+  for (const map of [vocabulary.muscles, vocabulary.equipment, vocabulary.axes, vocabulary.regions, vocabulary.synonyms] as Map<string, unknown>[])
+    for (const key of map.keys()) for (const w of key.split(" ")) words.add(w);
+  const knownPrefixes = new Set<string>();
+  for (const w of words) for (let i = 1; i <= w.length; i++) knownPrefixes.add(w.slice(0, i));
+
+  return { vocabulary, movements: entries, custom: customEntries, knownPrefixes, dictionary: [...words] };
 }
 
 // ---------------------------------------------------------------------------
@@ -346,9 +468,14 @@ export type VersionPick = {
   unilateral?: true;
 };
 
+/**
+ * `fuzzy`: found only through a corrected typo. Fuzzy results always sort after
+ * every other result; the picker heads the list "Close matches" when all are
+ * fuzzy (board A4).
+ */
 export type SearchResult =
-  | { kind: "movement"; movement: Movement; score: number; preselect: VersionPick }
-  | { kind: "custom"; exercise: Exercise; score: number };
+  | { kind: "movement"; movement: Movement; score: number; preselect: VersionPick; fuzzy: boolean }
+  | { kind: "custom"; exercise: Exercise; score: number; fuzzy: boolean };
 
 export type SearchResults = { results: SearchResult[]; total: number };
 
@@ -364,6 +491,8 @@ const SCORE = {
   /** Below an exact name: an alias can be shared by several movements. */
   exactAlias: 25,
   staple: 3,
+  /** Words typed in the name's own order: "low to high fly" → Low-to-High, not High-to-Low. */
+  order: 2,
 } as const;
 
 /**
@@ -379,6 +508,27 @@ const CATEGORY_RANK: Record<CategoryId, number> = Object.fromEntries(
 /** Word-PREFIX, not substring: substring made "rdl" match HuRDLe Hop. Prefixes keep "bulg" working. */
 const prefixOf = (word: string, list: readonly string[]): boolean => list.some((w) => w.startsWith(word));
 const allPrefix = (term: Term, list: readonly string[]): boolean => term.words.every((w) => prefixOf(w, list));
+
+/**
+ * Where a typed word matches in a word list: a prefix of one word, or JOINED
+ * words, a prefix of several words run together from a word boundary
+ * ("latpulldown" → Lat Pulldown). Boundaries still hold, so "rdl" never
+ * matches inside HuRDLe. -1 = no match.
+ */
+function wordAt(word: string, list: readonly string[], joined = true): number {
+  for (let i = 0; i < list.length; i++) {
+    if (list[i].startsWith(word)) return i;
+    if (!joined) continue;
+    if (word.length > list[i].length && word.startsWith(list[i]) && list.slice(i).join("").startsWith(word)) return i;
+  }
+  return -1;
+}
+
+/** Index of the term's first word in the list, or -1 unless every word matches. */
+function termAt(term: Term, list: readonly string[]): number {
+  const at = term.words.map((w) => wordAt(w, list, !term.split));
+  return at.every((i) => i >= 0) ? at[0] : -1;
+}
 
 const hasEquipment = (m: Movement, ids: readonly EquipmentId[]) => m.versions.some((v) => ids.includes(v.equipment));
 const hasAxis = (m: Movement, a: AxisValue) =>
@@ -399,24 +549,38 @@ const hasAxis = (m: Movement, a: AxisValue) =>
  * 4 by how the movement happens to be named. Aliases are not read for these
  * words either, for the same reason: version aliases spell equipment unevenly.
  */
-function scoreTerm(entry: MovementEntry, term: Term): number | null {
+type Match = { score: number; typo: number; nameAt?: number };
+const hit = (score: number, typo = 0, nameAt?: number): Match => ({ score: score - typo, typo, nameAt });
+
+function scoreTerm(entry: MovementEntry, term: Term): Match | null {
   const m = entry.movement;
+  const typo = term.typo ?? 0;
   if (term.muscle) {
     const { exact, broad } = term.muscle;
-    if (exact.includes(entry.firstPrimary)) return SCORE.firstPrimary;
-    if ([...entry.primary].some((x) => exact.includes(x) || broad.includes(x))) return SCORE.otherPrimary;
-    if ([...entry.secondary].some((x) => exact.includes(x) || broad.includes(x))) return SCORE.secondary;
+    if (exact.includes(entry.firstPrimary)) return hit(SCORE.firstPrimary, typo);
+    if ([...entry.primary].some((x) => exact.includes(x) || broad.includes(x))) return hit(SCORE.otherPrimary, typo);
+    if ([...entry.secondary].some((x) => exact.includes(x) || broad.includes(x))) return hit(SCORE.secondary, typo);
     return null;
   }
   if (term.equipment || term.axis) {
     const has = term.equipment ? hasEquipment(m, term.equipment) : hasAxis(m, term.axis!);
-    if (has) return SCORE.other;
-    return allPrefix(term, entry.nameWords) ? SCORE.name : null;
+    if (has) return hit(SCORE.other, typo);
+    const at = termAt(term, entry.nameWords);
+    return at >= 0 ? hit(SCORE.name, typo, at) : null;
   }
-  if (allPrefix(term, entry.nameWords)) return SCORE.name;
-  if (term.region) return entry.regions.has(term.region) ? SCORE.other : null;
-  if (allPrefix(term, entry.aliasWords)) return SCORE.alias;
-  if (term.words.length === 1 && entry.other.has(term.words[0])) return SCORE.other;
+  const at = termAt(term, entry.nameWords);
+  if (at >= 0) return hit(SCORE.name, 0, at);
+  if (term.region) return entry.regions.has(term.region) ? hit(SCORE.other) : null;
+  if (term.split ? allPrefix(term, entry.aliasWords) : entry.aliasLists.some((a) => termAt(term, a.words) >= 0) || allPrefix(term, entry.aliasWords))
+    return hit(SCORE.alias);
+  if (term.words.length === 1 && entry.other.has(term.words[0])) return hit(SCORE.other);
+  // A corrected word, last: it matches whole catalog words only.
+  for (const c of term.candidates ?? []) {
+    const i = entry.nameWords.indexOf(c);
+    if (i >= 0) return hit(SCORE.name, typo, i);
+  }
+  for (const c of term.candidates ?? []) if (entry.aliasWords.includes(c)) return hit(SCORE.alias, typo);
+  for (const c of term.candidates ?? []) if (entry.other.has(c)) return hit(SCORE.other, typo);
   return null;
 }
 
@@ -472,32 +636,83 @@ export function versionHas(v: MovementVersion, pick: VersionPick): boolean {
 
 type Scored = { result: SearchResult; category: number; isolation: number; name: string };
 
-function scoreMovement(entry: MovementEntry, query: string, terms: readonly Term[]): Scored | null {
-  const exactVersion = entry.versionAliases.get(query);
-  const exact =
-    query === entry.name ? SCORE.exactName : entry.aliases.has(query) || exactVersion ? SCORE.exactAlias : 0;
+type TermsMatch = { score: number; fuzzy: boolean; nameAts: number[] };
 
-  let score = exact;
-  let ok = true;
+function matchTerms(entry: MovementEntry, terms: readonly Term[]): TermsMatch | null {
+  let score = 0;
+  let fuzzy = false;
+  const nameAts: number[] = [];
   for (const term of terms) {
-    const s = scoreTerm(entry, term);
-    if (s === null) {
-      ok = false;
-      break;
-    }
-    score += s;
+    const match = scoreTerm(entry, term);
+    if (!match) return null;
+    score += match.score;
+    fuzzy ||= match.typo > 0;
+    if (match.nameAt !== undefined) nameAts.push(match.nameAt);
   }
+  return { score, fuzzy, nameAts };
+}
+
+/**
+ * SPLIT words: when the words fail one by one, try each adjacent pair run
+ * together ("push down" → Pushdown, "kick back" → Kickback). Only on failure,
+ * so a query that already matches keeps its meaning ("pull down" is "pull" +
+ * "down"). The pair becomes a plain word, matched by name and alias.
+ */
+function matchWithSplitWords(entry: MovementEntry, terms: readonly Term[]): TermsMatch | null {
+  const direct = matchTerms(entry, terms);
+  if (direct) return direct;
+  for (let i = 0; i + 1 < terms.length; i++) {
+    // Inside one word only: across words it would be the two words again, and
+    // "machine squat" would find Squat through its alias "smith machine squat".
+    const joined: Term = { words: [terms[i].words.join("") + terms[i + 1].words.join("")], split: true };
+    const match = matchTerms(entry, [...terms.slice(0, i), joined, ...terms.slice(i + 2)]);
+    if (match) return match;
+  }
+  return null;
+}
+
+/**
+ * The query, corrected, equals this word list exactly: each position is the
+ * word typed, or for a corrected word one of its corrections. Lets "bech
+ * press" count as the exact name Bench Press, and "squad" as Squat.
+ */
+function exactCorrected(terms: readonly Term[], words: readonly string[]): boolean {
+  const positions = terms.flatMap((t) => (t.corrected && t.candidates ? [t.corrected] : (t.corrected ?? t.words).map((w) => [w])));
+  return positions.length === words.length && positions.every((options, i) => options.includes(words[i]));
+}
+
+function scoreMovement(entry: MovementEntry, query: string, terms: readonly Term[]): Scored | null {
+  const corrected = terms.some((t) => t.typo);
+  let exactVersion = entry.versionAliases.get(query);
+  let exact =
+    query === entry.name ? SCORE.exactName : entry.aliases.has(query) || exactVersion ? SCORE.exactAlias : 0;
+  if (!exact && corrected) {
+    const alias = entry.aliasLists.find((a) => exactCorrected(terms, a.words));
+    exactVersion = alias?.version;
+    exact = exactCorrected(terms, entry.nameWords) ? SCORE.exactName : alias ? SCORE.exactAlias : 0;
+  }
+
+  const match = matchWithSplitWords(entry, terms);
   // AN EXACT NAME OR ALIAS IS ALWAYS A RESULT. "grip" is a muscle word
   // (forearms), so "neutral grip fly" returned nothing until this rule.
-  if (!ok && exact) {
-    ok = true;
-    score = exact;
-  }
-  if (!ok || score === 0) return null;
+  if (!match && !exact) return null;
+  let score = exact + (match?.score ?? 0);
+  if (score === 0) return null;
+  // ORDER: name words typed in the name's own order. "low to high fly" scored
+  // 40 for both Low-to-High and High-to-Low Cable Fly in the prototype.
+  const at = match?.nameAts ?? [];
+  if (at.length >= 2 && at.every((i, k) => k === 0 || i > at[k - 1])) score += SCORE.order;
   if (entry.staple) score += SCORE.staple;
+  const fuzzy = corrected && (match ? match.fuzzy || exact > 0 : true);
 
   return {
-    result: { kind: "movement", movement: entry.movement, score, preselect: preselectFor(entry, terms, exactVersion) },
+    result: {
+      kind: "movement",
+      movement: entry.movement,
+      score,
+      preselect: preselectFor(entry, terms, exactVersion),
+      fuzzy,
+    },
     category: CATEGORY_RANK[entry.movement.category],
     isolation: entry.movement.mechanic === "isolation" ? 1 : 0,
     name: entry.movement.name,
@@ -511,10 +726,16 @@ function scoreMovement(entry: MovementEntry, query: string, terms: readonly Term
  * no staple. Ties put it after the catalog (category rank past every category).
  */
 function scoreCustom(entry: CustomEntry, query: string, terms: readonly Term[]): Scored | null {
-  if (!terms.every((t) => allPrefix(t, entry.nameWords))) return null;
-  const score = terms.length * SCORE.name + (query === entry.name ? SCORE.exactName : 0);
+  let fuzzy = false;
+  for (const t of terms) {
+    if (termAt(t, entry.nameWords) >= 0) continue;
+    if (!t.candidates?.some((c) => entry.nameWords.includes(c))) return null;
+    fuzzy = true;
+  }
+  const exact = query === entry.name || (terms.some((t) => t.typo) && exactCorrected(terms, entry.nameWords));
+  const score = terms.length * SCORE.name + (exact ? SCORE.exactName : 0);
   return {
-    result: { kind: "custom", exercise: entry.exercise, score },
+    result: { kind: "custom", exercise: entry.exercise, score, fuzzy: fuzzy || (exact && query !== entry.name) },
     category: Object.keys(CATEGORY_RANK).length,
     isolation: 0,
     name: entry.exercise.name,
@@ -522,8 +743,8 @@ function scoreCustom(entry: CustomEntry, query: string, terms: readonly Term[]):
 }
 
 /**
- * Search the catalog. Results are one row per movement, best first:
- * score, then category (strength first), then compound before isolation (a
+ * Search the catalog. Results are one row per movement, best first: every
+ * exact or prefix match before any fuzzy one (stage 2), then score, then category (strength first), then compound before isolation (a
  * search for a muscle wants the main lift before its accessories: "db
  * shoulders" lists Shoulder Press before Front Raise; added 2026-10-27), then
  * name A–Z. `total` counts every
@@ -535,7 +756,7 @@ function scoreCustom(entry: CustomEntry, query: string, terms: readonly Term[]):
  * keystroke.
  */
 export function searchExercises(catalog: SearchCatalog, query: string, limit: number): SearchResults {
-  const terms = queryTerms(catalog.vocabulary, query);
+  const terms = correctTypos(catalog, queryTerms(catalog.vocabulary, query));
   if (terms.length === 0) return { results: [], total: 0 };
   const q = normalized(query);
 
@@ -550,6 +771,7 @@ export function searchExercises(catalog: SearchCatalog, query: string, limit: nu
   }
   scored.sort(
     (a, b) =>
+      Number(a.result.fuzzy) - Number(b.result.fuzzy) ||
       b.result.score - a.result.score ||
       a.category - b.category ||
       a.isolation - b.isolation ||
