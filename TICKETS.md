@@ -41,10 +41,8 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
-| 042 | Exercise catalog: movements with versions, loaded into the app | Large | **Stage 1 done. Stage 2 in PR #22:** wipe and upload done 2026-10-26, device checks passed 2026-10-27, debug screen removed. **Left: rules deploy** (drops `predefined_exercises`, still in the console), run by the user. An app build with 046's vocabulary must be on phones before the first upload. Movement first; history stays per version; catalog in Firestore, cached |
 | 043 | Find an exercise: search by muscle, typos, movement-first picker | Large | Ports the prototype and its 91 cases; "Latpulldown", "squad", "bech press" return 0 today |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap. Storage: per-plan copies today, library undecided |
-| 046 | Build the real catalog: movements and versions | Large | **Done, pending merge** (2026-10-25): 489 movements, 805 versions, all 878 research entries accounted for. Unblocks 042 stage 2 |
 | 047 | Switch an exercise's version mid-workout | Medium | Deferred 2026-10-24. For this workout only; the plan keeps its version |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
 
@@ -2362,12 +2360,12 @@ needs it, built against the chosen board.
 
 ### TICKET-042: Exercise Catalog — Movements with Versions, Loaded into the App
 
-**Priority:** Medium | **Effort:** Large | **Status: IN REVIEW** — open decisions
-settled 2026-10-24; stage 1 in PR #20; stage 2 in PR #22: 2A (808d490), 2B
-(b584798), 2C (c96b510), rules reconciled (000fcac). Wipe and catalog upload done
-2026-10-26 (version 889393c5…, `predefined_exercises` gone); device checks passed
-2026-10-27; Catalog debug screen removed. Left: the rules deploy (landing step
-5), run by the user after the removal commit
+**Priority:** Medium | **Effort:** Large | **Status: DONE** — open decisions
+settled 2026-10-24; stage 1 merged in PR #20; stage 2 merged in PR #22 (e230264):
+2A (808d490), 2B (b584798), 2C (c96b510), rules reconciled (000fcac), debug screen
+removed (7007ad0). Wipe and catalog upload done 2026-10-26 (version 889393c5…,
+`predefined_exercises` gone); device checks passed 2026-10-27; rules deployed
+2026-10-27, so the console now matches `firestore.rules`
 
 **Description:**
 Replace today's 42 exercises (`src/scripts/uploadExercises.ts`) with the research
@@ -2805,7 +2803,9 @@ rule is already live); the deploy moves after the wipe, where it removes
    `predefined_exercises` goes. ~~Run between the wipe and the upload~~ **Not run
    in the landing (2026-10-27): the console still has the `predefined_exercises`
    block.** Harmless meanwhile (its docs are wiped; no build reads them). The
-   user deploys it after the debug-screen removal commit
+   user deploys it after the debug-screen removal commit. **Deployed 2026-10-27**
+   after PR #22 merged, as the project owner (the admin service account gets a 403
+   on deploys: it lacks `serviceusage.services.get`)
 6. `npx tsx src/scripts/uploadCatalog.ts --dry-run` (489 movements, 805 versions, 26.9%)
 7. `npx tsx src/scripts/uploadCatalog.ts`
 8. Device checks on the Catalog debug screen: first start after upload meta 1 ·
@@ -3275,8 +3275,9 @@ version, a session never compares across grips, so none of this is built. Boards
 
 ### TICKET-046: Build the Real Catalog — Movements and Versions
 
-**Priority:** Medium | **Effort:** Large | **Status: DONE, pending merge** — added
-2026-10-24; open questions settled and all 5 stages built and reviewed 2026-10-25
+**Priority:** Medium | **Effort:** Large | **Status: DONE** — added
+2026-10-24; open questions settled and all 5 stages built and reviewed 2026-10-25;
+merged in PR #21 (67d1a19)
 
 **Description:**
 The research catalog (`research/exercise-catalog/`, 878 flat entries) was built to
@@ -4010,11 +4011,10 @@ it) once 046's content exists. Phase 3B; research is in
 
 ```
 1. TICKET-042  stage 1 (Catalog shape)    — Done: types, id/name rules, loader
-2. TICKET-046  (Real catalog content)      — Done, pending merge: 489 movements, 805 versions
-3. TICKET-042  stage 2 (App reads catalog) — Next. Firestore + cache, name sites,
-                                             test-data wipe. Build with 046's vocabulary
-                                             on phones before the first upload
-4. TICKET-043  (Search + picker)           — After 042; picker built from 041 boards A
+2. TICKET-046  (Real catalog content)      — Done (PR #21): 489 movements, 805 versions
+3. TICKET-042  stage 2 (App reads catalog) — Done (PR #22, 2026-10-27): Firestore + cache,
+                                             name sites, test-data wipe, rules deployed
+4. TICKET-043  (Search + picker)           — Next; picker built from 041 boards A
 ```
 
 **Then the next three, decided.** They are what makes logging an exercise match what
