@@ -3587,6 +3587,100 @@ sheet preselects the version used last.
   6 ids 0.083 ms Hermes; search under Chest + Dumbbell p95 0.50 ms Hermes (fewer
   movements scored than unfiltered, 5.5 ms)
 - **Not in stage 1:** the shared sessions store and every UI part (stage 2)
+- **Stage 1 review (user, 2026-10-27):** approved; committed `4ad4d10`. The
+  `matchesFilters` comment said no version's own primaries put it in another group;
+  false. 19 versions across 8 movements do (bench_press 5, clean 4, push_up 3,
+  push_press 2, snatch 2, hang_clean 1, lat_pulldown 1, rear_delt_row 1; the
+  review's list said bench_press 4, which sums to 18). The rule stays (movement
+  primaries only, D4), on purpose; comment corrected
+
+**Implementation, stage 2: the UI (2026-10-27).**
+- **Deviation from D0, stated: no shared store.** Manage Workout calls Start's
+  own `useRecentSessions` hook instead. Sharing Start's result through a store went
+  stale: a workout that uploads while Start is not mounted leaves the pending
+  queue, Start never refetches, and Recent missed the newest workout. The hook
+  refetches each time Manage Workout comes into view and when an upload lands. Cost:
+  one 20-doc query per Manage Workout open, even right after Start. Every D0
+  condition holds: **Start's code and tests are unchanged** (0 diff lines; its 6
+  tests pass), one query per open and none per picker open or keystroke (tested),
+  and no Recent while the query is pending or failed. The scope growth stated for
+  D0 (touching Start's query) did not happen
+- `ExercisePicker`: empty query, no filter: **Recent**, then **All exercises** A–Z
+  (D1); no history known: "Exercises" A–Z alone. Recent row: name, then
+  "Barbell, close grip · 22 Oct"; the date alone for a one-version movement, which
+  is added at once or reads "In plan" (disabled); custom "Custom · 22 Oct". The
+  filter row sits above the search box (D2); any filter hides Recent and filters
+  A–Z (D3) or ANDs with the query; "Every filter has to match" when nothing does.
+  Android back closes the version sheet, then a filter sheet, then the picker
+- `FilterMenus.tsx` (new): three buttons (Muscle / Equipment / Type), each
+  showing its value when set; each opens a list with Any first
+- **An Equipment filter opens the sheet without last used** (user, 2026-10-27): it
+  counts as typed equipment (D4), and anything typed wins outright (D7). Filter
+  Dumbbell, tap Bench Press: Dumbbell, flat, normal grip, not last-used Barbell
+- `VersionSheet`: last used preselected wherever the sheet opens (D8). **"last"
+  marks only values that are not the default**, as board VersionRecent does
+  (Barbell and Close marked, Flat not); a default says nothing about what was
+  logged. The chip's accessibility label adds ", last used"
+- **Board VersionRecent's lines:** "Last logged: Barbell, close grip, 22 Oct", the
+  same words as the Recent row (`versionDetail`), not "Barbell, flat, close
+  grip" (deviation). ~~Without the board's second sentence ("… is already in this
+  plan"): the disabled chips and Add say it~~ **Wrong, caught on the device
+  (user, 2026-10-27):** a last-used Dumbbell decline already in the plan showed
+  greyed, marked "last", with no reason; a disabled chip looks the same as a
+  combination that does not exist, and Add says "Already in this plan" only when
+  every version of the chosen values is. Now the sheet says "In this plan:
+  Dumbbell, decline" (every version of the movement in the plan) whenever there is
+  one, as the board does. Test: `ExercisePicker.test.tsx`'s in-plan case asserts
+  the line, seen red
+- **Tests (5 new UI, each seen red; 10 single-line breaks, all red):**
+  `ExercisePicker.test.tsx` (4): Recent rows, one-version add / In plan, All
+  exercises, no history; the sheet on last used with marks; Chest + Dumbbell
+  filtering, AND with "press", Recent hidden, the sheet on Dumbbell.
+  `AddExerciseScreen.test.tsx` (1): Recent through the real hook, and one sessions
+  query across an open, a picker open, a keystroke and a reopen (red when the
+  picker open triggered a refetch). One stage 1 sheet assertion added: Flat is not
+  marked. The filter test first asserted "floor" did not list Bench Press, which no
+  bug could break; now "press" without Overhead Press
+- **Benchmark:** passes (open 1.00× Hermes, search p95 0.93–1.00×). The picker's
+  open path is unchanged; recents are built in Manage Workout when sessions
+  arrive (0.08 ms Hermes, stage 1)
+- **Not verified:** a device; rendering time with Recent above the list; the real
+  Firestore query from Manage Workout (mocked in Jest); the tour (TICKET-053: the
+  filter row and filter sheet have no tour steps). `useRecentSessions`'s failure
+  warning still says "plans show no last-done date", now also logged from Manage
+  Workout; left as is to keep Start's code untouched
+
+**Stage 2 device test plan (user runs, CLAUDE.md 1.3).** Build from this branch.
+1. **Log one workout** (history is empty since the 2026-10-26 wipe): Start a plan,
+   log at least one set of Bench Press · Barbell, close grip (add it to the plan
+   first if needed) and one set of a one-version exercise (Pec Deck), Finish
+2. **Recent, before upload:** stay offline (airplane mode) → Manage Workout →
+   Exercise. Either no Recent and the A–Z list (the sessions query failed), or
+   Recent with the just-logged workout in it (Firestore answered from its offline
+   cache, and the pending workout merged in). Not checked which this app's
+   Firestore setup does; **note which you see**. Wrong in both cases: Recent with
+   only some of the logged exercises
+3. **Recent, online:** back online, wait for the upload → leave and reopen Manage
+   Workout → Exercise: **Recent** lists Bench Press "Barbell, close grip · <today>"
+   and Pec Deck "<today>", newest first, then **All exercises** A–Z. Recent shows
+   without a visible delay (note one if it pops in)
+4. **The sheet preselects:** tap Bench Press under Recent: Barbell and Close are
+   selected and say "last", Flat is selected without "last"; the line reads "Last
+   logged: Barbell, close grip, <today>". Tap Dumbbell: Grip goes back to Normal.
+   Close
+5. **Query wins:** type "db bench" → Bench Press: Dumbbell selected, not Barbell;
+   Barbell still says "last". Clear the box
+6. **One-version recent:** choose a plan that has Pec Deck: its Recent row reads
+   "In plan" and does nothing. In a plan without it, tapping adds it at once
+7. **Filters:** Muscle → Chest, Equipment → Dumbbell: Recent disappears; only
+   chest dumbbell movements remain (Bench Press, Floor Press, Chest Fly…; no
+   Overhead Press, no Pec Deck). Type "press": Bench Press and Floor Press, no
+   Overhead Press. Tap Bench Press: Dumbbell is selected (not last-used Barbell).
+   Set Muscle back to Any and Equipment to Any: Recent returns
+8. **Android back:** with a filter list open, back closes it; again closes the
+   picker
+9. **Start unchanged:** Start Workout lists plans with their last-done dates as
+   before
 
 **Dependencies:** TICKET-043.
 

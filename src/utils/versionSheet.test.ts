@@ -106,6 +106,7 @@ test("last used preselects that version, marks it, and gives way to the query an
   const opened = initialSheet(bench, {}, NONE, last);
   expect(selectedVersion(bench, opened, NONE)?.id).toBe(last.id);
   expect(option(bench, opened, "grip", "close")?.last).toBe(true);
+  expect(option(bench, opened, "angle", "flat")?.last).toBe(false); // a default: not marked (board VersionRecent)
   // Soft, not chosen: nothing is disabled for it.
   expect(option(bench, opened, "equipment", "dumbbell")?.enabled).toBe(true);
   // Picking other equipment gives that equipment's own defaults, not Barbell's grip.

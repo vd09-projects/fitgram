@@ -30,6 +30,9 @@ import { planExerciseFromPick } from '../../utils/catalog';
 import { customExercisesFromPlans } from '../../utils/exerciseSearch';
 import ExercisePicker from '../../components/exercise_picker/ExercisePicker';
 import { preparePicker } from '../../utils/pickerData';
+import { useRecentSessions } from '../../hooks/useRecentSessions';
+import { useWorkoutStore } from '../../stores/useWorkoutStore';
+import { buildRecentHistory } from '../../utils/recents';
 import { TouchableOpacityBase } from '../../components/TouchableOpacityBase';
 import { makeStepId } from '../../tour_steps/utils';
 import { SEARCHABLE_INPUT_STEP_NAMES } from '../../tour_steps/commonStepNames';
@@ -59,6 +62,21 @@ export default function AddExerciseScreen() {
   const inPlan = useMemo(
     () => new Set((selectedWorkout?.value?.exercises ?? []).map((e) => e.id)),
     [selectedWorkout]
+  );
+
+  // The picker's Recent and last-used versions (TICKET-050). The same hook as
+  // Start: one recent-sessions query each time Manage Workout comes into view
+  // or an upload lands, none per picker open or keystroke. Rejected (after
+  // approval, 2026-10-27): sharing Start's result through a store, which went
+  // stale when a workout uploaded while Start was not mounted, so Recent
+  // missed it. Null until the query returns, or after it fails: no Recent.
+  const uid = user?.uid;
+  const pendingUploads = useWorkoutStore((s) => s.pendingUploads);
+  const myPendingCount = pendingUploads.filter((entry) => entry.uid === uid).length;
+  const sessions = useRecentSessions(uid, myPendingCount);
+  const recentHistory = useMemo(
+    () => (catalog ? buildRecentHistory(sessions, pendingUploads, uid, catalog.index, customExercises) : null),
+    [catalog, sessions, pendingUploads, uid, customExercises]
   );
 
   // Build the picker's search catalog and A–Z list once the screen has
@@ -242,6 +260,7 @@ export default function AddExerciseScreen() {
           searchWords={searchWords?.words ?? null}
           customExercises={customExercises}
           inPlan={inPlan}
+          recentHistory={recentHistory}
           onPick={handlePick}
           onClose={() => setPickerOpen(false)}
           tourStepPrefix={MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_PICKER}

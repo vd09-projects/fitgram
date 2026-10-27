@@ -34,11 +34,14 @@ export function axisValue(version: MovementVersion, axis: Axis): string {
 /** Defaults that start selected (user, 2026-10-27): Angle and Grip, and Side. Equipment and Attachment start empty. */
 const START: Partial<Record<Axis, string>> = { angle: "flat", grip: "normal", side: "both" };
 
+/** The value a version has when the axis is left out (`axisValue`). Equipment has none. */
+const DEFAULT_VALUE: Partial<Record<Axis, string>> = { angle: "flat", grip: "normal", attachment: "none", side: "both" };
+
 export type SheetState = {
   values: Partial<Record<Axis, string>>;
   /** Axes the user tapped or the query named. Others are soft: they move when they stop fitting. */
   chosen: Axis[];
-  /** The version last logged (TICKET-050), or null. Its values are marked "last". */
+  /** The version last logged (TICKET-050), or null. Its values other than defaults are marked "last". */
   lastUsed: MovementVersion | null;
   /** Whether soft axes start from `lastUsed` instead of the defaults. See `initialSheet`. */
   followLast: boolean;
@@ -191,7 +194,10 @@ export function sheetRows(movement: Movement, state: SheetState, inPlan: Readonl
         value,
         label: optionLabel(movement, axis, value),
         enabled: pool.some((v) => axisValue(v, axis) === value && fits(v, state.values, others)),
-        last: !!state.lastUsed && axisValue(state.lastUsed, axis) === value,
+        // Board VersionRecent: "last" on Barbell and Close, not on Flat. A
+        // default says nothing about what was logged; the line under the rows
+        // spells the whole version.
+        last: !!state.lastUsed && axisValue(state.lastUsed, axis) === value && value !== DEFAULT_VALUE[axis],
       })),
     });
   }

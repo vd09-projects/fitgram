@@ -1,21 +1,35 @@
 // TICKET-043 stage 3: the picker's main behaviours, on the real catalog and
-// search words. The sheet's rules are tested as pure functions in
+// search words. TICKET-050 stage 2: the start page (Recent), filters and the
+// version used last. The sheet's rules are tested as pure functions in
 // utils/versionSheet.test.ts; these check the screen wires them up.
 
 import React from "react";
 import { TextInput } from "react-native";
-import { fireEvent, screen } from "@testing-library/react-native";
+import { fireEvent, screen, within } from "@testing-library/react-native";
 import { CATALOG } from "../../catalog";
 import { SEARCH_WORDS } from "../../catalog/searchWords";
 import { renderScreen } from "../../test/renderScreen";
 import type { Exercise } from "../../types/workoutType";
-import { planExerciseForVersion } from "../../utils/catalog";
+import type { WorkoutSessionDoc } from "../../types/workoutSession";
+import { buildCatalogIndex, planExerciseForVersion } from "../../utils/catalog";
 import { preparePicker } from "../../utils/pickerData";
+import { buildRecentHistory, recentDateLabel, type RecentHistory } from "../../utils/recents";
 import ExercisePicker from "./ExercisePicker";
 
 const bench = CATALOG.find((m) => m.id === "bench_press")!;
+const closeGrip = bench.versions.find((v) => v.id === "bench_press__barbell__close_grip")!;
 
-function renderPicker(inPlan: string[] = [], customExercises: Exercise[] = []) {
+/** One logged workout: close-grip bench and the pec deck, two days ago. */
+const LOGGED_AT = Date.now() - 2 * 86_400_000;
+const history = (): RecentHistory => {
+  const session: WorkoutSessionDoc = {
+    sessionId: "s1", workoutId: "push", workoutName: "Push", startedAt: LOGGED_AT, endedAt: LOGGED_AT + 1,
+    exerciseIds: [closeGrip.id, "pec_deck__machine"], rollupPending: false,
+  };
+  return buildRecentHistory([session], [], "me", buildCatalogIndex(CATALOG), [])!;
+};
+
+function renderPicker(inPlan: string[] = [], customExercises: Exercise[] = [], recentHistory: RecentHistory | null = null) {
   const onPick = jest.fn();
   const plan = new Set(inPlan);
   renderScreen(() => (
@@ -24,6 +38,7 @@ function renderPicker(inPlan: string[] = [], customExercises: Exercise[] = []) {
       searchWords={SEARCH_WORDS}
       customExercises={customExercises}
       inPlan={plan}
+      recentHistory={recentHistory}
       onPick={onPick}
       onClose={jest.fn()}
     />
@@ -69,6 +84,7 @@ describe("ExercisePicker", () => {
     type("incline db bench");
     fireEvent.press(screen.getByText("Bench Press"));
     expect(screen.getByLabelText("Angle Incline").props.accessibilityState).toMatchObject({ disabled: true });
+    expect(screen.getByText("In this plan: Dumbbell, incline")).toBeTruthy(); // why it is disabled
     fireEvent.press(screen.getByText("Already in this plan"));
     expect(onPick).not.toHaveBeenCalled();
   });
@@ -81,6 +97,62 @@ describe("ExercisePicker", () => {
     expect(screen.getByText("Exercises")).toBeTruthy();
     type("zzzz qqqq");
     expect(screen.getByText("No exercise matches")).toBeTruthy();
+  });
+
+  it("before typing: Recent with the combination and date, then All exercises; a one-version recent adds at once or reads In plan; no history, A–Z", () => {
+    const date = recentDateLabel(LOGGED_AT, Date.now());
+    const onPick = renderPicker([], [], history());
+    expect(screen.getByText("Recent")).toBeTruthy();
+    expect(screen.getByText(`Barbell, close grip · ${date}`)).toBeTruthy();
+    expect(screen.getByText("All exercises")).toBeTruthy();
+    fireEvent.press(screen.getByText(date)); // Pec Deck: one version, its row shows the date only
+    const pecDeck = CATALOG.find((m) => m.id === "pec_deck")!;
+    expect(onPick).toHaveBeenCalledWith(planExerciseForVersion(pecDeck, pecDeck.versions[0]));
+
+    screen.unmount();
+    const blocked = renderPicker(["pec_deck__machine"], [], history());
+    expect(screen.getByText("In plan")).toBeTruthy();
+    fireEvent.press(screen.getByText(date));
+    expect(blocked).not.toHaveBeenCalled();
+
+    // No history known (query pending or failed): no Recent, the A–Z list.
+    screen.unmount();
+    renderPicker([], [], null);
+    expect(screen.queryByText("Recent")).toBeNull();
+    expect(screen.getByText("Exercises")).toBeTruthy();
+  });
+
+  it("a recent opens its sheet on the version used last, marked last except on defaults", () => {
+    const onPick = renderPicker([], [], history());
+    fireEvent.press(screen.getByText("Bench Press"));
+    expect(screen.getByLabelText("Equipment Barbell, last used").props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.getByLabelText("Grip Close, last used").props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.getByLabelText("Angle Flat").props.accessibilityState).toMatchObject({ selected: true }); // default: no "last"
+    expect(screen.getByText(`Last logged: Barbell, close grip, ${recentDateLabel(LOGGED_AT, Date.now())}`)).toBeTruthy();
+    fireEvent.press(screen.getByText("Add Bench Press · Barbell, close grip"));
+    expect(onPick).toHaveBeenCalledWith(planExerciseForVersion(bench, closeGrip));
+  });
+
+  it("Chest + Dumbbell: Recent goes, only matching movements remain, ANDed with a query; the sheet opens on Dumbbell", () => {
+    renderPicker([], [], history());
+    fireEvent.press(screen.getByLabelText("Muscle filter"));
+    fireEvent.press(screen.getByText("Chest"));
+    fireEvent.press(screen.getByLabelText("Equipment filter"));
+    fireEvent.press(within(screen.getByTestId("filter-sheet")).getByText("Dumbbell"));
+
+    expect(screen.queryByText("Recent")).toBeNull();
+    expect(screen.getByText("Floor Press")).toBeTruthy();
+    expect(screen.queryByText("Overhead Press")).toBeNull(); // chest is secondary there
+    expect(screen.queryByText("Pec Deck (Machine Fly)")).toBeNull(); // chest, no dumbbell
+
+    type("press"); // unfiltered, this lists Overhead Press first
+    expect(screen.getByText("Bench Press")).toBeTruthy();
+    expect(screen.queryByText("Overhead Press")).toBeNull();
+
+    type("");
+    fireEvent.press(screen.getByText("Bench Press"));
+    // The filter counts as typed equipment, so last used (Barbell) does not apply.
+    expect(screen.getByLabelText("Equipment Dumbbell").props.accessibilityState).toMatchObject({ selected: true });
   });
 
   it("builds the search catalog once per catalog, words and custom list, not once per open", () => {
