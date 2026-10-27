@@ -3506,6 +3506,88 @@ sheet preselects the version used last.
   A1b, muscle groups as chips in view, which made muscle one tap instead of two but
   cost a second row.
 
+**Facts checked before code (2026-10-27):**
+- **No existing source is complete and ready when Manage Workout opens.** The
+  history cache (`useExerciseHistoryStore`) holds only the exercises of plans
+  selected or started this run, and saving a workout drops them. Start's
+  `useRecentSessions` (newest 20 sessions, `exerciseIds` + `startedAt`) is local to
+  Start, and Manage Workout is reachable without Start. `pendingUploads` holds
+  finished workouts not uploaded yet
+- An exerciseId is a version id: `LoadedCatalog.index` maps it to movement and
+  version with no read. An id no longer in the catalog, or a custom one, is not in
+  it; custom names come from the user's plans only (session docs carry ids)
+- `initialSheet` could not take a last-used version: a `VersionPick` makes every
+  axis chosen, which disables options, and `settle` restarted soft axes from fixed
+  defaults
+
+**Decisions (user, 2026-10-27), before code:**
+- **D0, the source:** Start's recent-sessions query moves into a shared store
+  (**scope growth, stated:** Start's own query is touched). Start behaves exactly
+  as today (reloads on focus and when an upload lands; its tests unchanged).
+  Manage Workout reads it once per open, never per picker open or keystroke.
+  Pending workouts of this user are merged in. While the query has not returned or
+  failed: no Recent section (pending ones are not shown alone), A–Z still shows.
+  Rejected: the history cache (incomplete, cleared on save); a new on-phone log (a
+  new source, lost on reinstall); `exercise_stats` by `lastPerformedAt` (deeper,
+  but bigger docs and lags the rollup)
+- **Known gap: 20 sessions deep.** A movement last logged before the newest 20
+  sessions is not recent and its sheet preselects nothing. Stated on
+  `buildRecentHistory`
+- **D1, below Recent: "All exercises" A–Z. Deviation from board A1**, which shows
+  Recent only: browsing keeps working, and it costs nothing (already prepared). No
+  history: the A–Z list alone, no Recent heading, no empty state
+- **D2:** the filter row sits just above the bottom search box (043 moved the box
+  there; A1 has the row at the top)
+- **D3:** a filter with an empty query filters the A–Z list and hides Recent.
+  Filtering Recent would show nothing after the wipe
+- **D4:** Muscle menu = the 9 groups, **primary muscles only** (Bench Press under
+  Chest, not Arms); search still scores secondary muscles. Equipment = all 44 (the
+  catalog uses every one), most movements first. Type = the 11 categories. One
+  value per menu. The Equipment filter preselects that equipment in the sheet, like
+  typed "db"; equipment typed in the query wins over it
+- **D5:** 10 recents. A custom exercise a plan still holds can be one ("Custom ·
+  22 Oct", added at once); otherwise skipped, as are ids no longer in the catalog
+- **D6:** "last" on the sheet's chips plus the line "Last logged: …"
+  (`VersionRecent.dc.html`)
+- **D7:** a query naming any axis wins outright: last-used is not merged in, still
+  marked. Last-used already in the plan preselects nothing, still marked
+- **D8:** last-used applies wherever the sheet opens, from search too
+- Dates "22 Oct", with the year when not this year. A single-version recent shows
+  the date only
+
+**Implementation, stage 1: pure logic (2026-10-27).**
+- `utils/recents.ts`: `buildRecentHistory(sessions, pendingUploads, uid, index,
+  customExercises)` → `{ lastUsed, recents }` or null; `recentDateLabel`. Pending
+  workouts go through `buildSessionDocs`, so an exercise with no sets is not
+  "logged", as on upload
+- `utils/pickerData.ts`: `PickerFilters`, `matchesFilters`, `withFilterPreselect`.
+  Muscle uses the movement's primaries only, on purpose: 19 versions across 8
+  movements have a primary in another group (Close-grip Bench's triceps) and do not
+  move their movement there. (The first comment said none did; wrong, corrected
+  after the user's review);
+  `preparePicker` also returns `equipmentByUse` (the Equipment menu's order)
+- `utils/exerciseSearch.ts`: `searchExercises(…, keep?)`, the filters applied
+  before scoring, so the limit counts filtered results; any filter drops custom
+  exercises (they have no muscles, equipment or type)
+- `utils/versionSheet.ts`: `initialSheet(…, lastUsed)`. Last-used gives soft
+  values, never chosen ones (it disables nothing), and only while the chosen axes
+  still allow it: Dumbbell after a last-used Barbell is a fresh Dumbbell sheet.
+  Each option carries `last`
+- `utils/catalog.ts`: `versionDetail` ("Barbell, close grip"), split out of
+  `buildVersionName` for the Recent row's second line
+- **Tests (6 new, each seen red):** `recents.test.ts` (3), `pickerData.test.ts` (2),
+  one in `versionSheet.test.ts`. 13 single-line breaks, all red. Two were green at
+  first and fixed: the query-wins case used a last-used that could not merge
+  (now Dumbbell incline vs "db"), and an "in plan" clause in `initialSheet` was
+  redundant (`settle` only looks among versions not in the plan); removed.
+  `versionSheet.test.ts`'s Band × Incline shape assertion gains `last: false`
+- **Benchmark:** `npm run bench:search` passes against the 043 baseline: open
+  (index + A–Z + Equipment order) 1.00× in Hermes, 0.99× Node; search p95 within
+  7%. New figures, printed and not yet in the baseline: recents from 20 sessions ×
+  6 ids 0.083 ms Hermes; search under Chest + Dumbbell p95 0.50 ms Hermes (fewer
+  movements scored than unfiltered, 5.5 ms)
+- **Not in stage 1:** the shared sessions store and every UI part (stage 2)
+
 **Dependencies:** TICKET-043.
 
 ---

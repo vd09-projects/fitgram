@@ -70,7 +70,17 @@ export function buildVersionId(movementId: string, axes: VersionAxes): string {
  * one side show exactly when they differ).
  */
 export function buildVersionName(movement: Movement, version: MovementVersion): string {
-  if (movement.versions.length <= 1) return movement.name;
+  const detail = versionDetail(movement, version);
+  return detail === null ? movement.name : `${movement.name} · ${detail}`;
+}
+
+/**
+ * The part of a version's name after the movement, "Barbell, close grip", or
+ * null when the name is the movement's alone. Recent rows show it as their
+ * second line (TICKET-050, board A1). Same rules as `buildVersionName`.
+ */
+export function versionDetail(movement: Movement, version: MovementVersion): string | null {
+  if (movement.versions.length <= 1) return null;
 
   const parts: string[] = [];
   const equipmentVaries = movement.versions.some((v) => v.equipment !== version.equipment);
@@ -83,9 +93,9 @@ export function buildVersionName(movement: Movement, version: MovementVersion): 
   const sidesVary = movement.versions.some((v) => v.unilateral !== version.unilateral);
   if (version.unilateral && sidesVary) parts.push(movement.oneSide ? ONE_SIDE_LABELS[movement.oneSide] : "one side");
 
-  if (parts.length === 0) return movement.name;
+  if (parts.length === 0) return null;
   const detail = parts.join(", ");
-  return `${movement.name} · ${detail.charAt(0).toUpperCase()}${detail.slice(1)}`;
+  return `${detail.charAt(0).toUpperCase()}${detail.slice(1)}`;
 }
 
 export type CatalogEntry = { movement: Movement; version: MovementVersion };

@@ -93,6 +93,8 @@ function print(engine: Engine, r: BenchmarkResult) {
   console.log(line("search: normal", r.search.normal));
   console.log(line("search: typo", r.search.typo));
   console.log(line("search: all", r.search.all));
+  if (r.open.recents) console.log(line("open: recents", r.open.recents));
+  if (r.search.filtered) console.log(line("search: filtered", r.search.filtered));
 }
 
 async function main() {

@@ -648,21 +648,34 @@ function scoreCustom(entry: CustomEntry, query: string, terms: readonly Term[]):
  * match before the limit. An empty query returns nothing; the picker shows its
  * own list then (TICKET-043: every movement A–Z, until TICKET-050).
  *
+ * `keep`: the picker's filters (TICKET-050); a movement it refuses is not
+ * searched, and custom exercises are left out.
+ *
  * Takes a `SearchCatalog` from `buildSearchCatalog`, built once per catalog,
  * not the raw movements: the word lists would otherwise be rebuilt on every
  * keystroke.
  */
-export function searchExercises(catalog: SearchCatalog, query: string, limit: number): SearchResults {
+export function searchExercises(
+  catalog: SearchCatalog,
+  query: string,
+  limit: number,
+  keep?: (movement: Movement) => boolean
+): SearchResults {
   const terms = correctTypos(catalog, queryTerms(catalog.vocabulary, query));
   if (terms.length === 0) return { results: [], total: 0 };
   const q = normalized(query);
 
   const scored: Scored[] = [];
   for (const entry of catalog.movements) {
+    // The picker's filter menus (TICKET-050), ANDed with the query. Applied
+    // before scoring, so the limit counts filtered results only.
+    if (keep && !keep(entry.movement)) continue;
     const s = scoreMovement(entry, q, terms);
     if (s) scored.push(s);
   }
-  for (const entry of catalog.custom) {
+  // A custom exercise has no muscles, equipment or type to filter on, so any
+  // filter leaves it out.
+  if (!keep) for (const entry of catalog.custom) {
     const s = scoreCustom(entry, q, terms);
     if (s) scored.push(s);
   }
