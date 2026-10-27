@@ -1,10 +1,11 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  View
+  View,
+  InteractionManager
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -20,13 +21,18 @@ import CollapsibleExerciseList from '../../components/CollapsibleExerciseList';
 import { Exercise, ExerciseField, WorkoutPlan } from '../../types/workoutType';
 import { TextBase } from '../../components/TextBase';
 import { validateCustomFields, validateExerciseSelection, validateWorkoutAndExercises, validateWorkoutSelection } from '../../utils/exerciseValidations';
-import { toExerciseId } from '../../utils/validation';
 import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
 import { MANAGE_WOURKOUT_STEP_NAMES } from '../../tour_steps/manageWorkout';
 import { MaybeTourStep } from '../../components/guide_tour/MaybeTourStep';
 import { useCatalogStore } from '../../stores/useCatalogStore';
-import { catalogPlanExercises, planExerciseFromPick } from '../../utils/catalog';
+import { planExerciseFromPick } from '../../utils/catalog';
+import { customExercisesFromPlans } from '../../utils/exerciseSearch';
+import ExercisePicker from '../../components/exercise_picker/ExercisePicker';
+import { preparePicker } from '../../utils/pickerData';
+import { TouchableOpacityBase } from '../../components/TouchableOpacityBase';
+import { makeStepId } from '../../tour_steps/utils';
+import { SEARCHABLE_INPUT_STEP_NAMES } from '../../tour_steps/commonStepNames';
 
 export default function AddExerciseScreen() {
   const { styles, t } = useThemeStyles(createStyles);
@@ -41,20 +47,29 @@ export default function AddExerciseScreen() {
 
   const [reload, setReload] = useState<boolean>(false);
 
-  // Interim picker (TICKET-042 stage 2): all 805 versions by built name in
-  // today's dropdown, whose search is a label substring ("bench" leaves ~20).
-  // TICKET-043 replaces it with movement-first search. Scroll performance with
-  // 805 rows is untested on a device.
+  // The exercise picker (TICKET-043) replaced TICKET-042's interim dropdown of
+  // all 805 versions and its "New" switch: no new custom exercises (TICKET-045);
+  // existing ones are found by name.
   const catalog = useCatalogStore((s) => s.catalog);
   const catalogLoaded = useCatalogStore((s) => s.cacheLoaded);
-  const catalogOptions = useMemo(
-    () => (catalog ? catalogPlanExercises(catalog.movements) : []).map((exercise) => ({
-      label: exercise.nameSnapshot ?? exercise.id,
-      value: exercise,
-    })),
-    [catalog]
-  );
+  const searchWords = useCatalogStore((s) => s.searchWords);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const { workoutPlans, loadingWorkoutPlans } = useWorkoutPlans(reload);
+  const customExercises = useMemo(() => customExercisesFromPlans(workoutPlans), [workoutPlans]);
+  const inPlan = useMemo(
+    () => new Set((selectedWorkout?.value?.exercises ?? []).map((e) => e.id)),
+    [selectedWorkout]
+  );
+
+  // Build the picker's search catalog and A–Z list once the screen has
+  // settled, so tapping Exercise does not pay for it (device, 2026-10-27).
+  useEffect(() => {
+    if (!catalog) return;
+    const task = InteractionManager.runAfterInteractions(() =>
+      preparePicker(catalog.movements, searchWords?.words ?? null, customExercises)
+    );
+    return () => task.cancel();
+  }, [catalog, searchWords, customExercises]);
 
   // One meta read each time Manage Workout opens (TICKET-042); the catalog
   // itself is fetched only if its hash changed.
@@ -63,19 +78,9 @@ export default function AddExerciseScreen() {
   const handleReload = () => setReload((prev) => !prev);
 
   const handleSelectExercise = (exercise: DropdownSelection<Exercise>) => {
-    if (exercise.isCustom) {
-      exercise.value = {
-        // Canonical, so a typed name always maps to the same exercise — and to
-        // the catalog's id when one exists. See toExerciseId.
-        id: toExerciseId(exercise.label),
-        name: exercise.label,
-        fields: []
-      };
-    }
     setWorkoutDetailsUpdated(true);
-    // A custom exercise is built with `fields: []`, so re-confirming the same
-    // name would wipe the fields already typed for it. Only adopt the
-    // selection's own fields when the selection actually changed.
+    // Picking the same exercise again keeps the fields already edited for it.
+    // Only adopt the selection's own fields when the selection actually changed.
     const sameExercise =
       selectedExercise?.value?.id !== undefined &&
       selectedExercise.value.id === exercise.value?.id;
@@ -148,80 +153,126 @@ export default function AddExerciseScreen() {
     saveWorkout();
   };
 
+  const handlePick = (exercise: Exercise) => {
+    setPickerOpen(false);
+    handleSelectExercise({ label: exercise.nameSnapshot ?? exercise.name, value: exercise, isCustom: false });
+  };
+
   return (
-    <ScrollableScreen
-      title={<TextBase style={styles.heading}>Manage Workout</TextBase>}>
+    <View style={styles.root}>
+      <ScrollableScreen
+        title={<TextBase style={styles.heading}>Manage Workout</TextBase>}>
 
-      {/* 🔹 Select Workout */}
-      <SearchableInputDropdown<WorkoutPlan>
-        data={workoutPlans.map((workout) => ({ label: workout.name, value: workout }))}
-        placeholder="Workout"
-        value={selectedWorkout}
-        onChange={handleSelectWorkout}
-        title={"Workout" + (selectedWorkout ? ` : ${selectedWorkout.label}` : '')}
-        isDataLoading={loadingWorkoutPlans}
-        tourStepPrefix={MANAGE_WOURKOUT_STEP_NAMES.WORKOUT_SEARCHABLE}
-      />
-
-
-      {/* 🔹 Collapsible Exercise List Component */}
-      {selectedWorkout?.value?.exercises && selectedWorkout?.value?.exercises?.length > 0 && (
-        <CollapsibleExerciseList
-          exercises={selectedWorkout.value.exercises}
-          onUpdate={(index, updatedExercises) => {
-            if (!selectedWorkout?.value || !selectedWorkout.value?.exercises) return;
-            if (!updatedExercises) {
-              selectedWorkout.value.exercises.splice(index, 1);
-            } else {
-              selectedWorkout.value.exercises.splice(index, 1, updatedExercises);
-            }
-            const newWorkout = { ...selectedWorkout } as DropdownSelection<WorkoutPlan>;
-            // console.log('🔥 Updated Workout:', newWorkout);
-            setWorkoutDetailsUpdated(true);
-            setSelectedWorkout(newWorkout);
-          }}
+        {/* 🔹 Select Workout */}
+        <SearchableInputDropdown<WorkoutPlan>
+          data={workoutPlans.map((workout) => ({ label: workout.name, value: workout }))}
+          placeholder="Workout"
+          value={selectedWorkout}
+          onChange={handleSelectWorkout}
+          title={"Workout" + (selectedWorkout ? ` : ${selectedWorkout.label}` : '')}
+          isDataLoading={loadingWorkoutPlans}
+          tourStepPrefix={MANAGE_WOURKOUT_STEP_NAMES.WORKOUT_SEARCHABLE}
         />
-      )}
 
-      {/* 🔹 Select Exercise */}
-      <SearchableInputDropdown<Exercise>
-        data={catalogOptions}
-        placeholder={catalogLoaded && !catalog ? "Exercise (catalog not loaded yet)" : "Exercise"}
-        value={selectedExercise}
-        onChange={handleSelectExercise}
-        title={"Exercise" + (selectedExercise?.value ? ` : ${selectedExercise.label}` : '')}
-        conatinerStyle={{ marginBottom: SPACING.large }}
-        isDataLoading={!catalogLoaded}
-        tourStepPrefix={MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_SEARCHABLE}
-        positionType="above"
-      />
 
-      {/* 🔹 Input Fields for Selected or Custom Exercise */}
-      {selectedExercise && (
-        <ExerciseFieldEditor
-          title={"Select `" + selectedExercise.label + "` Fields"}
-          items={customFields}
-          onItemsChange={setCustomFields}
-          onPendingTextChange={setPendingFieldName}
-          tourStepPrefix={MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_EDITABLE_LIST}
+        {/* 🔹 Collapsible Exercise List Component */}
+        {selectedWorkout?.value?.exercises && selectedWorkout?.value?.exercises?.length > 0 && (
+          <CollapsibleExerciseList
+            exercises={selectedWorkout.value.exercises}
+            onUpdate={(index, updatedExercises) => {
+              if (!selectedWorkout?.value || !selectedWorkout.value?.exercises) return;
+              if (!updatedExercises) {
+                selectedWorkout.value.exercises.splice(index, 1);
+              } else {
+                selectedWorkout.value.exercises.splice(index, 1, updatedExercises);
+              }
+              const newWorkout = { ...selectedWorkout } as DropdownSelection<WorkoutPlan>;
+              // console.log('🔥 Updated Workout:', newWorkout);
+              setWorkoutDetailsUpdated(true);
+              setSelectedWorkout(newWorkout);
+            }}
+          />
+        )}
+
+        {/* 🔹 Select Exercise: opens the picker. Keeps the old dropdown's tour step id. */}
+        <TextBase style={styles.fieldTitle}>Exercise</TextBase>
+        <MaybeTourStep
+          stepId={makeStepId(SEARCHABLE_INPUT_STEP_NAMES.DROPDOWN_BUTTON, MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_SEARCHABLE)}
           positionType="above"
+        >
+          <TouchableOpacityBase
+            style={styles.opener}
+            onPress={() => setPickerOpen(true)}
+            disabled={!catalogLoaded}
+            accessibilityRole="button"
+            accessibilityLabel="Choose exercise"
+          >
+            <Ionicons name="search" size={18} color={t.colors.role.textSecondary} />
+            <TextBase style={selectedExercise ? styles.openerValue : styles.openerPlaceholder} numberOfLines={2}>
+              {selectedExercise?.label ?? (catalogLoaded && !catalog ? "Exercise catalog not loaded yet" : "Search exercises")}
+            </TextBase>
+          </TouchableOpacityBase>
+        </MaybeTourStep>
+
+        {/* 🔹 Input Fields for Selected or Custom Exercise */}
+        {selectedExercise && (
+          <ExerciseFieldEditor
+            title={"Select `" + selectedExercise.label + "` Fields"}
+            items={customFields}
+            onItemsChange={setCustomFields}
+            onPendingTextChange={setPendingFieldName}
+            tourStepPrefix={MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_EDITABLE_LIST}
+            positionType="above"
+          />
+        )}
+
+        {/* 🔹 Submit Button */}
+        {workoutDetailsUpdated && (
+          <MaybeTourStep stepId={MANAGE_WOURKOUT_STEP_NAMES.SAVE_BUTTON} positionType='above'>
+            <TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
+              <Ionicons name="checkmark-circle-outline" size={24} color={t.colors.buttonText} />
+              <TextBase style={styles.saveButtonText}>Save Exercise</TextBase>
+            </TouchableOpacity>
+          </MaybeTourStep>
+        )}
+      </ScrollableScreen>
+      {pickerOpen && (
+        <ExercisePicker
+          movements={catalog?.movements ?? null}
+          searchWords={searchWords?.words ?? null}
+          customExercises={customExercises}
+          inPlan={inPlan}
+          onPick={handlePick}
+          onClose={() => setPickerOpen(false)}
+          tourStepPrefix={MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_PICKER}
         />
       )}
-
-      {/* 🔹 Submit Button */}
-      {workoutDetailsUpdated && (
-        <MaybeTourStep stepId={MANAGE_WOURKOUT_STEP_NAMES.SAVE_BUTTON} positionType='above'>
-          <TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
-            <Ionicons name="checkmark-circle-outline" size={24} color={t.colors.buttonText} />
-            <TextBase style={styles.saveButtonText}>Save Exercise</TextBase>
-          </TouchableOpacity>
-        </MaybeTourStep>
-      )}
-    </ScrollableScreen>
+    </View>
   );
 }
 
 const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
+  root: { flex: 1 },
+  fieldTitle: {
+    fontSize: t.fonts.medium,
+    fontWeight: 'bold',
+    color: t.colors.textPrimary,
+    marginTop: SPACING.medium,
+    marginBottom: SPACING.small,
+  },
+  opener: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.small,
+    padding: SPACING.medium,
+    borderRadius: BORDER_RADIUS,
+    borderWidth: 1,
+    borderColor: t.colors.role.hairlineStrong,
+    backgroundColor: t.colors.role.raised,
+    marginBottom: SPACING.large,
+  },
+  openerValue: { flex: 1, fontSize: t.fonts.medium, color: t.colors.role.textPrimary },
+  openerPlaceholder: { flex: 1, fontSize: t.fonts.medium, color: t.colors.role.textSecondary },
   heading: {
     fontSize: t.fonts.xLarge,
     fontWeight: 'bold',

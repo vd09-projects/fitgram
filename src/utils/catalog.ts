@@ -139,23 +139,19 @@ export function resolveExerciseName(
 }
 
 /**
- * Every version as a plan exercise, for the interim picker (TICKET-042 stage 2;
- * TICKET-043 replaces it): one row per version, sorted by built name. A
- * catalog exercise stores `name: ""` and the built name as `nameSnapshot`, the
- * fallback for when the id leaves the catalog. Fields are copies, so editing
- * them in a plan never touches the loaded catalog.
+ * One version as the plan exercise the picker returns (TICKET-043; it replaced
+ * TICKET-042's interim list of all 805 versions). A catalog exercise stores
+ * `name: ""` and the built name as `nameSnapshot`, the fallback for when the
+ * id leaves the catalog. Fields are copies, so editing them in a plan never
+ * touches the loaded catalog.
  */
-export function catalogPlanExercises(movements: readonly Movement[]): Exercise[] {
-  return movements
-    .flatMap((movement) =>
-      movement.versions.map((version) => ({
-        id: version.id,
-        name: "",
-        nameSnapshot: buildVersionName(movement, version),
-        fields: version.fields.map((field) => ({ ...field })),
-      }))
-    )
-    .sort((a, b) => a.nameSnapshot.localeCompare(b.nameSnapshot));
+export function planExerciseForVersion(movement: Movement, version: MovementVersion): Exercise {
+  return {
+    id: version.id,
+    name: "",
+    nameSnapshot: buildVersionName(movement, version),
+    fields: version.fields.map((field) => ({ ...field })),
+  };
 }
 
 /**

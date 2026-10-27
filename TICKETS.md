@@ -45,6 +45,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 050 | Picker start page: recents, filters, last-used version | Medium | After 043 |
 | 051 | Manage Workout: exercise list and Save changes | Medium | After 043; can run alongside 050 |
 | 052 | Manage Workout: new plan and first plan | Small–Medium | After 051 |
+| 053 | Guided tour: end-to-end pass after the catalog work | Medium | After 043, 050, 051, 052. The tour is not working and is no longer fixed per ticket (user, 2026-10-27) |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap. Storage: per-plan copies today, library undecided |
 | 047 | Switch an exercise's version mid-workout | Medium | Deferred 2026-10-24. For this workout only; the plan keeps its version |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
@@ -2945,7 +2946,8 @@ TICKET-035 for the 349, but this ticket does not wait for it. Blocks TICKET-043.
 
 ### TICKET-043: Exercise Search and Picker
 
-**Priority:** Medium | **Effort:** Large | **Status: OPEN** — split 2026-10-27 into
+**Priority:** Medium | **Effort:** Large | **Status: IN REVIEW** (PR open; DONE once
+it merges) — split 2026-10-27 into
 four tickets, each finished by a device test (user): **043** search + picker,
 **050** picker start page, **051** Manage Workout exercise list, **052** Manage
 Workout plans. Nothing temporary: each lands in the screens that exist when it does
@@ -3001,24 +3003,30 @@ Recents, filter menus and "last used" preselection are TICKET-050.
 - [ ] The 91 cases in `search_cases.py` become a Jest table test, rewritten to expect
       movements. Break one rule at a time (prefix → substring, muscle words from
       the name) and watch its cases go red
-- [ ] Every row of the failing table above passes and is a test case
+- [x] Every row of the failing table above passes and is a test case (stage 2,
+      2026-10-27)
 - [ ] Typo tolerance: edit distance 1 for words of 4 or 5 letters, 2 for longer;
       thresholds pinned in a comment. Short words stay exact, or "row" starts
       matching "rod". A fuzzy match always ranks below an exact or prefix match
 - [ ] Joined and split words: also compare with spaces and hyphens removed
-- [ ] Negatives fuzzy matching could break: "row" (45 results today) and "curl" (61)
-      keep their current top results
+- [ ] Negatives fuzzy matching could break: "row" ~~(45 results today)~~ and "curl"
+      ~~(61)~~ keep their current top results. **Baselines re-measured on movements
+      (2026-10-27, end of stage 1)**: the 45/61 were the flat research catalog. Stage
+      2 pins these: "row" 19 results, top 5 Bent-Over Row, Chest-Supported Row,
+      Rear Delt Row, Seal Row, Seated Row; "curl" 27 results, top 5 Bicep Curl,
+      Floor Hamstring Curl, Hammer Curl, Lying Leg Curl, Preacher Curl
 - [ ] Custom exercises and the user's plan exercises are searched too, by name only
-- [ ] Decided: does "machine" include Smith Machine? Does "back" include Back Squat?
-      (The prototype says no to both.)
+- [x] Decided: does "machine" include Smith Machine? Does "back" include Back Squat?
+      (The prototype says no to both.) **No to both (user, 2026-10-27)**; see
+      Decisions below. "back" still lists Low-Bar Back Squat far down, for its
+      secondary lower back (score 1), never for "Back" in its name
 - [ ] Empty query, until TICKET-050 adds Recent: every movement A–Z, so browsing
       works (default chosen 2026-10-27; the user can overrule it)
 - [ ] Picker built from TICKET-041 boards A2–A4, opened from today's Manage Workout
       in place of the Exercise dropdown. 4 or 5 tests on its main behaviours
-- [ ] Measured: search time per keystroke over the full catalog, on a device
-- [ ] Guided tour: `EXERCISE_SEARCHABLE` → `DROPDOWN_BUTTON` retargeted to the
-      control that opens the picker; new steps for the search box and the version
-      sheet. No step points at a control that is gone
+- [ ] Measured: search time per keystroke over the full catalog, on a device.
+      Measured in Hermes on a laptop instead (benchmark below); a phone is not
+- [ ] Guided tour: deferred to TICKET-053 (user, 2026-10-27)
 - [ ] Delivered in stages (CLAUDE.md 3.4): 1. the search function and its tests;
       2. typos and joined/split words; 3. the picker screen
 - [ ] **Device test (done when it passes):** Manage Workout → choose a plan → open
@@ -3076,9 +3084,383 @@ page) is TICKET-050:
 - The picker is its own list (it needs the version step); `react-native-element-dropdown`'s
   `searchQuery` is a yes/no filter per label and cannot rank (checked 2026-10-27)
 - "push day", "leg day", "upper body" need a split vocabulary mapping to pattern +
-  region. In scope if small; otherwise split off
+  region. In scope if small; otherwise split off. **In scope (user, 2026-10-27)**:
+  filler words plus two region phrases, below
 - Later idea, not in scope: a "my gym" equipment profile that hides versions the user
   has no equipment for
+
+**Decisions (user, 2026-10-27), before code:**
+- **The 91 cases** are rewritten to movement ids through `src/catalog/ACCOUNTING.md`:
+  91/91 targets exist; none dropped. 16 cases that name equipment or an axis gain
+  an expected preselection. Top-N is tightened to 1 only where the query is the
+  movement's exact name or alias, never to the rank today's catalog happens to
+  give (a new movement would break unrelated cases). Tightened, 3 → 1: Bicep
+  Curls, Treadmill, Cycling, Lunges, Leg Raises, Chest Flys, Reverse Lunges,
+  Step-Ups, bss. "upper chest" used to expect the incline entry; it now expects
+  Bench Press and no preselection (no axis is typed). The scratch mapping stays
+  out of `src/`; the Jest table is the record
+- **Staple +3, derived:** a movement with more than one version, no catalog field;
+  a proxy until real pick counts exist (TICKET-042). Measured on the 91: dropping
+  the rule fails 9 cases, this proxy 2, the research's hand-picked 96 fail 1
+- **Equipment words are an explicit table:** "machine" → machine, plate-loaded
+  machine, assisted machine; "smith" → Smith machine. Not label words
+- **"back" does not mean Back Squat**; muscle words score from muscle data only
+- **"push day" / "leg day" in scope:** "day" and "workout" are filler; "upper body"
+  and "lower body" are regions. Split off if it grows past ~5 lines and 3 cases
+- **Typos (stage 2):** hand-written Damerau-Levenshtein on words that matched
+  nothing; 1–3 letters exact, 4–5 one edit, 6+ two. A fuzzy match always ranks
+  below exact and prefix matches, with a test that breaks if not. Joined and split
+  words: compare with spaces and hyphens removed
+- **Custom exercises** come from the user's plans, one per id, name words only,
+  second line "Custom". Unit test only: after the 2026-10-26 wipe no device has
+  one, and none can be created (TICKET-045)
+- **Preselection: any axis named in the query** (equipment, angle, attachment,
+  grip, one side), when that combination exists
+- **The sheet (stage 3):** Equipment starts empty; Angle and Grip start on their
+  defaults (Flat, Normal). After equipment is picked, an axis whose default does
+  not exist for that equipment moves to its only valid value, or stays empty when
+  there are several. Today: `bench_press__ez_bar__close_grip`,
+  `triceps_pushdown__cable__reverse_grip`, `sit_up__weight_plate__decline`, each a
+  test case. A combination that does not exist must never be reachable
+- **"In plan":** a single-version movement already in the plan shows "In plan",
+  row disabled (board A2), in this ticket
+- **Left out of the boards:** the filter row (TICKET-050), the Extras row and the
+  Wide grip (dropped), "19 versions" (Bench Press has 26)
+
+**Decision, the search vocabulary (user, 2026-10-27, after stage 1's first draft):**
+the first draft hard-coded every search word in `exerciseSearch.ts`. Rejected: it
+copied the labels already in `catalogVocabulary.ts`, and every new slang word
+needed an app build. Now:
+- **Derived, stored nowhere:** every muscle, muscle group, equipment, angle,
+  attachment, grip and one-side label is a search word ("upper chest", "smith
+  machine", "close grip", "one arm")
+- **Slang in Firestore:** `exercise_catalog/search_words { version, words }`,
+  source `src/catalog/searchWords.ts`, uploaded by `uploadCatalog.ts` in the same
+  batch as the catalog. 57 entries, ~1.7 KB: muscle groups ("pecs"), muscles
+  ("hammies", "inner thigh"), equipment ("db", "machine" → three machines), axes
+  ("hammer grip", "single arm"). A slang entry overrides a derived one
+- **Its own doc and hash** (`meta.searchWordsVersion`). Rejected: a field in the
+  catalog doc, which re-downloads 282 KB for one new word and lets one bad word
+  block a catalog update. Another name for one exercise ("rdl", "gravitron") is
+  not slang: it stays an alias in the catalog
+- **Fetching:** no new read. The existing meta read (app start once signed in,
+  each Manage Workout open, one unknown-id check per run) carries both hashes;
+  each doc is fetched only when its own hash changed, then cached on the phone
+  (`exerciseSearchWords`). Not uploaded yet, or refused: search knows the labels
+  only; slang finds nothing until it loads
+- **Refusal:** `loadSearchWords` refuses the whole doc if any entry names a key
+  this build lacks ("pecs" → "chets"), logs `SEARCH WORDS REFUSED`, keeps the
+  cached words, and never blocks the catalog (and the reverse)
+- **Upload writes only what changed:** meta always (both hashes); `catalog` and
+  `search_words` only when their own hash differs from live. Dry run today: catalog
+  hash unchanged, so a real run writes `search_words` and meta only
+- **Stays in code (rules, not words):** "day"/"workout" as filler, "upper/lower
+  body" regions, "stretch"/"warmup" → category, "cardio" never a muscle word,
+  "abs" also counting the rest of the core
+- **Rules deploy: none needed.** The live rule is `match /exercise_catalog/{docId}`
+  (signed-in read, no client write), which covers the new doc
+
+**Landing step: the search-words upload (user, 2026-10-27).** Run by the user from
+the merge commit, before stage 3's device test (CLAUDE.md 1.3):
+1. `npx tsx src/scripts/uploadCatalog.ts --dry-run`: catalog hash `889393c5…`
+   (unchanged from live), search words `888ae196…`, `loadSearchWords: ok`
+2. `npx tsx src/scripts/uploadCatalog.ts`: expect "catalog unchanged, search words
+   written"
+Builds without this ticket never read `search_words`, so the upload is safe before
+or after the build reaches phones.
+
+**Stage 3 device test plan must include (user, 2026-10-27):**
+- before the first sync on a fresh install (or offline with no cached search
+  words): search works with labels only ("upper chest", "smith squat"); slang such
+  as "pecs" or "db" finds nothing beyond name matches
+- after the first sync: "db bench" lists Bench Press with Dumbbell preselected,
+  which proves `search_words` arrived
+
+**Implementation, stage 1: the search function (2026-10-27).**
+- `src/utils/exerciseSearch.ts`: `searchExercises(catalog, query, limit)` returns
+  `{ results, total }`, one row per movement (or custom exercise), each movement
+  with the `preselect` its query names. **Deviation from the criterion's
+  signature:** `catalog` is a `SearchCatalog` from `buildSearchCatalog(movements,
+  searchWords, custom)`, built once per catalog (2.2 ms in Node), so no word list
+  is rebuilt per keystroke. `customExercisesFromPlans(plans)` feeds it
+- Search words (decision above): `src/catalog/searchWords.ts` (source, never
+  imported by app code), `src/utils/searchWords.ts` (loader), `catalogSync.ts`
+  (`decideFetchedSearchWords`, `readCachedSearchWords`), `services/db/catalog.ts`
+  (`fetchCatalogMeta` returns both hashes, `fetchSearchWordsDoc`),
+  `useCatalogStore` (`searchWords`, `searchWordsRefusal`), `uploadCatalog.ts`
+- **Rules added in stage 1, each stated where it is implemented:**
+  - equipment and axis words score from version data (4); only a word no version
+    has falls back to the name ("reverse" in Reverse Lunge). Rejected: name first,
+    which put Cable Lat Prayer and Cable Shrug-In above Seated Row for "cable back"
+  - ties: score, category, **compound before isolation** (a muscle search wants the
+    main lift before its accessories), name. This is the one-line rule that fixed
+    "db shoulders" (6th → 3rd); no other case changes result
+  - preselection: an exact version alias picks that version ("hex bar deadlift",
+    "12-3-30"); otherwise named values the movement has; a value it lacks is
+    dropped; an equipment word naming two of its equipment picks neither; a
+    combination no version has preselects nothing
+  - a word of 4+ letters that is an unambiguous prefix of an equipment or axis
+    word names it ("incl" → incline)
+- **Known failing case: "rear delts"** wants Reverse Pec Deck in the top 5; it is 6th,
+  tied at 10 with Band Pull-Apart (sorted by name) and with no staple (one
+  version). No ranking rule with a reason fixes it; it is a `test.failing` row,
+  which turns red the day it passes
+- **Tests** (`exerciseSearch.test.ts`, 99): the 91 cases (90 pass, 1 known
+  failing), 5 rules, 2 custom, 1 staple. Each rule broken in turn, with what went
+  red: prefix → substring: "rdl" ✗ Hurdle Hop; muscle words from the name: both
+  "chest" negatives and the Back Squat check; no phrases: inner thigh, hex bar,
+  push/leg day ("rear delts" starts passing); no plural fold: 10 cases (Deadlifts, Pull-Ups, Face Pulls…); no
+  exact rescue: "cable standing neutral grip fly"; equipment from name first:
+  "cable back"; no staple: 5 cases (Triceps Dips, core, glutes, db
+  shoulders, bodyweight chest) and the staple test ("rear delts" starts passing); no compound-first: "db
+  shoulders"; no filler: push/leg day; Smith in "machine"; keeping an axis the
+  movement lacks; offering a missing combination; no version-alias pick
+  (gravitron, 12-3-30); custom exercises keeping catalog ones or matching muscles.
+  A "one row per movement" test was dropped: no break turned it red
+- **Search words tests (5):** labels work with no search words loaded and slang
+  needs them (`exerciseSearch.test.ts`); the loader accepts the source and refuses
+  "chets", "hover_board" and a "wide" grip (`searchWords.test.ts`, 2); a new slang
+  word reads meta + `search_words` only, never the catalog, and a third check reads
+  meta only; refused words keep the old ones and the catalog still updates
+  (`useCatalogStore.test.ts`, 2). Seen red: no derived muscle labels; slang
+  ignored (8 red, incl. "pecs", "db shoulders", "hex bar"); loader skipping
+  muscles; search words fetched every sync (also turns 4 existing read-count tests
+  red: with no `searchWordsVersion` in meta it would read a missing doc each time);
+  catalog refetched on any hash change; a words refusal blocking the catalog. All 21
+  rule breaks re-run after the move: each still red
+- **Per keystroke (Node 25, M1 Pro, full catalog, 1,960 keystrokes typing 7
+  queries):** median 0.047 ms, p95 0.107 ms, max 0.78 ms. Device: stage 3
+- Not verified: anything on a device; custom exercises against real plans
+
+**Implementation, stage 2: typos, joined and split words (2026-10-27).** All in
+`src/utils/exerciseSearch.ts`; each rule is commented where it is implemented.
+- **Typos only for a word that matched nothing** (not a vocabulary word, not a
+  prefix of any catalog word). Hand-written Damerau-Levenshtein (optimal string
+  alignment: a swap of two letters is 1 edit), with an early stop past the limit.
+  Thresholds as decided: 1–3 letters none, 4–5 one, 6+ two. Compared with the whole
+  word and with its start of the same length, so a typo mid-typing counts ("dumbe"
+  → dumbbell). Only the closest candidates are kept
+- **A correction becomes a vocabulary word only when it is the only candidate**
+  ("dumbell" → dumbbell, which preselects; "incliend" → incline; "cabled" →
+  cable). "squad" is 1 edit from both "squat" and "quad"; turning it into the quads
+  muscle hid Squat, so it matches either word in names instead
+- **A corrected query can be an exact name** ("bech press" = Bench Press, "squad" =
+  Squat), and still counts as fuzzy
+- **Fuzzy results always sort after every exact or prefix result**, whatever their
+  score (sort key first, then score). `fuzzy` is on each result for A4's "Close
+  matches" header (stage 3)
+- **Joined words:** a typed word may run across several name or alias words from
+  a word boundary ("latpulldown" → Lat Pulldown). Boundaries keep "rdl" out of
+  Hurdle
+- **Split words:** only when the words fail one by one, each adjacent pair is
+  tried run together, and must match inside ONE word ("push down" → Pushdown,
+  "kick back" → Kickback). Across words it brought Smith back into "machine
+  squat" through the alias "smith machine squat" (caught by stage 1's test)
+- **Word order:** +2 when the query's name words appear in the name's own order.
+  "low to high fly" now ranks Low-to-High (42) above High-to-Low (40); they tied
+  at 40 in the prototype
+- Custom exercises get typo correction too (name words only)
+- **Negatives, pinned to stage 1's baselines:** "row" 19 results and "curl" 27,
+  same top 5, no result fuzzy. What protects them is "closest candidates only": a
+  word that matches something is 0 edits from itself. The `knownPrefixes` check is a
+  shortcut that skips the dictionary scan; removing it changes no result. "row" is
+  3 letters, so it is never corrected (the "rwo" test)
+- **"rear delts" stays a known failing case**: no stage 2 rule touches it
+- **Tests** (17 new, `exerciseSearch.test.ts` now 117): one case per row of the
+  failing table, plus "bnech press" (swap) and "dumbe bench" (mid-typing); "Cabled"
+  preselects cable on every result; word order; the two negatives; short words
+  exact; fuzzy below exact on a two-movement catalog where the fuzzy one scores
+  higher. Seen red, by breaking: no typo correction (8 red); edits for 3-letter
+  words; no swap; no mid-typing compare; fuzzy not sorted last; no joined words;
+  no split words (4); split matching across words ("machine" test); no order bonus
+  (2); any vocabulary candidate wins ("squad"); no corrected exact ("squad"); early
+  stop one edit too soon (6); correcting matched words and keeping every candidate
+  within the limit (30 red, "curl" among them)
+- **Per keystroke** (Node 25, M1 Pro, full catalog, slang loaded): normal typing
+  (7 queries, 1,960 keystrokes) median 0.18 ms, p95 0.43–0.71 ms; typo typing (8
+  queries from the table, 1,920 keystrokes) median 0.53 ms, p95 1.1–1.2 ms. Stage
+  1 was 0.05 ms median: the joined-word check reads every alias. Max per keystroke
+  varied 1.6–26 ms between identical runs (GC or JIT), so it is not reported as a
+  stable figure. Building the index: 3.6–4 ms (was 2.1, the prefix set). Device:
+  stage 3
+- Not verified: anything on a device
+
+**Refactor after stage 2: the text layer split out (user, 2026-10-27).** Asked: is
+the typo and word matching tied to muscles and axes, or reusable? It was pure but
+lived in the exercise file. Now:
+- `src/utils/textSearch.ts` knows nothing about exercises: `stem` / `stemmed` /
+  `normalized`, `editDistance`, `maxTypoEdits`, `buildTextDictionary` +
+  `correctWord` (thresholds, closest candidates only, mid-typing), `wordAt` /
+  `wordsAt` (prefix and joined words), `matchWithSplitWords`, `inOrder`,
+  `equalsWithCorrections`, `fuzzyLast`. For a later search over plans, logs or
+  custom exercises (TICKET-045). ~~TICKET-052~~ removed (user review, 2026-10-27):
+  052 is New plan / First plan and has no search
+- `exerciseSearch.ts` keeps what is exercise-specific: the vocabulary, muscle and
+  equipment scoring, preselection, staple and tie-breaks, and what a correction
+  means (a sole vocabulary candidate becomes that word)
+- Rejected: a configurable engine taking "axes" and weights. The hard part is the
+  exercise rules, which do not carry over; it would be designed for one user
+- **No behaviour change:** the 117 search tests pass with one line changed (the
+  `maxTypoEdits` import moved). Timing within noise: normal typing median
+  0.19 ms, typo typing 0.52–0.62 ms
+- **Contract tests** (`textSearch.test.ts`, 4, on small word lists, not the catalog).
+  Seen red, by breaking: 3-letter edits, no swap, early stop too soon, no
+  known-prefix guard, every candidate within the limit (caught only after adding
+  "dumbell" vs "dumbbells"), no mid-typing compare, substring instead of prefix,
+  joined words where one word is asked, split retry before the words as typed
+  (caught only after adding a name where both readings match), any order counted
+  as in order
+
+**Implementation, stage 3: the picker (2026-10-27).**
+- **Files:** `components/exercise_picker/ExercisePicker.tsx` (A2, A4),
+  `components/exercise_picker/VersionSheet.tsx` (A3), `utils/versionSheet.ts` (the
+  sheet's rules, pure). `AddExerciseScreen` swaps the Exercise dropdown and its New
+  switch for an Exercise button that opens the picker; a pick goes through the same
+  `handleSelectExercise`, so the field editor and Save are unchanged.
+  `catalogPlanExercises` (042's 805-row list) is replaced by
+  `planExerciseForVersion` (one version)
+- **An overlay inside Manage Workout, not a route and not an RN `Modal`.** The tour's
+  overlay is mounted at the app root, so a `Modal` would cover it and the picker's
+  tour steps could never show. Rejected: a stack route (the pick would travel back
+  through navigation params). Android back closes the sheet, then the picker
+- **Rows:** name; the main muscle, then up to three others ("Chest · triceps, front
+  delts"); "N versions" when more than one; "In plan" and disabled for a
+  one-version movement already in the plan; "Custom" for a custom exercise. Empty
+  query: all 489 movements A–Z (custom exercises are found by search only). Up to
+  100 results. "Close matches" only when every result is fuzzy; "No exercise
+  matches" with board A4's hint
+- **Search box fixed at the bottom, under the list** (user, 2026-10-27, after the
+  first device run; board A2 had it at the top). Within thumb reach; it rides on the
+  keyboard (iOS `KeyboardAvoidingView` padding; Android none, the window already
+  resizes). The list stays top-down, not inverted, so A–Z and the best match start
+  at the top. Its tour tooltip shows above it
+- **Opening was visibly slow (device, 2026-10-27).** The picker unmounts on close,
+  so every open rebuilt the search catalog (Node 4–7 ms; under Jest two builds took
+  ~500 ms, so Hermes without a JIT is plausibly far slower) and sorted 489 names with
+  `localeCompare` (on Hermes, the platform collator per comparison). Now
+  `preparePicker` builds both once per catalog, words and custom list and keeps
+  them; Manage Workout warms it after its screen settles
+  (`InteractionManager.runAfterInteractions`); A–Z compares lowercase names with `<`
+  (names are ASCII; same order as `localeCompare` for all 489, checked); the list
+  first renders 12 rows, not 20 (about 9 fit). Rejected: keeping the picker always
+  mounted and hidden (its list would render with Manage Workout every time).
+  ~~The TEMPORARY line now also shows "open N ms"~~ (removed 2026-10-27; the
+  benchmark below replaces it). Not measured: the tap itself, rendering, and Manage
+  Workout's re-render
+- **Soft axes start from their default each settle** (user review, 2026-10-27).
+  Before, a soft axis kept its value while it still fitted, so a value forced by one
+  choice outlived it: Bench EZ bar → Barbell kept Close grip; EZ bar → Dumbbell
+  emptied Grip; Front Raise Dumbbell → Cable kept Attachment None and added the
+  no-attachment version unasked. Over all 1,114 movement × equipment switches, 13
+  differed from a fresh sheet; now 0. All 805 versions still reachable; Pushdown
+  Cable+None → `one_side` and Cable+Reverse → `reverse_grip` unchanged. Test seen
+  red on the old code, each half on its own
+- **The sheet, beyond what was settled (CLAUDE.md 2.6, said here, not silently):**
+  - **A Side row (Both / One arm or One leg).** 35 movements have one-side versions
+    next to two-sided ones; without the row they could not be added. Shown only
+    where sides differ, like the version names. Starts on Both
+  - **"None" in the Attachment row.** Triceps Pushdown, Front Raise and Straight-Arm
+    Pulldown have cable versions with no attachment (Pushdown's reverse-grip and
+    one-arm versions)
+  - **A row shows only where the movement's versions differ on it**, Equipment
+    included: Cable Crossover (two cable versions) shows Side only
+  - **Soft axes settle in row order, each narrowing the next.** With independent
+    settling, Pushdown with Cable and None chosen showed Cable, None, Normal, Both,
+    which no version has. Now: whenever every row has a value, that version exists
+  - **Defaults never disable an option:** only tapped or typed axes do. Otherwise
+    Grip starting on Normal would disable EZ bar on Bench Press
+  - **Add says "Already in this plan"** when every version with the chosen values is
+    in the plan ("incline db bench" when that one is), not "Choose grip"
+- **Guided tour:** `EXERCISE_SEARCHABLE` → `DROPDOWN_BUTTON` keeps its id, now on the
+  Exercise button (title "Add an Exercise"), so the tour's order is unchanged. New:
+  `EXERCISE_PICKER` → `SEARCH_BOX` (the picker's search box) and → `VERSION_SHEET`.
+  Checked by reading every step id in `manageWorkout.ts` against what renders it: the
+  Workout dropdown's `NEW_BUTTON` / `INPUT_AND_SAVE` still exist (052 moves them); the
+  Exercise dropdown had only `DROPDOWN_BUTTON`. The sheet step shows the tour's "not
+  visible" note until a movement with versions is tapped. Not run on a device.
+  **The tour was not verified; it is deferred to TICKET-053** (user, 2026-10-27).
+  These step ids stay as input for 053
+- ~~**TEMPORARY timing line** (CLAUDE.md 3.3), only with `SHOW_DEBUG_SCREENS`~~
+  **Removed 2026-10-27** (user): replaced by a benchmark kept in the repo, below
+- **Benchmark (2026-10-27, user asked for a kept baseline and a regression check).**
+  `npm run bench:search` (`src/scripts/benchmarkSearch.ts`) times the picker's own
+  code: `preparePicker` (index + A–Z, what opening builds) and `searchExercises` once
+  per keystroke (the picker searches on every change, no debounce) over stage 1's 7
+  normal queries (98 keystrokes) and stage 2's 8 typo queries (79). Two engines:
+  Node (V8, JIT) and the Hermes CLI React Native ships, as -O bytecode like a
+  release build. Each figure is the fastest of 5 timings, median of 3 runs: single
+  runs differed up to 4.6× at p95 (GC, other processes); now within ~6%. Baseline in
+  `benchmarks/exercise-search.json` (M1 Pro, at `b8c58a7`):
+
+  | | Node | Hermes |
+  |---|---|---|
+  | Open: index + A–Z, median | 2.2 ms | 21 ms |
+  | Open: first call in a fresh process | 2.5 ms | 22 ms |
+  | Search, normal: median / p90 / p95 | 0.20 / 0.48 / 0.53 ms | 2.5 / 5.3 / 5.5 ms |
+  | Search, typo: median / p90 / p95 | 0.26 / 0.79 / 0.83 ms | 3.3 / 7.3 / 7.7 ms |
+
+  Hermes is ~10× Node, which fits the slow open seen on the device before
+  `preparePicker` was cached and warmed. `--check` exits 1 when the open median or a
+  search p95 passes 1.5× the baseline. Seen red: rebuilding the typo dictionary per
+  search (1.53–1.86× on three figures); green again after restoring (all within 5%).
+  Not caught: removing `editDistance`'s early stop (1.43× at most), so a slowdown
+  under 1.5× passes. Local only, not in CI (timing on a shared runner is noise; the
+  Linux Hermes package has no `hermes` binary), and only comparable on the machine
+  that wrote the baseline: it warns when the CPU differs. **Not measured:** a phone
+  (slower than a laptop by a factor this does not know), React rendering the list,
+  the tap to first frame, GC pauses (the fastest-of-5 drops them), and the Android
+  collator `localeCompare` used to go through (the Hermes CLI's is not the phone's)
+- **Tests** (9 new): `versionSheet.test.ts` (4): every one of the 805 versions can be
+  added by tapping only enabled options and lands on itself; the three versions with
+  no default (EZ bar → Close, weight plate → Decline, Pushdown Cable + Reverse →
+  None) and Cable + None settling on the one-arm version; opening state, a query's
+  preselection, Attachment only for cable; Band × Incline and an in-plan combination
+  disabled. `ExercisePicker.test.tsx` (4): A–Z, one row per movement, muscle line,
+  version count, Custom; "db bench" preselects Dumbbell and Add returns
+  `planExerciseForVersion`; In plan (row and combination, "Already in this plan");
+  Close matches / Exercises / No exercise matches. `AddExerciseScreen.test.tsx` (1):
+  the Exercise button opens the picker and a pick fills the field editor. Seen red,
+  15 breaks: settling without narrowing (caught only after adding the Cable + None
+  case), no fallback, defaults disabling options, Attachment for any equipment,
+  in-plan versions allowed, no Side row, preselection ignored, A–Z unsorted,
+  preselection not passed to the sheet, no In plan row, no Close matches, no Custom
+  line, "Choose grip" instead of "Already in this plan", picker left open after a
+  pick, the pick labelled by id
+- Not verified: anything on a device (plan below); custom exercises on a device
+
+**Stage 3 device test plan (user runs, CLAUDE.md 1.3).** Build from this branch with
+`SHOW_DEBUG_SCREENS=true` (the timing line).
+0. **Before the upload** (the new build, `search_words` not yet live): Manage Workout
+   → Exercise → "upper chest" lists Bench Press (labels work); "pecs" lists Pec Deck
+   by name but not Bench Press (slang not loaded)
+1. **Landing step:** `npx tsx src/scripts/uploadCatalog.ts --dry-run` (catalog
+   `889393c5…` unchanged, search words `888ae196…`), then the real run (expect
+   "catalog unchanged, search words written"). Open the app once, signed in
+2. **Search words arrived:** "db bench" → tap Bench Press → Dumbbell is preselected.
+   "pecs" now lists Bench Press
+3. **The ticket's device test:** Manage Workout → choose a plan → Exercise → "bech
+   press", "Latpulldown", "chest", "db bench" each list the expected movement →
+   Bench Press → Dumbbell, Incline → edit fields as today → Save. Then Exercise →
+   "db bench" → Bench Press: Incline is disabled (already in the plan) → back. The
+   plan shows "Bench Press · Dumbbell, incline"; Start Workout logs it
+4. "dumbell curl" is headed "Close matches" (the equipment word itself was
+   corrected); "curl" is headed "Exercises"
+5. The sheet: Bench Press → EZ bar → Grip moves to Close; Sit-Up → Weight plate →
+   Angle moves to Decline; Triceps Pushdown → Cable → Attachment row appears →
+   Grip Reverse → Attachment moves to None; Lateral Raise → Cable → Side One arm →
+   Add reads "Lateral Raise · Cable, one arm"
+6. **Timing:** ~~report the timing line~~ (removed; see Benchmark above). On the
+   device, only: does typing feel instant, and does opening the picker still feel
+   slow? Say which build (dev builds are several times slower)
+7. **Scroll:** with an empty query, fling through all 489 movements A–Z: no blank
+   rows or stalls
+8. Android back closes the sheet, then the picker
+8a. **Bottom search box:** tap it: the keyboard opens and the box sits just above it,
+   not under it; the last list rows are not hidden behind the box
+9. **Tour:** not required, see TICKET-053; note anything broken for it
+- **Cannot be covered on a device:** custom exercises (none exist since the
+  2026-10-26 wipe, and none can be created until TICKET-045); unit test only
+- ~~After the run: remove the TEMPORARY timing line~~ Removed 2026-10-27
 
 **Dependencies:** TICKET-042. TICKET-041 boards A2–A4.
 
@@ -3105,7 +3487,7 @@ sheet preselects the version used last.
       typed in the query ("db bench") still wins
 - [ ] A recent single-version movement is added at once, or reads "In plan"
       (disabled) when it is already there
-- [ ] Guided tour: a step for the filter menus
+- [ ] Guided tour: deferred to TICKET-053 (user, 2026-10-27)
 - [ ] 4 or 5 tests on the main behaviours, each seen red
 - [ ] **Device test (done when it passes):** log one workout (the 2026-10-26 wipe
       emptied history) → open the picker → its movement is under Recent with the
@@ -3147,10 +3529,7 @@ selection stays as it is today (TICKET-052 changes it).
       the exercise arrives expanded with its catalog fields
 - [ ] One footer button, **Save changes**, for the plan
 - [ ] The version is not editable here (see Design)
-- [ ] Guided tour: `EXERCISE_EDITABLE_LIST` → `EXISTING_ITEM` / `ADD_NEW_ITEM`
-      (now inside an expanded row, so the tour expands one first) and
-      `SAVE_BUTTON` (copy says "Save Workout"; the button reads Save changes)
-      retargeted. No step points at a control that is gone
+- [ ] Guided tour: deferred to TICKET-053 (user, 2026-10-27)
 - [ ] 4 or 5 tests on the main behaviours, each seen red
 - [ ] **Device test (done when it passes):** choose a plan → expand a row → rename
       a field and switch kg to plates → remove an exercise → add one through the
@@ -3196,9 +3575,7 @@ switch on the Workout picker.
       Create (disabled until something is typed), reached from the Start screen's
       "No plans yet · Create a plan"
 - [ ] Today's New switch on the Workout picker is gone
-- [ ] Guided tour: `WORKOUT_SEARCHABLE` → `NEW_BUTTON` and `INPUT_AND_SAVE`
-      retargeted to the New plan row and its Create. No step points at a control
-      that is gone
+- [ ] Guided tour: deferred to TICKET-053 (user, 2026-10-27)
 - [ ] 4 or 5 tests on the main behaviours, each seen red
 - [ ] **Device test (done when it passes):** create a plan from the New plan row,
       add an exercise, Save changes, and it appears on Start. Then with an account
@@ -3218,6 +3595,34 @@ switch on the Workout picker.
   Create a plan" button.
 
 **Dependencies:** TICKET-051 (the rebuilt screen).
+
+---
+
+### TICKET-053: Guided Tour — End-to-End Pass After the Catalog Work
+
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — created 2026-10-27
+
+**Description:**
+The guided tour is not working, and it is no longer fixed ticket by ticket (user,
+2026-10-27). 043, 050, 051 and 052 each move or remove controls the tour points
+at; this one pass, after all of them, fixes whatever is broken then, against the
+final screens instead of each intermediate one.
+
+**Acceptance Criteria:**
+- [ ] Every tour (Manage Workout, Start Workout, the rest) run on a device
+- [ ] Each step whose control is gone or moved (by 043, 050, 051, 052) retargeted
+      or removed
+- [ ] Steps for the new controls: the picker's search box, the version sheet, the
+      filter menus, Save changes, New plan
+- [ ] No step points at a missing control
+- [ ] **Device test (done when it passes):** a device run of each tour
+
+**Input:** TICKET-043's stage 3 note lists the step ids it already wrote
+(`DROPDOWN_BUTTON` moved to the Exercise button; `EXERCISE_PICKER` → `SEARCH_BOX`,
+`VERSION_SHEET`); unverified. The device runs of 043–052 note anything broken for
+this ticket.
+
+**Dependencies:** TICKET-043, TICKET-050, TICKET-051, TICKET-052.
 
 ---
 
@@ -4124,6 +4529,7 @@ it) once 046's content exists. Phase 3B; research is in
 5. TICKET-050  (Picker start page)        — After 043: recents, filters, last used
 6. TICKET-051  (Manage Workout list)      — After 043; alongside 050 if wanted
 7. TICKET-052  (New plan, first plan)     — After 051
+8. TICKET-053  (Guided tour pass)         — After 043, 050, 051, 052
 ```
 
 **Then the next three, decided.** They are what makes logging an exercise match what

@@ -9,6 +9,7 @@ export const SCREEN_NAMES = {
   EDITABLE_LIST: "EditableList",
   WORKOUT_LOGS: "WorkoutLogs",
   ACTIVE_WORKOUT: "ActiveWorkout",
+  EXERCISE_PICKER: "ExercisePicker",
 };
 
 export const EDITABLE_LIST_STEP_NAMES = {
@@ -25,4 +26,8 @@ export const SEARCHABLE_INPUT_STEP_NAMES = {
 
 export const SEARCH_BOX_STEP_NAMES = {
   SEARCH_BOX: "SEARCH_BOX",
+};
+
+export const EXERCISE_PICKER_STEP_NAMES = {
+  VERSION_SHEET: "EXERCISE_PICKER_VERSION_SHEET",
 };

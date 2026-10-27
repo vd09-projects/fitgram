@@ -6,8 +6,8 @@ import {
   buildCatalogIndex,
   buildVersionId,
   CATALOG_NOT_LOADED,
-  catalogPlanExercises,
   exerciseDisplayName,
+  planExerciseForVersion,
   planExerciseFromPick,
   loadCatalog,
   NOT_IN_CATALOG,
@@ -159,7 +159,7 @@ describe("exerciseDisplayName", () => {
   });
 
   it("adding a picked version stores its id, a snapshot and its fields, with name blank", () => {
-    const pick = catalogPlanExercises(FIXTURE).find((e) => e.id === "bench_press__dumbbell__incline")!;
+    const pick = planExerciseForVersion(FIXTURE[0], FIXTURE[0].versions[1]);
     expect(planExerciseFromPick(pick, pick.nameSnapshot!, pick.fields)).toEqual({
       id: "bench_press__dumbbell__incline",
       name: "",
