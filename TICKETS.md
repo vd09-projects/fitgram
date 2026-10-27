@@ -41,7 +41,6 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
-| 051 | Manage Workout: exercise list and Save changes | Medium | After 043; can run alongside 050 |
 | 052 | Manage Workout: new plan and first plan | Small–Medium | After 051 |
 | 053 | Guided tour: end-to-end pass after the catalog work | Medium | After 043, 050, 051, 052. The tour is not working and is no longer fixed per ticket (user, 2026-10-27) |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap. Storage: per-plan copies today, library undecided |
@@ -3715,8 +3714,9 @@ version and no Sprint.
 
 ### TICKET-051: Manage Workout — Exercise List and Save Changes
 
-**Priority:** Medium | **Effort:** Medium | **Status: IN REVIEW — device test pending** — split from TICKET-043
-2026-10-27 (scope TICKET-041 added to 043, confirmed by the user 2026-10-24)
+**Priority:** Medium | **Effort:** Medium | **Status: DONE** — merged in PR #25
+(493d403, 2026-10-28); full device plan (steps 1–13) not yet run, marked done by the
+user; split from TICKET-043 2026-10-27 (scope TICKET-041 added to 043, confirmed by the user 2026-10-24)
 
 **Description:**
 Rebuild Manage Workout's exercise part from TICKET-041 group C1: the plan's
@@ -4959,8 +4959,9 @@ it) once 046's content exists. Phase 3B; research is in
 4. TICKET-043  (Search + picker)           — Done (PR #23, 2026-10-27); device test
                                              pending on a phone
 5. TICKET-050  (Picker start page)        — Done (PR #24, 2026-10-27)
-6. TICKET-051  (Manage Workout list)      — Next
-7. TICKET-052  (New plan, first plan)     — After 051
+6. TICKET-051  (Manage Workout list)      — Done (PR #25, 2026-10-28); full device
+                                             plan pending on a phone
+7. TICKET-052  (New plan, first plan)     — Next
 8. TICKET-053  (Guided tour pass)         — After 043, 050, 051, 052
 ```
 
