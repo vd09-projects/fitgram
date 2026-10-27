@@ -3715,7 +3715,7 @@ version and no Sprint.
 
 ### TICKET-051: Manage Workout — Exercise List and Save Changes
 
-**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — split from TICKET-043
+**Priority:** Medium | **Effort:** Medium | **Status: IN REVIEW — device test pending** — split from TICKET-043
 2026-10-27 (scope TICKET-041 added to 043, confirmed by the user 2026-10-24)
 
 **Description:**
@@ -3756,6 +3756,189 @@ selection stays as it is today (TICKET-052 changes it).
 - **Wording: "plan",** matching the Start screen. The screen title stays Manage
   Workout.
 
+**Decisions (raised in step 1, answered by the user 2026-10-27):**
+- **D1 Unsaved edits:** the screen edits a **draft copy**, never the loaded plan
+  (today's screen spliced and pushed into the plan object held by
+  `useWorkoutPlans`, so "discarded" edits survived a plan switch). Leaving the
+  screen (`beforeRemove`, which covers back and hardware back: Manage is a stack
+  screen) or switching plan with unsaved changes asks "Discard changes?".
+  Rejected: discard silently (an accidental back loses work); a kept draft (more
+  than an MVP needs).
+- **D2 Field rename vs TICKET-030:** allowed, with a warning line under the field:
+  past sessions logged under the old name will not show under the new one, until
+  TICKET-030. Fields have no id, so each draft field carries its **saved name**
+  (draft only, never stored); a field is renamed when its name differs from it.
+  Never matched by index (removing a field above would flag the wrong one). A field
+  added in the draft, including every field of an exercise added in the draft, never
+  warns. Rejected: block (also blocks fields never logged); silent (TICKET-030's loss).
+- **D3 Same version twice:** refused, as today: the picker greys "In plan", and it
+  reads the **draft**, so a version added and not yet saved is greyed and one removed
+  in the draft is pickable again. Two versions of one movement stay allowed (ids differ).
+- **D4 Save changes:** one whole-plan write (`setDoc`, no merge), enabled only when
+  the draft differs from the saved plan; errors shown under their row. An empty
+  plan is refused: "A plan needs at least one exercise." Scope growth (approved):
+  `overrideWorkoutDetails` throws instead of logging and returning, so a failed or
+  skipped write can no longer be followed by a success toast.
+- **Offline rule (D4, added by the user):** `firebase.ts:24` uses
+  `memoryLocalCache`, and `setDoc`'s promise resolves only on the server's
+  acknowledgement ("won't resolve while you're offline", the SDK's own doc on
+  `setDoc`; TICKET-028 saw the same for `batch.commit()` on a device). So Save shows
+  "Saving…"; if not confirmed within 10 s it says "Not saved yet — check your
+  connection", re-enables the button and keeps the draft dirty for a retry (the
+  same whole doc again, harmless). The queued write is still pending: if it lands
+  later while the app is open, "Plan saved" is shown then, and the draft becomes
+  clean if it was not edited since. If the app is closed first, the write is lost
+  (memory cache) and the plan is as last saved.
+- **D5 Plan in an active workout:** the running session keeps the snapshot it took
+  at Start (`useWorkoutStore.startWorkout`); the edit applies from the next Start.
+  The save message says so only when a workout is actually in progress on that plan.
+- **D6 (2.2), what built literally would reproduce a problem:** (a) the edit-in-place
+  pattern (draft, D1); (b) the swallowing save (D4); (c) rename as designed
+  (TICKET-030, D2); (d) a role change kept a unit that is wrong for the new role
+  (weight → time kept `kg`: `updateField` dropped the unit only when the new role
+  has no units). Fixed in the pure `patchField`, and `validateCustomFields` now
+  refuses a unit that is not one of its role's.
+- Not here: `ManageAdd`'s custom-exercise presets (TICKET-045). Text typed in a
+  row's add box and not committed with + is accepted on Save, as today.
+
+**Build notes (2026-10-27, uncommitted for review):**
+- **Deviation from D6 (d) as approved, found while building (2.6):** the catalog has
+  role `other` fields with a unit: "Assistance" in kg on `dip__assisted_machine` and
+  `pull_up__assisted_machine`. The rule as first written refused both (2 of 805
+  versions), and `patchField` dropped their kg on a plain rename. Narrowed: the unit
+  is dropped **only on a role change**, and validation refuses a unit only when its
+  role offers units and it is not one of them. After: 0 of 805 catalog versions
+  refused. Each part has its own test, seen red.
+- **D1 via `usePreventRemove`** (React Navigation 7), not a raw `beforeRemove`
+  listener: the raw listener's `preventDefault` does not type-check through this
+  stack's navigation prop. Confirming dispatches the held action, which
+  `useOnPreventRemove` lets through (it marks the route as already visited).
+- **Pending add-box text and collapse:** only one row is open at a time; collapsing
+  a row (or opening another) clears its uncommitted add-box text, since the box
+  unmounts and saving text the user can no longer see would be a surprise.
+- **Rebase after save:** if the draft was edited while a save was in flight, the
+  new edits stay dirty against the saved plan, but rename warnings still compare
+  with the names from before that save.
+- **Not split into stages:** about 450 lines of source plus tests. The pure layer
+  on its own changes nothing on the device, so a stage boundary would give no test
+  plan of its own. Can be committed as two commits (pure layer, validation and
+  `userDB`; then the screen) if wanted.
+- Removed: `CollapsibleExerciseList` (only this screen used it). Save is now a
+  fixed footer, shown once a plan is chosen, disabled until there is a change.
+
+**Tour, for TICKET-053 (not fixed here):**
+- `EXERCISE_SEARCHABLE` / `DROPDOWN_BUTTON` ("Add an Exercise") now sits on the
+  dashed Add exercise button, which exists only after a plan is chosen.
+- `EXERCISE_EDITABLE_LIST` steps (`EXISTING_ITEM`, `ADD_NEW_ITEM`) exist only
+  inside an expanded row; with every row collapsed the tour finds no target.
+- `SAVE_BUTTON` ("Save Workout") is now the footer's Save changes: visible
+  whenever a plan is chosen, but disabled until something changed. The step's
+  copy should say "plan" and "Save changes".
+- The old "Exercise" heading and opener are gone.
+
+**Device review, round 1 (user, 2026-10-28): not approved; five findings, fixed:**
+1. **Offline: "Discard changes?" was false after "Not saved yet".** The write is
+   still queued, so Discard did not discard (it landed later, "Plan saved"), and
+   an app kill loses it. Fix: the screen remembers the queued write (`queuedRef`).
+   If the draft still equals it, leaving (or switching plan) asks "Still saving —
+   It will finish when you're back online, as long as the app stays open." with
+   Leave; edited after that save, it is still "Discard changes?". A retry while
+   that write is queued races the same write again instead of queueing a second
+   one, so its landing is reported once. A queued write that is later refused
+   now says "Could not save plan" (it was swallowed).
+2. **Save footer looked broken** (no background, light navigator showing; disabled
+   = accent at 50%). Fix: Start Workout's footer and primary button copied
+   (`role.surface`, hairline top border; `role.accent`; disabled = `role.raised`
+   + secondary text). Visual only, no test: device step 12.
+3. **Row arrow not tappable; trash took its place when open**, so "tap the arrow
+   to close" removed the exercise. Fix: the whole header (title, subtitle,
+   summary, arrow, and the row's padding) toggles; the arrow stays put and turns
+   (down closed, up open); removing is a "Remove exercise" action at the bottom of
+   the open row.
+4. **"Fix the exercise marked below"** pointed away (toast at the bottom), named
+   nothing, and the row could be off-screen. Fix: the toast names the exercise and
+   its problem ("Bench Press · Barbell: fields cannot be empty."; "(and N more)"
+   when several). **Scroll to the row: not shipped.** `ScrollableScreen` (9
+   screens) exposes no scroll ref, and scrolling to a row that is just opening
+   needs a measure after its layout settles, which no test here can check. Left for
+   a follow-up if the named toast is not enough.
+5. **D5 note unreadable** (toast cut off) and nothing warned before editing. Fix: a
+   banner at the top while the chosen plan has a workout running: "Workout in
+   progress on this plan. Changes apply from your next start." The save toast is
+   just `"<name>" saved.`
+- Tests: one screen test per finding except (2), each seen red (the queued-write
+  check and the queue line for 1; a chevron that removes when open for 3; the old
+  toast for 4; the banner on any running plan, and no banner, for 5), plus one pure
+  test for "(and N more)". The leave test calls `usePreventRemove`'s callback
+  directly: the test harness puts nothing behind the screen, so no back can fire.
+- **Found on the device after the round-1 fix (user, 2026-10-28): Save changes
+  misaligned**, its label at the top of the button. Cause (introduced in round 1):
+  `MultiTourSteps` splits its child's style, so `justifyContent`, the fill and the
+  radius went to the tour wrapper and `height` to the button. Fix: a plain `<View>`
+  between the tour step and the button, as Start and Active Workout already do.
+  "Add exercise" had the same cause: only its label was tappable inside the dashed
+  box; same fix. Test: the button's own style keeps height, centring and radius;
+  seen red with the plain View removed.
+- **Experiment, accepted (user, 2026-10-28: "looks really good"):** the Save footer has no fill or top
+  line; only the button is opaque. The screen root now carries the list's
+  background (`colors.primary`), or the pale band from round 1 would come back. If
+  rejected, restore `role.surface` and the hairline top border on `styles.footer`.
+  First try showed a dark block: the footer sat below the list, so nothing was
+  behind it. Second try: the footer floats over the list (absolute, bottom), and
+  the list ends with padding equal to the measured footer height so the last row
+  can scroll clear. Rows show through sharp, not blurred: a blur needs `expo-blur`,
+  a new native dependency and rebuild, not added without asking. Rejecting it also
+  means dropping the position, `footerHeight` and the list's paddingBottom.
+  Device (user): good with changes, but disabled "doesn't feel like there is a
+  button" — its `raised` fill matched the cards scrolling behind it. Third try:
+  disabled is an opaque `role.ground` fill with a `role.fieldEdge` outline; Start
+  keeps `raised` (its footer is opaque). Alternative not built: hide Save until
+  there is a change (the pre-051 screen did), which the C1 design does not show.
+- **Device so far (user, 2026-10-28):** the footer (all three tries), the row
+  arrow and the open-row editor seen on Android and approved by eye. The full
+  device plan below (steps 1–13: offline, D1 back/swipe, D5 banner, Start shows
+  the saved plan) has not been reported run; the ticket stays IN REVIEW until it is.
+- Also fixed: the round-0 notes had been inserted mid-way through the Design list;
+  its last three bullets are back under Design.
+
+**Device test plan (user runs; CLAUDE.md 1.3; updated after round 1):**
+1. Manage Workout → choose a plan. Rows are collapsed, each reads like "Weight kg ·
+   Reps"; Save changes is disabled.
+2. Tap anywhere on a row (title, the empty space, or the arrow): it opens, the
+   arrow turns up in the same place. Tap the arrow again: it closes and the
+   exercise is still there. Open it again: field editor, and "Remove exercise" at
+   the bottom. Rename "Weight" → a line under it says past sessions logged as
+   "Weight" won't show. Switch kg → plates (the plates hint shows). Save changes
+   is enabled.
+3. Open another row and tap Remove exercise: the row is gone.
+4. Add exercise → picker. The removed version is pickable again; pick one: it
+   arrives expanded with its catalog fields. Open the picker again: it shows In plan.
+5. Save changes → "Plan saved". Back, reopen Manage Workout, choose the plan: every
+   change is there. Start Workout → the plan shows as saved (new exercise, plates).
+6. **D1:** make an edit, press back (and hardware back on Android, and swipe back on
+   iOS) → "Discard changes?". Keep editing keeps the edit; Discard leaves. Make an
+   edit, choose another plan → same dialog; Discard opens the other plan.
+7. **D2:** add a new field and rename it → no warning. Rename a saved field back to
+   its old name → warning gone and, if nothing else changed, Save disabled.
+8. **D3:** confirmed in step 4.
+9. **D4:** remove every exercise → Save → "A plan needs at least one exercise".
+   Clear a field's name → Save → the toast names the exercise ("<exercise>:
+   fields cannot be empty."), and the row opens with the error under it.
+10. **Offline (finding 1):** airplane mode, edit, Save → "Saving…", then about 10 s
+    later "Not saved yet"; the button works again. Tap Save again → "Not saved yet"
+    again. Press back → "Still saving" with Leave (not "Discard changes?"); Keep
+    editing. Edit something more, press back → "Discard changes?". Undo that edit
+    (back to what was saved), turn the network on with the app open → exactly one
+    "Plan saved".
+11. **D5 (finding 5):** start a workout on plan A → Manage, choose A → the banner
+    "Workout in progress on this plan…" shows → edit, save → the toast reads
+    `"A" saved.` in full → resume the workout: its fields are the old ones →
+    Manage, choose B → no banner.
+12. **Footer (finding 2):** with a plan chosen, the Save bar matches Start
+    Workout's: dark surface with a thin top line, no pale band. Disabled: a raised
+    dark button with grey text. Enabled: the accent button, like Start's. Check in
+    the light and dark themes if both are in use.
+13. Assisted Dip (machine): add it, rename "Assistance" → saves; its kg is kept.
 **Dependencies:** TICKET-043 (the picker Add exercise opens).
 
 ---
