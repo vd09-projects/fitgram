@@ -42,10 +42,14 @@ export const MultiTourSteps: React.FC<Props> = ({
     const childStyle: ViewStyle = {};
 
     for (const key in flattenedStyle) {
+      // gap / rowGap / columnGap space the child's own children, so they stay on
+      // the child: on the wrapper, which has one child, they did nothing (the
+      // Exercise button's icon touched its text, device 2026-10-27).
       if (
         (key.startsWith('align') && !flattenedStyle.hasOwnProperty('flexDirection')) ||
         key.startsWith('flexDirection') ||
-        key.startsWith('height')
+        key.startsWith('height') ||
+        key === 'gap' || key === 'rowGap' || key === 'columnGap'
       ) {
         childStyle[key] = flattenedStyle[key];
       } else {
