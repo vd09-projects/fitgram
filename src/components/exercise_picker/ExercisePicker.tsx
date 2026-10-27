@@ -17,7 +17,7 @@
 //
 // Not here, by ticket: recents, filter menus and "last used" (TICKET-050).
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { BackHandler, FlatList, KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SPACING } from "../../constants/styles";
@@ -31,8 +31,6 @@ import { useThemeStyles } from "../../utils/useThemeStyles";
 import { TextBase } from "../TextBase";
 import SearchBox from "../SearchBox";
 import VersionSheet from "./VersionSheet";
-// TEMPORARY (TICKET-043 stage 3 device timing): remove with the timing line below.
-import { showDebugScreens } from "../../config/envConfig";
 
 const NO_MOVEMENTS: readonly Movement[] = [];
 
@@ -105,22 +103,10 @@ export default function ExercisePicker({ movements, searchWords, customExercises
     () => preparePicker(movements ?? NO_MOVEMENTS, searchWords, customExercises),
     [movements, searchWords, customExercises]
   );
-  // TEMPORARY (TICKET-043 stage 3 device timing): every search's duration, for
-  // the line above the search box. Remove `timings`, `openStart` and `openMs`
-  // with their effect, the `performance.now()` pair, the `showDebugScreens`
-  // import and the `timing` Text with its style.
-  const timings = useRef<number[]>([]);
-  // From the first render to its commit: what opening costs inside the picker.
-  const openStart = useRef(performance.now());
-  const [openMs, setOpenMs] = useState<number | null>(null);
-  useEffect(() => setOpenMs(performance.now() - openStart.current), []);
-  const search = useMemo(() => {
-    if (!query.trim()) return null;
-    const start = performance.now();
-    const found = searchExercises(catalog, query, RESULT_LIMIT);
-    timings.current.push(performance.now() - start);
-    return found;
-  }, [catalog, query]);
+  const search = useMemo(
+    () => (query.trim() ? searchExercises(catalog, query, RESULT_LIMIT) : null),
+    [catalog, query]
+  );
   const rows: readonly Row[] = search
     ? search.results.map((r) =>
         r.kind === "movement"
@@ -228,10 +214,6 @@ export default function ExercisePicker({ movements, searchWords, customExercises
         />
       )}
 
-      {showDebugScreens && (
-        // TEMPORARY (TICKET-043 stage 3 device timing)
-        <TextBase style={styles.timing}>{timingLine(openMs, timings.current)}</TextBase>
-      )}
       <SearchBox
         label="Search"
         placeholder="Name, muscle or equipment"
@@ -257,18 +239,7 @@ export default function ExercisePicker({ movements, searchWords, customExercises
   );
 }
 
-/** TEMPORARY (TICKET-043 stage 3 device timing): open, then last, median and p95 per keystroke. */
-function timingLine(openMs: number | null, all: readonly number[]): string {
-  const open = openMs === null ? "open …" : `open ${openMs.toFixed(0)} ms`;
-  if (!all.length) return open;
-  const sorted = [...all].sort((a, b) => a - b);
-  const at = (q: number) => sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))].toFixed(2);
-  return `${open} · search ${all[all.length - 1].toFixed(2)} ms · median ${at(0.5)} · p95 ${at(0.95)} · max ${at(1)} · n=${all.length}`;
-}
-
 const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
-  // TEMPORARY (TICKET-043 stage 3 device timing)
-  timing: { fontSize: 11, color: t.colors.role.textSecondary },
   screen: {
     backgroundColor: t.colors.role.ground,
     paddingHorizontal: SPACING.large,
