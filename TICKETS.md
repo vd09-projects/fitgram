@@ -41,7 +41,6 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
-| 043 | Exercise search and picker | Large | **Next.** Ports the prototype and its 91 cases; "Latpulldown", "squad", "bech press" return 0 today. Opens from today's Manage Workout. Split 2026-10-27 into 043 / 050 / 051 / 052, each done by a device test |
 | 050 | Picker start page: recents, filters, last-used version | Medium | After 043 |
 | 051 | Manage Workout: exercise list and Save changes | Medium | After 043; can run alongside 050 |
 | 052 | Manage Workout: new plan and first plan | Small–Medium | After 051 |
@@ -2946,8 +2945,9 @@ TICKET-035 for the 349, but this ticket does not wait for it. Blocks TICKET-043.
 
 ### TICKET-043: Exercise Search and Picker
 
-**Priority:** Medium | **Effort:** Large | **Status: IN REVIEW** (PR open; DONE once
-it merges) — split 2026-10-27 into
+**Priority:** Medium | **Effort:** Large | **Status: DONE** — merged in PR #23
+(3f2e06b, 2026-10-27); marked DONE by the user before the device test, which runs
+once the build is on a phone (stage 3 test plan below) — split 2026-10-27 into
 four tickets, each finished by a device test (user): **043** search + picker,
 **050** picker start page, **051** Manage Workout exercise list, **052** Manage
 Workout plans. Nothing temporary: each lands in the screens that exist when it does
@@ -4525,8 +4525,9 @@ it) once 046's content exists. Phase 3B; research is in
 2. TICKET-046  (Real catalog content)      — Done (PR #21): 489 movements, 805 versions
 3. TICKET-042  stage 2 (App reads catalog) — Done (PR #22, 2026-10-27): Firestore + cache,
                                              name sites, test-data wipe, rules deployed
-4. TICKET-043  (Search + picker)           — Next; opens from today's Manage Workout
-5. TICKET-050  (Picker start page)        — After 043: recents, filters, last used
+4. TICKET-043  (Search + picker)           — Done (PR #23, 2026-10-27); device test
+                                             pending on a phone
+5. TICKET-050  (Picker start page)        — Next: recents, filters, last used
 6. TICKET-051  (Manage Workout list)      — After 043; alongside 050 if wanted
 7. TICKET-052  (New plan, first plan)     — After 051
 8. TICKET-053  (Guided tour pass)         — After 043, 050, 051, 052
