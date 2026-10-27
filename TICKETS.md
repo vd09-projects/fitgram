@@ -2946,7 +2946,8 @@ TICKET-035 for the 349, but this ticket does not wait for it. Blocks TICKET-043.
 
 ### TICKET-043: Exercise Search and Picker
 
-**Priority:** Medium | **Effort:** Large | **Status: OPEN** — split 2026-10-27 into
+**Priority:** Medium | **Effort:** Large | **Status: IN REVIEW** (PR open; DONE once
+it merges) — split 2026-10-27 into
 four tickets, each finished by a device test (user): **043** search + picker,
 **050** picker start page, **051** Manage Workout exercise list, **052** Manage
 Workout plans. Nothing temporary: each lands in the screens that exist when it does
@@ -3023,7 +3024,8 @@ Recents, filter menus and "last used" preselection are TICKET-050.
       works (default chosen 2026-10-27; the user can overrule it)
 - [ ] Picker built from TICKET-041 boards A2–A4, opened from today's Manage Workout
       in place of the Exercise dropdown. 4 or 5 tests on its main behaviours
-- [ ] Measured: search time per keystroke over the full catalog, on a device
+- [ ] Measured: search time per keystroke over the full catalog, on a device.
+      Measured in Hermes on a laptop instead (benchmark below); a phone is not
 - [ ] Guided tour: deferred to TICKET-053 (user, 2026-10-27)
 - [ ] Delivered in stages (CLAUDE.md 3.4): 1. the search function and its tests;
       2. typos and joined/split words; 3. the picker screen
@@ -3341,9 +3343,10 @@ lived in the exercise file. Now:
   (`InteractionManager.runAfterInteractions`); A–Z compares lowercase names with `<`
   (names are ASCII; same order as `localeCompare` for all 489, checked); the list
   first renders 12 rows, not 20 (about 9 fit). Rejected: keeping the picker always
-  mounted and hidden (its list would render with Manage Workout every time). The
-  TEMPORARY line now also shows "open N ms": first render to commit, inside the
-  picker. Not measured: the tap itself and Manage Workout's re-render
+  mounted and hidden (its list would render with Manage Workout every time).
+  ~~The TEMPORARY line now also shows "open N ms"~~ (removed 2026-10-27; the
+  benchmark below replaces it). Not measured: the tap itself, rendering, and Manage
+  Workout's re-render
 - **Soft axes start from their default each settle** (user review, 2026-10-27).
   Before, a soft axis kept its value while it still fitted, so a value forced by one
   choice outlived it: Bench EZ bar → Barbell kept Close grip; EZ bar → Dumbbell
@@ -3377,11 +3380,36 @@ lived in the exercise file. Now:
   visible" note until a movement with versions is tapped. Not run on a device.
   **The tour was not verified; it is deferred to TICKET-053** (user, 2026-10-27).
   These step ids stay as input for 053
-- **TEMPORARY timing line** (CLAUDE.md 3.3), only with `SHOW_DEBUG_SCREENS`: under the
-  search box, "search X ms · median · p95 · max · n", the time of `searchExercises`
-  alone (not rendering). Removal: in `ExercisePicker.tsx`, the `showDebugScreens`
-  import, `timings` and the `performance.now()` pair, the `timing` Text, `timingLine`
-  and the `timing` style; all 5 places are marked `TEMPORARY`
+- ~~**TEMPORARY timing line** (CLAUDE.md 3.3), only with `SHOW_DEBUG_SCREENS`~~
+  **Removed 2026-10-27** (user): replaced by a benchmark kept in the repo, below
+- **Benchmark (2026-10-27, user asked for a kept baseline and a regression check).**
+  `npm run bench:search` (`src/scripts/benchmarkSearch.ts`) times the picker's own
+  code: `preparePicker` (index + A–Z, what opening builds) and `searchExercises` once
+  per keystroke (the picker searches on every change, no debounce) over stage 1's 7
+  normal queries (98 keystrokes) and stage 2's 8 typo queries (79). Two engines:
+  Node (V8, JIT) and the Hermes CLI React Native ships, as -O bytecode like a
+  release build. Each figure is the fastest of 5 timings, median of 3 runs: single
+  runs differed up to 4.6× at p95 (GC, other processes); now within ~6%. Baseline in
+  `benchmarks/exercise-search.json` (M1 Pro, at `b8c58a7`):
+
+  | | Node | Hermes |
+  |---|---|---|
+  | Open: index + A–Z, median | 2.2 ms | 21 ms |
+  | Open: first call in a fresh process | 2.5 ms | 22 ms |
+  | Search, normal: median / p90 / p95 | 0.20 / 0.48 / 0.53 ms | 2.5 / 5.3 / 5.5 ms |
+  | Search, typo: median / p90 / p95 | 0.26 / 0.79 / 0.83 ms | 3.3 / 7.3 / 7.7 ms |
+
+  Hermes is ~10× Node, which fits the slow open seen on the device before
+  `preparePicker` was cached and warmed. `--check` exits 1 when the open median or a
+  search p95 passes 1.5× the baseline. Seen red: rebuilding the typo dictionary per
+  search (1.53–1.86× on three figures); green again after restoring (all within 5%).
+  Not caught: removing `editDistance`'s early stop (1.43× at most), so a slowdown
+  under 1.5× passes. Local only, not in CI (timing on a shared runner is noise; the
+  Linux Hermes package has no `hermes` binary), and only comparable on the machine
+  that wrote the baseline: it warns when the CPU differs. **Not measured:** a phone
+  (slower than a laptop by a factor this does not know), React rendering the list,
+  the tap to first frame, GC pauses (the fastest-of-5 drops them), and the Android
+  collator `localeCompare` used to go through (the Hermes CLI's is not the phone's)
 - **Tests** (9 new): `versionSheet.test.ts` (4): every one of the 805 versions can be
   added by tapping only enabled options and lands on itself; the three versions with
   no default (EZ bar → Close, weight plate → Decline, Pushdown Cable + Reverse →
@@ -3421,12 +3449,9 @@ lived in the exercise file. Now:
    Angle moves to Decline; Triceps Pushdown → Cable → Attachment row appears →
    Grip Reverse → Attachment moves to None; Lateral Raise → Cable → Side One arm →
    Add reads "Lateral Raise · Cable, one arm"
-6. **Timing:** type the 7 normal queries and the 8 typo queries from stages 1–2
-   (e.g. "incline db bench press", "incliend bench press"); report the timing line
-   (median, p95, max, n). Node measured 0.19 / 0.5 ms median
-6a. **Open time:** open the picker 5 times; report "open N ms" each time, and say
-   whether it still feels slow. In a dev build everything is several times slower
-   than release, so say which build it was
+6. **Timing:** ~~report the timing line~~ (removed; see Benchmark above). On the
+   device, only: does typing feel instant, and does opening the picker still feel
+   slow? Say which build (dev builds are several times slower)
 7. **Scroll:** with an empty query, fling through all 489 movements A–Z: no blank
    rows or stalls
 8. Android back closes the sheet, then the picker
@@ -3435,7 +3460,7 @@ lived in the exercise file. Now:
 9. **Tour:** not required, see TICKET-053; note anything broken for it
 - **Cannot be covered on a device:** custom exercises (none exist since the
   2026-10-26 wipe, and none can be created until TICKET-045); unit test only
-- After the run: remove the TEMPORARY timing line (above)
+- ~~After the run: remove the TEMPORARY timing line~~ Removed 2026-10-27
 
 **Dependencies:** TICKET-042. TICKET-041 boards A2–A4.
 
