@@ -1,8 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusEffect, useNavigation, usePreventRemove } from '@react-navigation/native';
 import {
-  Text,
-  TouchableOpacity,
   StyleSheet,
   View,
   InteractionManager
@@ -12,22 +10,36 @@ import { Ionicons } from '@expo/vector-icons';
 import { BORDER_RADIUS, SPACING } from '../../constants/styles';
 import ScrollableScreen from '../../components/ScrollableScreen';
 import SearchableInputDropdown, { DropdownSelection } from '../../components/SearchableInputDropdown';
-import ExerciseFieldEditor from '../../components/ExerciseFieldEditor';
 import useWorkoutPlans from '../../hooks/useWorkoutPlans';
 import show from '../../utils/toastUtils';
 import { overrideWorkoutDetails } from '../../services/db/userDB';
 import { useAuthUser } from '../../hooks/useAuthUser';
-import CollapsibleExerciseList from '../../components/CollapsibleExerciseList';
-import { Exercise, ExerciseField, WorkoutPlan } from '../../types/workoutType';
+import { WorkoutScreenNavigationProp } from '../../navigation/WorkoutNavigator';
+import PlanExerciseList from '../../components/PlanExerciseList';
+import { DiscardWorkoutDialog } from '../../components/active_workout/DiscardWorkoutDialog';
+import { Exercise, WorkoutPlan } from '../../types/workoutType';
 import { TextBase } from '../../components/TextBase';
-import { validateCustomFields, validateExerciseSelection, validateWorkoutAndExercises, validateWorkoutSelection } from '../../utils/exerciseValidations';
 import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
 import { MANAGE_WOURKOUT_STEP_NAMES } from '../../tour_steps/manageWorkout';
 import { MaybeTourStep } from '../../components/guide_tour/MaybeTourStep';
 import { useCatalogStore } from '../../stores/useCatalogStore';
-import { planExerciseFromPick } from '../../utils/catalog';
+import {
+  DraftExercise,
+  PlanDraft,
+  addExercise,
+  draftFromPlan,
+  isDraftDirty,
+  planFromDraft,
+  raceSave,
+  refusedSaveMessage,
+  removeExercise,
+  setExerciseFields,
+  setPendingField,
+  validateDraft,
+} from '../../utils/planDraft';
 import { customExercisesFromPlans } from '../../utils/exerciseSearch';
+import { exerciseDisplayName } from '../../utils/catalog';
 import ExercisePicker from '../../components/exercise_picker/ExercisePicker';
 import { preparePicker } from '../../utils/pickerData';
 import { useRecentSessions } from '../../hooks/useRecentSessions';
@@ -37,16 +49,37 @@ import { TouchableOpacityBase } from '../../components/TouchableOpacityBase';
 import { makeStepId } from '../../tour_steps/utils';
 import { SEARCHABLE_INPUT_STEP_NAMES } from '../../tour_steps/commonStepNames';
 
+// A discard waiting on the user: leaving the screen, or switching plan.
+// `stillSaving`: the draft is exactly the plan whose write is queued offline,
+// so nothing is thrown away; the dialog says so instead of "Discard".
+type PendingDiscard =
+  | { kind: 'leave'; proceed: () => void; stillSaving: boolean }
+  | { kind: 'switch'; workout: DropdownSelection<WorkoutPlan>; stillSaving: boolean };
+
+// A write that outlived Save's grace (offline rule, D4): still queued in
+// Firestore's memory cache, landing when the connection returns.
+type QueuedWrite = { plan: WorkoutPlan; write: Promise<void> };
+
 export default function AddExerciseScreen() {
   const { styles, t } = useThemeStyles(createStyles);
   const { user } = useAuthUser();
+  const navigation = useNavigation<WorkoutScreenNavigationProp<'AddExercise'>>();
 
-  const [selectedExercise, setSelectedExercise] = useState<DropdownSelection<Exercise> | undefined>(undefined);
   const [selectedWorkout, setSelectedWorkout] = useState<DropdownSelection<WorkoutPlan> | undefined>(undefined);
-  const [customFields, setCustomFields] = useState<ExerciseField[]>([]);
-  // Text typed into the field editor's add box but not committed with +.
-  const [pendingFieldName, setPendingFieldName] = useState<string>('');
-  const [workoutDetailsUpdated, setWorkoutDetailsUpdated] = useState<boolean>(false);
+  // TICKET-051 D1: the plan as last saved, and the copy being edited. The
+  // loaded plan object is never mutated; Save writes `planFromDraft(draft)`.
+  const [saved, setSaved] = useState<WorkoutPlan | null>(null);
+  const [draft, setDraft] = useState<PlanDraft | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Row errors appear after a refused Save, not while the user is typing.
+  const [showErrors, setShowErrors] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [pendingDiscard, setPendingDiscard] = useState<PendingDiscard | null>(null);
+  // A ref, not state: nothing renders from it, and a late landing must see the
+  // current value, not the one from the render that queued it.
+  const queuedRef = useRef<QueuedWrite | null>(null);
+  // EXPERIMENT (user, 2026-10-28): the floating footer's measured height.
+  const [footerHeight, setFooterHeight] = useState(0);
 
   const [reload, setReload] = useState<boolean>(false);
 
@@ -59,10 +92,16 @@ export default function AddExerciseScreen() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const { workoutPlans, loadingWorkoutPlans } = useWorkoutPlans(reload);
   const customExercises = useMemo(() => customExercisesFromPlans(workoutPlans), [workoutPlans]);
-  const inPlan = useMemo(
-    () => new Set((selectedWorkout?.value?.exercises ?? []).map((e) => e.id)),
-    [selectedWorkout]
-  );
+  // From the draft (D3): a version added and not yet saved is greyed, one
+  // removed in the draft can be picked again.
+  const inPlan = useMemo(() => new Set((draft?.exercises ?? []).map((e) => e.id)), [draft]);
+
+  // D5: the banner shows only for the plan that has a workout running.
+  const activeWorkoutId = useWorkoutStore((s) => s.activeWorkout?.id ?? null);
+  const runningHere = draft !== null && activeWorkoutId === draft.id;
+
+  const dirty = useMemo(() => (saved && draft ? isDraftDirty(saved, draft) : false), [saved, draft]);
+  const errors = useMemo(() => (draft ? validateDraft(draft) : null), [draft]);
 
   // The picker's Recent and last-used versions (TICKET-050). The same hook as
   // Start: one recent-sessions query each time Manage Workout comes into view
@@ -93,93 +132,151 @@ export default function AddExerciseScreen() {
   // itself is fetched only if its hash changed.
   useFocusEffect(useCallback(() => { useCatalogStore.getState().sync(); }, []));
 
+  // D1: leaving with unsaved changes asks first. Covers the back button,
+  // hardware back and gestures (Manage is a stack screen). Dispatching the
+  // held action is the documented way through once the user confirms.
+  usePreventRemove(dirty, ({ data }) => {
+    setPendingDiscard({ kind: 'leave', proceed: () => navigation.dispatch(data.action), stillSaving: draftIsQueued() });
+  });
+
+  /**
+   * Is the draft exactly the plan whose write is still queued? Then leaving
+   * loses nothing while the app stays open, and "Discard changes?" would be
+   * false (device review, round 1). Edited after that save: it is a discard.
+   */
+  const draftIsQueued = () => {
+    const queued = queuedRef.current;
+    return !!queued && !!draft && queued.plan.id === draft.id && !isDraftDirty(queued.plan, draft);
+  };
+
   const handleReload = () => setReload((prev) => !prev);
 
-  const handleSelectExercise = (exercise: DropdownSelection<Exercise>) => {
-    setWorkoutDetailsUpdated(true);
-    // Picking the same exercise again keeps the fields already edited for it.
-    // Only adopt the selection's own fields when the selection actually changed.
-    const sameExercise =
-      selectedExercise?.value?.id !== undefined &&
-      selectedExercise.value.id === exercise.value?.id;
-    if (!sameExercise) {
-      setCustomFields(exercise.value?.fields || []);
-      setPendingFieldName('');
-    }
-    setSelectedExercise(exercise);
+  const openPlan = (workout: DropdownSelection<WorkoutPlan>) => {
+    // A typed name creates an empty plan, as before (TICKET-052 replaces this).
+    const plan: WorkoutPlan = workout.isCustom || !workout.value
+      ? { id: workout.label.replace(/\s+/g, '_'), name: workout.label, exercises: [] }
+      : workout.value;
+    setSelectedWorkout({ ...workout, value: plan });
+    setSaved(plan);
+    setDraft(draftFromPlan(plan));
+    setExpandedId(null);
+    setShowErrors(false);
   };
 
   const handleSelectWorkout = (workout: DropdownSelection<WorkoutPlan>) => {
-    if (workout.isCustom) {
-      workout.value = {
-        id: workout.label.replace(/\s+/g, '_'),
-        name: workout.label,
-        exercises: []
-      };
-    }
-    setCustomFields([]);
-    setPendingFieldName('');
-    setSelectedExercise(undefined);
-    setSelectedWorkout(workout);
+    if (dirty) setPendingDiscard({ kind: 'switch', workout, stillSaving: draftIsQueued() });
+    else openPlan(workout);
   };
 
-  const handleSubmit = () => {
-    if (!selectedWorkout?.value) {
-      return show.alert("Workout Invalid", "Please select a workout.");
+  const confirmDiscard = () => {
+    const pending = pendingDiscard;
+    setPendingDiscard(null);
+    if (pending?.kind === 'leave') pending.proceed();
+    if (pending?.kind === 'switch') openPlan(pending.workout);
+  };
+
+  /**
+   * The plan reached the server. Rebases only if the same plan is still open:
+   * a write that lands late (offline rule) must not overwrite another plan's
+   * baseline. The draft is refreshed (new saved names, D2) only if it was not
+   * edited since; if it was, it stays dirty against the new baseline.
+   */
+  const onSaved = (plan: WorkoutPlan) => {
+    // D5's running-workout note is the banner, before editing; a longer toast
+    // was cut off on the device (round 1).
+    show.success('Plan saved', `"${plan.name}" saved.`);
+    setSaved((prev) => (prev?.id === plan.id ? plan : prev));
+    setDraft((prev) => (prev?.id === plan.id && !isDraftDirty(plan, prev) ? draftFromPlan(plan) : prev));
+    handleReload();
+  };
+
+  const handleSave = async () => {
+    if (!draft || !errors || saving) return;
+    if (!errors.ok) {
+      setShowErrors(true);
+      const firstRow = Object.keys(errors.rows)[0];
+      if (firstRow) setExpandedId(firstRow);
+      // Names the exercise: the toast sits at the bottom, so "marked below"
+      // pointed away from the row (device review, round 1).
+      const nameOf = (exercise: DraftExercise) => exerciseDisplayName(exercise, catalog?.index ?? null).title;
+      return show.alert('Plan not saved', refusedSaveMessage(draft, errors, nameOf));
     }
 
-    const workoutError = validateWorkoutSelection(selectedWorkout);
-    if (workoutError) return show.alert("Workout Invalid", workoutError);
-
-    const deepExerciseError = validateWorkoutAndExercises(selectedWorkout.value);
-    if (deepExerciseError) return show.alert("Exercise Invalid", deepExerciseError);
-
-    const wk = selectedWorkout.value;
-    const exerciseIds = new Set(wk.exercises.map(e => e.id));
-
-    if (selectedExercise) {
-      if (!selectedExercise.value) {
-        return show.alert("Exercise Invalid", "Please select an exercise.");
+    const plan = planFromDraft(draft);
+    // A retry of the write already queued races that write again rather than
+    // queueing a second one: its own handler reports the landing, so there is
+    // one "Plan saved", not two (device review, round 1).
+    const queued = draftIsQueued() ? queuedRef.current : null;
+    const write = queued ? queued.write : overrideWorkoutDetails(uid ?? '', plan);
+    setSaving(true);
+    try {
+      // Offline rule (D4): `setDoc` does not settle while offline, so the wait
+      // is bounded. The write stays queued and may still land; the draft stays
+      // dirty until it does, so Save can be retried.
+      const result = await raceSave(write);
+      if (result === 'pending')
+        show.warn('Not saved yet', 'Check your connection. Your changes are still here; tap Save changes to retry.');
+      if (queued) return;
+      if (result === 'saved') {
+        onSaved(plan);
+        return;
       }
-
-      const exerciseError = validateExerciseSelection(selectedExercise, exerciseIds);
-      if (exerciseError) return show.alert("Exercise Invalid", exerciseError);
-
-      // Accept a field that was typed but never committed with +, rather than
-      // rejecting the exercise as fieldless over a missed tap.
-      const pending = pendingFieldName.trim();
-      const fieldsToSave: ExerciseField[] =
-        pending !== '' && !customFields.some((f) => f.name.trim() === pending)
-          ? [...customFields, { name: pending, role: 'other' }]
-          : customFields;
-
-      const fieldError = validateCustomFields(fieldsToSave);
-      if (fieldError) return show.alert("Fields Invalid", fieldError);
-
-      wk.exercises.push(planExerciseFromPick(selectedExercise.value, selectedExercise.label, fieldsToSave));
+      queuedRef.current = { plan, write };
+      write
+        .then(
+          () => onSaved(plan),
+          (error) => {
+            console.error('Could not save plan:', error);
+            show.alert('Could not save plan', 'Please try again.');
+          }
+        )
+        .finally(() => {
+          if (queuedRef.current?.write === write) queuedRef.current = null;
+        });
+    } catch (error) {
+      // A queued write's rejection is reported by its own handler, above.
+      if (!queued) {
+        console.error('Could not save plan:', error);
+        show.alert('Could not save plan', 'Please try again.');
+      }
+    } finally {
+      setSaving(false);
     }
-
-    const saveWorkout = async () => {
-      await overrideWorkoutDetails(user?.uid || "", wk);
-      show.success("Workout Saved", `Workout "${selectedWorkout.label}" updated.`);
-      handleSelectWorkout(selectedWorkout);
-      handleReload();
-      setWorkoutDetailsUpdated(false);
-    };
-
-
-    saveWorkout();
   };
 
   const handlePick = (exercise: Exercise) => {
     setPickerOpen(false);
-    handleSelectExercise({ label: exercise.nameSnapshot ?? exercise.name, value: exercise, isCustom: false });
+    if (!draft) return;
+    setDraft(addExercise(draft, exercise, exercise.nameSnapshot ?? exercise.name));
+    // The exercise arrives expanded with its catalog fields (board C1).
+    setExpandedId(exercise.id);
+  };
+
+  const handleToggle = (exerciseId: string) => {
+    // The add box lives in the editor and unmounts on collapse, so text typed
+    // there and not committed goes with it rather than saving unseen.
+    if (draft && expandedId !== null) setDraft(setPendingField(draft, expandedId, ''));
+    setExpandedId(expandedId === exerciseId ? null : exerciseId);
   };
 
   return (
     <View style={styles.root}>
       <ScrollableScreen
-        title={<TextBase style={styles.heading}>Manage Workout</TextBase>}>
+        title={<TextBase style={styles.heading}>Manage Workout</TextBase>}
+        // EXPERIMENT: the footer floats over the list, so the list ends with
+        // room for it; otherwise the last row could never scroll clear.
+        innerContainerStyle={draft ? { paddingBottom: footerHeight } : undefined}>
+
+        {/* D5: a running workout keeps the snapshot it took at Start; say so
+            before editing, not in a toast after (device review, round 1). */}
+        {runningHere && (
+          <View style={styles.banner} accessibilityRole="alert">
+            <Ionicons name="information-circle-outline" size={20} color={t.colors.role.textSecondary} />
+            <TextBase style={styles.bannerText}>
+              Workout in progress on this plan. Changes apply from your next start.
+            </TextBase>
+          </View>
+        )}
 
         {/* 🔹 Select Workout */}
         <SearchableInputDropdown<WorkoutPlan>
@@ -192,68 +289,76 @@ export default function AddExerciseScreen() {
           tourStepPrefix={MANAGE_WOURKOUT_STEP_NAMES.WORKOUT_SEARCHABLE}
         />
 
-
-        {/* 🔹 Collapsible Exercise List Component */}
-        {selectedWorkout?.value?.exercises && selectedWorkout?.value?.exercises?.length > 0 && (
-          <CollapsibleExerciseList
-            exercises={selectedWorkout.value.exercises}
-            onUpdate={(index, updatedExercises) => {
-              if (!selectedWorkout?.value || !selectedWorkout.value?.exercises) return;
-              if (!updatedExercises) {
-                selectedWorkout.value.exercises.splice(index, 1);
-              } else {
-                selectedWorkout.value.exercises.splice(index, 1, updatedExercises);
-              }
-              const newWorkout = { ...selectedWorkout } as DropdownSelection<WorkoutPlan>;
-              // console.log('🔥 Updated Workout:', newWorkout);
-              setWorkoutDetailsUpdated(true);
-              setSelectedWorkout(newWorkout);
-            }}
-          />
-        )}
-
-        {/* 🔹 Select Exercise: opens the picker. Keeps the old dropdown's tour step id. */}
-        <TextBase style={styles.fieldTitle}>Exercise</TextBase>
-        <MaybeTourStep
-          stepId={makeStepId(SEARCHABLE_INPUT_STEP_NAMES.DROPDOWN_BUTTON, MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_SEARCHABLE)}
-          positionType="above"
-        >
-          <TouchableOpacityBase
-            style={styles.opener}
-            onPress={() => setPickerOpen(true)}
-            disabled={!catalogLoaded}
-            accessibilityRole="button"
-            accessibilityLabel="Choose exercise"
-          >
-            <Ionicons name="search" size={18} color={t.colors.role.textSecondary} />
-            <TextBase style={selectedExercise ? styles.openerValue : styles.openerPlaceholder} numberOfLines={2}>
-              {selectedExercise?.label ?? (catalogLoaded && !catalog ? "Exercise catalog not loaded yet" : "Search exercises")}
+        {draft && (
+          <>
+            <TextBase style={styles.fieldTitle}>
+              Exercises{draft.exercises.length > 0 ? ` · ${draft.exercises.length}` : ''}
             </TextBase>
-          </TouchableOpacityBase>
-        </MaybeTourStep>
+            <PlanExerciseList
+              exercises={draft.exercises}
+              expandedId={expandedId}
+              rowErrors={showErrors && errors ? errors.rows : {}}
+              onToggle={handleToggle}
+              onFieldsChange={(id, fields) => setDraft(setExerciseFields(draft, id, fields))}
+              onPendingChange={(id, text) => setDraft(setPendingField(draft, id, text))}
+              onRemove={(id) => {
+                setDraft(removeExercise(draft, id));
+                setExpandedId(null);
+              }}
+            />
 
-        {/* 🔹 Input Fields for Selected or Custom Exercise */}
-        {selectedExercise && (
-          <ExerciseFieldEditor
-            title={"Select `" + selectedExercise.label + "` Fields"}
-            items={customFields}
-            onItemsChange={setCustomFields}
-            onPendingTextChange={setPendingFieldName}
-            tourStepPrefix={MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_EDITABLE_LIST}
-            positionType="above"
-          />
-        )}
+            {/* 🔹 Add exercise: opens the picker. Keeps the old Exercise button's tour step id. */}
+            <MaybeTourStep
+              stepId={makeStepId(SEARCHABLE_INPUT_STEP_NAMES.DROPDOWN_BUTTON, MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_SEARCHABLE)}
+              positionType="above"
+            >
+              {/* Plain View, as Save below: the split left the touchable
+                  shrink-wrapped to its label inside the dashed box. */}
+              <View>
+                <TouchableOpacityBase
+                  style={styles.addButton}
+                  onPress={() => setPickerOpen(true)}
+                  disabled={!catalogLoaded || !catalog}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add exercise"
+                >
+                  <Ionicons name="add" size={20} color={t.colors.role.textSecondary} />
+                  <TextBase style={styles.addButtonText}>
+                    {catalogLoaded && !catalog ? "Exercise catalog not loaded yet" : "Add exercise"}
+                  </TextBase>
+                </TouchableOpacityBase>
+              </View>
+            </MaybeTourStep>
 
-        {/* 🔹 Submit Button */}
-        {workoutDetailsUpdated && (
-          <MaybeTourStep stepId={MANAGE_WOURKOUT_STEP_NAMES.SAVE_BUTTON} positionType='above'>
-            <TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
-              <Ionicons name="checkmark-circle-outline" size={24} color={t.colors.buttonText} />
-              <TextBase style={styles.saveButtonText}>Save Exercise</TextBase>
-            </TouchableOpacity>
-          </MaybeTourStep>
+            {showErrors && errors?.plan && <TextBase style={styles.planError}>{errors.plan}</TextBase>}
+          </>
         )}
       </ScrollableScreen>
+
+      {/* 🔹 Save changes: the whole plan, enabled only when there is something to write (D4). */}
+      {draft && (
+        <View style={styles.footer} onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}>
+          <MaybeTourStep stepId={MANAGE_WOURKOUT_STEP_NAMES.SAVE_BUTTON} positionType='above'>
+            {/* Plain View: MultiTourSteps splits its child's style, which put the
+                fill on the wrapper and left the label at the top of the button
+                (device, 2026-10-28). As on Start and Active Workout. */}
+            <View>
+              <TouchableOpacityBase
+                style={[styles.primary, (!dirty || saving) && styles.primaryDisabled]}
+                onPress={handleSave}
+                disabled={!dirty || saving}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !dirty || saving }}
+              >
+                <TextBase style={[styles.primaryText, (!dirty || saving) && styles.primaryTextDisabled]}>
+                  {saving ? 'Saving…' : 'Save changes'}
+                </TextBase>
+              </TouchableOpacityBase>
+            </View>
+          </MaybeTourStep>
+        </View>
+      )}
+
       {pickerOpen && (
         <ExercisePicker
           movements={catalog?.movements ?? null}
@@ -266,12 +371,29 @@ export default function AddExerciseScreen() {
           tourStepPrefix={MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_PICKER}
         />
       )}
+
+      <DiscardWorkoutDialog
+        visible={pendingDiscard !== null}
+        {...(pendingDiscard?.stillSaving
+          ? {
+              title: 'Still saving',
+              message: "It will finish when you're back online, as long as the app stays open.",
+              discardLabel: 'Leave',
+            }
+          : { title: 'Discard changes?', message: 'Your edits to this plan have not been saved.' })}
+        keepLabel="Keep editing"
+        onKeep={() => setPendingDiscard(null)}
+        onDiscard={confirmDiscard}
+      />
     </View>
   );
 }
 
 const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
-  root: { flex: 1 },
+  // EXPERIMENT (user, 2026-10-28): the footer below is transparent, so the
+  // root carries the list's background (ScrollableScreen's `primary`); without
+  // it the navigator's light background showed as a pale band (round 1).
+  root: { flex: 1, backgroundColor: t.colors.primary },
   fieldTitle: {
     fontSize: t.fonts.medium,
     fontWeight: 'bold',
@@ -279,40 +401,79 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     marginTop: SPACING.medium,
     marginBottom: SPACING.small,
   },
-  opener: {
+  addButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: SPACING.small,
     padding: SPACING.medium,
     borderRadius: BORDER_RADIUS,
     borderWidth: 1,
-    borderColor: t.colors.role.hairlineStrong,
-    backgroundColor: t.colors.role.raised,
+    borderStyle: 'dashed',
+    borderColor: t.colors.role.fieldEdge,
+    marginTop: SPACING.small,
     marginBottom: SPACING.large,
   },
-  openerValue: { flex: 1, fontSize: t.fonts.medium, color: t.colors.role.textPrimary },
-  openerPlaceholder: { flex: 1, fontSize: t.fonts.medium, color: t.colors.role.textSecondary },
+  addButtonText: { fontSize: t.fonts.medium, color: t.colors.role.textSecondary },
+  planError: {
+    color: t.colors.cancelButton,
+    fontSize: t.fonts.xMedium,
+    fontWeight: 'bold',
+  },
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.small,
+    padding: SPACING.medium,
+    marginTop: SPACING.medium,
+    borderRadius: BORDER_RADIUS,
+    borderWidth: 1,
+    borderColor: t.colors.role.hairlineStrong,
+    backgroundColor: t.colors.role.raised,
+  },
+  bannerText: { flex: 1, fontSize: t.fonts.xMedium, color: t.colors.role.textPrimary },
+  // Start Workout's footer and primary button (StartWorkoutScreen.tsx), so the
+  // two screens' main buttons match (device review, round 1).
+  footer: {
+    gap: SPACING.small,
+    paddingTop: SPACING.medium,
+    paddingHorizontal: SPACING.large,
+    paddingBottom: SPACING.xxLarge,
+    // EXPERIMENT (user, 2026-10-28): floats over the list with no fill or top
+    // line, so rows show through around the button; only the button is
+    // opaque. Was in the layout below the list, with Start's `role.surface` +
+    // hairline top border; restore those (and drop the position, `footerHeight`
+    // and the list's paddingBottom) if it is rejected.
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+  },
   heading: {
     fontSize: t.fonts.xLarge,
     fontWeight: 'bold',
     color: t.colors.textPrimary,
     textAlign: 'center',
   },
-  saveButton: {
-    flexDirection: 'row',
-    backgroundColor: t.colors.button,
-    padding: SPACING.xMedium,
-    borderRadius: BORDER_RADIUS,
+  primary: {
+    height: 56,
+    borderRadius: 15,
+    paddingHorizontal: SPACING.large,
+    backgroundColor: t.colors.role.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: SPACING.xSmall,
-    marginTop: SPACING.xLarge,
-    // ...t.shadows.shadowSmall,
   },
-  saveButtonText: {
-    fontSize: t.fonts.large,
-    fontWeight: 'bold',
-    color: t.colors.buttonText,
-    marginLeft: 8,
+  // Not dimmed accent: a disabled control should not read as the primary action.
+  // EXPERIMENT (user, 2026-10-28): with the footer transparent, a `raised` fill
+  // matched the exercise cards scrolling behind it and the button disappeared.
+  // An opaque `ground` fill and a `fieldEdge` outline (the control edge held to
+  // 3:1 in colors.ts) keep it a button. Start keeps `raised`: its footer is opaque.
+  primaryDisabled: {
+    backgroundColor: t.colors.role.ground,
+    borderWidth: 1,
+    borderColor: t.colors.role.fieldEdge,
   },
+  primaryText: { fontSize: t.fonts.medium, fontWeight: 'bold', color: t.colors.role.ground },
+  primaryTextDisabled: { color: t.colors.role.textSecondary },
 });
