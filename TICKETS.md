@@ -41,7 +41,6 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
-| 050 | Picker start page: recents, filters, last-used version | Medium | After 043 |
 | 051 | Manage Workout: exercise list and Save changes | Medium | After 043; can run alongside 050 |
 | 052 | Manage Workout: new plan and first plan | Small–Medium | After 051 |
 | 053 | Guided tour: end-to-end pass after the catalog work | Medium | After 043, 050, 051, 052. The tour is not working and is no longer fixed per ticket (user, 2026-10-27) |
@@ -3468,8 +3467,9 @@ lived in the exercise file. Now:
 
 ### TICKET-050: Picker Start Page — Recents, Filters, Last-Used Version
 
-**Priority:** Medium | **Effort:** Medium | **Status: IN REVIEW** — split from TICKET-043
-2026-10-27; device test passed (Android, 2026-10-27)
+**Priority:** Medium | **Effort:** Medium | **Status: DONE** — merged in PR #24
+(9cc8ba4, 2026-10-27); split from TICKET-043 2026-10-27; device test passed (Android,
+2026-10-27)
 
 **Description:**
 What the picker shows before anything is typed, and what it remembers. Most
@@ -4730,8 +4730,8 @@ it) once 046's content exists. Phase 3B; research is in
                                              name sites, test-data wipe, rules deployed
 4. TICKET-043  (Search + picker)           — Done (PR #23, 2026-10-27); device test
                                              pending on a phone
-5. TICKET-050  (Picker start page)        — Next: recents, filters, last used
-6. TICKET-051  (Manage Workout list)      — After 043; alongside 050 if wanted
+5. TICKET-050  (Picker start page)        — Done (PR #24, 2026-10-27)
+6. TICKET-051  (Manage Workout list)      — Next
 7. TICKET-052  (New plan, first plan)     — After 051
 8. TICKET-053  (Guided tour pass)         — After 043, 050, 051, 052
 ```
