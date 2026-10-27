@@ -3468,8 +3468,8 @@ lived in the exercise file. Now:
 
 ### TICKET-050: Picker Start Page — Recents, Filters, Last-Used Version
 
-**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — split from TICKET-043
-2026-10-27
+**Priority:** Medium | **Effort:** Medium | **Status: IN REVIEW** — split from TICKET-043
+2026-10-27; device test passed (Android, 2026-10-27)
 
 **Description:**
 What the picker shows before anything is typed, and what it remembers. Most
@@ -3478,18 +3478,18 @@ filter menus answer "chest exercises with dumbbells" in two taps; the version
 sheet preselects the version used last.
 
 **Acceptance Criteria:**
-- [ ] Empty query shows **Recent** (board A1), replacing TICKET-043's A–Z list
-- [ ] Recents come from data the app already has (history by `exerciseId`, mapped
+- [x] Empty query shows **Recent** (board A1), replacing TICKET-043's A–Z list
+- [x] Recents come from data the app already has (history by `exerciseId`, mapped
       to its movement through the catalog), with no Firestore read per keystroke
-- [ ] Filter menus Muscle / Equipment / Type (muscle group × equipment ×
+- [x] Filter menus Muscle / Equipment / Type (muscle group × equipment ×
       category), combinable with a typed query (AND)
-- [ ] The version sheet preselects the version used last, marked "last"; equipment
+- [x] The version sheet preselects the version used last, marked "last"; equipment
       typed in the query ("db bench") still wins
-- [ ] A recent single-version movement is added at once, or reads "In plan"
+- [x] A recent single-version movement is added at once, or reads "In plan"
       (disabled) when it is already there
 - [ ] Guided tour: deferred to TICKET-053 (user, 2026-10-27)
-- [ ] 4 or 5 tests on the main behaviours, each seen red
-- [ ] **Device test (done when it passes):** log one workout (the 2026-10-26 wipe
+- [x] 4 or 5 tests on the main behaviours, each seen red
+- [x] **Device test (done when it passes):** log one workout (the 2026-10-26 wipe
       emptied history) → open the picker → its movement is under Recent with the
       combination and date → tap it, the sheet has that combination preselected →
       filter Chest + Dumbbell, only matching movements remain
@@ -3644,43 +3644,70 @@ sheet preselects the version used last.
 - **Benchmark:** passes (open 1.00× Hermes, search p95 0.93–1.00×). The picker's
   open path is unchanged; recents are built in Manage Workout when sessions
   arrive (0.08 ms Hermes, stage 1)
-- **Not verified:** a device; rendering time with Recent above the list; the real
-  Firestore query from Manage Workout (mocked in Jest); the tour (TICKET-053: the
-  filter row and filter sheet have no tour steps). `useRecentSessions`'s failure
+- **Device run (user, 2026-10-27): all 11 steps of the revised plan below pass**
+  (Android). It found, before the revision, the missing "In this plan" line (fixed,
+  above) and the icon touching "Search exercises" on the Exercise button (below)
+- **Not verified:** iOS (the device run was Android); rendering time measured
+  (step 1 checked only that Recent shows without a visible pop-in); the tour
+  (TICKET-053: the filter row and filter sheet have no tour steps). `useRecentSessions`'s failure
   warning still says "plans show no last-done date", now also logged from Manage
   Workout; left as is to keep Start's code untouched
 
-**Stage 2 device test plan (user runs, CLAUDE.md 1.3).** Build from this branch.
-1. **Log one workout** (history is empty since the 2026-10-26 wipe): Start a plan,
-   log at least one set of Bench Press · Barbell, close grip (add it to the plan
-   first if needed) and one set of a one-version exercise (Pec Deck), Finish
-2. **Recent, before upload:** stay offline (airplane mode) → Manage Workout →
-   Exercise. Either no Recent and the A–Z list (the sessions query failed), or
-   Recent with the just-logged workout in it (Firestore answered from its offline
-   cache, and the pending workout merged in). Not checked which this app's
-   Firestore setup does; **note which you see**. Wrong in both cases: Recent with
-   only some of the logged exercises
-3. **Recent, online:** back online, wait for the upload → leave and reopen Manage
-   Workout → Exercise: **Recent** lists Bench Press "Barbell, close grip · <today>"
-   and Pec Deck "<today>", newest first, then **All exercises** A–Z. Recent shows
-   without a visible delay (note one if it pops in)
-4. **The sheet preselects:** tap Bench Press under Recent: Barbell and Close are
-   selected and say "last", Flat is selected without "last"; the line reads "Last
-   logged: Barbell, close grip, <today>". Tap Dumbbell: Grip goes back to Normal.
-   Close
-5. **Query wins:** type "db bench" → Bench Press: Dumbbell selected, not Barbell;
-   Barbell still says "last". Clear the box
-6. **One-version recent:** choose a plan that has Pec Deck: its Recent row reads
-   "In plan" and does nothing. In a plan without it, tapping adds it at once
-7. **Filters:** Muscle → Chest, Equipment → Dumbbell: Recent disappears; only
-   chest dumbbell movements remain (Bench Press, Floor Press, Chest Fly…; no
-   Overhead Press, no Pec Deck). Type "press": Bench Press and Floor Press, no
-   Overhead Press. Tap Bench Press: Dumbbell is selected (not last-used Barbell).
-   Set Muscle back to Any and Equipment to Any: Recent returns
-8. **Android back:** with a filter list open, back closes it; again closes the
-   picker
-9. **Start unchanged:** Start Workout lists plans with their last-done dates as
-   before
+- **Exercise button: icon touching its text (device, 2026-10-27; from TICKET-043,
+  `e45837f`).** Its style has `gap: 8`, but `MultiTourSteps` moves every style key
+  except `flexDirection`, `align*` and `height` from a wrapped element to its outer
+  wrapper View, which has one child, so the gap did nothing. Fixed there: `gap`,
+  `rowGap` and `columnGap` stay on the element. Every tour-wrapped element is
+  affected the same way; a scan of `MaybeTourStep` children found only this button
+  setting `gap`. No test (layout, not logic); needs a device look
+
+**Stage 2 device test plan (user runs, CLAUDE.md 1.3; revised 2026-10-27 after
+the first device run).** Build from `ff757a1`. Uses the history already logged on
+26 Oct; record pass/fail per step, and anything odd.
+
+Setup: **Plan A** = the plan holding Bench Press · Dumbbell, decline (Recent shows
+Bench Press "Dumbbell, decline · 26 Oct"). **Plan B** = a plan with no Bench Press
+version and no Sprint.
+
+1. **Recent (Plan A):** Manage Workout → Plan A → Exercise. Recent, newest first,
+   one row per movement; second line "<combination> · 26 Oct", the date alone for
+   a one-version movement; Sprint and Chest-to-Bar Pull-Up read "In plan" and do
+   nothing when tapped; "All exercises" A–Z below. Recent shows without a visible
+   pop-in
+2. **Last used already in the plan (Plan A):** tap Bench Press. Lines "In this
+   plan: Dumbbell, decline" and "Last logged: Dumbbell, decline, 26 Oct". Dumbbell
+   and Decline say "last", Decline disabled; Flat not marked. Selected: Dumbbell,
+   Flat, Normal, Both; Add reads "Add Bench Press · Dumbbell". If Plan A holds
+   other Bench Press versions, each is listed in the line; check it wraps cleanly
+3. **Last used preselected (Plan B):** Exercise → tap Bench Press under Recent.
+   Dumbbell and Decline selected and marked "last"; no "In this plan" line; Add
+   reads "Add Bench Press · Dumbbell, decline". Tap Barbell: Angle back to Flat,
+   nothing marked on Barbell. Tap Dumbbell again: Decline returns
+4. **From search (Plan B):** type "bench" → Bench Press: same sheet as step 3
+5. **Query wins (Plan B):** type "barbell bench" → Bench Press: Barbell, Flat,
+   Normal; Dumbbell and Decline still say "last". Add → the field editor shows
+   Bench Press · Barbell
+6. **One-version recent added at once (Plan B):** Exercise → tap Sprint under
+   Recent: no sheet, the field editor opens with Sprint's fields
+7. **Filters:** Muscle → Chest, Equipment → Dumbbell: Recent gone; only chest
+   dumbbell movements (Bench Press, Floor Press, Chest Fly…; no Overhead Press, no
+   Pec Deck); the buttons read "Chest" and "Dumbbell". Type "press": Bench Press and
+   Floor Press, no Overhead Press. Tap Bench Press: Dumbbell, **Flat** (the filter
+   counts as typed, so last-used Decline is not applied). Clear the box; Type →
+   Stretching: "No exercise matches / Every filter has to match". Set all three to
+   Any: Recent returns
+8. **Android back:** open a filter list → back closes it; open a sheet → back
+   closes it; back again closes the picker
+9. **A new workout reaches Recent:** online, log one set of an exercise not in
+   Recent (e.g. Lat Pulldown · Cable), Finish → Manage Workout → Exercise: it is
+   first in Recent with today's date
+10. **Offline (note the outcome):** airplane mode, log and Finish one set of another
+    new exercise → Manage Workout → Exercise. Either no Recent (query failed) or
+    Recent with it on top (Firestore answered from cache, pending merged). Wrong:
+    Recent without it, or with only part of the workout. Back online: after the
+    upload, it stays on top
+11. **Start unchanged:** Start Workout lists plans with last-done dates as before,
+    and today's workouts update them
 
 **Dependencies:** TICKET-043.
 
