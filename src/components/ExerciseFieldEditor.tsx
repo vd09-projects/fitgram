@@ -14,6 +14,7 @@ import { MANAGE_WOURKOUT_STEP_NAMES } from '../tour_steps/manageWorkout';
 import { PositionType } from './guide_tour/TourGuideProvider';
 import { ExerciseField, FieldRole } from '../types/workoutType';
 import { unitSpec, unitsForRole } from '../constants/units';
+import { patchField } from '../utils/exerciseFields';
 
 /**
  * Replaces the old string-list field editor. A field now carries a declared
@@ -41,6 +42,8 @@ interface ExerciseFieldEditorProps {
    */
   onPendingTextChange?: (text: string) => void;
   showInputField?: boolean;
+  /** A line under a field, e.g. Manage Workout's rename warning (TICKET-051 D2). */
+  fieldNote?: (field: ExerciseField, index: number) => string | null;
   tourStepPrefix?: ValueOf<typeof MANAGE_WOURKOUT_STEP_NAMES>;
   positionType?: PositionType;
 }
@@ -51,6 +54,7 @@ const ExerciseFieldEditor: React.FC<ExerciseFieldEditorProps> = ({
   onItemsChange,
   onPendingTextChange,
   showInputField = true,
+  fieldNote,
   tourStepPrefix,
   positionType,
 }) => {
@@ -87,10 +91,7 @@ const ExerciseFieldEditor: React.FC<ExerciseFieldEditorProps> = ({
 
   const updateField = (index: number, patch: Partial<ExerciseField>) => {
     const updated = [...items];
-    const next: ExerciseField = { ...updated[index], ...patch };
-    // A role change invalidates whatever unit was set for the old role.
-    if (patch.role && unitsForRole(patch.role).length === 0) delete next.unit;
-    updated[index] = next;
+    updated[index] = patchField(updated[index], patch);
     onItemsChange(updated);
   };
 
@@ -118,6 +119,7 @@ const ExerciseFieldEditor: React.FC<ExerciseFieldEditorProps> = ({
             const isDuplicate = errorMessage && field.name === newItem.trim();
             const units = unitsForRole(field.role);
             const unitHint = unitSpec(field.unit)?.hint;
+            const note = fieldNote?.(field, index) ?? null;
 
             return (
               <View key={index} style={styles.fieldBlock}>
@@ -190,6 +192,7 @@ const ExerciseFieldEditor: React.FC<ExerciseFieldEditorProps> = ({
                     Rejected (C1b): switching the unit on the set card; a unit is
                     changed here, on the plan. */}
                 {unitHint && <TextBase style={styles.unitHint}>{unitHint}</TextBase>}
+                {note && <TextBase style={styles.fieldNote}>{note}</TextBase>}
               </View>
             );
           })}
@@ -299,6 +302,11 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   unitHint: {
     fontSize: t.fonts.xMedium,
     color: t.colors.inputSecondaryPlaceholder,
+    marginBottom: SPACING.small,
+  },
+  fieldNote: {
+    fontSize: t.fonts.xMedium,
+    color: t.colors.role.textSecondary,
     marginBottom: SPACING.small,
   },
   emptyHint: {
