@@ -8,6 +8,7 @@ import {
   EXERCISE_NAME_ALLOWED,
 } from "./validation";
 import { exerciseDisplayName } from "./catalog";
+import { unitsForRole } from "../constants/units";
 
 export const validateWorkoutSelection = (
   workout: DropdownSelection<WorkoutPlan> | undefined
@@ -70,6 +71,17 @@ export const validateCustomFields = (
   for (const role of ["weight", "reps"] as const) {
     const count = fields.filter((f) => f.role === role).length;
     if (count > 1) return `Only one field can be the ${role} field.`;
+  }
+
+  // A role that offers units takes only its own: a time field in kg is a
+  // definition mistake (TICKET-051 D6). A role with no unit chips is not
+  // checked: the catalog's assisted-machine "Assistance" is `other` in kg, a
+  // real unit the editor just has no chips for (805 versions checked, those 2
+  // are the only `other` with a unit).
+  for (const field of fields) {
+    const allowed = unitsForRole(field.role);
+    if (field.unit !== undefined && allowed.length > 0 && !allowed.includes(field.unit))
+      return `Field "${field.name.trim()}" cannot use ${field.unit} as a ${field.role} unit.`;
   }
 
   return null;

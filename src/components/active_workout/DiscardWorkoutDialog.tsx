@@ -12,16 +12,24 @@ const HIT = 44;
  * ask the same question with the same weight.
  *
  * `keepLabel` differs by screen: "Keep logging" mid-workout, "Keep it" from the
- * Start screen, where nothing is being logged.
+ * Start screen, where nothing is being logged. `title` and `message` let Manage
+ * Workout ask "Discard changes?" with the same weight (TICKET-051 D1), and
+ * `discardLabel` lets it say "Leave" when nothing is being thrown away.
  */
 export function DiscardWorkoutDialog({
   visible,
   keepLabel,
   onKeep,
   onDiscard,
+  title = "Discard this workout?",
+  message = "Every set logged in this session will be deleted. This cannot be undone.",
+  discardLabel = "Discard",
 }: {
   visible: boolean;
   keepLabel: string;
+  title?: string;
+  message?: string;
+  discardLabel?: string;
   onKeep: () => void;
   onDiscard: () => void;
 }) {
@@ -30,15 +38,15 @@ export function DiscardWorkoutDialog({
   return (
     <AlertBase
       visible={visible}
-      title="Discard this workout?"
-      message="Every set logged in this session will be deleted. This cannot be undone."
+      title={title}
+      message={message}
       onRequestClose={onKeep}
       containerStyle={styles.card}
       titleStyle={styles.title}
       messageStyle={styles.message}
       buttons={[
         { text: keepLabel, onPress: onKeep, style: styles.keep, textStyle: styles.keepText },
-        { text: "Discard", onPress: onDiscard, style: styles.discard, textStyle: styles.discardText },
+        { text: discardLabel, onPress: onDiscard, style: styles.discard, textStyle: styles.discardText },
       ]}
     />
   );

@@ -4,7 +4,7 @@
 // exercise is defined, so nothing here infers meaning from a field's name.
 
 import { ExerciseField, FieldRole } from "../types/workoutType";
-import { unitSpec } from "../constants/units";
+import { unitSpec, unitsForRole } from "../constants/units";
 
 /**
  * One logged set's values, keyed by `ExerciseField.name`. Structurally the same
@@ -38,6 +38,21 @@ export function normalizeExerciseFields(fields: unknown): ExerciseField[] {
       ? { name: field, role: "other" as const }
       : (field as ExerciseField)
   );
+}
+
+/**
+ * A field with `patch` applied. On a role change the unit survives only if the
+ * new role offers it: weight → time used to keep `kg` (TICKET-051 D6), because
+ * the unit was dropped only when the new role had no units at all. Only on a
+ * role change: the catalog's assisted-machine "Assistance" is role `other`
+ * with `kg`, and renaming it must not drop the unit. Any other key of the
+ * field (a draft's `savedName`) is carried through.
+ */
+export function patchField<F extends ExerciseField>(field: F, patch: Partial<ExerciseField>): F {
+  const next: F = { ...field, ...patch };
+  const roleChanged = patch.role !== undefined && patch.role !== field.role;
+  if (roleChanged && next.unit !== undefined && !unitsForRole(next.role).includes(next.unit)) delete next.unit;
+  return next;
 }
 
 export const findFieldByRole = (
