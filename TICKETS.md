@@ -3310,6 +3310,134 @@ lived in the exercise file. Now:
   (caught only after adding a name where both readings match), any order counted
   as in order
 
+**Implementation, stage 3: the picker (2026-10-27).**
+- **Files:** `components/exercise_picker/ExercisePicker.tsx` (A2, A4),
+  `components/exercise_picker/VersionSheet.tsx` (A3), `utils/versionSheet.ts` (the
+  sheet's rules, pure). `AddExerciseScreen` swaps the Exercise dropdown and its New
+  switch for an Exercise button that opens the picker; a pick goes through the same
+  `handleSelectExercise`, so the field editor and Save are unchanged.
+  `catalogPlanExercises` (042's 805-row list) is replaced by
+  `planExerciseForVersion` (one version)
+- **An overlay inside Manage Workout, not a route and not an RN `Modal`.** The tour's
+  overlay is mounted at the app root, so a `Modal` would cover it and the picker's
+  tour steps could never show. Rejected: a stack route (the pick would travel back
+  through navigation params). Android back closes the sheet, then the picker
+- **Rows:** name; the main muscle, then up to three others ("Chest · triceps, front
+  delts"); "N versions" when more than one; "In plan" and disabled for a
+  one-version movement already in the plan; "Custom" for a custom exercise. Empty
+  query: all 489 movements A–Z (custom exercises are found by search only). Up to
+  100 results. "Close matches" only when every result is fuzzy; "No exercise
+  matches" with board A4's hint
+- **Search box fixed at the bottom, under the list** (user, 2026-10-27, after the
+  first device run; board A2 had it at the top). Within thumb reach; it rides on the
+  keyboard (iOS `KeyboardAvoidingView` padding; Android none, the window already
+  resizes). The list stays top-down, not inverted, so A–Z and the best match start
+  at the top. Its tour tooltip shows above it
+- **Opening was visibly slow (device, 2026-10-27).** The picker unmounts on close,
+  so every open rebuilt the search catalog (Node 4–7 ms; under Jest two builds took
+  ~500 ms, so Hermes without a JIT is plausibly far slower) and sorted 489 names with
+  `localeCompare` (on Hermes, the platform collator per comparison). Now
+  `preparePicker` builds both once per catalog, words and custom list and keeps
+  them; Manage Workout warms it after its screen settles
+  (`InteractionManager.runAfterInteractions`); A–Z compares lowercase names with `<`
+  (names are ASCII; same order as `localeCompare` for all 489, checked); the list
+  first renders 12 rows, not 20 (about 9 fit). Rejected: keeping the picker always
+  mounted and hidden (its list would render with Manage Workout every time). The
+  TEMPORARY line now also shows "open N ms": first render to commit, inside the
+  picker. Not measured: the tap itself and Manage Workout's re-render
+- **Soft axes start from their default each settle** (user review, 2026-10-27).
+  Before, a soft axis kept its value while it still fitted, so a value forced by one
+  choice outlived it: Bench EZ bar → Barbell kept Close grip; EZ bar → Dumbbell
+  emptied Grip; Front Raise Dumbbell → Cable kept Attachment None and added the
+  no-attachment version unasked. Over all 1,114 movement × equipment switches, 13
+  differed from a fresh sheet; now 0. All 805 versions still reachable; Pushdown
+  Cable+None → `one_side` and Cable+Reverse → `reverse_grip` unchanged. Test seen
+  red on the old code, each half on its own
+- **The sheet, beyond what was settled (CLAUDE.md 2.6, said here, not silently):**
+  - **A Side row (Both / One arm or One leg).** 35 movements have one-side versions
+    next to two-sided ones; without the row they could not be added. Shown only
+    where sides differ, like the version names. Starts on Both
+  - **"None" in the Attachment row.** Triceps Pushdown, Front Raise and Straight-Arm
+    Pulldown have cable versions with no attachment (Pushdown's reverse-grip and
+    one-arm versions)
+  - **A row shows only where the movement's versions differ on it**, Equipment
+    included: Cable Crossover (two cable versions) shows Side only
+  - **Soft axes settle in row order, each narrowing the next.** With independent
+    settling, Pushdown with Cable and None chosen showed Cable, None, Normal, Both,
+    which no version has. Now: whenever every row has a value, that version exists
+  - **Defaults never disable an option:** only tapped or typed axes do. Otherwise
+    Grip starting on Normal would disable EZ bar on Bench Press
+  - **Add says "Already in this plan"** when every version with the chosen values is
+    in the plan ("incline db bench" when that one is), not "Choose grip"
+- **Guided tour:** `EXERCISE_SEARCHABLE` → `DROPDOWN_BUTTON` keeps its id, now on the
+  Exercise button (title "Add an Exercise"), so the tour's order is unchanged. New:
+  `EXERCISE_PICKER` → `SEARCH_BOX` (the picker's search box) and → `VERSION_SHEET`.
+  Checked by reading every step id in `manageWorkout.ts` against what renders it: the
+  Workout dropdown's `NEW_BUTTON` / `INPUT_AND_SAVE` still exist (052 moves them); the
+  Exercise dropdown had only `DROPDOWN_BUTTON`. The sheet step shows the tour's "not
+  visible" note until a movement with versions is tapped. Not run on a device
+- **TEMPORARY timing line** (CLAUDE.md 3.3), only with `SHOW_DEBUG_SCREENS`: under the
+  search box, "search X ms · median · p95 · max · n", the time of `searchExercises`
+  alone (not rendering). Removal: in `ExercisePicker.tsx`, the `showDebugScreens`
+  import, `timings` and the `performance.now()` pair, the `timing` Text, `timingLine`
+  and the `timing` style; all 5 places are marked `TEMPORARY`
+- **Tests** (9 new): `versionSheet.test.ts` (4): every one of the 805 versions can be
+  added by tapping only enabled options and lands on itself; the three versions with
+  no default (EZ bar → Close, weight plate → Decline, Pushdown Cable + Reverse →
+  None) and Cable + None settling on the one-arm version; opening state, a query's
+  preselection, Attachment only for cable; Band × Incline and an in-plan combination
+  disabled. `ExercisePicker.test.tsx` (4): A–Z, one row per movement, muscle line,
+  version count, Custom; "db bench" preselects Dumbbell and Add returns
+  `planExerciseForVersion`; In plan (row and combination, "Already in this plan");
+  Close matches / Exercises / No exercise matches. `AddExerciseScreen.test.tsx` (1):
+  the Exercise button opens the picker and a pick fills the field editor. Seen red,
+  15 breaks: settling without narrowing (caught only after adding the Cable + None
+  case), no fallback, defaults disabling options, Attachment for any equipment,
+  in-plan versions allowed, no Side row, preselection ignored, A–Z unsorted,
+  preselection not passed to the sheet, no In plan row, no Close matches, no Custom
+  line, "Choose grip" instead of "Already in this plan", picker left open after a
+  pick, the pick labelled by id
+- Not verified: anything on a device (plan below); custom exercises on a device
+
+**Stage 3 device test plan (user runs, CLAUDE.md 1.3).** Build from this branch with
+`SHOW_DEBUG_SCREENS=true` (the timing line).
+0. **Before the upload** (the new build, `search_words` not yet live): Manage Workout
+   → Exercise → "upper chest" lists Bench Press (labels work); "pecs" lists Pec Deck
+   by name but not Bench Press (slang not loaded)
+1. **Landing step:** `npx tsx src/scripts/uploadCatalog.ts --dry-run` (catalog
+   `889393c5…` unchanged, search words `888ae196…`), then the real run (expect
+   "catalog unchanged, search words written"). Open the app once, signed in
+2. **Search words arrived:** "db bench" → tap Bench Press → Dumbbell is preselected.
+   "pecs" now lists Bench Press
+3. **The ticket's device test:** Manage Workout → choose a plan → Exercise → "bech
+   press", "Latpulldown", "chest", "db bench" each list the expected movement →
+   Bench Press → Dumbbell, Incline → edit fields as today → Save. Then Exercise →
+   "db bench" → Bench Press: Incline is disabled (already in the plan) → back. The
+   plan shows "Bench Press · Dumbbell, incline"; Start Workout logs it
+4. "dumbell curl" is headed "Close matches" (the equipment word itself was
+   corrected); "curl" is headed "Exercises"
+5. The sheet: Bench Press → EZ bar → Grip moves to Close; Sit-Up → Weight plate →
+   Angle moves to Decline; Triceps Pushdown → Cable → Attachment row appears →
+   Grip Reverse → Attachment moves to None; Lateral Raise → Cable → Side One arm →
+   Add reads "Lateral Raise · Cable, one arm"
+6. **Timing:** type the 7 normal queries and the 8 typo queries from stages 1–2
+   (e.g. "incline db bench press", "incliend bench press"); report the timing line
+   (median, p95, max, n). Node measured 0.19 / 0.5 ms median
+6a. **Open time:** open the picker 5 times; report "open N ms" each time, and say
+   whether it still feels slow. In a dev build everything is several times slower
+   than release, so say which build it was
+7. **Scroll:** with an empty query, fling through all 489 movements A–Z: no blank
+   rows or stalls
+8. Android back closes the sheet, then the picker
+8a. **Bottom search box:** tap it: the keyboard opens and the box sits just above it,
+   not under it; the last list rows are not hidden behind the box
+9. **Tour:** run the Manage Workout tour: the Exercise button step, then the search
+   box, then the sheet (its note says "not visible" until a movement with versions
+   is tapped), then fields and Save. No step points at a missing control
+- **Cannot be covered on a device:** custom exercises (none exist since the
+  2026-10-26 wipe, and none can be created until TICKET-045); unit test only
+- After the run: remove the TEMPORARY timing line (above)
+
 **Dependencies:** TICKET-042. TICKET-041 boards A2–A4.
 
 ---
