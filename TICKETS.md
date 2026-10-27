@@ -4591,6 +4591,51 @@ would fail the first time it is needed.
 
 ---
 
+### TICKET-054: Exercise Search — Research a Simpler Fuzzy Algorithm
+
+**Priority:** Low | **Effort:** Medium | **Status: DEFERRED** — raised 2026-10-27, not prioritised
+
+**Description:**
+Fuzzy search works well today, and the user is happy to keep it as is (2026-10-27).
+It is, however, a stack of separate rules: word prefixes, plural stemming, typo
+correction (Damerau-Levenshtein, edits by word length, closest candidates only),
+joined words, a split-word retry, and corrected exact names
+(`src/utils/textSearch.ts`, `src/utils/exerciseSearch.ts`). Each rule fixed a real
+case, and they interact. This ticket is research: is there one simpler, faster
+approach that handles these cases at least as well?
+
+**Case that started it (checked on the real catalog, 2026-10-27):**
+- `latpulldown` → 3 results: Lat Pulldown, Straight-Arm Pulldown (via alias
+  "straight arm lat pulldown"), Behind-the-Neck Lat Pulldown
+- `latpull down` → Lat Pulldown only, found through its alias "lat pull down"
+- Cause: "down" starts no word in the other two. The split-word retry glues
+  "latpull"+"down" but lets the glued pair match inside ONE catalog word only.
+  That rule stops "machine squat" finding Squat through "smith machine squat".
+- A narrower fix was proposed and not taken: allow a glued pair across catalog words
+  only when the typed space falls inside a catalog word ("pull|down"), not on a
+  boundary ("machine|squat")
+
+**Scope (research first, no code until a direction is picked):**
+- Survey the candidates: character n-gram/trigram indexes, BK-trees or SymSpell for
+  typo lookup, a space-insensitive match over names with boundary markers, and
+  libraries (Fuse.js was rejected in TICKET-043 because it scores whole strings, see
+  the Typos comment in `textSearch.ts`). Judge each on whether it can keep today's
+  guarantees:
+  - fuzzy results always rank below exact/prefix ones
+  - 1–3 letter words are never corrected
+  - word-boundary prefixes ("rdl" never matches HuRDLe)
+  - muscle and equipment words scored from data, not names
+- Measure with what exists: the test suite as the behaviour bar, and
+  `npm run bench:search` (Node + Hermes, `benchmarks/exercise-search.json`) for speed
+- Output: a recommendation, with a side-by-side over a fixed query list (including
+  the case above), before any change
+
+**Not in scope:** slang (`search_words`), ranking weights, the picker UI.
+
+**Dependencies:** TICKET-043.
+
+---
+
 ### TICKET-033: Drop Sets — Log a Weight Change Within One Set
 
 **Priority:** Low | **Effort:** Medium-Large | **Status: OPEN** — after Phase 3
