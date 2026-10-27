@@ -10,7 +10,8 @@ import { SEARCH_WORDS } from "../../catalog/searchWords";
 import { renderScreen } from "../../test/renderScreen";
 import type { Exercise } from "../../types/workoutType";
 import { planExerciseForVersion } from "../../utils/catalog";
-import ExercisePicker, { preparePicker } from "./ExercisePicker";
+import { preparePicker } from "../../utils/pickerData";
+import ExercisePicker from "./ExercisePicker";
 
 const bench = CATALOG.find((m) => m.id === "bench_press")!;
 

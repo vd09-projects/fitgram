@@ -25,7 +25,8 @@ import { MUSCLES } from "../../constants/catalogVocabulary";
 import type { Movement, SearchWords } from "../../types/catalog";
 import type { Exercise } from "../../types/workoutType";
 import { planExerciseForVersion } from "../../utils/catalog";
-import { buildSearchCatalog, searchExercises, type SearchCatalog, type VersionPick } from "../../utils/exerciseSearch";
+import { searchExercises, type VersionPick } from "../../utils/exerciseSearch";
+import { PICKER_RESULT_LIMIT, preparePicker, type PickerRow as Row } from "../../utils/pickerData";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 import { TextBase } from "../TextBase";
@@ -33,9 +34,6 @@ import SearchBox from "../SearchBox";
 import VersionSheet from "./VersionSheet";
 
 const NO_MOVEMENTS: readonly Movement[] = [];
-
-/** Search results shown at once. Totals beyond it are not listed; a longer query narrows them. */
-const RESULT_LIMIT = 100;
 
 type Props = {
   /** Null while the phone has no catalog (first launch offline, before the upload). */
@@ -51,10 +49,6 @@ type Props = {
   tourStepPrefix?: string;
 };
 
-type Row =
-  | { kind: "movement"; key: string; movement: Movement; preselect: VersionPick }
-  | { kind: "custom"; key: string; exercise: Exercise };
-
 /**
  * A movement's second line (board A2, chosen): the main muscle, then the
  * others, "Chest · triceps, front delts". At most three others, primaries first.
@@ -64,33 +58,6 @@ export function muscleLine(movement: Movement): string {
   const others = [...new Set([...rest, ...movement.secondaryMuscles])].filter((m) => m !== main).slice(0, 3);
   const label = MUSCLES[main].label;
   return others.length ? `${label} · ${others.map((m) => MUSCLES[m].label.toLowerCase()).join(", ")}` : label;
-}
-
-export type PickerData = { catalog: SearchCatalog; alphabetical: readonly Row[] };
-let prepared: { key: readonly unknown[]; data: PickerData } | null = null;
-
-/**
- * The search catalog and the A–Z list, built once per catalog, words and
- * custom list and kept across opens: the picker unmounts on close, and
- * rebuilding on each open made opening visibly slow (device, 2026-10-27).
- * Manage Workout calls it early to warm it. One entry: there is one catalog.
- *
- * A–Z compares with `<`, not `localeCompare`: names are ASCII, and Hermes's
- * `localeCompare` goes through the platform collator on every comparison.
- */
-export function preparePicker(
-  movements: readonly Movement[],
-  searchWords: SearchWords | null,
-  customExercises: readonly Exercise[]
-): PickerData {
-  const key = [movements, searchWords, customExercises];
-  if (prepared && prepared.key.every((k, i) => k === key[i])) return prepared.data;
-  const alphabetical: Row[] = movements
-    .map((movement) => ({ kind: "movement" as const, key: movement.id, movement, preselect: {}, sortKey: movement.name.toLowerCase() }))
-    .sort((a, b) => (a.sortKey < b.sortKey ? -1 : a.sortKey > b.sortKey ? 1 : 0))
-    .map(({ sortKey, ...row }) => row);
-  prepared = { key, data: { catalog: buildSearchCatalog(movements, searchWords, customExercises), alphabetical } };
-  return prepared.data;
 }
 
 export default function ExercisePicker({ movements, searchWords, customExercises, inPlan, onPick, onClose, tourStepPrefix }: Props) {
@@ -103,8 +70,9 @@ export default function ExercisePicker({ movements, searchWords, customExercises
     () => preparePicker(movements ?? NO_MOVEMENTS, searchWords, customExercises),
     [movements, searchWords, customExercises]
   );
+  // Timed by src/scripts/benchmarkSearch.ts, against benchmarks/exercise-search.json.
   const search = useMemo(
-    () => (query.trim() ? searchExercises(catalog, query, RESULT_LIMIT) : null),
+    () => (query.trim() ? searchExercises(catalog, query, PICKER_RESULT_LIMIT) : null),
     [catalog, query]
   );
   const rows: readonly Row[] = search
