@@ -34,13 +34,20 @@ export function axisValue(version: MovementVersion, axis: Axis): string {
 /** Defaults that start selected (user, 2026-10-27): Angle and Grip, and Side. Equipment and Attachment start empty. */
 const START: Partial<Record<Axis, string>> = { angle: "flat", grip: "normal", side: "both" };
 
+/** The value a version has when the axis is left out (`axisValue`). Equipment has none. */
+const DEFAULT_VALUE: Partial<Record<Axis, string>> = { angle: "flat", grip: "normal", attachment: "none", side: "both" };
+
 export type SheetState = {
   values: Partial<Record<Axis, string>>;
   /** Axes the user tapped or the query named. Others are soft: they move when they stop fitting. */
   chosen: Axis[];
+  /** The version last logged (TICKET-050), or null. Its values other than defaults are marked "last". */
+  lastUsed: MovementVersion | null;
+  /** Whether soft axes start from `lastUsed` instead of the defaults. See `initialSheet`. */
+  followLast: boolean;
 };
 
-export type SheetOption = { value: string; label: string; enabled: boolean };
+export type SheetOption = { value: string; label: string; enabled: boolean; last: boolean };
 export type SheetRow = { axis: Axis; title: string; options: SheetOption[]; selected?: string };
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -90,24 +97,44 @@ const fits = (version: MovementVersion, values: SheetState["values"], axes: read
 function settle(movement: Movement, state: SheetState, inPlan: ReadonlySet<string>): SheetState {
   const values = { ...state.values };
   let pool = available(movement, inPlan).filter((v) => fits(v, values, state.chosen));
+  // The last-used version replaces the defaults while what is chosen still
+  // allows it (TICKET-050). Pick Dumbbell after a last-used Barbell and the
+  // sheet is a fresh Dumbbell sheet, not Dumbbell with Barbell's grip.
+  const last = state.followLast && state.lastUsed ? pool.find((v) => v.id === state.lastUsed!.id) ?? null : null;
   for (const axis of AXES) {
     if (!state.chosen.includes(axis)) {
       const valid = new Set(pool.map((v) => axisValue(v, axis)));
-      const current = START[axis];
+      const current = last ? axisValue(last, axis) : START[axis];
       values[axis] = current !== undefined && valid.has(current) ? current
         : valid.size === 1 ? [...valid][0] : undefined;
     }
     const value = values[axis];
     if (value !== undefined) pool = pool.filter((v) => axisValue(v, axis) === value);
   }
-  return { values, chosen: state.chosen };
+  return { ...state, values };
 }
 
 /**
  * The sheet as it opens. Axes the query named (`preselect`) count as chosen;
  * Angle, Grip and Side start on their defaults; then soft axes settle.
+ *
+ * **Last used (TICKET-050, A3):** `lastUsed` preselects the version logged
+ * last, as soft values, never as chosen ones, so it disables nothing (chosen
+ * Barbell + Close would grey out every equipment without a close grip).
+ * Rejected: passing it as a `VersionPick`, which is exactly that.
+ * - **The query wins outright** (user, 2026-10-27, D7): when it names any axis
+ *   ("db bench"), last-used is not merged in, not even on the axes the query
+ *   left open. A half-merged Dumbbell + last-used Close grip was neither what
+ *   was typed nor what was logged.
+ * - **Already in the plan:** preselects nothing (it could not be added).
+ * - Either way its values stay marked "last".
  */
-export function initialSheet(movement: Movement, preselect: VersionPick, inPlan: ReadonlySet<string>): SheetState {
+export function initialSheet(
+  movement: Movement,
+  preselect: VersionPick,
+  inPlan: ReadonlySet<string>,
+  lastUsed: MovementVersion | null = null
+): SheetState {
   const values: SheetState["values"] = { ...START };
   const chosen: Axis[] = [];
   const named: Array<[Axis, string | undefined]> = [
@@ -122,7 +149,10 @@ export function initialSheet(movement: Movement, preselect: VersionPick, inPlan:
     values[axis] = value;
     chosen.push(axis);
   }
-  return settle(movement, { values, chosen }, inPlan);
+  // Already in the plan needs no check here: `settle` looks for it among the
+  // versions not in the plan, so it preselects nothing.
+  const followLast = !!lastUsed && chosen.length === 0;
+  return settle(movement, { values, chosen, lastUsed, followLast }, inPlan);
 }
 
 /** Tap an option. Disabled options are never passed here (the sheet does not call it for them). */
@@ -134,7 +164,7 @@ export function chooseOption(
   inPlan: ReadonlySet<string>
 ): SheetState {
   const chosen = state.chosen.includes(axis) ? state.chosen : [...state.chosen, axis];
-  return settle(movement, { values: { ...state.values, [axis]: value }, chosen }, inPlan);
+  return settle(movement, { ...state, values: { ...state.values, [axis]: value }, chosen }, inPlan);
 }
 
 /**
@@ -164,6 +194,10 @@ export function sheetRows(movement: Movement, state: SheetState, inPlan: Readonl
         value,
         label: optionLabel(movement, axis, value),
         enabled: pool.some((v) => axisValue(v, axis) === value && fits(v, state.values, others)),
+        // Board VersionRecent: "last" on Barbell and Close, not on Flat. A
+        // default says nothing about what was logged; the line under the rows
+        // spells the whole version.
+        last: !!state.lastUsed && axisValue(state.lastUsed, axis) === value && value !== DEFAULT_VALUE[axis],
       })),
     });
   }

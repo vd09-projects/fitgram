@@ -15,7 +15,13 @@
 // reach, and it rides on the keyboard. The list still reads top-down, not
 // inverted, so A–Z and the best match start at the top.
 //
-// Not here, by ticket: recents, filter menus and "last used" (TICKET-050).
+// The start page (TICKET-050, board A1): before anything is typed, Recent (the
+// movements logged last, newest first) and then "All exercises" A–Z, a
+// deviation from A1, which shows Recent only (user, 2026-10-27, D1). With no
+// history, or while it is unknown, the A–Z list alone. Filter menus sit just
+// above the search box (D2); any filter hides Recent and filters the A–Z list
+// (D3), or ANDs with the query. The version sheet preselects the version used
+// last, wherever it opens from (D8).
 
 import React, { useEffect, useMemo, useState } from "react";
 import { BackHandler, FlatList, KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, View } from "react-native";
@@ -25,15 +31,33 @@ import { MUSCLES } from "../../constants/catalogVocabulary";
 import type { Movement, SearchWords } from "../../types/catalog";
 import type { Exercise } from "../../types/workoutType";
 import { planExerciseForVersion } from "../../utils/catalog";
+import { versionDetail } from "../../utils/catalog";
 import { searchExercises, type VersionPick } from "../../utils/exerciseSearch";
-import { PICKER_RESULT_LIMIT, preparePicker, type PickerRow as Row } from "../../utils/pickerData";
+import {
+  hasFilters,
+  matchesFilters,
+  PICKER_RESULT_LIMIT,
+  preparePicker,
+  withFilterPreselect,
+  type PickerFilters,
+  type PickerRow,
+} from "../../utils/pickerData";
+import { recentDateLabel, type LastUsed, type RecentHistory, type RecentRow } from "../../utils/recents";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 import { TextBase } from "../TextBase";
 import SearchBox from "../SearchBox";
 import VersionSheet from "./VersionSheet";
+import { FilterRow, FilterSheet, type FilterMenu } from "./FilterMenus";
 
 const NO_MOVEMENTS: readonly Movement[] = [];
+const NO_FILTERS: PickerFilters = {};
+const NO_RECENTS: readonly RecentRow[] = [];
+
+type Row =
+  | PickerRow
+  | { kind: "header"; key: string; title: string }
+  | { kind: "recent"; key: string; recent: RecentRow };
 
 type Props = {
   /** Null while the phone has no catalog (first launch offline, before the upload). */
@@ -44,6 +68,8 @@ type Props = {
   customExercises: readonly Exercise[];
   /** Exercise ids already in the plan: those versions are disabled. */
   inPlan: ReadonlySet<string>;
+  /** Recents and last-used versions (`buildRecentHistory`); null while unknown: no Recent, nothing preselected. */
+  recentHistory: RecentHistory | null;
   onPick: (exercise: Exercise) => void;
   onClose: () => void;
   tourStepPrefix?: string;
@@ -60,46 +86,82 @@ export function muscleLine(movement: Movement): string {
   return others.length ? `${label} · ${others.map((m) => MUSCLES[m].label.toLowerCase()).join(", ")}` : label;
 }
 
-export default function ExercisePicker({ movements, searchWords, customExercises, inPlan, onPick, onClose, tourStepPrefix }: Props) {
+export default function ExercisePicker({ movements, searchWords, customExercises, inPlan, recentHistory, onPick, onClose, tourStepPrefix }: Props) {
   const { styles, t } = useThemeStyles(createStyles);
   const [query, setQuery] = useState("");
-  const [sheet, setSheet] = useState<{ movement: Movement; preselect: VersionPick } | null>(null);
+  const [filters, setFilters] = useState<PickerFilters>(NO_FILTERS);
+  const [menu, setMenu] = useState<FilterMenu | null>(null);
+  const [sheet, setSheet] = useState<{ movement: Movement; preselect: VersionPick; lastUsed: LastUsed | null } | null>(null);
 
-  // Empty query: every movement A–Z (TICKET-043; TICKET-050 replaces it with Recent).
-  const { catalog, alphabetical } = useMemo(
+  const { catalog, alphabetical, equipmentByUse } = useMemo(
     () => preparePicker(movements ?? NO_MOVEMENTS, searchWords, customExercises),
     [movements, searchWords, customExercises]
   );
+  const filtering = hasFilters(filters);
+  const keep = useMemo(() => (filtering ? (m: Movement) => matchesFilters(m, filters) : undefined), [filtering, filters]);
   // Timed by src/scripts/benchmarkSearch.ts, against benchmarks/exercise-search.json.
   const search = useMemo(
-    () => (query.trim() ? searchExercises(catalog, query, PICKER_RESULT_LIMIT) : null),
-    [catalog, query]
+    () => (query.trim() ? searchExercises(catalog, query, PICKER_RESULT_LIMIT, keep) : null),
+    [catalog, query, keep]
   );
-  const rows: readonly Row[] = search
-    ? search.results.map((r) =>
-        r.kind === "movement"
-          ? { kind: "movement", key: r.movement.id, movement: r.movement, preselect: r.preselect }
-          : { kind: "custom", key: `custom:${r.exercise.id}`, exercise: r.exercise }
-      )
-    : alphabetical;
+  const browse = useMemo(
+    () => (keep ? alphabetical.filter((r) => r.kind === "movement" && keep(r.movement)) : alphabetical),
+    [alphabetical, keep]
+  );
   // Board A4: no special state for typos, just the heading.
   const closeMatches = !!search && search.results.length > 0 && search.results.every((r) => r.fuzzy);
+  const recents = !search && !filtering ? recentHistory?.recents ?? NO_RECENTS : NO_RECENTS;
+
+  const rows: readonly Row[] = useMemo(() => {
+    if (search) {
+      return [
+        { kind: "header", key: "h:results", title: closeMatches ? "Close matches" : "Exercises" },
+        ...search.results.map((r): Row =>
+          r.kind === "movement"
+            ? { kind: "movement", key: r.movement.id, movement: r.movement, preselect: r.preselect }
+            : { kind: "custom", key: `custom:${r.exercise.id}`, exercise: r.exercise }
+        ),
+      ];
+    }
+    if (recents.length === 0) return browse.length ? [{ kind: "header", key: "h:all", title: "Exercises" }, ...browse] : [];
+    return [
+      { kind: "header", key: "h:recent", title: "Recent" },
+      ...recents.map((recent): Row => ({
+        kind: "recent",
+        key: `recent:${recent.kind === "movement" ? recent.movement.id : recent.exercise.id}`,
+        recent,
+      })),
+      { kind: "header", key: "h:all", title: "All exercises" },
+      ...browse,
+    ];
+  }, [search, closeMatches, recents, browse]);
+  const hasResults = rows.some((r) => r.kind !== "header");
 
   useEffect(() => {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
       if (sheet) setSheet(null);
+      else if (menu) setMenu(null);
       else onClose();
       return true;
     });
     return () => sub.remove();
-  }, [sheet, onClose]);
+  }, [sheet, menu, onClose]);
 
   const pickMovement = (movement: Movement, preselect: VersionPick) => {
     if (movement.versions.length === 1) onPick(planExerciseForVersion(movement, movement.versions[0]));
-    else setSheet({ movement, preselect });
+    else
+      setSheet({
+        movement,
+        // An Equipment filter counts as typed equipment, so it, like a query
+        // naming an axis, opens the sheet without last used (D4, D7).
+        preselect: withFilterPreselect(movement, preselect, filters),
+        lastUsed: recentHistory?.lastUsed.get(movement.id) ?? null,
+      });
   };
 
   const renderRow = ({ item }: { item: Row }) => {
+    if (item.kind === "header") return <TextBase style={styles.section}>{item.title}</TextBase>;
+    if (item.kind === "recent") return renderRecent(item.recent);
     if (item.kind === "custom") {
       const taken = inPlan.has(item.exercise.id);
       return (
@@ -143,6 +205,50 @@ export default function ExercisePicker({ movements, searchWords, customExercises
     );
   };
 
+  // Board A1: a Recent row is the movement, then the combination last logged
+  // and its date ("Barbell, close grip · 22 Oct"); the date alone for a
+  // movement with one version. A single version is added at once, or reads
+  // In plan when it is already there.
+  const renderRecent = (recent: RecentRow) => {
+    const date = recentDateLabel(recent.performedAt, Date.now());
+    if (recent.kind === "custom") {
+      const taken = inPlan.has(recent.exercise.id);
+      return (
+        <TouchableOpacity
+          style={[styles.row, taken && styles.rowDisabled]}
+          disabled={taken}
+          onPress={() => onPick(recent.exercise)}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: taken }}
+        >
+          <View style={styles.rowText}>
+            <TextBase style={styles.name}>{recent.exercise.name}</TextBase>
+            <TextBase style={styles.detail}>{`Custom · ${date}`}</TextBase>
+          </View>
+          {taken && <TextBase style={styles.badge}>In plan</TextBase>}
+        </TouchableOpacity>
+      );
+    }
+    const { movement, version } = recent;
+    const detail = versionDetail(movement, version);
+    const taken = movement.versions.length === 1 && inPlan.has(movement.versions[0].id);
+    return (
+      <TouchableOpacity
+        style={[styles.row, taken && styles.rowDisabled]}
+        disabled={taken}
+        onPress={() => pickMovement(movement, {})}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: taken }}
+      >
+        <View style={styles.rowText}>
+          <TextBase style={styles.name}>{movement.name}</TextBase>
+          <TextBase style={styles.detail}>{detail ? `${detail} · ${date}` : date}</TextBase>
+        </View>
+        {taken && <TextBase style={styles.badge}>In plan</TextBase>}
+      </TouchableOpacity>
+    );
+  };
+
   return (
     // iOS: padding lifts the search box over the keyboard. Android: none, the
     // window already resizes for the keyboard (Expo's default), and "height"
@@ -160,11 +266,13 @@ export default function ExercisePicker({ movements, searchWords, customExercises
       </View>
       {movements === null ? (
         <TextBase style={[styles.empty, styles.body]}>Exercise catalog not loaded yet. Connect once and reopen.</TextBase>
-      ) : search && search.results.length === 0 ? (
+      ) : !hasResults ? (
         <View style={[styles.none, styles.body]}>
           <TextBase style={styles.noneTitle}>No exercise matches</TextBase>
           <TextBase style={styles.empty}>
-            Every word has to match. Try fewer words, the movement (“low row”) or a muscle (“lats”).
+            {search
+              ? "Every word has to match. Try fewer words, the movement (“low row”) or a muscle (“lats”)."
+              : "Every filter has to match. Clear one to see more."}
           </TextBase>
         </View>
       ) : (
@@ -176,11 +284,10 @@ export default function ExercisePicker({ movements, searchWords, customExercises
           keyboardShouldPersistTaps="handled"
           initialNumToRender={12}
           windowSize={7}
-          ListHeaderComponent={
-            <TextBase style={styles.section}>{closeMatches ? "Close matches" : "Exercises"}</TextBase>
-          }
         />
       )}
+
+      <FilterRow filters={filters} onOpen={setMenu} />
 
       <SearchBox
         label="Search"
@@ -197,11 +304,16 @@ export default function ExercisePicker({ movements, searchWords, customExercises
           movement={sheet.movement}
           subtitle={muscleLine(sheet.movement)}
           preselect={sheet.preselect}
+          lastUsed={sheet.lastUsed}
           inPlan={inPlan}
           onClose={() => setSheet(null)}
           onAdd={(version) => onPick(planExerciseForVersion(sheet.movement, version))}
           tourStepPrefix={tourStepPrefix}
         />
+      )}
+
+      {menu && (
+        <FilterSheet menu={menu} filters={filters} equipmentByUse={equipmentByUse} onChange={setFilters} onClose={() => setMenu(null)} />
       )}
     </KeyboardAvoidingView>
   );

@@ -19,8 +19,11 @@
 
 import { CATALOG } from "../catalog";
 import { SEARCH_WORDS } from "../catalog/searchWords";
+import type { WorkoutSessionDoc } from "../types/workoutSession";
+import { buildCatalogIndex } from "../utils/catalog";
 import { buildSearchCatalog, searchExercises } from "../utils/exerciseSearch";
-import { PICKER_RESULT_LIMIT, preparePicker } from "../utils/pickerData";
+import { matchesFilters, PICKER_RESULT_LIMIT, preparePicker } from "../utils/pickerData";
+import { buildRecentHistory } from "../utils/recents";
 
 const WINDOW_MS = 20;
 const ROUNDS = 5;
@@ -49,10 +52,15 @@ export const TYPO_QUERIES = [
 
 export type Stats = { n: number; median: number; p90: number; p95: number; max: number };
 export type BenchmarkResult = {
-  /** Opening the picker: index + A–Z (what `preparePicker` builds), and the index alone. */
-  open: { first: number; picker: Stats; index: Stats };
-  /** One search per keystroke. */
-  search: { normal: Stats; typo: Stats; all: Stats };
+  /**
+   * Opening the picker: index + A–Z + Equipment menu (what `preparePicker`
+   * builds), and the index alone. `recents` (TICKET-050): recents and last-used
+   * from a full window of sessions, built each Manage Workout open. Optional:
+   * baselines before TICKET-050 lack it.
+   */
+  open: { first: number; picker: Stats; index: Stats; recents?: Stats };
+  /** One search per keystroke. `filtered` (TICKET-050): the normal queries under Chest + Dumbbell. */
+  search: { normal: Stats; typo: Stats; all: Stats; filtered?: Stats };
 };
 
 /** Fastest of ROUNDS timings of `run`. */
@@ -104,8 +112,26 @@ export function runSearchBenchmark(now: () => number): BenchmarkResult {
   const normal = normalKeys.map((k) => timeOf(now, () => search(k)));
   const typo = typoKeys.map((k) => timeOf(now, () => search(k)));
 
+  const keep = (m: (typeof CATALOG)[number]) => matchesFilters(m, { group: "chest", equipment: "dumbbell" });
+  const filtered = normalKeys.map((k) => timeOf(now, () => searchExercises(catalog, k, PICKER_RESULT_LIMIT, keep)));
+
+  // A full window: 20 sessions of 6 exercises, spread over the catalog. The
+  // catalog index is not timed: the loaded catalog already carries it.
+  const versionIds = CATALOG.flatMap((m) => m.versions.map((v) => v.id));
+  const sessions: WorkoutSessionDoc[] = Array.from({ length: 20 }, (_, i) => ({
+    sessionId: `s${i}`,
+    workoutId: "w",
+    workoutName: "W",
+    startedAt: 20 - i,
+    endedAt: 21 - i,
+    exerciseIds: Array.from({ length: 6 }, (_, j) => versionIds[(i * 37 + j * 101) % versionIds.length]),
+    rollupPending: false,
+  }));
+  const catalogIndex = buildCatalogIndex(CATALOG);
+  const recents = stats(Array.from({ length: 7 }, () => timeOf(now, () => buildRecentHistory(sessions, [], "u", catalogIndex, []))));
+
   return {
-    open: { first, picker, index },
-    search: { normal: stats(normal), typo: stats(typo), all: stats([...normal, ...typo]) },
+    open: { first, picker, index, recents },
+    search: { normal: stats(normal), typo: stats(typo), all: stats([...normal, ...typo]), filtered: stats(filtered) },
   };
 }

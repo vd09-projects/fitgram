@@ -80,7 +80,7 @@ test("opens with Equipment empty and defaults elsewhere; a query preselects; Att
 test("disabled, not hidden: a combination that does not exist, and one already in the plan", () => {
   const bench = movement("bench_press");
   const band = tap(bench, initialSheet(bench, {}, NONE), [["equipment", "band"]]);
-  expect(option(bench, band, "angle", "incline")).toEqual({ value: "incline", label: "Incline", enabled: false });
+  expect(option(bench, band, "angle", "incline")).toEqual({ value: "incline", label: "Incline", enabled: false, last: false });
 
   const inPlan = new Set(["bench_press__dumbbell__incline"]);
   const db = tap(bench, initialSheet(bench, {}, inPlan), [["equipment", "dumbbell"]], inPlan);
@@ -97,4 +97,29 @@ test("switching equipment starts soft axes from their default again, not from th
   const raise = movement("front_raise");
   const cable = tap(raise, initialSheet(raise, {}, NONE), [["equipment", "dumbbell"], ["equipment", "cable"]]);
   expect(cable.values.attachment).toBeUndefined();
+});
+
+// TICKET-050: the version used last.
+test("last used preselects that version, marks it, and gives way to the query and to the plan", () => {
+  const bench = movement("bench_press");
+  const last = bench.versions.find((v) => v.id === "bench_press__barbell__close_grip")!;
+  const opened = initialSheet(bench, {}, NONE, last);
+  expect(selectedVersion(bench, opened, NONE)?.id).toBe(last.id);
+  expect(option(bench, opened, "grip", "close")?.last).toBe(true);
+  expect(option(bench, opened, "angle", "flat")?.last).toBe(false); // a default: not marked (board VersionRecent)
+  // Soft, not chosen: nothing is disabled for it.
+  expect(option(bench, opened, "equipment", "dumbbell")?.enabled).toBe(true);
+  // Picking other equipment gives that equipment's own defaults, not Barbell's grip.
+  expect(tap(bench, opened, [["equipment", "dumbbell"]]).values.grip).toBe("normal");
+
+  // "db bench" after a Dumbbell incline: the query wins outright, so flat, not
+  // incline merged in; last used is still marked.
+  const lastDb = bench.versions.find((v) => v.id === "bench_press__dumbbell__incline")!;
+  const typed = initialSheet(bench, { equipment: "dumbbell" }, NONE, lastDb);
+  expect(selectedVersion(bench, typed, NONE)?.id).toBe("bench_press__dumbbell");
+  expect(option(bench, typed, "angle", "incline")?.last).toBe(true);
+
+  // Already in the plan: preselects nothing from it.
+  const inPlan = new Set([last.id]);
+  expect(initialSheet(bench, {}, inPlan, last).values.equipment).toBeUndefined();
 });
