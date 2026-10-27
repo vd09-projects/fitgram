@@ -45,6 +45,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 050 | Picker start page: recents, filters, last-used version | Medium | After 043 |
 | 051 | Manage Workout: exercise list and Save changes | Medium | After 043; can run alongside 050 |
 | 052 | Manage Workout: new plan and first plan | Small–Medium | After 051 |
+| 053 | Guided tour: end-to-end pass after the catalog work | Medium | After 043, 050, 051, 052. The tour is not working and is no longer fixed per ticket (user, 2026-10-27) |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap. Storage: per-plan copies today, library undecided |
 | 047 | Switch an exercise's version mid-workout | Medium | Deferred 2026-10-24. For this workout only; the plan keeps its version |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
@@ -3023,9 +3024,7 @@ Recents, filter menus and "last used" preselection are TICKET-050.
 - [ ] Picker built from TICKET-041 boards A2–A4, opened from today's Manage Workout
       in place of the Exercise dropdown. 4 or 5 tests on its main behaviours
 - [ ] Measured: search time per keystroke over the full catalog, on a device
-- [ ] Guided tour: `EXERCISE_SEARCHABLE` → `DROPDOWN_BUTTON` retargeted to the
-      control that opens the picker; new steps for the search box and the version
-      sheet. No step points at a control that is gone
+- [ ] Guided tour: deferred to TICKET-053 (user, 2026-10-27)
 - [ ] Delivered in stages (CLAUDE.md 3.4): 1. the search function and its tests;
       2. typos and joined/split words; 3. the picker screen
 - [ ] **Device test (done when it passes):** Manage Workout → choose a plan → open
@@ -3375,7 +3374,9 @@ lived in the exercise file. Now:
   Checked by reading every step id in `manageWorkout.ts` against what renders it: the
   Workout dropdown's `NEW_BUTTON` / `INPUT_AND_SAVE` still exist (052 moves them); the
   Exercise dropdown had only `DROPDOWN_BUTTON`. The sheet step shows the tour's "not
-  visible" note until a movement with versions is tapped. Not run on a device
+  visible" note until a movement with versions is tapped. Not run on a device.
+  **The tour was not verified; it is deferred to TICKET-053** (user, 2026-10-27).
+  These step ids stay as input for 053
 - **TEMPORARY timing line** (CLAUDE.md 3.3), only with `SHOW_DEBUG_SCREENS`: under the
   search box, "search X ms · median · p95 · max · n", the time of `searchExercises`
   alone (not rendering). Removal: in `ExercisePicker.tsx`, the `showDebugScreens`
@@ -3431,9 +3432,7 @@ lived in the exercise file. Now:
 8. Android back closes the sheet, then the picker
 8a. **Bottom search box:** tap it: the keyboard opens and the box sits just above it,
    not under it; the last list rows are not hidden behind the box
-9. **Tour:** run the Manage Workout tour: the Exercise button step, then the search
-   box, then the sheet (its note says "not visible" until a movement with versions
-   is tapped), then fields and Save. No step points at a missing control
+9. **Tour:** not required, see TICKET-053; note anything broken for it
 - **Cannot be covered on a device:** custom exercises (none exist since the
   2026-10-26 wipe, and none can be created until TICKET-045); unit test only
 - After the run: remove the TEMPORARY timing line (above)
@@ -3463,7 +3462,7 @@ sheet preselects the version used last.
       typed in the query ("db bench") still wins
 - [ ] A recent single-version movement is added at once, or reads "In plan"
       (disabled) when it is already there
-- [ ] Guided tour: a step for the filter menus
+- [ ] Guided tour: deferred to TICKET-053 (user, 2026-10-27)
 - [ ] 4 or 5 tests on the main behaviours, each seen red
 - [ ] **Device test (done when it passes):** log one workout (the 2026-10-26 wipe
       emptied history) → open the picker → its movement is under Recent with the
@@ -3505,10 +3504,7 @@ selection stays as it is today (TICKET-052 changes it).
       the exercise arrives expanded with its catalog fields
 - [ ] One footer button, **Save changes**, for the plan
 - [ ] The version is not editable here (see Design)
-- [ ] Guided tour: `EXERCISE_EDITABLE_LIST` → `EXISTING_ITEM` / `ADD_NEW_ITEM`
-      (now inside an expanded row, so the tour expands one first) and
-      `SAVE_BUTTON` (copy says "Save Workout"; the button reads Save changes)
-      retargeted. No step points at a control that is gone
+- [ ] Guided tour: deferred to TICKET-053 (user, 2026-10-27)
 - [ ] 4 or 5 tests on the main behaviours, each seen red
 - [ ] **Device test (done when it passes):** choose a plan → expand a row → rename
       a field and switch kg to plates → remove an exercise → add one through the
@@ -3554,9 +3550,7 @@ switch on the Workout picker.
       Create (disabled until something is typed), reached from the Start screen's
       "No plans yet · Create a plan"
 - [ ] Today's New switch on the Workout picker is gone
-- [ ] Guided tour: `WORKOUT_SEARCHABLE` → `NEW_BUTTON` and `INPUT_AND_SAVE`
-      retargeted to the New plan row and its Create. No step points at a control
-      that is gone
+- [ ] Guided tour: deferred to TICKET-053 (user, 2026-10-27)
 - [ ] 4 or 5 tests on the main behaviours, each seen red
 - [ ] **Device test (done when it passes):** create a plan from the New plan row,
       add an exercise, Save changes, and it appears on Start. Then with an account
@@ -3576,6 +3570,34 @@ switch on the Workout picker.
   Create a plan" button.
 
 **Dependencies:** TICKET-051 (the rebuilt screen).
+
+---
+
+### TICKET-053: Guided Tour — End-to-End Pass After the Catalog Work
+
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — created 2026-10-27
+
+**Description:**
+The guided tour is not working, and it is no longer fixed ticket by ticket (user,
+2026-10-27). 043, 050, 051 and 052 each move or remove controls the tour points
+at; this one pass, after all of them, fixes whatever is broken then, against the
+final screens instead of each intermediate one.
+
+**Acceptance Criteria:**
+- [ ] Every tour (Manage Workout, Start Workout, the rest) run on a device
+- [ ] Each step whose control is gone or moved (by 043, 050, 051, 052) retargeted
+      or removed
+- [ ] Steps for the new controls: the picker's search box, the version sheet, the
+      filter menus, Save changes, New plan
+- [ ] No step points at a missing control
+- [ ] **Device test (done when it passes):** a device run of each tour
+
+**Input:** TICKET-043's stage 3 note lists the step ids it already wrote
+(`DROPDOWN_BUTTON` moved to the Exercise button; `EXERCISE_PICKER` → `SEARCH_BOX`,
+`VERSION_SHEET`); unverified. The device runs of 043–052 note anything broken for
+this ticket.
+
+**Dependencies:** TICKET-043, TICKET-050, TICKET-051, TICKET-052.
 
 ---
 
@@ -4482,6 +4504,7 @@ it) once 046's content exists. Phase 3B; research is in
 5. TICKET-050  (Picker start page)        — After 043: recents, filters, last used
 6. TICKET-051  (Manage Workout list)      — After 043; alongside 050 if wanted
 7. TICKET-052  (New plan, first plan)     — After 051
+8. TICKET-053  (Guided tour pass)         — After 043, 050, 051, 052
 ```
 
 **Then the next three, decided.** They are what makes logging an exercise match what
