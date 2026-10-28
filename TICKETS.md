@@ -4109,6 +4109,20 @@ smaller than the exercise rows under it.
 - New targets with no step yet: the plan field, the sheet's New plan row and its
   name field + Create, the first-plan form.
 
+**Review round 1 (PR #26, 2026-10-28):**
+- **D5 missed offline (fixed).** Offline, `getDocs` doesn't reject: it resolves
+  with the cache (`@firebase/firestore` 4.7.9 `index.rn.js`,
+  `__PRIVATE_executeQueryViaSnapshotListener` rejects only for
+  `source: "server"`), and a cold start's `memoryLocalCache` is empty, so a user
+  with plans got "Your first plan". `getAllWorkoutPlans` now throws on an empty
+  list from the cache; a non-empty cached list is still shown. 2 `userDB`
+  tests, each seen red.
+- **Picking the open plan asked "Discard changes?" (fixed).** Discard reverted
+  the edits for nothing; it now just closes the sheet. Inherited from the 051
+  dropdown. 1 screen assertion, seen red.
+- **Android keyboard:** `KeyboardAvoidingView` has no behaviour on Android; left
+  as is, checked by device step 7.
+
 **Device test plan (user runs; CLAUDE.md 1.3).** Android first, iOS where a
 step says so. Read-only in the Firestore console; no scripts.
 
@@ -4128,11 +4142,13 @@ step says so. Read-only in the Firestore console; no scripts.
    screen; tapping above the sheet closes it.
 5. Pick a plan → the sheet closes and the plan opens with its exercises.
 6. Edit the open plan, open the sheet, pick another → "Discard changes?". Keep
-   editing keeps the edit; Discard opens the other plan.
+   editing keeps the edit; Discard opens the other plan. Pick the plan already
+   open → the sheet just closes, edits kept (review fix).
 
 *C. New plan*
 7. New plan → the row becomes a name field with Create, keyboard up, field
-   visible above it (Android and iOS). Create disabled for empty and for spaces
+   visible above it (Android and iOS; on Android the sheet relies on the window
+   resizing, since `KeyboardAvoidingView` has no behaviour there — review). Create disabled for empty and for spaces
    only.
 8. Type "  Legs   Day " → Create → sheet closes, field reads "Legs Day", no
    exercises, Add exercise shown, the picker did not open, Save disabled.
@@ -4156,9 +4172,10 @@ step says so. Read-only in the Firestore console; no scripts.
     plan", "Name it, then add its exercises.", "PLAN NAME" field, Create
     disabled → type a name → Create → empty plan with Add exercise → add one →
     Save → saved; Start lists it.
-15. Airplane mode, open Manage Workout fresh → "Couldn't load plans." with
-    Retry, never "Your first plan". Network on → Retry → "Choose a plan". (Start
-    in airplane mode still says "No plans yet": known gap.)
+15. **Offline cold start (review fix):** kill the app, airplane mode, open it
+    and go to Manage Workout → "Couldn't load plans." with Retry, never "Your
+    first plan". Network on → Retry → "Choose a plan". (Start in airplane mode
+    still says "No plans yet": known gap.)
 
 *F. Offline save of a new plan (TICKET-051 offline rule)*
 16. Plans loaded, then airplane mode → New plan → add an exercise → Save →

@@ -40,6 +40,13 @@ export const getAllWorkoutPlans = async (
         tables.users.fields.workouts.collection
       )
     );
+    // Offline, getDocs doesn't reject: it resolves with the cache, which on a
+    // cold start (memoryLocalCache) is empty. That empty list isn't "no plans",
+    // so it fails like any other load (TICKET-052 D5, PR #26 review). A
+    // non-empty cached list, from an earlier load this session, is shown.
+    if (querySnapshot.metadata.fromCache && querySnapshot.empty) {
+      throw new Error("Plans unavailable offline");
+    }
     const plans = (
       querySnapshot.docs.map((doc) => ({
         id: doc.id,

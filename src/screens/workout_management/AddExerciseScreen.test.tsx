@@ -179,6 +179,11 @@ it("switching plan with unsaved changes asks first; Keep editing keeps them", as
   fireEvent.press(screen.getByLabelText(/edit fields$/));
   fireEvent.press(screen.getByLabelText("Set Weight unit to plates"));
 
+  // The plan already open is not a switch: no question, edits kept (PR #26).
+  await selectPlan(plans, "Push");
+  expect(screen.queryByText("Discard changes?")).toBeNull();
+  expect(saveButton()).toBeEnabled();
+
   await selectPlan(plans, "Pull");
   fireEvent.press(screen.getByText("Keep editing"));
   expect(screen.getByLabelText(/collapse$/)).toBeTruthy();

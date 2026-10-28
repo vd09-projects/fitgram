@@ -165,6 +165,9 @@ export default function AddExerciseScreen() {
   // changes?" comes first if the open draft has edits.
   const handleSelectWorkout = (plan: WorkoutPlan) => {
     setSheetOpen(false);
+    // The plan already open: nothing to switch to, so no "Discard changes?"
+    // (PR #26 review; the old dropdown asked, and Discard reverted the edits).
+    if (plan.id === draft?.id) return;
     if (dirty) setPendingDiscard({ kind: 'switch', plan, stillSaving: draftIsQueued() });
     else openPlan(plan);
   };
