@@ -35,13 +35,14 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 030 | Drop unit suffixes from catalogue field names | Small | **Silent data loss:** renaming a field nulls every past value for it, and the session stays `comparable` so nothing flags it |
 | 031 | Contrast guards for the rest of the role palette | Small | Extends the `colors.test.ts` pattern |
 | 032 | Edit or delete an already-uploaded set | Med-Large | Needs a rollup rebuild |
-| 033 | Split sets | Med-Large | Data-model change. Three sub-tickets: 033-1 log (lands the stored shape), then 033-2 read back and 033-3 edit |
+| 033 | Split sets | Med-Large | Data-model change. Three sub-tickets: 033-1 log (in review, PR #27), then 055, then 033-2 read back and 033-3 edit |
 | 035 | Measures beyond weight x reps | Med-Large | "Which way is better" is a product decision |
 | 036 | Put a unit on volume trend points | Small-Med | Today the trend over-suppresses; held by an invariant test, not a fix |
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
 | 053 | Guided tour: end-to-end pass after the catalog work | Medium | After 043, 050, 051, 052. The tour is not working and is no longer fixed per ticket (user, 2026-10-27) |
+| 055 | Set segments: one shape for a set and its splits | Medium | Before 033-2 / 033-3. Live model decided (`segments`, ≥ 1); stored shape decided at the start (keep parallel, recommended, or unify) |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap. Storage: per-plan copies today, library undecided |
 | 047 | Switch an exercise's version mid-workout | Medium | Deferred 2026-10-24. For this workout only; the plan keeps its version |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
@@ -5284,7 +5285,7 @@ rollup transaction carrying `setSplits`.
 
 #### 033-2 · Read a split set back (S5–S7)
 
-**Status: OPEN** — after 033-1
+**Status: OPEN** — after 033-1 and TICKET-055 (one segments shape)
 
 - History reader exposes each set's split rows (done in 033-1: `HistorySet.splits`)
 - Say why a session's volume is unavailable when its stored rows could not be
@@ -5305,7 +5306,7 @@ splits; the best still reads 20 kg × 5, never a split row.
 
 #### 033-3 · Edit a split set (S8)
 
-**Status: OPEN** — after 033-1
+**Status: OPEN** — after 033-1 and TICKET-055 (one segments shape)
 
 - TICKET-040's edit card shows the rows: change, add or remove them; Save rewrites
   the set's `splits`
@@ -5327,6 +5328,89 @@ stays. Remove every split row; the set reads as a normal set.
 
 **Dependencies:** Phase 3 complete (TICKET-019, TICKET-020, TICKET-021), TICKET-040
 (edit card, for 033-3). Within the ticket: 033-1 before 033-2 and 033-3.
+
+---
+
+### TICKET-055: Set Segments — One Shape for a Set and Its Splits
+
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — raised 2026-10-29
+after TICKET-033-1 (PR #27); goes **before 033-2 and 033-3**, which read the shape
+this changes.
+
+**Description:**
+033-1 stores a set as two things: `ExerciseSet.fields` (the first segment) and
+`ExerciseSet.splits` (the rows after it, absent or `[]` when not split). The card
+already treats them as one list (`rows[0]` is the set; a normal set is one row),
+so every write converts list → `fields` + `splits` and every reader of a split
+set has to stitch them back. Make a set **one list of segments**, always at least
+one, the first being the set as planned. The ticket's own decision already named
+the data `segments` (TICKET-033 Decisions, "Data name: `segments`"); 033-1 shipped
+`splits` from the build prompt without flagging the conflict.
+
+**Load-bearing facts (checked 2026-10-29):**
+- Six places read the live `ExerciseSet`'s values: `ExerciseLogger` (log, edit),
+  `TodaySets`, `RestPanel`, `ExerciseHistorySheet` (today's column),
+  `buildSessionDocs` and `storedSplits`. The three old log tables
+  (`ExerciseSetLogTable`, `ExerciseLogTableFlatList`, `WorkoutLogsScreen`) read
+  the older workout-log type, not `ExerciseSet`. Removing `fields` from the type
+  makes tsc list every live site, so a missed reader fails loudly.
+- The active workout and the upload queue are restored from AsyncStorage in
+  `loadWorkoutFromStorage` (`JSON.parse` as `ActiveWorkout`). A phone holding a
+  workout in the old shape must still read and upload it: convert at that one
+  read. **Do not bump `LOCAL_DATA_VERSION`**: a bump discards unsent workouts.
+- Firestore rejects an array directly inside an array, so a stored set cannot be
+  `StoredSetFields[]`-per-set; any unified stored shape needs a wrapper map.
+
+**Part 1 — live model (decided):**
+- `ExerciseSet.segments: Record<string, string | number>[]`, length ≥ 1;
+  `segments[0]` is the set. Remove `fields` and `splits`.
+- `addSetToExercise`, `updateSet`, `removeSet` / `restoreSet` work on segments;
+  `updateSet` replaces the segments it is given (033-3 builds on this).
+- `buildLoggedSet` returns `segments`; the card logs `rows` as they are.
+- Read-time conversion: `{ fields, splits? }` → `segments: [fields, ...splits]`,
+  in `loadWorkoutFromStorage` for both the active workout and every queued upload.
+  One pure function, tested, marked with the date it can be deleted.
+
+**Part 2 — stored shape (decide at the start of this ticket):**
+- **Option A, keep (recommended):** `sets[i]` = first segment, `setSplits[i]` =
+  `{ rows } | null`, built from `segments` in `buildSessionDocs` and read back in
+  `buildHistorySession`. Records, deltas, ghosts, the rebuild script and
+  `verifyHistoryReads` read `sets[i]` and *cannot* see a later segment: the
+  "first segment counts" rule is enforced by the shape. Conversion lives in those
+  two functions only. Add a comment on `setSplits` saying why stored and live
+  differ.
+- **Option B, unify:** `sets: { segments: StoredSetFields[] }[]`, dropping
+  `setSplits`. One shape end to end, no alignment check (`zipSetSplits` goes).
+  Cost: every stored reader (`applyBest`, `buildStatsSessionEntry`,
+  `buildHistorySession`, `historySheet`, `setDeltas` via `HistorySet`,
+  `rebuildExerciseStats`, `verifyHistoryReads`, `WorkoutHistoricalLogsFilter`,
+  `ExerciseHistoryDebugScreen`) must write `segments[0]` by hand, and a future
+  reader that loops over every segment silently lets a split row become a best.
+  Pre-launch, so test sessions in the old shape are wiped, not migrated.
+- Either way, `HistorySet` should expose one list too (`segments`, or first +
+  rest under one name) so 033-2 reads the same idea the card writes.
+
+**Acceptance Criteria:**
+- [ ] `ExerciseSet` has `segments` (≥ 1) and no `fields` / `splits`; tsc clean
+- [ ] A workout saved by the 033-1 build (split and unsplit sets, active and
+      queued) loads, shows the same Today list, and uploads the same docs
+- [ ] Part 2 decision recorded here, with what was rejected and why
+- [ ] Stored docs, volume and records unchanged for the same input: a split
+      set's `bestByReps` still comes from its first segment only
+- [ ] 033-2 and 033-3 sub-tickets updated to the new names
+
+**Tests (pure where possible):** the read-time conversion (unsplit, split, already
+new); `buildSessionDocs` output identical before and after for the same sets
+(snapshot the 033-1 output first, then compare); `buildLoggedSet` returns
+segments; one store round trip (log a split set, remove, restore, edit first
+segment) keeps every segment. Keep only tests seen failing first.
+
+**Device test:** with the 033-1 build installed, start a workout, log a normal
+set and a split set, leave it open; install this build; the workout resumes with
+both sets and the split's chip. Log one more split set, Finish; the Firestore docs
+match the 033-1 shape (option A) or the new one (option B).
+
+**Dependencies:** TICKET-033-1 merged. Blocks 033-2 and 033-3.
 
 ---
 
@@ -5447,7 +5531,10 @@ people actually do, and 033 changes a stored shape: pre-launch is the cheap mome
 for that.
 
 ```
-1. TICKET-033  (Split sets)                — A weight change within one set
+1. TICKET-033  (Split sets)                — A weight change within one set.
+                                             033-1 in review (PR #27); then
+   TICKET-055  (Set segments)              — One shape for a set and its splits,
+                                             before 033-2 / 033-3 read it
 2. TICKET-032  (Edit/delete uploaded set)  — Needs the rollup rebuild; after 033 so it
                                              is written once against the final shape
 3. TICKET-029  (Pending uploads view)      — Replaces the TEMPORARY debug screen.
