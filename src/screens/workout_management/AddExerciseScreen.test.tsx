@@ -1,10 +1,10 @@
 // TICKET-051: Manage Workout edits the plan's exercises as a list, in a draft,
 // with one Save changes for the whole plan.
 // TICKET-050: Recent comes from one recent-sessions query per open.
+// TICKET-052: plans are chosen and created in a sheet; a first plan without one.
 
 import { StyleSheet, TextInput } from "react-native";
-import { Dropdown } from "react-native-element-dropdown";
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react-native";
+import { act, fireEvent, screen, within } from "@testing-library/react-native";
 import AddExerciseScreen from "./AddExerciseScreen";
 import { renderScreen, RenderScreenOptions, TEST_USER_ID } from "../../test/renderScreen";
 import { buildWorkout } from "../../test/fixtures";
@@ -22,6 +22,7 @@ jest.mock("../../services/db/userDB", () => ({
   ...jest.requireActual("../../services/db/userDB"),
   getAllWorkoutPlans: jest.fn(),
   overrideWorkoutDetails: jest.fn(),
+  newPlanId: jest.fn(() => "generated_id"),
 }));
 jest.mock("../../services/db/workoutSessions", () => ({
   ...jest.requireActual("../../services/db/workoutSessions"),
@@ -70,21 +71,24 @@ const push = (): WorkoutPlan => ({
 });
 const pull = (): WorkoutPlan => ({ id: "pull", name: "Pull", exercises: [] });
 
-async function openPlan(plans: WorkoutPlan[], name: string, options: RenderScreenOptions = {}) {
+function renderManage(plans: WorkoutPlan[], options: RenderScreenOptions = {}) {
   (getAllWorkoutPlans as jest.Mock).mockResolvedValue(plans);
   renderScreen(AddExerciseScreen, options);
   const load = loadCatalog(CATALOG);
   if (load.kind !== "ok") throw new Error("catalog");
   act(() => useCatalogStore.setState({ catalog: { version: "v1", movements: load.movements, index: load.index }, cacheLoaded: true }));
+}
+
+async function openPlan(plans: WorkoutPlan[], name: string, options: RenderScreenOptions = {}) {
+  renderManage(plans, options);
   await selectPlan(plans, name);
 }
 
-async function selectPlan(plans: WorkoutPlan[], name: string) {
-  const plan = plans.find((p) => p.name === name)!;
-  // The plan picker is react-native-element-dropdown, whose list is a native
-  // modal: select through its onChange, as a tap on a row would.
-  const dropdown = await waitFor(() => screen.UNSAFE_getByType(Dropdown));
-  act(() => dropdown.props.onChange({ label: plan.name, value: plan }));
+const openSheet = async () => fireEvent.press(await screen.findByLabelText(/^(Choose a plan|Plan: .*)$/));
+
+async function selectPlan(_plans: WorkoutPlan[], name: string) {
+  await openSheet();
+  fireEvent.press(within(screen.getByTestId("plan-sheet")).getByText(name));
 }
 
 const saveButton = () => screen.getByRole("button", { name: /Save changes|Saving…/ });
@@ -183,7 +187,7 @@ it("switching plan with unsaved changes asks first; Keep editing keeps them", as
   await selectPlan(plans, "Pull");
   fireEvent.press(screen.getByText("Discard"));
   expect(screen.queryByLabelText(/collapse$/)).toBeNull();
-  expect(screen.getByText("Workout : Pull")).toBeTruthy();
+  expect(screen.getByLabelText("Plan: Pull")).toBeTruthy();
 });
 
 // Device review, round 1.
@@ -267,4 +271,63 @@ it("Recent comes from one recent-sessions query per open, none per picker open o
 
   expect(mockSessions).toHaveBeenCalledTimes(1);
   expect(mockSessions).toHaveBeenCalledWith(TEST_USER_ID, { pageSize: 20 });
+});
+
+// TICKET-052: New plan and first plan.
+
+it("New plan: the sheet's first row names a plan, which opens empty and is written with its first exercise", async () => {
+  renderManage([push()]);
+  await openSheet();
+  fireEvent.press(screen.getByRole("button", { name: "New plan" }));
+  fireEvent.changeText(screen.getByLabelText("New plan"), "  Legs   Day ");
+  fireEvent.press(screen.getByRole("button", { name: "Create" }));
+
+  // D4: the empty plan, not the picker; D6 b: nothing to save until an exercise.
+  expect(screen.getByLabelText("Plan: Legs Day")).toBeTruthy();
+  expect(screen.queryByTestId("exercise-picker")).toBeNull();
+  expect(saveButton()).toBeDisabled();
+
+  fireEvent.press(screen.getByLabelText("Add exercise"));
+  const picker = screen.getByTestId("exercise-picker");
+  fireEvent.changeText(within(picker).UNSAFE_getByType(TextInput), "pec deck");
+  fireEvent.press(within(picker).getByText("Pec Deck (Machine Fly)"));
+  expect(saveButton()).toBeEnabled();
+  save.mockResolvedValue(undefined);
+  await act(async () => fireEvent.press(saveButton()));
+  // D1: the generated id, never the name's slug.
+  expect(save).toHaveBeenCalledWith(TEST_USER_ID, expect.objectContaining({ id: "generated_id", name: "Legs Day" }));
+});
+
+it("New plan refuses a name a plan already has, and keeps the open plan", async () => {
+  await openPlan([push()], "Push");
+  await openSheet();
+  fireEvent.press(screen.getByRole("button", { name: "New plan" }));
+  fireEvent.changeText(screen.getByLabelText("New plan"), "push");
+  fireEvent.press(screen.getByRole("button", { name: "Create" }));
+  expect(screen.getByText('A plan named "Push" already exists.')).toBeTruthy();
+  expect(screen.getByLabelText("Plan: Push")).toBeTruthy();
+});
+
+it("no plans: the first-plan form, Create disabled until a name is typed, then the plan opens empty", async () => {
+  renderManage([]);
+  expect(await screen.findByText("Your first plan")).toBeTruthy();
+  expect(screen.queryByLabelText("Choose a plan")).toBeNull();
+  const create = () => screen.getByRole("button", { name: "Create" });
+  expect(create()).toBeDisabled();
+  fireEvent.changeText(screen.getByLabelText("Plan name"), "   ");
+  expect(create()).toBeDisabled();
+  fireEvent.changeText(screen.getByLabelText("Plan name"), "Full Body");
+  fireEvent.press(create());
+  expect(screen.getByLabelText("Plan: Full Body")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Add exercise" })).toBeTruthy();
+  expect(screen.queryByText("Your first plan")).toBeNull();
+});
+
+it("a failed plan load says so with Retry, never the first-plan form (D5)", async () => {
+  (getAllWorkoutPlans as jest.Mock).mockRejectedValueOnce(new Error("offline")).mockResolvedValue([push()]);
+  renderScreen(AddExerciseScreen);
+  expect(await screen.findByText("Couldn't load plans.")).toBeTruthy();
+  expect(screen.queryByText("Your first plan")).toBeNull();
+  fireEvent.press(screen.getByRole("button", { name: "Retry" }));
+  expect(await screen.findByLabelText("Choose a plan")).toBeTruthy();
 });
