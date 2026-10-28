@@ -4109,44 +4109,68 @@ smaller than the exercise rows under it.
 - New targets with no step yet: the plan field, the sheet's New plan row and its
   name field + Create, the first-plan form.
 
-**Device test plan (user runs; CLAUDE.md 1.3):**
-0. **Type (device finding):** choose a plan with several exercises: its name in
-   the "Plan" label matches "Exercises · N" in size and weight, and the plan name
-   in the field is bigger and bolder than every exercise title below;
-   "Exercises · N" reads as a small section label. The sheet's rows, the New plan
-   field and Create, and "Your first plan" all match the text around them in size.
-1. Manage Workout with plans: a "PLAN" field reads "Choose a plan"; tap → a
-   sheet: "New plan" first (dashed), then each plan with "N exercises". Android
-   back closes the sheet, not the screen; tapping above the sheet closes it.
-2. **New plan row:** tap New plan → it becomes a "New plan" field with Create
-   (keyboard up, field visible above it on iOS and Android). Create is disabled
-   until something other than spaces is typed. Type "Legs Day" → Create → the
-   sheet closes, the field reads "Legs Day", no exercises, Add exercise, Save
-   changes disabled, the picker did not open (D4).
-3. Add exercise → pick one → Save changes → "Plan saved". Back to Start: "Legs
-   Day" is listed with 1 exercise.
-4. **D2, collision:** New plan → type "legs  day" (other case, two spaces) →
-   Create → "A plan named "Legs Day" already exists." under the field, the open
-   plan unchanged. Type 41 characters → refused with the 40 limit. "Push · Chest &
-   Triceps / A" → created and saves (any characters).
-5. **D1:** the new plan's Firestore doc id is a 20-character auto id, not the
-   name; the existing plan of a similar name is untouched (check in the console,
-   read-only).
-6. **D3:** New plan → Create → press back at once: no dialog, the plan is not on
-   Start. New plan → Create → add an exercise → back: "Discard changes?".
-7. **Switch from the sheet:** edit a plan, open the sheet, choose another plan →
-   "Discard changes?"; Keep editing keeps the edit. Same with New plan → Create.
-8. **First plan (D5):** an account with no plans: Start → "No plans yet" →
-   Create a plan → "Your first plan", "Name it, then add its exercises.", Plan
-   name field, Create disabled → type a name → Create → the plan opens empty with
-   Add exercise → add one exercise → Save changes → saved; Start lists it.
-9. **D5, failed load:** airplane mode, then open Manage Workout (fresh) →
-   "Couldn't load plans." with Retry, never "Your first plan". Network on →
-   Retry → the plan field. (Start in airplane mode still says "No plans yet":
-   known gap.)
-10. **Offline save of a new plan:** airplane mode with plans already loaded →
-    New plan → add an exercise → Save → "Not saved yet"; back → "Still saving";
-    network on with the app open → "Plan saved" once; Start lists it.
+**Device test plan (user runs; CLAUDE.md 1.3).** Android first, iOS where a
+step says so. Read-only in the Firestore console; no scripts.
+
+*A. Look (device finding)*
+1. Open a plan with 5+ exercises. "Plan" matches "Exercises · N" (same size,
+   bold, white). The plan name in the field is clearly bigger and bolder than
+   every exercise title below it.
+2. Open the plan sheet: the "Plan" title is bigger than the plan rows; each row
+   is a name with "N exercises" under it; the open plan has a check.
+3. Tap New plan: the "NEW PLAN" label is small caps, the typed name and Create
+   are the size of an exercise title. "Your first plan" (step 14) is the biggest
+   text on its screen.
+
+*B. Plan sheet*
+4. With nothing open, the field reads "Choose a plan". Tap → sheet: New plan
+   (dashed) first, then the plans. Android back closes the sheet, not the
+   screen; tapping above the sheet closes it.
+5. Pick a plan → the sheet closes and the plan opens with its exercises.
+6. Edit the open plan, open the sheet, pick another → "Discard changes?". Keep
+   editing keeps the edit; Discard opens the other plan.
+
+*C. New plan*
+7. New plan → the row becomes a name field with Create, keyboard up, field
+   visible above it (Android and iOS). Create disabled for empty and for spaces
+   only.
+8. Type "  Legs   Day " → Create → sheet closes, field reads "Legs Day", no
+   exercises, Add exercise shown, the picker did not open, Save disabled.
+9. Add exercise → pick one → it shows "In plan" in the picker if reopened →
+   Save changes → "Plan saved". Back to Start: "Legs Day", 1 exercise. Reopen in
+   Manage: the exercise is there.
+10. Refusals: New plan → "legs day" → `A plan named "Legs Day" already
+    exists.` under the field, open plan unchanged. 41 characters → refused with
+    the 40 limit. "Push · Chest & Triceps / A" → created and saves.
+11. Firestore console: the new plan's doc id is a 20-character auto id, not the
+    name; the older plan with a similar name is unchanged.
+
+*D. Leaving and switching with a new plan*
+12. New plan → Create → back at once: no dialog; Start doesn't list it.
+13. New plan → Create → add an exercise → back: "Discard changes?". Same when
+    picking another plan from the sheet. With unsaved edits on a plan, New plan
+    → Create also asks first.
+
+*E. First plan and failed load*
+14. Account with no plans: Start → "No plans yet" → Create a plan → "Your first
+    plan", "Name it, then add its exercises.", "PLAN NAME" field, Create
+    disabled → type a name → Create → empty plan with Add exercise → add one →
+    Save → saved; Start lists it.
+15. Airplane mode, open Manage Workout fresh → "Couldn't load plans." with
+    Retry, never "Your first plan". Network on → Retry → "Choose a plan". (Start
+    in airplane mode still says "No plans yet": known gap.)
+
+*F. Offline save of a new plan (TICKET-051 offline rule)*
+16. Plans loaded, then airplane mode → New plan → add an exercise → Save →
+    "Saving…", then "Not saved yet". Back → "Still saving" with Leave. Network
+    on with the app open → "Plan saved" once; Start lists it.
+
+*G. Unchanged from TICKET-051 (regression)*
+17. On an existing plan: rename a saved field → the rename warning; remove an
+    exercise → it's pickable again; Save with every exercise removed → refused;
+    a plan with a workout in progress shows the banner.
+18. Guided tour on Manage: runs without a crash. The New/Name steps have
+    nothing to point at (known, TICKET-053).
 
 **Dependencies:** TICKET-051 (the rebuilt screen).
 
