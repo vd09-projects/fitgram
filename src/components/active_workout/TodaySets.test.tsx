@@ -178,3 +178,28 @@ describe("TodaySets", () => {
     expect(screen.queryByRole("radio", { name: "Hard" })).toBeNull();
   });
 });
+
+// TICKET-033-1, canvas board S4.
+describe("TodaySets split set", () => {
+  it("shows the first segment against last time, counts every row in volume, and lists the rows when opened", async () => {
+    const today: ExerciseSet[] = [
+      ...sets(["18", "10"], ["20", "8"]),
+      { id: 3, fields: { Weight: "20", Reps: "5" }, splits: [{ Weight: "17.5", Reps: "3" }, { Weight: "15", Reps: "3" }] },
+    ];
+    renderScreen(ActiveWorkoutScreen, {
+      workout: benchWith(today),
+      history: historyOf(["18", "10"], ["20", "8"], ["20", "8"]),
+    });
+
+    // 180 + 160 + (100 + 52.5 + 45): the board's figure.
+    expect(screen.getByText("3 sets · 537.5 kg")).toBeOnTheScreen();
+    // The delta reads the first segment only: 20 × 5 against 20 × 8.
+    expect(screen.getByText("−3 reps")).toBeOnTheScreen();
+    expect(screen.queryByText("17.5 kg × 3")).toBeNull();
+
+    await press(/^Set 3, 20 kg by 5, then 2 splits: 17.5 kg by 3, 15 kg by 3/);
+    expect(screen.getByText("17.5 kg × 3")).toBeOnTheScreen();
+    expect(screen.getByText("15 kg × 3")).toBeOnTheScreen();
+  });
+});
+

@@ -18,7 +18,6 @@ import {
   withUnlistedFields,
 } from "../utils/setLogger";
 import { TextBase, NumericText } from "./TextBase";
-import SetField from "./active_workout/SetField";
 import TodaySets from "./active_workout/TodaySets";
 import ExerciseHistorySheet from "./active_workout/ExerciseHistorySheet";
 import RestPanel from "./active_workout/RestPanel";
@@ -30,6 +29,8 @@ import { ACTIVE_WORKOUT_STEP_NAMES } from "../tour_steps/activeWorkout";
 import { EffortBadge } from "./active_workout/EffortBadge";
 import { effortSpeech, lastTimeEffort } from "../utils/effort";
 import { formatSessionDate, setValuesText } from "../utils/setDeltas";
+import { buildLoggedSet, keptSplitRows, splitCountText, SplitRowValues } from "../utils/splits";
+import SetRows from "./active_workout/SetRows";
 
 const HIT = 44;
 const ACTION_HEIGHT = 56;
@@ -63,7 +64,7 @@ const PILL_HIT_SLOP = { top: (HIT - PILL_HEIGHT) / 2, bottom: (HIT - PILL_HEIGHT
  *   "LAST TIME 65 × 8" when there is a target, "HISTORY" otherwise. Shown only
  *   with a target, a first-time exercise, a plank or a unit change could never
  *   reach the sheet, whose empty state and notices exist for exactly those.
- * - The sheet is a sibling overlay rendered here, not a screen: `inputValues`,
+ * - The sheet is a sibling overlay rendered here, not a screen: `rows`,
  *   the set number and `removed` live in this component and survive it opening
  *   and closing. It is modal; "logging is not blocked" means nothing is lost.
  * - The pill's visual height stays 34; `hitSlop` takes its target to 44 without
@@ -71,7 +72,7 @@ const PILL_HIT_SLOP = { top: (HIT - PILL_HEIGHT) / 2, bottom: (HIT - PILL_HEIGHT
  *
  * Decisions (TICKET-021):
  * - Logging a set starts a rest, and `RestPanel` takes the card's slot until
- *   Skip. It is rendered in place of the card, not around it: `inputValues`,
+ *   Skip. It is rendered in place of the card, not around it: `rows`,
  *   `removed` and the set number stay in this component, and the Today list's
  *   position in the tree does not change, so nothing below is remounted.
  * - The rest shows only on the exercise that started it (`rest.exerciseId`).
@@ -96,7 +97,7 @@ const PILL_HIT_SLOP = { top: (HIT - PILL_HEIGHT) / 2, bottom: (HIT - PILL_HEIGHT
  *   the set's values, Cancel in the repeat button's place, "Save set N".
  *   Ghosts, the pill and "felt … last time" are last session's set N, the set
  *   being corrected, not the next one.
- * - The edit's values are held apart from `inputValues`, so whatever was typed
+ * - The edit's values are held apart from `rows`, so whatever was typed
  *   for the next set comes back after Save or Cancel.
  * - Log and Save share `buildSetFields`: an edit is refused for exactly what
  *   logging is refused for, worded "save".
@@ -107,6 +108,25 @@ const PILL_HIT_SLOP = { top: (HIT - PILL_HEIGHT) / 2, bottom: (HIT - PILL_HEIGHT
  *   renumber the set under the edit. The pending undo is kept, not cleared.
  * - Changing exercise unmounts this component and drops an open edit, as it
  *   drops typed values. Finish saves what is stored; an unsaved edit is lost.
+ *
+ * Decisions (TICKET-033, canvas boards S1–S3):
+ * - A third column beside the fields holds split. The fields are `SetRows`, one
+ *   row per segment, for a normal set, a split set and an edit alike. Once
+ *   split, repeat is hidden, as on the boards: repeat fills one set's targets,
+ *   and a split is past that point.
+ * - One list of rows is the whole draft: `rows[0]` is the set as typed, and a
+ *   normal set is just one row. Splitting adds rows; removing rows down to one
+ *   is a normal set again. Rejected: the first row held apart from the split
+ *   rows, which made removing the first row a special case.
+ * - The rows are this component's state: an app kill loses them as it loses
+ *   typed values (user, 2026-10-29). Rejected: storing the card's draft, which
+ *   would change how every card persists for one feature.
+ * - One Log for the whole set. The first row is the set (`fields`); the rest go
+ *   to `splits`; a blank last row is dropped (`buildLoggedSet`). The rest
+ *   starts once, after the store has the set.
+ * - No split while editing a logged set: changing a set's rows is TICKET-033-3.
+ *   An edit keeps the set's rows as they were (`updateSet` replaces `fields`
+ *   only), and the rows being typed for the next set wait.
  */
 export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise }) {
   const { styles, t } = useThemeStyles(createStyles);
@@ -122,7 +142,8 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
     endRest,
   } = useWorkoutStore();
   const history = useExerciseHistory(exercise.id);
-  const [inputValues, setInputValues] = useState<Record<string, string>>({});
+  /** The next set as typed: the first segment, then any split rows. Never empty. */
+  const [rows, setRows] = useState<SplitRowValues[]>([{}]);
   const [refusal, setRefusal] = useState<string | null>(null);
   const [removed, setRemoved] = useState<RemovedSet | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -133,7 +154,12 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
   const editedSet = editing ? exercise.sets.find((set) => set.id === editing.setId) ?? null : null;
   // Ids are ordinals, so the edited set's id is its number.
   const setNumber = editedSet ? editedSet.id : nextSetNumber;
-  const values = editedSet && editing ? editing.values : inputValues;
+  const splitting = !editedSet && rows.length > 1;
+  // What Log would store, not the rows on screen: a blank last row is dropped
+  // on Log, so counting it would promise a split that is not saved. None while
+  // editing: the rows typed for the next set are waiting, not shown.
+  const splitCount = splitting ? keptSplitRows(exercise.fields, rows.slice(1)).length : 0;
+  const splitText = splitCount > 0 ? splitCountText(splitCount) : null;
 
   // An edit whose set is gone is over. Without this, `editing` would outlive
   // its set and reopen with old values if a set with that id came back. No path
@@ -149,20 +175,35 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
   const notice = ghostNotice(target, history.status);
   const lastEffort = lastTimeEffort(history, setNumber);
   const onSetEffort = (setId: number, effort: Effort | null) => setSetEffort(exercise.id, setId, effort);
-  const anyStepper = exercise.fields.some((field) => field.role === "weight" || field.role === "reps");
 
-  const onChangeField = (name: string, text: string) => {
+  const onAddSplit = () => {
+    // Empty, every field (user, 2026-10-29): the app does not guess what the
+    // next row was. Rejected: weight one step down from the row before, and
+    // `other` fields copied from it; both put a number the user never chose in
+    // a real value, one stray Log from being stored.
+    setRows((prev) => [...prev, {}]);
+    setRefusal(null);
+  };
+
+  // While editing, the card shows the edit's one row, so index 0 is the edit.
+  const onChangeRow = (index: number, name: string, text: string) => {
     if (editedSet) {
       setEditing((prev) => prev && { ...prev, values: { ...prev.values, [name]: text } });
     } else {
-      setInputValues((prev) => ({ ...prev, [name]: text }));
+      setRows((prev) => prev.map((row, i) => (i === index ? { ...row, [name]: text } : row)));
     }
+    setRefusal(null);
+  };
+
+  // The last row is never removed: `SetRows` offers × only with two or more.
+  const onRemoveRow = (index: number) => {
+    setRows((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
     setRefusal(null);
   };
 
   const onRepeat = () => {
     if (!repeat) return;
-    setInputValues((prev) => ({ ...prev, ...repeat }));
+    setRows((prev) => [{ ...prev[0], ...repeat }, ...prev.slice(1)]);
     setRefusal(null);
   };
 
@@ -179,7 +220,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
   };
 
   const logSet = async () => {
-    const result = buildSetFields(exercise.fields, inputValues, setNumber, "log");
+    const result = buildLoggedSet(exercise.fields, rows, setNumber);
     if (result.kind === "refused") {
       setRefusal(result.message);
       return;
@@ -187,9 +228,9 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
     // The store assigns the id; passing the set number keeps this call honest
     // about what that id will be.
     setRemoved(null);
-    setInputValues({});
+    setRows([{}]);
     setRefusal(null);
-    await addSetToExercise(exercise.id, { id: setNumber, fields: result.fields });
+    await addSetToExercise(exercise.id, { id: setNumber, ...result.set });
     startRest(exercise.id, useRestPreferenceStore.getState().restDurationMs, setNumber);
   };
 
@@ -245,12 +286,17 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
               style={styles.setTitle}
               accessible
               accessibilityRole="header"
-              accessibilityLabel={editedSet ? `Edit set ${setNumber}` : `Set ${setNumber}`}
+              accessibilityLabel={
+                editedSet
+                  ? `Edit set ${setNumber}`
+                  : `Set ${setNumber}${splitText ? `, ${splitText}` : ""}`
+              }
             >
               <TextBase style={[styles.setTitleText, editedSet && styles.editTitleText]}>
                 {editedSet ? "EDIT SET " : "SET "}
               </TextBase>
               <NumericText style={[styles.setTitleText, editedSet && styles.editTitleText]}>{setNumber}</NumericText>
+              {splitText && <TextBase style={styles.splitCount}>{` · ${splitText}`}</TextBase>}
             </View>
             <TouchableOpacity
               style={styles.pill}
@@ -290,18 +336,15 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
                keeps only flexDirection/height/align on its child and moves the
                rest to its own wrapper, so the row lost its gap and wrap. */}
             <View>
-              <View style={styles.fields}>
-                {exercise.fields.map((field) => (
-                  <SetField
-                    key={field.name}
-                    field={field}
-                    value={values[field.name] ?? ""}
-                    ghost={ghosts[field.name]}
-                    onChange={(text) => onChangeField(field.name, text)}
-                    reserveStepperRow={anyStepper}
-                  />
-                ))}
-              </View>
+              <SetRows
+                fields={exercise.fields}
+                setNumber={setNumber}
+                rows={editedSet && editing ? [editing.values] : rows}
+                ghosts={ghosts}
+                onChange={onChangeRow}
+                onAddSplit={editedSet ? undefined : onAddSplit}
+                onRemove={onRemoveRow}
+              />
             </View>
           </MaybeTourStep>
 
@@ -324,7 +367,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
               >
                 <TextBase style={styles.cancelText}>Cancel</TextBase>
               </TouchableOpacity>
-            ) : repeat !== null && (
+            ) : repeat !== null && !splitting && (
               <TouchableOpacity
                 style={styles.repeatButton}
                 onPress={onRepeat}
@@ -466,10 +509,9 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     color: t.colors.role.textSecondary,
     marginTop: -SPACING.small,
   },
-  fields: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: SPACING.medium,
+  splitCount: {
+    fontSize: t.fonts.small,
+    color: t.colors.role.textSecondary,
   },
   refusal: {
     fontSize: t.fonts.small,

@@ -19,6 +19,8 @@ import { TextBase, NumericText } from "../TextBase";
 import { DeltaBadge, deltaSpeech } from "./DeltaBadge";
 import { EffortBadge } from "./EffortBadge";
 import { EFFORT_LABEL, effortSpeech, toggleEffort } from "../../utils/effort";
+import { splitCountText } from "../../utils/splits";
+import { SplitIcon } from "./SetRows";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 
@@ -84,6 +86,15 @@ type Props = {
  *   the edit (silently drops what was typed), and the edit following its set
  *   through a renumber (more state for a rare path). The removal is not lost:
  *   Undo comes back after Save or Cancel.
+ *
+ * Decisions (TICKET-033, canvas board S4):
+ * - A split set shows its first segment, which is what the delta compares, and
+ *   a ⑂N chip for the rows after it. Opening the row lists them above the
+ *   strip. Rejected: listing them always, which makes a split set two or three
+ *   rows tall in a list read at a glance.
+ * - Rows read as `setValuesText` writes them, unit included ("17.5 kg × 3";
+ *   the board drew "17.5 × 3"), so a distance × time row keeps its units.
+ * - The footer's volume counts every row (`todaySummary`).
  */
 export default function TodaySets({
   exercise,
@@ -101,7 +112,8 @@ export default function TodaySets({
   const summary = todaySummary(
     history,
     exercise.sets.map((set) => set.fields),
-    exercise.fields
+    exercise.fields,
+    exercise.sets.map((set) => set.splits ?? [])
   );
   const volume = volumeText(summary.volume, numeric?.weight.unit);
   const comparison = comparisonText(summary.comparison);
@@ -111,6 +123,9 @@ export default function TodaySets({
     const values = setValuesText(exercise.fields, set.fields);
     const delta = setDelta(history, setNumber, set.fields, numeric);
     const effort = set.effort ?? null;
+    const splits = (set.splits ?? []).map((row) => setValuesText(exercise.fields, row));
+    const splitsSpeech =
+      splits.length > 0 ? `, then ${splitCountText(splits.length)}: ${splits.join(", ").replace(/×/g, "by")}` : "";
     const readOnly = editingSetId !== null;
     const editing = editingSetId === set.id;
     const open = !readOnly && openSetId === set.id;
@@ -123,7 +138,7 @@ export default function TodaySets({
             disabled={readOnly}
             accessibilityRole="button"
             accessibilityState={{ expanded: open, disabled: readOnly }}
-            accessibilityLabel={`Set ${setNumber}, ${values.replace("×", "by")}${effortSpeech(effort)}${
+            accessibilityLabel={`Set ${setNumber}, ${values.replace("×", "by")}${splitsSpeech}${effortSpeech(effort)}${
               editing ? ", editing" : deltaSpeech(delta)
             }`}
             accessibilityHint={readOnly ? undefined : "Mark easy or hard, or edit"}
@@ -133,6 +148,12 @@ export default function TodaySets({
               <NumericText style={styles.values} numberOfLines={1}>
                 {values}
               </NumericText>
+              {splits.length > 0 && (
+                <View style={styles.splitChip}>
+                  <SplitIcon size={11} color={t.colors.role.textPrimary} />
+                  <NumericText style={styles.splitChipText}>{splits.length}</NumericText>
+                </View>
+              )}
               {effort !== null && <EffortBadge effort={effort} />}
             </View>
             {editing ? <TextBase style={styles.editingLabel}>EDITING</TextBase> : <DeltaBadge delta={delta} />}
@@ -151,6 +172,15 @@ export default function TodaySets({
             </TouchableOpacity>
           )}
         </View>
+        {open && splits.length > 0 && (
+          <View style={styles.splitList}>
+            {splits.map((text, splitIndex) => (
+              <NumericText key={splitIndex} style={styles.splitRow} numberOfLines={1}>
+                {text}
+              </NumericText>
+            ))}
+          </View>
+        )}
         {open && (
           <View style={styles.strip}>
             <View style={styles.stripMarks} accessibilityRole="radiogroup" accessibilityLabel={`Mark set ${setNumber}`}>
@@ -340,6 +370,31 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   values: {
     flexShrink: 1,
     fontSize: 15.5,
+    color: t.colors.role.textPrimary,
+  },
+  splitChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    height: 22,
+    paddingHorizontal: 7,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: t.colors.role.hairlineStrong,
+  },
+  splitChipText: {
+    fontSize: t.fonts.small,
+    color: t.colors.role.textPrimary,
+  },
+  // Indented to the values, as the strip is.
+  splitList: {
+    paddingLeft: 13 + 22 + SPACING.medium,
+    paddingRight: 13,
+    paddingBottom: 2,
+  },
+  splitRow: {
+    lineHeight: 30,
+    fontSize: t.fonts.xMedium,
     color: t.colors.role.textPrimary,
   },
   rowOpen: {
