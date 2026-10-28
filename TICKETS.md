@@ -3945,7 +3945,7 @@ selection stays as it is today (TICKET-052 changes it).
 
 ### TICKET-052: Manage Workout — New Plan and First Plan
 
-**Priority:** Medium | **Effort:** Small–Medium | **Status: OPEN** — split from
+**Priority:** Medium | **Effort:** Small–Medium | **Status: IN REVIEW** (PR open, 2026-10-28) — split from
 TICKET-043 2026-10-27
 
 **Description:**
@@ -3979,6 +3979,174 @@ switch on the Workout picker.
   the screen skips it: "Your first plan", a name field, Create (disabled until
   something is typed). Reached from the Start screen's existing "No plans yet ·
   Create a plan" button.
+
+**Facts found in step 1 (2026-10-28):**
+- A typed name became the id `label.replace(/\s+/g, '_')`, never checked against
+  the loaded plans: typing an existing name ("Push Day", or "Push  Day") opened an
+  empty plan with the existing id, and its first Save (`setDoc`, no merge)
+  replaced the existing plan whole and took over its last-done on Start (joined
+  on `workoutId`). A `/` in a name broke the doc path ("Could not save plan").
+- No plan-name rules ran: `validateWorkoutSelection` and
+  `validateWorkoutAndExercises` have no callers outside tests.
+- `useWorkoutPlans` caught a failed load and left `[]`, the same as "no plans".
+
+**Decisions (raised in step 1, answered by the user 2026-10-28):**
+- **D1 Plan id:** a generated Firestore id (`doc(collection(...)).id`, made
+  locally, works offline), the id maker injected into the pure `newPlan`.
+  Collisions impossible, any name safe, and a plan recreated under an old name
+  never inherits the old one's sessions (history joins on `workoutId`). Existing
+  slug ids stay; no migration. Rejected: a slug that refuses collisions (still
+  breaks on `/` and `.`, ties ids to old names).
+- **D2 Duplicate names:** refused against the loaded plans, compared trimmed,
+  whitespace collapsed, case-insensitive: `A plan named "Push Day" already
+  exists.` Max 40 characters, any characters (the boards use `·` and `&`). The
+  stored name is trimmed with whitespace collapsed.
+- **D3 Never-saved new plan:** while it has no exercises it disappears silently on
+  leave or switch (nothing is lost but a name); with one, 051's "Discard changes?"
+  applies unchanged. No code change: an empty new plan is not dirty.
+- **D4 After Create:** the empty plan with Add exercise; the picker does not open
+  on its own.
+- **D5 First plan:** a mode of Manage Workout, chosen by data: plans loaded, the
+  load did not fail, the list is empty, no plan open. Start's button is unchanged.
+  `useWorkoutPlans` exposes `failedToLoad`; a failed load shows "Couldn't load
+  plans" with Retry, never the first-plan screen.
+- **D6 (2.2):** (a) the literal slug id reproduces the overwrite above (D1).
+  (b) "Saves with its first one" means the plan is first written by Save changes,
+  which needs one exercise; no auto-save on the first add; 051's dirty and offline
+  model unchanged. (c) **Scope growth (approved):** the board's plan picker is a
+  sheet, not today's dropdown, and an input row inside
+  `react-native-element-dropdown`'s modal list is fragile with the keyboard. A
+  small `PlanSheet` for Manage only, built like `VersionSheet`: rows of name and
+  "N exercises", "New plan" first, turning into a name field and Create; no
+  search (few plans). `SearchableInputDropdown` is unchanged. Switching from the
+  sheet still asks 051's "Discard changes?". (d) a failed load must not read as
+  "no plans" (D5).
+
+**Known gaps (recorded, not fixed here):**
+- Start shows "No plans yet" when its plan load fails (same `[]` as D5); user,
+  2026-10-28: record only.
+- `SearchableInputDropdown`'s New switch path (`allowCustomInput`, `isNewMode`,
+  the input field) is now dead: Manage no longer uses the component and the other
+  three pass `allowCustomInput={false}` (`WorkoutLogsScreen` only imports a type).
+  Remove in a follow-up.
+- Duplicates are checked against the loaded plans only (D2): a plan whose first
+  Save is still queued offline is not in the list, so a second one with the same
+  name can be created. Rare (offline, two creates); left.
+- With a plan open, a failed reload (after a save) keeps the previous list, so
+  the sheet can miss a plan saved moments ago; no error line is shown in that
+  case, only when no plan is open.
+
+**Build notes (2026-10-28, uncommitted for review):**
+- **Found while building (2.1, 2.7): the D5 flag needed a second change.**
+  `getAllWorkoutPlans` caught its own errors and returned `[]` (since `e2cbdd7`),
+  so `useWorkoutPlans`' catch, and its `Alert`, never ran. It now rethrows; the
+  hook is its only caller. The hook's `Alert` is removed rather than revived: it
+  had never fired, and reviving it would add an alert on Start, which this ticket
+  does not change. Start still shows "No plans yet" on a first-load failure (known
+  gap). Side effect: a failed reload now keeps the previous list instead of
+  emptying it.
+- Pure layer in `planDraft.ts`: `normalizePlanName`, `validatePlanName`,
+  `newPlan` (id maker injected). `userDB.newPlanId(uid)` is the device's id maker.
+- `PlanSheet` (sheet, rows, New plan row) and `PlanNameField` (field + Create,
+  shared by the sheet row and the first-plan form). The sheet is a View over the
+  screen like `VersionSheet`, with `KeyboardAvoidingView` (iOS padding) and
+  Android back closing it, as `ExercisePicker` does.
+- Manage's plan field ("PLAN", the plan's name, a chevron) opens the sheet;
+  creating from the sheet goes through the same switch path as choosing a plan,
+  so a dirty draft asks "Discard changes?" first.
+- Staged as two parts (not committed): (1) pure layer, `newPlanId`, the rethrow
+  and the hook flag: tsc clean, 464 tests, no visible change; (2) the sheet, the
+  first-plan form and the screen: tsc clean, 468 tests.
+- Tests: 4 pure (empty/whitespace, duplicate ignoring case and spacing, an id
+  collision, any characters and the 40 limit) and 4 screen (New plan → empty →
+  first exercise → saved under the generated id; duplicate refused; first-plan
+  form; failed load). 051's plan-switch test now goes through the sheet. Each
+  seen red: the slug id, an empty duplicate list, no first mode, `trim` dropped
+  from Create's check, the failed mode dropped, the hook flag never set, the
+  switch dialog skipped.
+
+**Device finding, before the test plan (user, 2026-10-28): the plan looked less
+important than its exercises.** The user was right: the plan name rendered
+smaller than the exercise rows under it.
+- **Cause (mine):** the new code copied board px as literals (plan name 15, label
+  10.5; also the sheet and the name field). Literals skip `normalizeFont`; the
+  rows use `t.fonts` tokens, which scale with screen width. The boards drew plan
+  and rows at the same 15/600, so they hid it too.
+- **Fix:** every size in the new code is a token (none literal: grep for
+  `fontSize: [0-9]` in the three files is empty). Hierarchy, option A (user,
+  2026-10-28): the plan name `large` bold, "Exercises · N" down from `medium` to
+  `xMedium` as a section label. Rejected: B, the plan as the page heading with no
+  box (off the C1 board); tokens only (the plan would only tie with its rows).
+- **Second device check (user, 2026-10-28, "same as before"):** the complaint
+  was the written label "Plan" itself, not the field: `xSmall` (10) caps grey,
+  under "Exercises · N" at `xMedium` bold. I first misread it and removed the
+  field's box; reverted (option A stands). Fix: "Plan" now has the same style as
+  "Exercises · N" (`xMedium` bold), both being section labels. Boards: the six
+  that draw the plan field (above five + `VersionPlan`) draw "Plan" at 14/700 like
+  their "Exercises" label; the System board's `xSmall` example is now a name
+  field's label ("NEW PLAN"), noting section labels are `xMedium` (canvas v48).
+  Re-check of all 55 boards (canvas v49): `VersionPlan`'s plan field was still
+  15/600 (missed in v46), now 18/700; the plan sheet's "Plan" title on
+  `ManageNewInList`/`ManageNewName` was 16 but the app uses `large`, now 18.
+- **Design canvas (versions 45, 46):** the System board's Type section showed
+  25/13/15 px, sizes the code does not have; it now shows the six `t.fonts` tokens
+  with their uses, why tokens, and the board-px → token table (board grown to
+  1150 tall). The five Manage boards that draw the plan field (`ManageAdd`,
+  `ManageTags`, `PlatesUnit`, `ManageNewInList`, `ManageNewName`) draw it at
+  `large` (18/700). `THEME_FONT_SIZES` points at the board.
+- Follow-ups (not here): 44 literal font sizes in 15 files predate this ticket
+  (`ExerciseNavHeader` 25, `VersionSheet` 19, `TodaySets`, `ExerciseHistorySheet`
+  …); `FONT_SIZES` in `constants/styles.ts` is unused and disagrees with the theme
+  (xLarge 24 vs 22, unscaled), so it invites the same mistake.
+
+**Tour, for TICKET-053 (not fixed here):**
+- `WORKOUT_SEARCHABLE`'s steps `NEW_BUTTON` ("Create a New Workout") and
+  `INPUT_AND_SAVE` ("Name Your Workout") have no target: the switch and its input
+  are gone from Manage.
+- The plan field carries `WORKOUT_SEARCHABLE` + `DROPDOWN_BUTTON` (the old
+  dropdown's id), but `manageWorkout.ts` defines no step for it, so it shows
+  nothing.
+- New targets with no step yet: the plan field, the sheet's New plan row and its
+  name field + Create, the first-plan form.
+
+**Device test plan (user runs; CLAUDE.md 1.3):**
+0. **Type (device finding):** choose a plan with several exercises: its name in
+   the "Plan" label matches "Exercises · N" in size and weight, and the plan name
+   in the field is bigger and bolder than every exercise title below;
+   "Exercises · N" reads as a small section label. The sheet's rows, the New plan
+   field and Create, and "Your first plan" all match the text around them in size.
+1. Manage Workout with plans: a "PLAN" field reads "Choose a plan"; tap → a
+   sheet: "New plan" first (dashed), then each plan with "N exercises". Android
+   back closes the sheet, not the screen; tapping above the sheet closes it.
+2. **New plan row:** tap New plan → it becomes a "New plan" field with Create
+   (keyboard up, field visible above it on iOS and Android). Create is disabled
+   until something other than spaces is typed. Type "Legs Day" → Create → the
+   sheet closes, the field reads "Legs Day", no exercises, Add exercise, Save
+   changes disabled, the picker did not open (D4).
+3. Add exercise → pick one → Save changes → "Plan saved". Back to Start: "Legs
+   Day" is listed with 1 exercise.
+4. **D2, collision:** New plan → type "legs  day" (other case, two spaces) →
+   Create → "A plan named "Legs Day" already exists." under the field, the open
+   plan unchanged. Type 41 characters → refused with the 40 limit. "Push · Chest &
+   Triceps / A" → created and saves (any characters).
+5. **D1:** the new plan's Firestore doc id is a 20-character auto id, not the
+   name; the existing plan of a similar name is untouched (check in the console,
+   read-only).
+6. **D3:** New plan → Create → press back at once: no dialog, the plan is not on
+   Start. New plan → Create → add an exercise → back: "Discard changes?".
+7. **Switch from the sheet:** edit a plan, open the sheet, choose another plan →
+   "Discard changes?"; Keep editing keeps the edit. Same with New plan → Create.
+8. **First plan (D5):** an account with no plans: Start → "No plans yet" →
+   Create a plan → "Your first plan", "Name it, then add its exercises.", Plan
+   name field, Create disabled → type a name → Create → the plan opens empty with
+   Add exercise → add one exercise → Save changes → saved; Start lists it.
+9. **D5, failed load:** airplane mode, then open Manage Workout (fresh) →
+   "Couldn't load plans." with Retry, never "Your first plan". Network on →
+   Retry → the plan field. (Start in airplane mode still says "No plans yet":
+   known gap.)
+10. **Offline save of a new plan:** airplane mode with plans already loaded →
+    New plan → add an exercise → Save → "Not saved yet"; back → "Still saving";
+    network on with the app open → "Plan saved" once; Start lists it.
 
 **Dependencies:** TICKET-051 (the rebuilt screen).
 
