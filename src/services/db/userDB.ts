@@ -40,6 +40,13 @@ export const getAllWorkoutPlans = async (
         tables.users.fields.workouts.collection
       )
     );
+    // Offline, getDocs doesn't reject: it resolves with the cache, which on a
+    // cold start (memoryLocalCache) is empty. That empty list isn't "no plans",
+    // so it fails like any other load (TICKET-052 D5, PR #26 review). A
+    // non-empty cached list, from an earlier load this session, is shown.
+    if (querySnapshot.metadata.fromCache && querySnapshot.empty) {
+      throw new Error("Plans unavailable offline");
+    }
     const plans = (
       querySnapshot.docs.map((doc) => ({
         id: doc.id,
@@ -50,8 +57,11 @@ export const getAllWorkoutPlans = async (
     console.log("✅ Exercises fetched successfully:", plans);
     return plans;
   } catch (error) {
+    // Rethrown, not `[]` (TICKET-052 D5): an empty list reads as "no plans
+    // yet", which would offer a first plan to someone who has plans but could
+    // not load them. The one caller, useWorkoutPlans, flags the failure.
     console.error("❌ Error fetching exercises:", error);
-    return [];
+    throw error;
   }
 };
 
@@ -110,6 +120,13 @@ export const saveWorkoutDetails = async (
     console.error("❌ Error saving workout details:", error);
   }
 };
+
+/**
+ * A fresh plan id (TICKET-052 D1): Firestore's auto id, made on the device with
+ * no read or write, so it works offline. Nothing is stored until Save changes.
+ */
+export const newPlanId = (userId: string): string =>
+  doc(collection(db, tables.users.collection, userId, tables.users.fields.workouts.collection)).id;
 
 export const overrideWorkoutDetails = async (
   userId: string,

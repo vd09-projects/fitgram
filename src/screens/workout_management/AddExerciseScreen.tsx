@@ -9,10 +9,9 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { BORDER_RADIUS, SPACING } from '../../constants/styles';
 import ScrollableScreen from '../../components/ScrollableScreen';
-import SearchableInputDropdown, { DropdownSelection } from '../../components/SearchableInputDropdown';
 import useWorkoutPlans from '../../hooks/useWorkoutPlans';
 import show from '../../utils/toastUtils';
-import { overrideWorkoutDetails } from '../../services/db/userDB';
+import { newPlanId, overrideWorkoutDetails } from '../../services/db/userDB';
 import { useAuthUser } from '../../hooks/useAuthUser';
 import { WorkoutScreenNavigationProp } from '../../navigation/WorkoutNavigator';
 import PlanExerciseList from '../../components/PlanExerciseList';
@@ -30,6 +29,7 @@ import {
   addExercise,
   draftFromPlan,
   isDraftDirty,
+  newPlan,
   planFromDraft,
   raceSave,
   refusedSaveMessage,
@@ -48,13 +48,16 @@ import { buildRecentHistory } from '../../utils/recents';
 import { TouchableOpacityBase } from '../../components/TouchableOpacityBase';
 import { makeStepId } from '../../tour_steps/utils';
 import { SEARCHABLE_INPUT_STEP_NAMES } from '../../tour_steps/commonStepNames';
+import PlanSheet from '../../components/PlanSheet';
+import PlanNameField from '../../components/PlanNameField';
+import LoadingData from '../../components/LoadingData';
 
 // A discard waiting on the user: leaving the screen, or switching plan.
 // `stillSaving`: the draft is exactly the plan whose write is queued offline,
 // so nothing is thrown away; the dialog says so instead of "Discard".
 type PendingDiscard =
   | { kind: 'leave'; proceed: () => void; stillSaving: boolean }
-  | { kind: 'switch'; workout: DropdownSelection<WorkoutPlan>; stillSaving: boolean };
+  | { kind: 'switch'; plan: WorkoutPlan; stillSaving: boolean };
 
 // A write that outlived Save's grace (offline rule, D4): still queued in
 // Firestore's memory cache, landing when the connection returns.
@@ -65,7 +68,7 @@ export default function AddExerciseScreen() {
   const { user } = useAuthUser();
   const navigation = useNavigation<WorkoutScreenNavigationProp<'AddExercise'>>();
 
-  const [selectedWorkout, setSelectedWorkout] = useState<DropdownSelection<WorkoutPlan> | undefined>(undefined);
+  const [sheetOpen, setSheetOpen] = useState(false);
   // TICKET-051 D1: the plan as last saved, and the copy being edited. The
   // loaded plan object is never mutated; Save writes `planFromDraft(draft)`.
   const [saved, setSaved] = useState<WorkoutPlan | null>(null);
@@ -90,7 +93,7 @@ export default function AddExerciseScreen() {
   const catalogLoaded = useCatalogStore((s) => s.cacheLoaded);
   const searchWords = useCatalogStore((s) => s.searchWords);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const { workoutPlans, loadingWorkoutPlans } = useWorkoutPlans(reload);
+  const { workoutPlans, loadingWorkoutPlans, failedToLoad } = useWorkoutPlans(reload);
   const customExercises = useMemo(() => customExercisesFromPlans(workoutPlans), [workoutPlans]);
   // From the draft (D3): a version added and not yet saved is greyed, one
   // removed in the draft can be picked again.
@@ -151,28 +154,48 @@ export default function AddExerciseScreen() {
 
   const handleReload = () => setReload((prev) => !prev);
 
-  const openPlan = (workout: DropdownSelection<WorkoutPlan>) => {
-    // A typed name creates an empty plan, as before (TICKET-052 replaces this).
-    const plan: WorkoutPlan = workout.isCustom || !workout.value
-      ? { id: workout.label.replace(/\s+/g, '_'), name: workout.label, exercises: [] }
-      : workout.value;
-    setSelectedWorkout({ ...workout, value: plan });
+  const openPlan = (plan: WorkoutPlan) => {
     setSaved(plan);
     setDraft(draftFromPlan(plan));
     setExpandedId(null);
     setShowErrors(false);
   };
 
-  const handleSelectWorkout = (workout: DropdownSelection<WorkoutPlan>) => {
-    if (dirty) setPendingDiscard({ kind: 'switch', workout, stillSaving: draftIsQueued() });
-    else openPlan(workout);
+  // From the sheet, a saved plan or a new one: either way 051's "Discard
+  // changes?" comes first if the open draft has edits.
+  const handleSelectWorkout = (plan: WorkoutPlan) => {
+    setSheetOpen(false);
+    // The plan already open: nothing to switch to, so no "Discard changes?"
+    // (PR #26 review; the old dropdown asked, and Discard reverted the edits).
+    if (plan.id === draft?.id) return;
+    if (dirty) setPendingDiscard({ kind: 'switch', plan, stillSaving: draftIsQueued() });
+    else openPlan(plan);
   };
+
+  /**
+   * TICKET-052: a new plan opens empty under a generated id (D1), checked
+   * against the loaded plans (D2). Not stored until Save changes, which needs
+   * its first exercise (D6 b); left empty, it is not dirty, so leaving or
+   * switching drops it without asking (D3). The picker does not open (D4).
+   */
+  const handleCreatePlan = (name: string): string | null => {
+    if (!uid) return 'Not signed in.';
+    const result = newPlan(name, workoutPlans, () => newPlanId(uid));
+    if (result.ok === false) return result.error;
+    handleSelectWorkout(result.plan);
+    return null;
+  };
+
+  // D5: what the top of the screen shows. A plan open wins; otherwise the
+  // first-plan form only when the plans loaded, and there are none. A failed
+  // load also leaves the list empty, so it is checked first.
+  const mode = draft ? 'plan' : loadingWorkoutPlans ? 'loading' : failedToLoad ? 'failed' : workoutPlans.length === 0 ? 'first' : 'choose';
 
   const confirmDiscard = () => {
     const pending = pendingDiscard;
     setPendingDiscard(null);
     if (pending?.kind === 'leave') pending.proceed();
-    if (pending?.kind === 'switch') openPlan(pending.workout);
+    if (pending?.kind === 'switch') openPlan(pending.plan);
   };
 
   /**
@@ -278,16 +301,47 @@ export default function AddExerciseScreen() {
           </View>
         )}
 
-        {/* 🔹 Select Workout */}
-        <SearchableInputDropdown<WorkoutPlan>
-          data={workoutPlans.map((workout) => ({ label: workout.name, value: workout }))}
-          placeholder="Workout"
-          value={selectedWorkout}
-          onChange={handleSelectWorkout}
-          title={"Workout" + (selectedWorkout ? ` : ${selectedWorkout.label}` : '')}
-          isDataLoading={loadingWorkoutPlans}
-          tourStepPrefix={MANAGE_WOURKOUT_STEP_NAMES.WORKOUT_SEARCHABLE}
-        />
+        {mode === 'loading' && <LoadingData containerStyle={styles.loading} />}
+
+        {mode === 'failed' && (
+          <View style={styles.loadError}>
+            <TextBase style={styles.loadErrorText}>Couldn't load plans.</TextBase>
+            <TouchableOpacityBase onPress={handleReload} accessibilityRole="button" style={styles.retry}>
+              <TextBase style={styles.retryText}>Retry</TextBase>
+            </TouchableOpacityBase>
+          </View>
+        )}
+
+        {/* 🔹 No plans yet (board ManageFirst): no picker to open, so name one here. */}
+        {mode === 'first' && (
+          <View style={styles.first}>
+            <TextBase style={styles.firstTitle}>Your first plan</TextBase>
+            <TextBase style={styles.firstBody}>Name it, then add its exercises.</TextBase>
+            <PlanNameField label="Plan name" placeholder="e.g. Push · Chest & Triceps" onCreate={handleCreatePlan} />
+          </View>
+        )}
+
+        {/* 🔹 Plan: opens the plan sheet. Keeps the old plan dropdown's tour step id. */}
+        {(mode === 'choose' || mode === 'plan') && (
+          <MaybeTourStep
+            stepId={makeStepId(SEARCHABLE_INPUT_STEP_NAMES.DROPDOWN_BUTTON, MANAGE_WOURKOUT_STEP_NAMES.WORKOUT_SEARCHABLE)}
+          >
+            <View>
+              <TextBase style={styles.planLabel}>Plan</TextBase>
+              <TouchableOpacityBase
+                style={styles.planField}
+                onPress={() => setSheetOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel={draft ? `Plan: ${draft.name}` : 'Choose a plan'}
+              >
+                <TextBase style={[styles.planName, !draft && styles.planPlaceholder]} numberOfLines={1}>
+                  {draft ? draft.name : 'Choose a plan'}
+                </TextBase>
+                <Ionicons name="chevron-down" size={18} color={t.colors.role.textSecondary} />
+              </TouchableOpacityBase>
+            </View>
+          </MaybeTourStep>
+        )}
 
         {draft && (
           <>
@@ -359,6 +413,16 @@ export default function AddExerciseScreen() {
         </View>
       )}
 
+      {sheetOpen && (
+        <PlanSheet
+          plans={workoutPlans}
+          selectedId={draft?.id ?? null}
+          onSelect={handleSelectWorkout}
+          onCreate={handleCreatePlan}
+          onClose={() => setSheetOpen(false)}
+        />
+      )}
+
       {pickerOpen && (
         <ExercisePicker
           movements={catalog?.movements ?? null}
@@ -394,8 +458,55 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   // root carries the list's background (ScrollableScreen's `primary`); without
   // it the navigator's light background showed as a pale band (round 1).
   root: { flex: 1, backgroundColor: t.colors.primary },
+  loading: { marginTop: SPACING.large },
+  loadError: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: SPACING.medium,
+    padding: SPACING.medium,
+    borderRadius: BORDER_RADIUS,
+    borderWidth: 1,
+    borderColor: t.colors.role.hairlineStrong,
+    backgroundColor: t.colors.role.raised,
+  },
+  loadErrorText: { fontSize: t.fonts.medium, color: t.colors.role.textPrimary },
+  retry: { paddingVertical: SPACING.small, paddingHorizontal: SPACING.medium },
+  retryText: { fontSize: t.fonts.medium, fontWeight: 'bold', color: t.colors.role.accent },
+  // Sizes are `t.fonts` tokens, never a board's px (System board, Type):
+  // literals skip normalizeFont, so the plan rendered smaller than its own
+  // exercise rows on the device (TICKET-052, 2026-10-28).
+  first: { marginTop: SPACING.large, gap: 10 },
+  firstTitle: { fontSize: t.fonts.xLarge, fontWeight: 'bold', color: t.colors.role.textPrimary },
+  firstBody: { fontSize: t.fonts.xMedium, color: t.colors.role.textSecondary, marginBottom: SPACING.small },
+  // "Plan" is the same kind of section label as "Exercises · N" below, so it
+  // gets the same style; the board's small caps (xSmall) read as unimportant
+  // next to it (user, 2026-10-28).
+  planLabel: {
+    fontSize: t.fonts.xMedium,
+    fontWeight: 'bold',
+    color: t.colors.textPrimary,
+    marginTop: SPACING.medium,
+    marginBottom: SPACING.small,
+  },
+  planField: {
+    minHeight: 52,
+    paddingHorizontal: 14,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: t.colors.role.fieldEdge,
+    backgroundColor: t.colors.role.raised,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.small,
+  },
+  // The plan is the heading the exercise rows sit under (option A, user
+  // 2026-10-28): one step above their `medium` titles, and "Exercises · N"
+  // below is a section label, not a peer.
+  planName: { flex: 1, fontSize: t.fonts.large, fontWeight: 'bold', color: t.colors.role.textPrimary },
+  planPlaceholder: { color: t.colors.role.textSecondary, fontWeight: 'normal' },
   fieldTitle: {
-    fontSize: t.fonts.medium,
+    fontSize: t.fonts.xMedium,
     fontWeight: 'bold',
     color: t.colors.textPrimary,
     marginTop: SPACING.medium,

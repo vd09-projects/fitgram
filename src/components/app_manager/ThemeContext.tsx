@@ -19,6 +19,12 @@ export const normalizeSpacing = (percent: number, axis: 'vertical' | 'horizontal
     : normalizeFont(percent);
 };
 
+// The type scale: the only six sizes, drawn with their uses on the design
+// canvas's System board (design/workout-flow/project/System.dc.html, Type).
+// Use `t.fonts.*`, never a number: these scale with screen width and a literal
+// does not, so a board's px copied as a literal renders smaller than the tokens
+// around it (TICKET-052). A board's in-between px maps to the nearest token,
+// per the table on that board.
 export const THEME_FONT_SIZES = {
   xSmall: normalizeFont(10),
   small: normalizeFont(12),

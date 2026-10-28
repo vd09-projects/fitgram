@@ -6,6 +6,7 @@ import {
   addExercise,
   draftFromPlan,
   isDraftDirty,
+  newPlan,
   planFromDraft,
   raceSave,
   refusedSaveMessage,
@@ -176,5 +177,36 @@ describe("raceSave (offline rule)", () => {
   it("says saved when the write lands in time, and rethrows a rejection", async () => {
     await expect(raceSave(Promise.resolve(), 10_000)).resolves.toBe("saved");
     await expect(raceSave(Promise.reject(new Error("denied")), 10_000)).rejects.toThrow("denied");
+  });
+});
+
+// TICKET-052: a new plan, named by the user, under a generated id.
+describe("newPlan (TICKET-052 D1, D2)", () => {
+  const makeId = () => "generated_id";
+
+  it("refuses an empty or whitespace-only name", () => {
+    expect(newPlan("", [plan()], makeId)).toEqual({ ok: false, error: "Name the plan." });
+    expect(newPlan(" \t ", [plan()], makeId)).toEqual({ ok: false, error: "Name the plan." });
+  });
+
+  it("refuses a name a loaded plan already has, ignoring case and spacing", () => {
+    expect(newPlan("  pUSH ", [plan()], makeId)).toEqual({ ok: false, error: 'A plan named "Push" already exists.' });
+    const pushDay = { ...plan(), id: "Push_Day", name: "Push Day" };
+    expect(newPlan("Push   Day", [pushDay], makeId)).toMatchObject({ ok: false });
+  });
+
+  it("never reuses an existing id: a name that slugs to one gets the generated id", () => {
+    // "Push Day" slugged to Push_Day, the id of a plan named differently.
+    const existing = { ...plan(), id: "Push_Day", name: "Legs" };
+    expect(newPlan(" Push  Day ", [existing], makeId)).toEqual({
+      ok: true,
+      plan: { id: "generated_id", name: "Push Day", exercises: [] },
+    });
+  });
+
+  it("allows any characters and refuses only past 40", () => {
+    expect(newPlan("Push · Chest & Triceps / A", [], makeId)).toMatchObject({ ok: true });
+    expect(newPlan("x".repeat(40), [], makeId)).toMatchObject({ ok: true });
+    expect(newPlan("x".repeat(41), [], makeId)).toEqual({ ok: false, error: "A plan name can be at most 40 characters." });
   });
 });
