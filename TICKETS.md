@@ -41,7 +41,6 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
-| 052 | Manage Workout: new plan and first plan | Small–Medium | After 051 |
 | 053 | Guided tour: end-to-end pass after the catalog work | Medium | After 043, 050, 051, 052. The tour is not working and is no longer fixed per ticket (user, 2026-10-27) |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap. Storage: per-plan copies today, library undecided |
 | 047 | Switch an exercise's version mid-workout | Medium | Deferred 2026-10-24. For this workout only; the plan keeps its version |
@@ -3945,8 +3944,9 @@ selection stays as it is today (TICKET-052 changes it).
 
 ### TICKET-052: Manage Workout — New Plan and First Plan
 
-**Priority:** Medium | **Effort:** Small–Medium | **Status: IN REVIEW** (PR open, 2026-10-28) — split from
-TICKET-043 2026-10-27
+**Priority:** Medium | **Effort:** Small–Medium | **Status: DONE** — merged in PR #26
+(befa43d, 2026-10-28); device plan (steps 0–10, 15) not yet run, marked done by the
+user; split from TICKET-043 2026-10-27
 
 **Description:**
 Creating a plan, from TICKET-041 group C1: "New plan" as the first row of the plan
@@ -5170,8 +5170,9 @@ it) once 046's content exists. Phase 3B; research is in
 5. TICKET-050  (Picker start page)        — Done (PR #24, 2026-10-27)
 6. TICKET-051  (Manage Workout list)      — Done (PR #25, 2026-10-28); full device
                                              plan pending on a phone
-7. TICKET-052  (New plan, first plan)     — Next
-8. TICKET-053  (Guided tour pass)         — After 043, 050, 051, 052
+7. TICKET-052  (New plan, first plan)     — Done (PR #26, 2026-10-28); device plan
+                                             pending on a phone
+8. TICKET-053  (Guided tour pass)         — Next
 ```
 
 **Then the next three, decided.** They are what makes logging an exercise match what
