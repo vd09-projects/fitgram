@@ -5,7 +5,8 @@ import { buildExercise, buildWorkout } from "../test/fixtures";
 import { ExerciseField } from "../types/workoutType";
 import { ExerciseSet } from "../types/zustandWorkoutType";
 import { buildSessionDocs, computeSessionVolume, rebuildStatsFromSessions } from "./exerciseStats";
-import { buildLoggedSet, keptSplitRows } from "./splits";
+import { deriveExerciseHistory } from "./exerciseHistory";
+import { buildLoggedSet, keptSplitRows, zipSetSplits } from "./splits";
 
 const KG: ExerciseField[] = [
   { name: "Weight", role: "weight", unit: "kg" },
@@ -61,6 +62,35 @@ describe("stored shape", () => {
     ]);
     const stats = rebuildStatsFromSessions("bench-press", exerciseSessions);
     expect(Object.values(stats!.bestByReps).map((best) => [best.weight, best.reps])).toEqual([[20, 5]]);
+  });
+});
+
+describe("reading stored rows back", () => {
+  it("trusts no rows when setSplits and sets differ in length", () => {
+    expect(zipSetSplits(2, [null])).toEqual({ rows: [null, null], unavailable: true });
+  });
+
+  it("marks one malformed entry unknown and keeps the others", () => {
+    const row = { Weight: "17.5", Reps: "3" };
+    expect(zipSetSplits(3, [{ rows: 5 }, [row], { rows: [row] }])).toEqual({
+      rows: [null, null, [row]],
+      unavailable: false,
+    });
+  });
+
+  it("carries the rows from the live set through upload and the rollup into last time's volume", () => {
+    const { exerciseSessions } = finished([
+      { id: 1, fields: { Weight: "20", Reps: "5" }, splits: [{ Weight: "17.5", Reps: "3" }] },
+    ]);
+    const history = deriveExerciseHistory({
+      exerciseId: "bench-press",
+      status: "ready",
+      stats: rebuildStatsFromSessions("bench-press", exerciseSessions),
+      fetchedAt: 0,
+      error: null,
+    });
+    expect(history.lastSession?.volume.value).toBe(152.5);
+    expect(history.setAt(1)?.splits).toEqual([{ Weight: "17.5", Reps: "3" }]);
   });
 });
 
