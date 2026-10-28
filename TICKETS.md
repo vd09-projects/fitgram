@@ -35,7 +35,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 030 | Drop unit suffixes from catalogue field names | Small | **Silent data loss:** renaming a field nulls every past value for it, and the session stays `comparable` so nothing flags it |
 | 031 | Contrast guards for the rest of the role palette | Small | Extends the `colors.test.ts` pattern |
 | 032 | Edit or delete an already-uploaded set | Med-Large | Needs a rollup rebuild |
-| 033 | Drop sets | Med-Large | Data-model change |
+| 033 | Split sets | Med-Large | Data-model change |
 | 035 | Measures beyond weight x reps | Med-Large | "Which way is better" is a product decision |
 | 036 | Put a unit on volume trend points | Small-Med | Today the trend over-suppresses; held by an invariant test, not a fix |
 | 037 | Tell apart two sessions on the same day | Small | |
@@ -5028,9 +5028,10 @@ approach that handles these cases at least as well?
 
 ---
 
-### TICKET-033: Drop Sets — Log a Weight Change Within One Set
+### TICKET-033: Split Sets — Log a Weight Change Within One Set
 
-**Priority:** Low | **Effort:** Medium-Large | **Status: OPEN** — after Phase 3
+**Priority:** Low | **Effort:** Medium-Large | **Status: OPEN** — design decided
+2026-10-29 (boards S1–S8 on the Workout Flow canvas, `design/workout-flow/project/Split*.dc.html`); not built
 
 **Description:**
 A set sometimes cannot be finished at the planned weight. Example: set 3 starts
@@ -5044,9 +5045,50 @@ the first weight was not completed.
 - [ ] The set reads as a drop or split in the Today list and in history, so the
       user can see next time that the weight was not completed
 - [ ] Volume counts every segment
-- [ ] Decided and documented: how a split set compares with the same set last
+- [x] Decided and documented: how a split set compares with the same set last
       time (TICKET-019's deltas), which segment the next ghost target comes from,
-      and whether a split segment can become a `bestByReps` record
+      and whether a split segment can become a `bestByReps` record (see Decisions)
+
+**Decisions** (user, 2026-10-28/29; explored on a scratch "Drop Sets Lab" canvas,
+the chosen boards copied to the Workout Flow canvas as S1–S8):
+- **Unplanned only.** No split flag in the plan. Any set can be split live while
+  logging. Rejected a planned flag: a trainer's splits change set to set and week to
+  week, so a stored plan would always be stale. Planned splits (last time's chain
+  carried forward as placeholders) are deferred, not designed.
+- **Named "split", not "drop".** The weight may go back up (20 → 15 → 17.5), and a
+  treadmill's speed or incline change is the same shape, so one word fits every
+  exercise. "Drop" is wrong whenever the weight rises. Data name: `segments`.
+- **Where it lives (S1–S3).** A third column beside the fields. Normal set: a
+  **split** button next to weight and reps. Once split, each segment is one row
+  (weight × reps, no labels); the last row's slot shows × while its reps are empty
+  (cancel it) and **split** once they are filled (add another). Earlier split rows
+  carry ×; the first row has none (removing it is removing the set). Rejected: a
+  split button beside Log (wrong-half taps, narrower Log), a button in the rest
+  panel (two taps per split, and nobody touches the phone mid-split).
+- **One Log for the whole set.** Segments are entered on the card and saved
+  together; the rest timer starts once, after Log. An empty last row is dropped on
+  Log.
+- **Pre-filled weight.** A new row's weight = previous weight minus the last step
+  between rows; for the first split, one stepper step down (−2.5 kg, −1 plate). A
+  real value, editable, never a placeholder: placeholders mean "type this"
+  (TICKET-018).
+- **Records, deltas, targets.** Volume counts every segment. `bestByReps`, the
+  Today-column comparison and next session's placeholders use the **first** segment
+  only. Rejected letting any segment be a best: a tired 3-rep split row would become
+  "best 3-rep set" for someone who never did a real one. Cost accepted: in a split
+  that goes up, the heavier later segment earns no record.
+- **Next session (S5–S6).** The Last time pill shows the first segment plus the split
+  count (`20 × 5 ⑂2`) and a line lists the rest. Repeat copies the first segment
+  only; splits are never pre-built.
+- **One Easy/Hard mark per set**, not per segment, so `setEffort` stays aligned.
+  "Couldn't finish the first weight" is the Hard mark, not a new field.
+- **Icon.** Split arrows (one line branching in two). Rejected "row plus": reads as
+  add set.
+
+**Open for the build:**
+- The live draft (AsyncStorage) must hold several segments per set; unchecked.
+- Treadmill and other non-weight exercises: same rows, time and distance sum; no
+  records from segments. Drawn only on the scratch canvas, not in S1–S8.
 
 **Technical Notes:**
 - This is a data-model change. `ExerciseSet.fields` holds one value per field,
@@ -5180,7 +5222,7 @@ people actually do, and 033 changes a stored shape: pre-launch is the cheap mome
 for that.
 
 ```
-1. TICKET-033  (Drop sets)                 — A weight change within one set
+1. TICKET-033  (Split sets)                — A weight change within one set
 2. TICKET-032  (Edit/delete uploaded set)  — Needs the rollup rebuild; after 033 so it
                                              is written once against the final shape
 3. TICKET-029  (Pending uploads view)      — Replaces the TEMPORARY debug screen.

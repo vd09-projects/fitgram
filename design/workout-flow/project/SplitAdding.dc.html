@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Final — split set</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body { margin: 0; }
+a { color: #5FA8B8; } a:hover { color: #8CC6D2; }
+input { font: inherit; color: inherit; background: none; border: none; outline: none; }
+button { font: inherit; color: inherit; background: none; border: none; padding: 0; cursor: pointer; }
+.num { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #121414; color: #E8EDEC; font-family: 'Archivo', 'Helvetica Neue', system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+  <section style="padding: 26px 14px 0">
+    <div style="display: flex; align-items: center; gap: 8px">
+      <button type="button" aria-label="Previous exercise" style="width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 14px; background: #1A1D1F; border: 1px solid #2A2F31; color: #8A9593">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+      </button>
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px">
+        <h1 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.015em; text-align: center">Dumbbell Bench Press</h1>
+        <div style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #8A9593">Exercise 2 of 6</div>
+      </div>
+      <button type="button" aria-label="Next exercise" style="width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 14px; background: #1A1D1F; border: 1px solid #2A2F31; color: #8A9593">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+      </button>
+    </div>
+  </section>
+
+  <main style="flex-grow: 1; min-height: 0; padding: 16px 14px 0; display: flex; flex-direction: column; gap: 14px">
+
+    <section style="background: #1A1D1F; border: 1px solid #2A2F31; border-radius: 16px; padding: 14px 14px 16px">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase">Set 3 <span style="color: #8A9593">· 2 splits</span></div>
+        <div style="font-size: 12px; color: #8A9593">last time <span class="num" style="color: #E8EDEC">20 × 8</span></div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px; gap: 8px; align-items: center; margin-top: 14px">
+        <span style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593; text-align: center">kg</span>
+        <span style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593; text-align: center">Reps</span>
+        <span></span>
+
+        <div style="height: 50px; border-radius: 12px; background: #222628; border: 1px solid #3A4245; display: flex"><input class="num" aria-label="Weight" type="text" value="20" style="width: 100%; text-align: center; font-size: 22px; font-weight: 500" /></div>
+        <div style="height: 50px; border-radius: 12px; background: #222628; border: 1px solid #3A4245; display: flex"><input class="num" aria-label="Reps" type="text" value="5" style="width: 100%; text-align: center; font-size: 22px; font-weight: 500" /></div>
+        <span></span>
+
+        <div style="height: 50px; border-radius: 12px; background: #222628; border: 1px solid #3A4245; display: flex"><input class="num" aria-label="Split 1 weight" type="text" value="17.5" style="width: 100%; text-align: center; font-size: 22px; font-weight: 500" /></div>
+        <div style="height: 50px; border-radius: 12px; background: #222628; border: 1px solid #3A4245; display: flex"><input class="num" aria-label="Split 1 reps" type="text" value="3" style="width: 100%; text-align: center; font-size: 22px; font-weight: 500" /></div>
+        <button type="button" aria-label="Remove split 1" style="width: 44px; height: 50px; display: flex; align-items: center; justify-content: center; color: #8A9593"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+
+        <div style="height: 50px; border-radius: 12px; background: #222628; border: 1px solid #3A4245; display: flex"><input class="num" aria-label="Split 2 weight" type="text" value="15" style="width: 100%; text-align: center; font-size: 22px; font-weight: 500" /></div>
+        <div style="height: 50px; border-radius: 12px; background: #222628; border: 1px solid {{accent}}; display: flex"><input class="num" aria-label="Split 2 reps" type="text" placeholder="" style="width: 100%; text-align: center; font-size: 22px; font-weight: 500" /></div>
+        <button type="button" aria-label="Cancel split 2" style="width: 44px; height: 50px; display: flex; align-items: center; justify-content: center; color: #8A9593"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+      </div>
+
+      <button type="button" style="width: 100%; height: 56px; margin-top: 16px; border-radius: 15px; background: {{accent}}; color: #121414; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 9px">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>
+        Log set 3
+      </button>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 9px">
+      <div style="display: flex; align-items: baseline; justify-content: space-between">
+        <h2 style="margin: 0; font-size: 14px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #8A9593">Today</h2>
+        <div style="font-size: 12px; color: #8A9593">2 sets</div>
+      </div>
+      <ul style="margin: 0; padding: 0; list-style: none; background: #1A1D1F; border: 1px solid #2A2F31; border-radius: 14px; overflow: hidden">
+        <li style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 13px">
+          <span class="num" style="width: 18px; flex-shrink: 0; font-size: 12px; color: #6E7A78">1</span>
+          <span class="num" style="flex-grow: 1; font-size: 16px; font-weight: 500">18 kg × 10</span>
+        </li>
+        <li style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 13px; border-top: 1px solid #22272A">
+          <span class="num" style="width: 18px; flex-shrink: 0; font-size: 12px; color: #6E7A78">2</span>
+          <span class="num" style="flex-grow: 1; font-size: 16px; font-weight: 500">20 kg × 8</span>
+        </li>
+      </ul>
+    </section>
+  </main>
+
+  <footer style="padding: 12px 14px 22px; background: #16191A; border-top: 1px solid #22272A">
+    <button type="button" style="width: 100%; height: 52px; border-radius: 14px; border: 1px solid #3A4245; color: #E8EDEC; font-size: 16px; font-weight: 600">Finish workout</button>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5FA8B8","options":["#5FA8B8","#B5A3CF","#D8A13B","#8FB573"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#5FA8B8' };
+  }
+}
+</script>
+</body>
+</html>

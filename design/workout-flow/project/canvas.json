@@ -440,6 +440,70 @@
       "w": 390,
       "x": 0,
       "y": 21780
+    },
+    "SplitStart.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "S1 \u00b7 Normal set: split sits beside the fields (chosen)",
+      "w": 390,
+      "x": 0,
+      "y": 23300
+    },
+    "SplitAdding.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "S2 \u00b7 Split added: weight pre-filled, \u00d7 until reps",
+      "w": 390,
+      "x": 470,
+      "y": 23300
+    },
+    "SplitChain.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "S3 \u00b7 Two splits, one Log for the whole set",
+      "w": 390,
+      "x": 940,
+      "y": 23300
+    },
+    "SplitToday.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "S4 \u00b7 Today list: first row + split count, opens to the rest",
+      "w": 390,
+      "x": 1410,
+      "y": 23300
+    },
+    "SplitNext.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "S5 \u00b7 Next session: last time says it was split",
+      "w": 390,
+      "x": 1880,
+      "y": 23300
+    },
+    "SplitRepeat.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "S6 \u00b7 Repeat copies the first row only",
+      "w": 390,
+      "x": 2350,
+      "y": 23300
+    },
+    "SplitHistory.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "S7 \u00b7 History sheet: split rows under their set",
+      "w": 390,
+      "x": 2820,
+      "y": 23300
+    },
+    "SplitEdit.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "S8 \u00b7 Edit a logged split set",
+      "w": 390,
+      "x": 3290,
+      "y": 23300
     }
   },
   "createdOnFiles": {
@@ -627,6 +691,21 @@
       "x": 1890,
       "y": 20760,
       "text": "DECIDED (user, 2026-10-24), after the PR #17 review.\n\nStored per combination: equipment + angle + grip together are one version, with its own history, bests and targets. Close grip never compares with normal grip; a banded set can never become the normal record; bench and close-grip bench can share a plan.\n\nShown per movement: outside logging and the plan, the user sees movements only. Search and recents show Bench Press once; the combination is picked in the sheet. A combination is named only where it is logged or planned.\n\nP1: grip is a row in the sheet, like angle. No Extras: dropped for the MVP.\nP2: nothing about the version is editable in Manage Workout, equipment, angle and grip alike. To change it, remove the exercise and add the other combination. The first P2 (grip editable here) was rejected: it singled grip out.\nP5: a recent row is a movement; its second line names the combination last logged. Tapping opens the sheet with it preselected; a combination already in the plan is disabled. The first P5 (one recent row per combination) was rejected.\nP3, P4: consequences in the logger; revisit with TICKET-047 (switching for one workout).\n\nSuperseded: C5, C5b, the tags history sheet, the tags board in Manage Workout, and A3's version and tags sheet."
+    },
+    "split": {
+      "kind": "title1",
+      "maxW": 3680,
+      "w": 240,
+      "x": 0,
+      "y": 23000,
+      "text": "TICKET-033 \u2014 split sets: one set, several weights"
+    },
+    "splitwhy": {
+      "fill": "orange",
+      "w": 300,
+      "x": 3760,
+      "y": 23300,
+      "text": "DECIDED (user, 2026-10-29), explored on the Drop Sets Lab canvas.\n\nUnplanned only: no split flag in the plan; a split is added live, on any set.\n\nNamed split, not drop: weight may go back up (20 \u2192 15 \u2192 17.5), and treadmill speed or incline uses the same row. Icon: split arrows (C, row plus, read as add set).\n\nSplit sits in the row's third column: beside the fields on a normal set, on the last row once its reps are in; \u00d7 on a row still empty. One Log saves the whole set; the rest timer starts once.\n\nNew row weight = last weight minus the last step (first split: one stepper step down). Pre-filled as a value, editable.\n\nVolume counts every row. Bests and the Today comparison use the first row only. One Easy/Hard mark per set.\n\nNext session: placeholders from the first row; a line says it was split. Repeat copies the first row only."
     }
   },
   "order": [
@@ -684,7 +763,15 @@
     "VersionPlan.dc.html",
     "VersionLogger.dc.html",
     "VersionFirst.dc.html",
-    "VersionRecent.dc.html"
+    "VersionRecent.dc.html",
+    "SplitStart.dc.html",
+    "SplitAdding.dc.html",
+    "SplitChain.dc.html",
+    "SplitToday.dc.html",
+    "SplitNext.dc.html",
+    "SplitRepeat.dc.html",
+    "SplitHistory.dc.html",
+    "SplitEdit.dc.html"
   ],
   "pages": [],
   "title": "Fitgram Workout Flow Redesign"
