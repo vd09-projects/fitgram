@@ -21,6 +21,7 @@ import {
   resolveNumericFields,
 } from "./exerciseFields";
 import { computeSessionVolume } from "./exerciseStats";
+import { zipSetSplits } from "./splits";
 import { zipSetEffort } from "./effort";
 
 /** `sessions` window. */
@@ -52,6 +53,9 @@ export function buildHistorySession(
   // Marks are about how the set felt, not its numbers, so an incomparable
   // session keeps them.
   const effort = zipSetEffort(entry.sets.length, entry.setEffort);
+  // Split rows ride along so volume can count them (TICKET-033). Raw, like
+  // `fields`: an incomparable session keeps them and contributes no numbers.
+  const splits = zipSetSplits(entry.sets.length, entry.setSplits).rows;
 
   const sets: HistorySet[] = entry.sets.map((fields, index) => {
     const { weight, reps } = parseSet(fields, sessionNumeric);
@@ -62,6 +66,7 @@ export function buildHistorySession(
       weight,
       reps,
       effort: effort.marks[index],
+      splits: splits[index],
     };
   });
 
@@ -72,7 +77,7 @@ export function buildHistorySession(
     performedAt: entry.performedAt,
     sets,
     fields: entry.fields,
-    volume: computeSessionVolume(entry.sets, sessionNumeric),
+    volume: computeSessionVolume(entry.sets, sessionNumeric, splits),
     effortUnavailable: effort.unavailable,
     comparable,
   };

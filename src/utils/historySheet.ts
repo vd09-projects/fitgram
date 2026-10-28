@@ -153,7 +153,8 @@ export function sheetSession(
       ? volumeText(
           computeSessionVolume(
             session.sets.map((set) => set.fields),
-            own
+            own,
+            session.sets.map((set) => set.splits)
           ),
           own.weight.unit
         )
