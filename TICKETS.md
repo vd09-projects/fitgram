@@ -35,7 +35,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 030 | Drop unit suffixes from catalogue field names | Small | **Silent data loss:** renaming a field nulls every past value for it, and the session stays `comparable` so nothing flags it |
 | 031 | Contrast guards for the rest of the role palette | Small | Extends the `colors.test.ts` pattern |
 | 032 | Edit or delete an already-uploaded set | Med-Large | Needs a rollup rebuild |
-| 033 | Split sets | Med-Large | Data-model change |
+| 033 | Split sets | Med-Large | Data-model change. Three sub-tickets: 033-1 log (lands the stored shape), then 033-2 read back and 033-3 edit |
 | 035 | Measures beyond weight x reps | Med-Large | "Which way is better" is a product decision |
 | 036 | Put a unit on volume trend points | Small-Med | Today the trend over-suppresses; held by an invariant test, not a fix |
 | 037 | Tell apart two sessions on the same day | Small | |
@@ -5031,7 +5031,8 @@ approach that handles these cases at least as well?
 ### TICKET-033: Split Sets — Log a Weight Change Within One Set
 
 **Priority:** Low | **Effort:** Medium-Large | **Status: OPEN** — design decided
-2026-10-29 (boards S1–S8 on the Workout Flow canvas, `design/workout-flow/project/Split*.dc.html`); not built
+2026-10-29 (boards S1–S8 on the Workout Flow canvas, `design/workout-flow/project/Split*.dc.html`); not built.
+Split into 033-1 (log), 033-2 (read back), 033-3 (edit), below
 
 **Description:**
 A set sometimes cannot be finished at the planned weight. Example: set 3 starts
@@ -5085,10 +5086,89 @@ the chosen boards copied to the Workout Flow canvas as S1–S8):
 - **Icon.** Split arrows (one line branching in two). Rejected "row plus": reads as
   add set.
 
-**Open for the build:**
-- The live draft (AsyncStorage) must hold several segments per set; unchecked.
-- Treadmill and other non-weight exercises: same rows, time and distance sum; no
-  records from segments. Drawn only on the scratch canvas, not in S1–S8.
+- **Every exercise type, not weight only** (user, 2026-10-29). A split row holds
+  the exercise's own fields, which are already generic (`Record<string, …>` with
+  roles weight/reps/time/distance/other), so a treadmill row costs nothing extra
+  to store or draw. Pre-fill for a new row by field role: weight steps down one
+  step; reps, time and distance start empty (they are what that row did); any
+  other field copies the previous row. The first-segment rule for records, deltas
+  and placeholders applies to every type for now. Known cost: a treadmill split
+  shows "last time 10 min" when 30 were done; summing time and distance for cardio
+  is a follow-up if that bothers in use.
+- **Volume is exact or absent.** `computeSessionVolume` already reports null for
+  an exercise with no weight+reps pair, so weighted splits sum every row exactly
+  and a treadmill keeps showing no volume. No approximate total.
+- **Speed and incline are not catalog fields.** The catalog treadmill has
+  distance and time only (`FIELDS.distance_time`). A speed split needs a custom
+  field on the plan today; adding speed/incline to the catalog is not this ticket.
+
+**Load-bearing fact for the build (verified 2026-10-29):** `sets[i]` stays the
+**first** segment, and the rows after it go in a parallel array, the way
+TICKET-034 added `setEffort`. Everything that must use the first segment only
+(`applyBest`, `setDeltas`, `setAt` for placeholders and repeat) already reads
+`sets[i]` and needs no change; only volume and the screens that display sets
+learn about the extra rows. Checked alongside it:
+- **Firestore forbids an array directly inside an array**, so the stored field is
+  an array of maps, `setSplits: ({ rows: StoredSetFields[] } | null)[]`, never
+  `StoredSetFields[][]`. Getting this wrong fails only at upload, on every retry.
+- `firestore.rules` does not validate set shape: no rules change.
+- The whole `activeWorkout` is persisted to AsyncStorage, so a live
+  `ExerciseSet.splits` is saved with it. Untested until a device run kills the app
+  mid-split. Bump `LOCAL_DATA_VERSION` when `ExerciseSet` changes shape.
+
+**Sub-tickets.** 033-1 lands the stored shape; 033-2 and 033-3 read it and can go
+in either order after it. Each is its own branch and PR, testable on its own.
+
+#### 033-1 · Log a split set (S1–S4)
+
+**Status: OPEN**
+
+- Live model: `ExerciseSet.splits?: Record<string, string | number>[]`; store
+  actions to add, update and remove a split row; `LOCAL_DATA_VERSION` bump
+- Logging card: third column (split button; × / split slot on rows), pre-filled
+  row values by field role (see Decisions), one Log for the set, empty last row
+  dropped, rest timer starts once
+- Save: `buildSessionDocs` writes `setSplits` aligned with `sets` and `setEffort`;
+  the rollup's `StatsSessionEntry` copies it
+- Volume counts every row: `computeSessionVolume` and its callers take the splits
+- Today list: a split set shows `⑂N` and opens to list its rows (S4)
+
+Tests (pure functions only): volume with and without splits, including a split
+row missing weight or reps (null, not a partial sum); `buildSessionDocs` keeps
+`sets`, `setEffort` and `setSplits` the same length; a split row never reaches
+`applyBest`; pre-fill by role on a weight × reps and a distance × time exercise.
+
+Device test: log 20 × 5 → 17.5 × 3 → 15 × 3; Today volume rises by 97.5. Kill
+the app mid-split; the rows survive. Log a treadmill split (10 min / 1.2 km →
+10 min / 1.5 km); no volume shown. Finish; the Firestore session doc has
+`setSplits`.
+
+#### 033-2 · Read a split set back (S5–S7)
+
+**Status: OPEN** — after 033-1
+
+- History reader exposes each set's split rows
+- History sheet lists them under their set (S7)
+- Next session: Last time pill shows `20 × 5 ⑂2` plus the "Last time split to …"
+  line (S5)
+- Repeat copies the first segment only (S6). Already true through `setAt`;
+  confirm, and add the "splits not copied" line
+- Check whether `scripts/verifyHistoryReads.ts` and ExerciseHistoryDebugScreen
+  need the new field
+
+Device test: the session after 033-1, set 3's card and the history sheet show the
+splits; the best still reads 20 kg × 5, never a split row.
+
+#### 033-3 · Edit a split set (S8)
+
+**Status: OPEN** — after 033-1
+
+- TICKET-040's edit card shows the rows: change, add or remove them; Save rewrites
+  the set's `splits`
+- The Easy/Hard mark and the set's position stay
+
+Device test: edit set 3, change one row's reps, Save; volume updates and the mark
+stays. Remove every split row; the set reads as a normal set.
 
 **Technical Notes:**
 - This is a data-model change. `ExerciseSet.fields` holds one value per field,
@@ -5101,7 +5181,8 @@ the chosen boards copied to the Workout Flow canvas as S1–S8):
   drop set as **one** entry in `sets`, or rebuild `setEffort` alongside: if the two
   lengths differ, every mark in that session reads as "marks unavailable" (`zipSetEffort`)
 
-**Dependencies:** Phase 3 complete (TICKET-019, TICKET-020, TICKET-021).
+**Dependencies:** Phase 3 complete (TICKET-019, TICKET-020, TICKET-021), TICKET-040
+(edit card, for 033-3). Within the ticket: 033-1 before 033-2 and 033-3.
 
 ---
 
