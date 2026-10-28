@@ -5079,7 +5079,7 @@ the chosen boards copied to the Workout Flow canvas as S1–S8):
   a new row starts empty, every field.** The app does not guess what the next
   row was; the user types it. A guessed weight is a real value one stray Log
   from being stored. Filling a row from somewhere is an explicit control (like
-  repeat), not this ticket. Boards S2–S3 still draw pre-filled weights.
+  repeat), not this ticket. Boards S2–S3 updated to match (canvas v54).
 - **Records, deltas, targets.** Volume counts every segment. `bestByReps`, the
   Today-column comparison and next session's placeholders use the **first** segment
   only. Rejected letting any segment be a best: a tired 3-rep split row would become
@@ -5267,9 +5267,13 @@ Decisions made in the build (comments at each site):
   set's rows untouched.
 - Split mode hides the steppers and repeat, as boards S2–S3 do.
 
-Verified: typecheck clean; full suite passes. 12 new tests, each seen failing
-against a deliberate break of the line it covers: 6 pure in
-`src/utils/splits.test.ts`; 5 on the card in `ExerciseLogger.test.tsx`
+Boards S2–S3 updated to match the build (canvas v54, PR #27 review): the new
+row is empty, the first row has ×, labels read WEIGHT · KG.
+
+Verified: typecheck clean; full suite passes. 15 new tests, each seen failing
+against a deliberate break of the line it covers: 9 pure in
+`src/utils/splits.test.ts` (3 of them on reading stored rows back, including
+a write → rollup → history round trip); 5 on the card in `ExerciseLogger.test.tsx`
 (new row empty and count, one Log + one rest + empty row dropped, half-filled row
 refused, removing the first row promotes the next, cancel back to a normal set); 1 on the Today list in
 `TodaySets.test.tsx` (537.5 kg, first-segment delta, rows on open). Measured through `todaySummary` with the device-test sets:
@@ -5282,7 +5286,12 @@ rollup transaction carrying `setSplits`.
 
 **Status: OPEN** — after 033-1
 
-- History reader exposes each set's split rows
+- History reader exposes each set's split rows (done in 033-1: `HistorySet.splits`)
+- Say why a session's volume is unavailable when its stored rows could not be
+  paired with its sets: `zipSetSplits` computes `unavailable` but nothing reads
+  it yet, so today that reads like any unparseable session (PR #27 review;
+  rule 2.4). Expose it beside `effortUnavailable` and show it where the sheet
+  shows split rows
 - History sheet lists them under their set (S7)
 - Next session: Last time pill shows `20 × 5 ⑂2` plus the "Last time split to …"
   line (S5)

@@ -38,25 +38,25 @@ button { font: inherit; color: inherit; background: none; border: none; padding:
 
     <section style="background: #1A1D1F; border: 1px solid #2A2F31; border-radius: 16px; padding: 14px 14px 16px">
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
-        <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase">Set 3 <span style="color: #8A9593">· 2 splits</span></div>
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase">Set 3 <span style="color: #8A9593">· 1 split</span></div>
         <div style="font-size: 12px; color: #8A9593">last time <span class="num" style="color: #E8EDEC">20 × 8</span></div>
       </div>
 
       <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px; gap: 8px; align-items: center; margin-top: 14px">
-        <span style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593; text-align: center">kg</span>
+        <span style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593; text-align: center">Weight · kg</span>
         <span style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593; text-align: center">Reps</span>
         <span></span>
 
         <div style="height: 50px; border-radius: 12px; background: #222628; border: 1px solid #3A4245; display: flex"><input class="num" aria-label="Weight" type="text" value="20" style="width: 100%; text-align: center; font-size: 22px; font-weight: 500" /></div>
         <div style="height: 50px; border-radius: 12px; background: #222628; border: 1px solid #3A4245; display: flex"><input class="num" aria-label="Reps" type="text" value="5" style="width: 100%; text-align: center; font-size: 22px; font-weight: 500" /></div>
-        <span></span>
+        <button type="button" aria-label="Remove the first row of set 3" style="width: 44px; height: 50px; display: flex; align-items: center; justify-content: center; color: #8A9593"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
 
         <div style="height: 50px; border-radius: 12px; background: #222628; border: 1px solid #3A4245; display: flex"><input class="num" aria-label="Split 1 weight" type="text" value="17.5" style="width: 100%; text-align: center; font-size: 22px; font-weight: 500" /></div>
         <div style="height: 50px; border-radius: 12px; background: #222628; border: 1px solid #3A4245; display: flex"><input class="num" aria-label="Split 1 reps" type="text" value="3" style="width: 100%; text-align: center; font-size: 22px; font-weight: 500" /></div>
         <button type="button" aria-label="Remove split 1" style="width: 44px; height: 50px; display: flex; align-items: center; justify-content: center; color: #8A9593"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
 
-        <div style="height: 50px; border-radius: 12px; background: #222628; border: 1px solid #3A4245; display: flex"><input class="num" aria-label="Split 2 weight" type="text" value="15" style="width: 100%; text-align: center; font-size: 22px; font-weight: 500" /></div>
-        <div style="height: 50px; border-radius: 12px; background: #222628; border: 1px solid {{accent}}; display: flex"><input class="num" aria-label="Split 2 reps" type="text" placeholder="" style="width: 100%; text-align: center; font-size: 22px; font-weight: 500" /></div>
+        <div style="height: 50px; border-radius: 12px; background: #222628; border: 1px solid {{accent}}; display: flex"><input class="num" aria-label="Split 2 weight" type="text" value="" style="width: 100%; text-align: center; font-size: 22px; font-weight: 500" /></div>
+        <div style="height: 50px; border-radius: 12px; background: #222628; border: 1px solid #3A4245; display: flex"><input class="num" aria-label="Split 2 reps" type="text" value="" style="width: 100%; text-align: center; font-size: 22px; font-weight: 500" /></div>
         <button type="button" aria-label="Cancel split 2" style="width: 44px; height: 50px; display: flex; align-items: center; justify-content: center; color: #8A9593"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
       </div>
 
