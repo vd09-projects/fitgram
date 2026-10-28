@@ -50,8 +50,11 @@ export const getAllWorkoutPlans = async (
     console.log("✅ Exercises fetched successfully:", plans);
     return plans;
   } catch (error) {
+    // Rethrown, not `[]` (TICKET-052 D5): an empty list reads as "no plans
+    // yet", which would offer a first plan to someone who has plans but could
+    // not load them. The one caller, useWorkoutPlans, flags the failure.
     console.error("❌ Error fetching exercises:", error);
-    return [];
+    throw error;
   }
 };
 
@@ -110,6 +113,13 @@ export const saveWorkoutDetails = async (
     console.error("❌ Error saving workout details:", error);
   }
 };
+
+/**
+ * A fresh plan id (TICKET-052 D1): Firestore's auto id, made on the device with
+ * no read or write, so it works offline. Nothing is stored until Save changes.
+ */
+export const newPlanId = (userId: string): string =>
+  doc(collection(db, tables.users.collection, userId, tables.users.fields.workouts.collection)).id;
 
 export const overrideWorkoutDetails = async (
   userId: string,

@@ -158,6 +158,45 @@ export function fieldSummary(fields: ExerciseField[]): string {
   return fields.map((field) => (field.unit ? `${field.name.trim()} ${field.unit}` : field.name.trim())).join(" · ");
 }
 
+export const PLAN_NAME_MAX = 40;
+
+/** A plan name as stored and compared: trimmed, runs of whitespace as one space. */
+export const normalizePlanName = (name: string): string => name.trim().replace(/\s+/g, " ");
+
+/**
+ * Why a new plan's name is refused, or null (TICKET-052 D2). Any characters:
+ * the id is generated, so the name never reaches a doc path, and the boards
+ * name plans "Push · Chest & Triceps". A duplicate is one of the loaded plans
+ * with the same normalised name, ignoring case: Start lists plans by name, so
+ * two "Push Day"s could not be told apart. Only the loaded plans are checked,
+ * not one still queued offline.
+ */
+export function validatePlanName(name: string, plans: WorkoutPlan[]): string | null {
+  const normalized = normalizePlanName(name);
+  if (normalized === "") return "Name the plan.";
+  if (normalized.length > PLAN_NAME_MAX) return `A plan name can be at most ${PLAN_NAME_MAX} characters.`;
+  const key = normalized.toLowerCase();
+  const existing = plans.find((plan) => normalizePlanName(plan.name).toLowerCase() === key);
+  return existing ? `A plan named "${existing.name}" already exists.` : null;
+}
+
+/**
+ * A new plan, empty, under a generated id (TICKET-052 D1). Not the name as a
+ * slug: that let a typed name land on an existing plan's id, and its first Save
+ * (whole-doc write) replaced that plan. `makeId` is Firestore's local id maker
+ * on the device (`newPlanId`), a stub in tests. Nothing is written here: the
+ * plan is first stored by Save changes, with its first exercise (D6 b).
+ */
+export function newPlan(
+  name: string,
+  plans: WorkoutPlan[],
+  makeId: () => string
+): { ok: true; plan: WorkoutPlan } | { ok: false; error: string } {
+  const error = validatePlanName(name, plans);
+  if (error) return { ok: false, error };
+  return { ok: true, plan: { id: makeId(), name: normalizePlanName(name), exercises: [] } };
+}
+
 export const EMPTY_PLAN_ERROR = "A plan needs at least one exercise.";
 
 export type DraftErrors = {
