@@ -229,11 +229,16 @@ export function todaySummary(
     "status" | "hasHistory" | "numericComparisonAvailable" | "lastSession" | "numericFields"
   >,
   todaySets: StoredSetFields[],
-  todayExerciseFields: ExerciseField[]
+  todayExerciseFields: ExerciseField[],
+  /**
+   * Each of today's sets' split rows, aligned with `todaySets` (TICKET-033).
+   * Omitted means no set was split; a live caller passes it.
+   */
+  todaySplits?: readonly (readonly StoredSetFields[])[]
 ): TodaySummary {
   const todayNumeric = resolveNumericFields(todayExerciseFields);
   const setCount = todaySets.length;
-  const volume = todayNumeric ? computeSessionVolume(todaySets, todayNumeric) : null;
+  const volume = todayNumeric ? computeSessionVolume(todaySets, todayNumeric, todaySplits) : null;
   const none = (reason: NoDeltaReasonForVolume): TodaySummary => ({
     setCount,
     volume,
@@ -266,7 +271,8 @@ export function todaySummary(
   const pastSets = base.kind === "firstN" ? last.sets.slice(0, base.n) : last.sets;
   const pastVolume = computeSessionVolume(
     pastSets.map((set) => set.fields),
-    history.numericFields
+    history.numericFields,
+    pastSets.map((set) => set.splits)
   );
 
   if (pastVolume.value === null) {

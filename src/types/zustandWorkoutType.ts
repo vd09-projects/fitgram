@@ -22,6 +22,27 @@ export interface ExerciseSet {
    * every reader treats absent as null.
    */
   effort?: Effort | null;
+  /**
+   * The rows after the first when the set was split mid-way (TICKET-033): 15 kg
+   * × 5, then 12.5 kg × 3 is `fields` = 15 × 5 and `splits` = [12.5 × 3]. Each
+   * row holds the exercise's own fields, like `fields`. Absent or empty: not
+   * split.
+   *
+   * `fields` stays the FIRST segment, so everything that compares a set with
+   * last time (`setAt`, ghosts, deltas, `bestByReps`) reads the weight the set
+   * was planned at and never a split row. Only volume and the screens that list
+   * a set's values read this.
+   *
+   * Written once, on Log, from the card's rows. Rows being typed live in the
+   * card's state like the first row's values, so they are lost on an app kill
+   * just as typed values are (user, 2026-10-29). On the set object, so
+   * `removeSet` / `restoreSet` carry the rows with their set.
+   *
+   * Optional and additive, so `LOCAL_DATA_VERSION` is not bumped: a workout
+   * stored by an older build reads as "no set split", which is true, and a bump
+   * would discard every unsent workout on the phone (user, 2026-10-29).
+   */
+  splits?: Record<string, string | number>[];
 }
 
 // Type for logged exercises

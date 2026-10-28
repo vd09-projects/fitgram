@@ -346,3 +346,90 @@ describe("ExerciseLogger edit mode", () => {
     expect(loggedSets()[0].fields.Weight).toBe("62.5");
   });
 });
+
+// TICKET-033-1, canvas boards S1–S3.
+describe("ExerciseLogger split set", () => {
+  const splitWeight = (n: number) => screen.getByLabelText(`Split ${n} Weight · kg`);
+  const splitReps = (n: number) => screen.getByLabelText(`Split ${n} Reps`);
+  const start = (first: [string, string]) => {
+    renderScreen(ActiveWorkoutScreen, { workout: buildWorkout(["Bench Press"]), history: withHistory });
+    fireEvent.changeText(weight(), first[0]);
+    fireEvent.changeText(reps(), first[1]);
+    fireEvent.press(screen.getByRole("button", { name: "Add a split to set 1" }));
+  };
+
+  it("starts each new row empty, and counts a row once something is typed in it", () => {
+    start(["20", "5"]);
+
+    // No guessed weight (user, 2026-10-29): every value in a row is typed.
+    expect(splitWeight(1).props.value).toBe("");
+    expect(splitReps(1).props.value).toBe("");
+    // Split rows are compact: no steppers (board S2).
+    expect(screen.queryByRole("button", { name: "Increase Weight by 2.5" })).toBeNull();
+    // A blank row is dropped on Log, so it is not counted yet.
+    expect(screen.getByLabelText("Set 1")).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Cancel split 1" })).toBeOnTheScreen();
+
+    fireEvent.changeText(splitWeight(1), "17.5");
+    expect(screen.getByLabelText("Set 1, 1 split")).toBeOnTheScreen();
+    fireEvent.changeText(splitReps(1), "3");
+    fireEvent.press(screen.getByRole("button", { name: "Add another split" }));
+
+    expect(splitWeight(2).props.value).toBe("");
+    expect(screen.getByRole("button", { name: "Remove split 1" })).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Cancel split 2" })).toBeOnTheScreen();
+  });
+
+  it("logs the whole set with one Log: first segment as the set, the rest as splits, empty last row dropped, one rest", async () => {
+    start(["20", "5"]);
+    fireEvent.changeText(splitWeight(1), "17.5");
+    fireEvent.changeText(splitReps(1), "3");
+    fireEvent.press(screen.getByRole("button", { name: "Add another split" }));
+    await logSet();
+
+    expect(loggedSets()).toEqual([
+      { id: 1, fields: { Weight: "20", Reps: "5" }, splits: [{ Weight: "17.5", Reps: "3" }] },
+    ]);
+    expect(useWorkoutStore.getState().rest?.setNumber).toBe(1);
+    fireEvent.press(screen.getByRole("button", { name: "Skip rest" }));
+    // The next set starts as a normal set.
+    expect(screen.queryByLabelText("Split 1 Weight · kg")).toBeNull();
+    expect(screen.getByRole("button", { name: "Add a split to set 2" })).toBeOnTheScreen();
+  });
+
+  it("refuses Log while an earlier split row is half filled, and names the row", async () => {
+    start(["20", "5"]);
+    fireEvent.changeText(splitWeight(1), "17.5");
+    fireEvent.changeText(splitReps(1), "3");
+    fireEvent.press(screen.getByRole("button", { name: "Add another split" }));
+    fireEvent.changeText(splitWeight(2), "15");
+    fireEvent.changeText(splitReps(2), "2");
+    fireEvent.changeText(splitWeight(1), "");
+    await logSet();
+
+    expect(screen.getByText("Split 1: Enter Weight to log set 1")).toBeOnTheScreen();
+    expect(loggedSets()).toHaveLength(0);
+  });
+
+  it("removing the first row makes the next row the set", async () => {
+    start(["20", "5"]);
+    fireEvent.changeText(splitWeight(1), "17.5");
+    fireEvent.changeText(splitReps(1), "3");
+    // With one row left there is nothing to remove: the card is a normal set.
+    fireEvent.press(screen.getByRole("button", { name: "Remove the first row of set 1" }));
+
+    expect(screen.queryByLabelText("Split 1 Weight · kg")).toBeNull();
+    expect(weight().props.value).toBe("17.5");
+    await logSet();
+    expect(loggedSets()).toEqual([{ id: 1, fields: { Weight: "17.5", Reps: "3" } }]);
+  });
+
+  it("cancelling the only split row returns to a normal set with what was typed", () => {
+    start(["20", "5"]);
+    fireEvent.press(screen.getByRole("button", { name: "Cancel split 1" }));
+
+    expect(screen.queryByLabelText("Split 1 Weight · kg")).toBeNull();
+    expect(weight().props.value).toBe("20");
+    expect(screen.getByRole("button", { name: "Increase Weight by 2.5" })).toBeOnTheScreen();
+  });
+});

@@ -44,6 +44,15 @@ export type HistorySet = {
   reps: number | null;
   /** The user's mark for this set, or null: not marked (TICKET-034). */
   effort: Effort | null;
+  /**
+   * The rows after the first segment when the set was split (TICKET-033), raw
+   * as logged. Empty: not split. null: the session's stored rows could not be
+   * paired with its sets, so this set's rows are unknown (`zipSetSplits`).
+   *
+   * `weight` / `reps` above stay the first segment's: ghosts, deltas and
+   * records read those and never these. Volume reads both.
+   */
+  splits: StoredSetFields[] | null;
 };
 
 export type ExerciseHistorySession = {

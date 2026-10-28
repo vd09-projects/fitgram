@@ -18,6 +18,7 @@ import {
 } from "../types/workoutSession";
 import { NumericFieldMap, parseSet, resolveNumericFields } from "./exerciseFields";
 import { storedEffort } from "./effort";
+import { storedSplits, zipSetSplits } from "./splits";
 
 /** Sessions embedded in the rollup. Deeper history comes from exercise_sessions. */
 export const STATS_RECENT_SESSION_CAP = 10;
@@ -27,12 +28,16 @@ export const STATS_VOLUME_HISTORY_CAP = 12;
 export type SessionVolume = {
   /** Sum of weight x reps, or null. Never a partial sum — see below. */
   value: number | null;
+  /** Sets, not rows: a split set counts once, and only when every row parsed. */
   setsCounted: number;
   setsTotal: number;
 };
 
 /**
- * volume = sum of weight x reps across a session's sets.
+ * volume = sum of weight x reps across a session's sets, **every row of a split
+ * set included** (TICKET-033): 20 × 5 split to 17.5 × 3 and 15 × 3 is
+ * 100 + 52.5 + 45. `splits[i]` is set i's rows after its first segment
+ * (`zipSetSplits`), [] when not split, null when unknown. Omitted: no set split.
  *
  * **All or nothing.** A session reports a number only when every one of its sets
  * parsed for both weight and reps. One unparseable set and `value` is null,
@@ -44,21 +49,34 @@ export type SessionVolume = {
  */
 export function computeSessionVolume(
   sets: StoredSetFields[],
-  numeric: NumericFieldMap | null
+  numeric: NumericFieldMap | null,
+  splits?: readonly (readonly StoredSetFields[] | null)[]
 ): SessionVolume {
   const setsTotal = sets.length;
   if (!numeric || setsTotal === 0) {
     return { value: null, setsCounted: 0, setsTotal };
   }
+  // Rows that cannot be paired with their sets: no set is known to be whole.
+  if (splits && splits.length !== setsTotal) {
+    return { value: null, setsCounted: 0, setsTotal };
+  }
 
   let total = 0;
   let setsCounted = 0;
-  for (const set of sets) {
-    const { weight, reps } = parseSet(set, numeric);
-    if (weight === null || reps === null) continue;
-    total += weight * reps;
+  sets.forEach((set, index) => {
+    const rows = splits ? splits[index] : [];
+    // Unknown rows, or one row that does not parse, and the set is not counted:
+    // its first segment alone would be a partial sum.
+    if (rows === null) return;
+    let setVolume = 0;
+    for (const row of [set, ...rows]) {
+      const { weight, reps } = parseSet(row, numeric);
+      if (weight === null || reps === null) return;
+      setVolume += weight * reps;
+    }
+    total += setVolume;
     setsCounted += 1;
-  }
+  });
 
   return {
     value: setsCounted === setsTotal ? total : null,
@@ -89,7 +107,7 @@ export function computeSessionVolume(
  * Reason precedence: `no_weighted_exercises`, then `unparseable`.
  */
 export function computeSessionTotalVolume(
-  exercises: Pick<ExerciseSessionDoc, "fields" | "sets">[]
+  exercises: Pick<ExerciseSessionDoc, "fields" | "sets" | "setSplits">[]
 ): SessionTotalVolume {
   const totals = new Map<string | null, number>();
   let exercisesCounted = 0;
@@ -101,7 +119,8 @@ export function computeSessionTotalVolume(
     if (!numeric) continue;
     exercisesWeighted += 1;
 
-    const { value } = computeSessionVolume(exercise.sets, numeric);
+    const splits = zipSetSplits(exercise.sets.length, exercise.setSplits).rows;
+    const { value } = computeSessionVolume(exercise.sets, numeric, splits);
     if (value === null) {
       unparseable = true;
       continue;
@@ -139,7 +158,9 @@ export function buildStatsSessionEntry(
     // the reader (`zipSetEffort`) is the one place a mismatch is judged. Absent
     // on a pre-034 doc stays absent; Firestore rejects undefined, so omit it.
     ...(doc.setEffort !== undefined && { setEffort: doc.setEffort }),
-    volume: computeSessionVolume(doc.sets, numeric).value,
+    // Same, for the split rows (TICKET-033); `zipSetSplits` judges them on read.
+    ...(doc.setSplits !== undefined && { setSplits: doc.setSplits }),
+    volume: computeSessionVolume(doc.sets, numeric, zipSetSplits(doc.sets.length, doc.setSplits).rows).value,
   };
 }
 
@@ -154,6 +175,12 @@ export function buildStatsSessionEntry(
  * Excluded: non-integer reps (a set of 8.5 is a typo) and zero reps. A weight of
  * 0 is kept — that is how a bodyweight movement is logged. Ties keep the
  * existing record: it stands until it is beaten, not until it is matched.
+ *
+ * Only `doc.sets` is read, which holds each set's FIRST segment: a split row
+ * (`setSplits`) never becomes a record (TICKET-033). Rejected: any segment
+ * counting, which would make a tired 3-rep split row the "best 3-rep set" for
+ * someone who never did one. Cost: in a split that goes up, the heavier later
+ * row earns no record.
  *
  * Records are kept per (reps, unit), never per reps alone. A set of 8 at 160 lb
  * is not a heavier 8-rep set than 67.5 kg, it is a different record, and letting
@@ -315,6 +342,9 @@ export function buildSessionDocs(
       // Built from the same array as `sets`, so the two are aligned by
       // construction (TICKET-034).
       setEffort: storedEffort(exercise.sets),
+      // Same again for the split rows (TICKET-033): `sets[i]` stays the first
+      // segment, the rest go here, positional.
+      setSplits: storedSplits(exercise.sets),
     }));
 
   return {

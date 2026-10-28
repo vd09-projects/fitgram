@@ -42,6 +42,17 @@ export const EFFORTS: readonly Effort[] = [Effort.Easy, Effort.Hard];
 /** One logged set's values, keyed by `ExerciseField.name`. */
 export type StoredSetFields = Record<string, string | number>;
 
+/**
+ * One set's split rows as stored (TICKET-033): the rows after the first
+ * segment, which stays in `sets[i]`.
+ *
+ * A map wrapping the array, not the array itself: Firestore rejects an array
+ * directly inside an array, so `StoredSetFields[][]` would fail every upload,
+ * on every retry, and only at upload. Rejected for the same reason: storing
+ * every segment of every set in a nested array.
+ */
+export type StoredSplit = { rows: StoredSetFields[] };
+
 /** Why a session has no totals. See `computeSessionTotalVolume`. */
 export type SessionVolumeUnavailableReason = "unparseable" | "no_weighted_exercises";
 
@@ -140,6 +151,21 @@ export type ExerciseSessionDoc = {
    * `undefined`. Optional only for dev docs saved before 034.
    */
   setEffort?: (Effort | null)[];
+  /**
+   * Per-set split rows, positional like `setEffort`: index i holds the rows
+   * after `sets[i]`'s first segment, or null when set i was not split
+   * (TICKET-033).
+   *
+   * Parallel, as `setEffort` is, so `sets[i]` keeps meaning "the set as
+   * planned" and the record, delta and ghost code that reads `sets` never sees
+   * a split row. Built in `buildSessionDocs` from the same live sets, so aligned
+   * by construction; a reader finding a length mismatch reports volume as
+   * unavailable rather than pair rows with the wrong sets (`zipSetSplits`).
+   *
+   * Always written, as nulls when nothing was split: Firestore here rejects
+   * `undefined`. Optional only for docs saved before 033.
+   */
+  setSplits?: (StoredSplit | null)[];
 };
 
 /** A session as embedded in the rollup. Same data, bounded count. */
@@ -152,6 +178,8 @@ export type StatsSessionEntry = {
   sets: StoredSetFields[];
   /** Copied from `ExerciseSessionDoc.setEffort`; same rules. */
   setEffort?: (Effort | null)[];
+  /** Copied from `ExerciseSessionDoc.setSplits`; same rules. */
+  setSplits?: (StoredSplit | null)[];
   /** Precomputed at write time. null when the session's volume is unavailable. */
   volume: number | null;
 };

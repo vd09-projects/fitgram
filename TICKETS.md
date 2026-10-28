@@ -35,13 +35,14 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 030 | Drop unit suffixes from catalogue field names | Small | **Silent data loss:** renaming a field nulls every past value for it, and the session stays `comparable` so nothing flags it |
 | 031 | Contrast guards for the rest of the role palette | Small | Extends the `colors.test.ts` pattern |
 | 032 | Edit or delete an already-uploaded set | Med-Large | Needs a rollup rebuild |
-| 033 | Split sets | Med-Large | Data-model change. Three sub-tickets: 033-1 log (lands the stored shape), then 033-2 read back and 033-3 edit |
+| 033 | Split sets | Med-Large | Data-model change. Three sub-tickets: 033-1 log (in review, PR #27), then 055, then 033-2 read back and 033-3 edit |
 | 035 | Measures beyond weight x reps | Med-Large | "Which way is better" is a product decision |
 | 036 | Put a unit on volume trend points | Small-Med | Today the trend over-suppresses; held by an invariant test, not a fix |
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
 | 053 | Guided tour: end-to-end pass after the catalog work | Medium | After 043, 050, 051, 052. The tour is not working and is no longer fixed per ticket (user, 2026-10-27) |
+| 055 | Set segments: one shape for a set and its splits | Medium | Before 033-2 / 033-3. Live model decided (`segments`, ≥ 1); stored shape decided at the start (keep parallel, recommended, or unify) |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap. Storage: per-plan copies today, library undecided |
 | 047 | Switch an exercise's version mid-workout | Medium | Deferred 2026-10-24. For this workout only; the plan keeps its version |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
@@ -5063,16 +5064,23 @@ the chosen boards copied to the Workout Flow canvas as S1–S8):
   **split** button next to weight and reps. Once split, each segment is one row
   (weight × reps, no labels); the last row's slot shows × while its reps are empty
   (cancel it) and **split** once they are filled (add another). Earlier split rows
-  carry ×; the first row has none (removing it is removing the set). Rejected: a
+  carry ×; ~~the first row has none (removing it is removing the set)~~ the first
+  row carries × too while there are two rows or more, and removing it makes the
+  next row the set (user, 2026-10-29, after using the 033-1 build: before Log,
+  which row is first is the user's choice). Rejected: a
   split button beside Log (wrong-half taps, narrower Log), a button in the rest
   panel (two taps per split, and nobody touches the phone mid-split).
 - **One Log for the whole set.** Segments are entered on the card and saved
   together; the rest timer starts once, after Log. An empty last row is dropped on
   Log.
-- **Pre-filled weight.** A new row's weight = previous weight minus the last step
+- ~~**Pre-filled weight.** A new row's weight = previous weight minus the last step
   between rows; for the first split, one stepper step down (−2.5 kg, −1 plate). A
   real value, editable, never a placeholder: placeholders mean "type this"
-  (TICKET-018).
+  (TICKET-018).~~ **Superseded (user, 2026-10-29, after using the 033-1 build):
+  a new row starts empty, every field.** The app does not guess what the next
+  row was; the user types it. A guessed weight is a real value one stray Log
+  from being stored. Filling a row from somewhere is an explicit control (like
+  repeat), not this ticket. Boards S2–S3 updated to match (canvas v54).
 - **Records, deltas, targets.** Volume counts every segment. `bestByReps`, the
   Today-column comparison and next session's placeholders use the **first** segment
   only. Rejected letting any segment be a best: a tired 3-rep split row would become
@@ -5089,9 +5097,10 @@ the chosen boards copied to the Workout Flow canvas as S1–S8):
 - **Every exercise type, not weight only** (user, 2026-10-29). A split row holds
   the exercise's own fields, which are already generic (`Record<string, …>` with
   roles weight/reps/time/distance/other), so a treadmill row costs nothing extra
-  to store or draw. Pre-fill for a new row by field role: weight steps down one
+  to store or draw. ~~Pre-fill for a new row by field role: weight steps down one
   step; reps, time and distance start empty (they are what that row did); any
-  other field copies the previous row. The first-segment rule for records, deltas
+  other field copies the previous row.~~ A new row starts empty (see Pre-filled
+  weight, superseded). The first-segment rule for records, deltas
   and placeholders applies to every type for now. Known cost: a treadmill split
   shows "last time 10 min" when 30 were done; summing time and distance for cardio
   is a follow-up if that bothers in use.
@@ -5114,20 +5123,23 @@ learn about the extra rows. Checked alongside it:
 - `firestore.rules` does not validate set shape: no rules change.
 - The whole `activeWorkout` is persisted to AsyncStorage, so a live
   `ExerciseSet.splits` is saved with it. Untested until a device run kills the app
-  mid-split. Bump `LOCAL_DATA_VERSION` when `ExerciseSet` changes shape.
+  mid-split. ~~Bump `LOCAL_DATA_VERSION` when `ExerciseSet` changes shape.~~
+  Corrected in the 033-1 build: rows before Log are card state, not stored, and
+  no bump (an additive optional field; a bump discards unsent workouts). See
+  033-1's Deviations.
 
 **Sub-tickets.** 033-1 lands the stored shape; 033-2 and 033-3 read it and can go
 in either order after it. Each is its own branch and PR, testable on its own.
 
 #### 033-1 · Log a split set (S1–S4)
 
-**Status: OPEN**
+**Status: IN REVIEW** — PR from branch TICKET-033-1; device test not yet run
 
 - Live model: `ExerciseSet.splits?: Record<string, string | number>[]`; store
   actions to add, update and remove a split row; `LOCAL_DATA_VERSION` bump
-- Logging card: third column (split button; × / split slot on rows), pre-filled
-  row values by field role (see Decisions), one Log for the set, empty last row
-  dropped, rest timer starts once
+- Logging card: third column (split button; × / split slot on rows), ~~pre-filled
+  row values by field role~~ new rows start empty (see Decisions), one Log for
+  the set, empty last row dropped, rest timer starts once
 - Save: `buildSessionDocs` writes `setSplits` aligned with `sets` and `setEffort`;
   the rollup's `StatsSessionEntry` copies it
 - Volume counts every row: `computeSessionVolume` and its callers take the splits
@@ -5136,18 +5148,151 @@ in either order after it. Each is its own branch and PR, testable on its own.
 Tests (pure functions only): volume with and without splits, including a split
 row missing weight or reps (null, not a partial sum); `buildSessionDocs` keeps
 `sets`, `setEffort` and `setSplits` the same length; a split row never reaches
-`applyBest`; pre-fill by role on a weight × reps and a distance × time exercise.
+`applyBest`; ~~pre-fill by role on a weight × reps and a distance × time exercise~~
+(dropped with the pre-fill; the card test asserts a new row is empty).
 
-Device test: log 20 × 5 → 17.5 × 3 → 15 × 3; Today volume rises by 97.5. Kill
-the app mid-split; the rows survive. Log a treadmill split (10 min / 1.2 km →
-10 min / 1.5 km); no volume shown. Finish; the Firestore session doc has
-`setSplits`.
+**Device test plan** (user runs; CLAUDE.md 1.3). Start a workout whose plan has
+Dumbbell Bench Press (kg × reps), a bodyweight exercise (reps only), a treadmill
+or run (km × min) and, if there is one, a plates machine. Expected results come
+from the build as it is now; anything else is a finding.
+
+*A. Normal set, unchanged by the refactor* (`SetRows` replaced `SetField`)
+1. Bench, set 1: labels WEIGHT · KG and REPS on one line over two large inputs,
+   −2.5 / +2.5 and −1 / +1 under them, a **split** button to the right at the
+   inputs' height. Last time's values show as grey placeholders.
+2. Tap +2.5 on an empty weight → steps from the placeholder. Tap repeat → both
+   fields filled. Log set 1 → rest starts; Skip → card reads SET 2, inputs empty.
+3. Leave reps empty and tap Log → "Enter Reps to log set 2"; nothing logged.
+4. Treadmill: no steppers, inputs still line up; the split button is there.
+
+*B. Splitting a set* (boards S1–S3)
+5. Bench, set 3: type 20 and 5, tap **split** → a second row appears, **empty**
+   (no weight filled in). Inputs get smaller, steppers and repeat disappear,
+   header still reads SET 3 (nothing typed in the new row yet). Row 1 has ×,
+   row 2 has ×.
+6. Type 17.5 in row 2 → header reads **SET 3 · 1 split**. Type 3 → row 2's ×
+   turns into **split**. Tap it → row 3, empty, with ×; row 2 now has ×.
+7. Type 15 and 3 in row 3. Log set 3 → **one** rest starts (not three). Skip →
+   SET 4 is a normal one-row card with steppers.
+8. Today: 3 sets · **537.5 kg** if sets 1–2 were 18 × 10 and 20 × 8 (otherwise:
+   the previous total + 197.5). Row 3 reads `20 kg × 5` with a split chip
+   showing 2; its delta compares 20 × 5 with last time's set 3. Tap the row → it
+   lists 17.5 kg × 3 and 15 kg × 3 above Easy / Hard / Edit.
+
+*C. Rows that get dropped or refused*
+9. Split, then tap × on the empty new row → back to a normal set, typed values
+   kept.
+10. Split, type 3 reps in row 2 and leave weight empty, Log → "Split 1: Enter
+    Weight to log set N"; nothing logged, rows kept.
+11. Split, fill row 2, tap split again, leave row 3 empty, Log → logs with **1**
+    split (Today chip shows 1); the empty row is gone.
+12. Split, type only 15 in row 3 (no reps), Log → "Split 2: Enter Reps to log
+    set N", not silently dropped.
+13. Split, fill rows 1 and 2, tap × on **row 1** → row 2 becomes the set (one
+    row, its values, steppers back). Log → Today shows that set, no chip.
+
+*D. Other exercise types*
+14. Treadmill: 1.2 km / 10 min, split, 1.5 km / 10 min, Log → Today shows the
+    first row with a chip of 1 and **no volume** for the exercise.
+15. Bodyweight (reps only): split works the same, one column per row.
+16. Plates machine (if any): split rows log in plates; volume reads in plates.
+
+*E. Edit, remove, undo* (TICKET-040 / 019 still work around a split set)
+17. Today → open the split set → Edit: one row, **no split button**, Save
+    changes the first segment only; the chip and rows stay.
+18. While a set is half-split on the card, open Edit on another set, Cancel →
+    the split rows come back as they were.
+19. Remove the split set from Today, Undo → it returns with its chip and rows.
+
+*F. Storage and upload*
+20. After logging the split set, kill the app and reopen → the workout resumes
+    with the split set and its rows in Today. (A split still being typed is lost
+    on a kill, as typed values are: by design.)
+21. Finish online → "Workout saved". In the Firestore console,
+    `users/{uid}/exercise_sessions/{session}__{bench id}` has `setSplits` the
+    same length as `sets`, `null` for unsplit sets and `{ rows: [...] }` for the
+    split one; `sets[2]` is `20 × 5`. The session doc's `volume` matches Today.
+    `exercise_stats/{bench id}` → `recentSessions[0].setSplits` present, and
+    `bestByReps` holds no 17.5 × 3 or 15 × 3 record.
+22. Offline: log a split set, Finish → saved on the phone; reconnect → it
+    uploads with no error (Pending Uploads goes to 0).
+
+*Expected, not bugs (033-2 / 033-3):* next session's card, the Last time pill and
+the history sheet show only the first segment; editing a split row is not
+possible yet.
+
+**Built 2026-10-29 (branch TICKET-033-1).**
+
+Deviations from the sub-ticket as written (user, 2026-10-29):
+- **No store actions for split rows.** Rows typed before Log live in the card's
+  state, like the first row's values (`ExerciseLogger`'s `inputValues` was never
+  stored). They reach the store once, on Log, through `addSetToExercise`. So a
+  kill mid-split loses the rows, as it loses typed values today; a logged split
+  survives. Rejected: storing the card's draft, which changes how every card
+  persists for one feature. 033-3 adds a way to rewrite a logged set's rows.
+- **`LOCAL_DATA_VERSION` not bumped.** `splits` is optional and additive, so a
+  workout stored by an older build reads as "nothing split"; a bump wipes the
+  active workout and every unsent upload on the phone.
+- **Pulled forward from 033-2: `HistorySet.splits`.** The history reader now
+  pairs the stored rows with their sets (`zipSetSplits`), because the volume
+  callers (`todaySummary`'s last-session side, the history sheet's per-session
+  volume) need them. 033-2 still owns showing them.
+- **Split rows in the Today list keep the unit** ("17.5 kg × 3"; board S4 drew
+  "17.5 × 3"): one formatter for every exercise type, and a distance × time row
+  needs its units.
+
+Decisions made in the build (comments at each site):
+- **A new row starts empty, every field** (user, 2026-10-29). Replaced the
+  first build's weight-one-step-down and copied `other` fields.
+- **Last row: × until every required field is filled, then split**
+  (`splitSlot`), rather than reps alone, so distance × time behaves the same.
+- **One `rows` array is the card's whole draft** (user, 2026-10-29): `rows[0]`
+  is the set, a normal set is one row. Every row but the last carries ×, the
+  first included; with one row left there is no ×. Replaced `inputValues` plus a
+  separate split-row list, which made the first row a special case.
+- **One component draws the card's fields: `SetRows`** (user, 2026-10-29), for
+  a normal set (one row), a split set and an edit. Replaced `SetField` plus a
+  separate `SplitRows` grid, which built inputs, labels and the third column
+  twice. The row count changes only input size (62 → 50) and whether steppers
+  show (one row only, as board S2). Visible changes from before: labels sit on
+  one header line ("WEIGHT · KG", also once split; board S2 drew "KG"), and an
+  exercise with three or more fields keeps them on one line instead of wrapping
+  two per line (no catalog exercise has more than two).
+- **"Empty last row"** = every field blank (`keptSplitRows`). A last row with
+  anything typed is kept and checked, so a weight without reps is refused, not
+  silently dropped. An empty earlier row is refused too: × is how to take it out.
+  The card's "· N splits" counts the same rows, so it matches what Log stores.
+- **Volume per set, not per row**: a split set counts only when every row
+  parses; `setsCounted` / `setsTotal` stay in sets.
+- **No split while editing a logged set** (that is 033-3). An edit keeps the
+  set's rows untouched.
+- Split mode hides the steppers and repeat, as boards S2–S3 do.
+
+Boards S2–S3 updated to match the build (canvas v54, PR #27 review): the new
+row is empty, the first row has ×, labels read WEIGHT · KG.
+
+Verified: typecheck clean; full suite passes. 15 new tests, each seen failing
+against a deliberate break of the line it covers: 9 pure in
+`src/utils/splits.test.ts` (3 of them on reading stored rows back, including
+a write → rollup → history round trip); 5 on the card in `ExerciseLogger.test.tsx`
+(new row empty and count, one Log + one rest + empty row dropped, half-filled row
+refused, removing the first row promotes the next, cancel back to a normal set); 1 on the Today list in
+`TodaySets.test.tsx` (537.5 kg, first-segment delta, rows on open). Measured through `todaySummary` with the device-test sets:
+340 → 537.5 kg; treadmill split volume null.
+Unverified (needs a device run): the card and Today list layout at phone width,
+the AsyncStorage round trip of a logged split, and the Firestore upload and
+rollup transaction carrying `setSplits`.
 
 #### 033-2 · Read a split set back (S5–S7)
 
-**Status: OPEN** — after 033-1
+**Status: OPEN** — after 033-1 and TICKET-055 (one segments shape)
 
-- History reader exposes each set's split rows
+- History reader exposes each set's split rows (done in 033-1: `HistorySet.splits`)
+- Say why a session's volume is unavailable when its stored rows could not be
+  paired with its sets: `zipSetSplits` computes `unavailable` but nothing reads
+  it yet, so today that reads like any unparseable session (PR #27 review;
+  rule 2.4). Expose it beside `effortUnavailable` and show it where the sheet
+  shows split rows
 - History sheet lists them under their set (S7)
 - Next session: Last time pill shows `20 × 5 ⑂2` plus the "Last time split to …"
   line (S5)
@@ -5161,7 +5306,7 @@ splits; the best still reads 20 kg × 5, never a split row.
 
 #### 033-3 · Edit a split set (S8)
 
-**Status: OPEN** — after 033-1
+**Status: OPEN** — after 033-1 and TICKET-055 (one segments shape)
 
 - TICKET-040's edit card shows the rows: change, add or remove them; Save rewrites
   the set's `splits`
@@ -5183,6 +5328,89 @@ stays. Remove every split row; the set reads as a normal set.
 
 **Dependencies:** Phase 3 complete (TICKET-019, TICKET-020, TICKET-021), TICKET-040
 (edit card, for 033-3). Within the ticket: 033-1 before 033-2 and 033-3.
+
+---
+
+### TICKET-055: Set Segments — One Shape for a Set and Its Splits
+
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — raised 2026-10-29
+after TICKET-033-1 (PR #27); goes **before 033-2 and 033-3**, which read the shape
+this changes.
+
+**Description:**
+033-1 stores a set as two things: `ExerciseSet.fields` (the first segment) and
+`ExerciseSet.splits` (the rows after it, absent or `[]` when not split). The card
+already treats them as one list (`rows[0]` is the set; a normal set is one row),
+so every write converts list → `fields` + `splits` and every reader of a split
+set has to stitch them back. Make a set **one list of segments**, always at least
+one, the first being the set as planned. The ticket's own decision already named
+the data `segments` (TICKET-033 Decisions, "Data name: `segments`"); 033-1 shipped
+`splits` from the build prompt without flagging the conflict.
+
+**Load-bearing facts (checked 2026-10-29):**
+- Six places read the live `ExerciseSet`'s values: `ExerciseLogger` (log, edit),
+  `TodaySets`, `RestPanel`, `ExerciseHistorySheet` (today's column),
+  `buildSessionDocs` and `storedSplits`. The three old log tables
+  (`ExerciseSetLogTable`, `ExerciseLogTableFlatList`, `WorkoutLogsScreen`) read
+  the older workout-log type, not `ExerciseSet`. Removing `fields` from the type
+  makes tsc list every live site, so a missed reader fails loudly.
+- The active workout and the upload queue are restored from AsyncStorage in
+  `loadWorkoutFromStorage` (`JSON.parse` as `ActiveWorkout`). A phone holding a
+  workout in the old shape must still read and upload it: convert at that one
+  read. **Do not bump `LOCAL_DATA_VERSION`**: a bump discards unsent workouts.
+- Firestore rejects an array directly inside an array, so a stored set cannot be
+  `StoredSetFields[]`-per-set; any unified stored shape needs a wrapper map.
+
+**Part 1 — live model (decided):**
+- `ExerciseSet.segments: Record<string, string | number>[]`, length ≥ 1;
+  `segments[0]` is the set. Remove `fields` and `splits`.
+- `addSetToExercise`, `updateSet`, `removeSet` / `restoreSet` work on segments;
+  `updateSet` replaces the segments it is given (033-3 builds on this).
+- `buildLoggedSet` returns `segments`; the card logs `rows` as they are.
+- Read-time conversion: `{ fields, splits? }` → `segments: [fields, ...splits]`,
+  in `loadWorkoutFromStorage` for both the active workout and every queued upload.
+  One pure function, tested, marked with the date it can be deleted.
+
+**Part 2 — stored shape (decide at the start of this ticket):**
+- **Option A, keep (recommended):** `sets[i]` = first segment, `setSplits[i]` =
+  `{ rows } | null`, built from `segments` in `buildSessionDocs` and read back in
+  `buildHistorySession`. Records, deltas, ghosts, the rebuild script and
+  `verifyHistoryReads` read `sets[i]` and *cannot* see a later segment: the
+  "first segment counts" rule is enforced by the shape. Conversion lives in those
+  two functions only. Add a comment on `setSplits` saying why stored and live
+  differ.
+- **Option B, unify:** `sets: { segments: StoredSetFields[] }[]`, dropping
+  `setSplits`. One shape end to end, no alignment check (`zipSetSplits` goes).
+  Cost: every stored reader (`applyBest`, `buildStatsSessionEntry`,
+  `buildHistorySession`, `historySheet`, `setDeltas` via `HistorySet`,
+  `rebuildExerciseStats`, `verifyHistoryReads`, `WorkoutHistoricalLogsFilter`,
+  `ExerciseHistoryDebugScreen`) must write `segments[0]` by hand, and a future
+  reader that loops over every segment silently lets a split row become a best.
+  Pre-launch, so test sessions in the old shape are wiped, not migrated.
+- Either way, `HistorySet` should expose one list too (`segments`, or first +
+  rest under one name) so 033-2 reads the same idea the card writes.
+
+**Acceptance Criteria:**
+- [ ] `ExerciseSet` has `segments` (≥ 1) and no `fields` / `splits`; tsc clean
+- [ ] A workout saved by the 033-1 build (split and unsplit sets, active and
+      queued) loads, shows the same Today list, and uploads the same docs
+- [ ] Part 2 decision recorded here, with what was rejected and why
+- [ ] Stored docs, volume and records unchanged for the same input: a split
+      set's `bestByReps` still comes from its first segment only
+- [ ] 033-2 and 033-3 sub-tickets updated to the new names
+
+**Tests (pure where possible):** the read-time conversion (unsplit, split, already
+new); `buildSessionDocs` output identical before and after for the same sets
+(snapshot the 033-1 output first, then compare); `buildLoggedSet` returns
+segments; one store round trip (log a split set, remove, restore, edit first
+segment) keeps every segment. Keep only tests seen failing first.
+
+**Device test:** with the 033-1 build installed, start a workout, log a normal
+set and a split set, leave it open; install this build; the workout resumes with
+both sets and the split's chip. Log one more split set, Finish; the Firestore docs
+match the 033-1 shape (option A) or the new one (option B).
+
+**Dependencies:** TICKET-033-1 merged. Blocks 033-2 and 033-3.
 
 ---
 
@@ -5303,7 +5531,10 @@ people actually do, and 033 changes a stored shape: pre-launch is the cheap mome
 for that.
 
 ```
-1. TICKET-033  (Split sets)                — A weight change within one set
+1. TICKET-033  (Split sets)                — A weight change within one set.
+                                             033-1 in review (PR #27); then
+   TICKET-055  (Set segments)              — One shape for a set and its splits,
+                                             before 033-2 / 033-3 read it
 2. TICKET-032  (Edit/delete uploaded set)  — Needs the rollup rebuild; after 033 so it
                                              is written once against the final shape
 3. TICKET-029  (Pending uploads view)      — Replaces the TEMPORARY debug screen.
