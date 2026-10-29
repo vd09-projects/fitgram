@@ -16,6 +16,7 @@ import {
   resolveNumericFields,
   withUnit,
 } from "./exerciseFields";
+import { comparisonSegment } from "./storedSets";
 
 /**
  * Stepper increment for a field, by declared role — never by name.
@@ -47,7 +48,7 @@ export function formatStepValue(value: number): string {
 /**
  * The value a stepper tap writes, or `null` when the tap cannot step.
  *
- * Parse, step, write back as a string, since `ExerciseSet.fields` holds strings.
+ * Parse, step, write back as a string, since `ExerciseSet.segments` holds strings.
  *
  * An empty field steps from its ghost when there is one: with last time at 60,
  * `+` gives 62.5 and `-` gives 57.5. The ghost is the reference the user is
@@ -130,7 +131,8 @@ export function resolveGhostTarget(
     // `HistorySet.weight` is null on an incomparable session by design, so the
     // numbers are parsed here from the session's own fields, for the notice only.
     const own = resolveNumericFields(history.lastSession.fields);
-    const { weight, reps } = parseSet(history.lastSession.sets[setNumber - 1]?.fields, own);
+    const lastSet = history.lastSession.sets[setNumber - 1];
+    const { weight, reps } = parseSet(lastSet && comparisonSegment(lastSet), own);
     return {
       kind: "unitChanged",
       lastUnit: own?.weight.unit ?? null,
@@ -151,7 +153,7 @@ export function resolveGhostTarget(
  * Only the resolved weight and reps fields get a ghost, read from the already
  * parsed `HistorySet.weight` / `.reps`. Every other field — time, distance,
  * other, or a second field sharing the weight role — gets `null`, even though
- * the raw value is in `HistorySet.fields`. Ghosting raw values would put
+ * the raw value is in `HistorySet.segments`. Ghosting raw values would put
  * unparsed, unit-unchecked text in a field styled as a target number.
  */
 export function ghostValues(
@@ -287,12 +289,13 @@ export function withUnlistedFields(
 }
 
 /**
- * A logged set's values as the card's inputs hold them, to prefill an edit.
- * Stored values may be numbers (older sets, test fixtures); inputs are strings.
+ * One logged segment's values as the card's inputs hold them, to prefill an
+ * edit. Stored values may be numbers (older sets, test fixtures); inputs are
+ * strings.
  */
-export function editInputValues(set: { fields: Record<string, string | number> }): Record<string, string> {
+export function editInputValues(segment: Record<string, string | number>): Record<string, string> {
   const values: Record<string, string> = {};
-  for (const [name, value] of Object.entries(set.fields)) values[name] = String(value);
+  for (const [name, value] of Object.entries(segment)) values[name] = String(value);
   return values;
 }
 

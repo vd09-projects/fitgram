@@ -1,7 +1,8 @@
 // src/utils/effort.ts
 //
-// Per-set effort marks (TICKET-034): pairing the stored marks with their sets,
-// last session's mark for the set card, and the counts the history sheet shows.
+// Per-set effort marks (TICKET-034): last session's mark for the set card, and
+// the counts the history sheet shows. A mark is stored on its set
+// (`StoredSet.effort`, TICKET-055); `decodeStoredSet` reads it back.
 // Pure; tests in effort.test.ts.
 //
 // Records and shows only. Nothing here, and nothing that calls it, changes a
@@ -10,41 +11,12 @@
 import { ExerciseHistory } from "../types/exerciseHistory";
 import { Effort, EFFORTS } from "../types/workoutSession";
 
-export type ZippedEffort = {
-  /** One entry per set, in set order. null: not marked, or unavailable. */
-  marks: (Effort | null)[];
-  /** True when the stored marks could not be paired with the sets. */
-  unavailable: boolean;
-};
-
 /** Button and label text for each mark. */
 export const EFFORT_LABEL: Record<Effort, string> = { [Effort.Easy]: "Easy", [Effort.Hard]: "Hard" };
 /** The letter `EffortBadge` draws. */
 export const EFFORT_LETTER: Record<Effort, string> = { [Effort.Easy]: "E", [Effort.Hard]: "H" };
 
-const isEffort = (value: unknown): value is Effort => (EFFORTS as readonly unknown[]).includes(value);
-
-/**
- * Pair a session's stored `setEffort` with its `setCount` sets.
- *
- * - **Missing array** (a doc saved before TICKET-034): every set unmarked, not
- *   unavailable. Nothing could have been marked then, so "not marked" is true.
- * - **Not an array** (null, or a hand-edited doc): every set null and
- *   `unavailable`. Something was stored, and it is not marks.
- * - **Length mismatch**: every set null and `unavailable`. The array is built
- *   from the same live sets as `sets`, so this only happens if something wrote
- *   one without the other; pairing by position would then put a mark on the
- *   wrong set, which reads as data. Rejected: pairing the overlap — the
- *   misalignment could be anywhere, so no position is trustworthy.
- * - **An unknown value** (a later app version's third mark, or a typo in a
- *   hand-edited doc): that set reads null. The others stand.
- */
-export function zipSetEffort(setCount: number, setEffort: unknown): ZippedEffort {
-  const none = () => Array.from({ length: setCount }, () => null);
-  if (setEffort === undefined) return { marks: none(), unavailable: false };
-  if (!Array.isArray(setEffort) || setEffort.length !== setCount) return { marks: none(), unavailable: true };
-  return { marks: setEffort.map((value) => (isEffort(value) ? value : null)), unavailable: false };
-}
+export const isEffort = (value: unknown): value is Effort => (EFFORTS as readonly unknown[]).includes(value);
 
 /**
  * The mark after tapping `picked` on a set marked `current`. Tapping the mark
@@ -53,10 +25,6 @@ export function zipSetEffort(setCount: number, setEffort: unknown): ZippedEffort
  */
 export const toggleEffort = (current: Effort | null, picked: Effort): Effort | null =>
   current === picked ? null : picked;
-
-/** What each live set stores. Absent (a set logged before 034) is null, never undefined: Firestore rejects undefined. */
-export const storedEffort = (sets: readonly { effort?: Effort | null }[]): (Effort | null)[] =>
-  sets.map((set) => set.effort ?? null);
 
 /** "1 easy · 1 hard", "2 hard", or null when nothing was marked. */
 export function effortCountText(marks: readonly (Effort | null)[]): string | null {

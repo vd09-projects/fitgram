@@ -1,3 +1,4 @@
+import { StoredSetFields } from "../types/workoutSession";
 // TICKET-044: plates as a weight unit. The ticket's load-bearing fact is that
 // every comparison already checks unit equality, so a plates session next to a
 // kg session reads as a unit change with no new logic. These tests check that
@@ -18,6 +19,8 @@ const KG: ExerciseField[] = [{ name: "Weight", role: "weight", unit: "kg" }, REP
 const PLATES: ExerciseField[] = [{ name: "Weight", role: "weight", unit: "plates" }, REPS];
 
 const set = (weight: string, reps: string) => ({ Weight: weight, Reps: reps });
+/** Today\'s live sets, one segment each (TICKET-055). */
+const live = (sets: StoredSetFields[]) => sets.map((values) => ({ segments: [values] }));
 const historyOf = (stats: ExerciseStatsDoc | null, fields: ExerciseField[]) =>
   deriveExerciseHistory({ exerciseId: "pec-deck", status: "ready", stats, fetchedAt: 0, error: null }, fields);
 
@@ -28,7 +31,7 @@ describe("plates against kg", () => {
 
     expect(resolveGhostTarget(history, 1).kind).toBe("unitChanged");
     expect(setDelta(history, 1, today[0], resolveNumericFields(PLATES))).toMatchObject({ reason: "unitChanged" });
-    expect(todaySummary(history, today, PLATES).comparison).toMatchObject({ reason: "unitChanged" });
+    expect(todaySummary(history, live(today), PLATES).comparison).toMatchObject({ reason: "unitChanged" });
     expect(lastTopSet(history)).toEqual({ kind: "none", reason: "unit_changed" });
   });
 

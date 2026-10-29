@@ -56,7 +56,7 @@ let startTime = 1_000;
 const seedWorkout = () => {
   const workout = buildWorkout([], {
     startTime: ++startTime,
-    exercises: [buildExercise("Bench Press", { sets: [{ id: 1, fields: { Weight: 60, Reps: 5 } }] })],
+    exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: 60, Reps: 5 }] }] })],
   });
   useWorkoutStore.setState({ activeWorkout: workout });
   return workout;
@@ -273,7 +273,7 @@ describe("upload queue", () => {
 
 // TICKET-019: removing a mistyped set before Finish, and undoing that.
 describe("removeSet and restoreSet", () => {
-  const sets = (weights: number[]) => weights.map((Weight, i) => ({ id: i + 1, fields: { Weight, Reps: 8 } }));
+  const sets = (weights: number[]) => weights.map((Weight, i) => ({ id: i + 1, segments: [{ Weight, Reps: 8 }] }));
   const seedSets = (weights: number[]) => {
     const workout = buildWorkout([], { exercises: [buildExercise("Bench Press", { sets: sets(weights) })] });
     useWorkoutStore.setState({ activeWorkout: workout });
@@ -285,9 +285,9 @@ describe("removeSet and restoreSet", () => {
   it("renumbers the rest, so the next set's id is its position", async () => {
     seedSets([60, 650, 62.5, 62.5]);
     await store().removeSet("bench-press", 2);
-    expect(benchSets().map((s) => [s.id, s.fields.Weight])).toEqual([[1, 60], [2, 62.5], [3, 62.5]]);
+    expect(benchSets().map((s) => [s.id, s.segments[0].Weight])).toEqual([[1, 60], [2, 62.5], [3, 62.5]]);
 
-    await store().addSetToExercise("bench-press", { id: 4, fields: { Weight: 60, Reps: 8 } });
+    await store().addSetToExercise("bench-press", { id: 4, segments: [{ Weight: 60, Reps: 8 }] });
     expect(benchSets().map((s) => s.id)).toEqual([1, 2, 3, 4]);
   });
 
@@ -328,11 +328,11 @@ describe("removeSet and restoreSet", () => {
     seedSets([60, 65, 70]);
     await store().setSetEffort("bench-press", 3, Effort.Hard);
     const removed = await store().removeSet("bench-press", 1);
-    expect(benchSets().map((s) => [s.fields.Weight, s.effort ?? null])).toEqual([[65, null], [70, Effort.Hard]]);
+    expect(benchSets().map((s) => [s.segments[0].Weight, s.effort ?? null])).toEqual([[65, null], [70, Effort.Hard]]);
 
     await store().restoreSet("bench-press", removed!);
-    const marks = (list: { fields: { Weight?: unknown }; effort?: unknown }[]) =>
-      list.map((s) => [s.fields.Weight, s.effort ?? null]);
+    const marks = (list: { segments: { Weight?: unknown }[]; effort?: unknown }[]) =>
+      list.map((s) => [s.segments[0].Weight, s.effort ?? null]);
     expect(marks(benchSets())).toEqual([[60, null], [65, null], [70, Effort.Hard]]);
     expect(marks(await storedSets())).toEqual([[60, null], [65, null], [70, Effort.Hard]]);
   });
@@ -352,9 +352,9 @@ describe("updateSet", () => {
       exercises: [
         buildExercise("Bench Press", {
           sets: [
-            { id: 1, fields: { Weight: "60", Reps: "8" } },
-            { id: 2, fields: { Weight: "56", Reps: "8", Band: "red" }, effort: Effort.Easy },
-            { id: 3, fields: { Weight: "65", Reps: "8" } },
+            { id: 1, segments: [{ Weight: "60", Reps: "8" }] },
+            { id: 2, segments: [{ Weight: "56", Reps: "8", Band: "red" }], effort: Effort.Easy },
+            { id: 3, segments: [{ Weight: "65", Reps: "8" }] },
           ],
         }),
         buildExercise("Squat"),
@@ -368,15 +368,15 @@ describe("updateSet", () => {
   // TICKET-040: before 040 this merged, so a cleared optional field kept its value.
   it("replaces the fields, keeps id, position and mark, and stores the edit", async () => {
     seed();
-    await store().updateSet("bench-press", 2, { Weight: "65", Reps: "8" });
+    await store().updateSet("bench-press", 2, [{ Weight: "65", Reps: "8" }]);
 
     expect(benchSets()).toEqual([
-      { id: 1, fields: { Weight: "60", Reps: "8" } },
-      { id: 2, fields: { Weight: "65", Reps: "8" }, effort: Effort.Easy },
-      { id: 3, fields: { Weight: "65", Reps: "8" } },
+      { id: 1, segments: [{ Weight: "60", Reps: "8" }] },
+      { id: 2, segments: [{ Weight: "65", Reps: "8" }], effort: Effort.Easy },
+      { id: 3, segments: [{ Weight: "65", Reps: "8" }] },
     ]);
     const stored = JSON.parse((await AsyncStorage.getItem("activeWorkout")) ?? "null");
-    expect(stored.exercises[0].sets[1]).toEqual({ id: 2, fields: { Weight: "65", Reps: "8" }, effort: Effort.Easy });
+    expect(stored.exercises[0].sets[1]).toEqual({ id: 2, segments: [{ Weight: "65", Reps: "8" }], effort: Effort.Easy });
     // Editing is not logging: the session stays on the exercise being viewed.
     expect(store().activeWorkout!.currentExerciseIndex).toBe(1);
   });
@@ -399,7 +399,7 @@ describe("startWorkout", () => {
     const logged = store().activeWorkout!.exercises[0];
     expect(logged).toMatchObject({ name: "", nameSnapshot: "Row" });
 
-    const withSet = { ...store().activeWorkout!, exercises: [{ ...logged, sets: [{ id: 1, fields: { Weight: 60, Reps: 8 } }] }] };
+    const withSet = { ...store().activeWorkout!, exercises: [{ ...logged, sets: [{ id: 1, segments: [{ Weight: 60, Reps: 8 }] }] }] };
     expect(buildSessionDocs(withSet, Date.now()).exerciseSessions[0].exerciseName).toBe("Row");
   });
 

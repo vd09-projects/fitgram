@@ -30,6 +30,7 @@ import { EffortBadge } from "./active_workout/EffortBadge";
 import { effortSpeech, lastTimeEffort } from "../utils/effort";
 import { formatSessionDate, setValuesText } from "../utils/setDeltas";
 import { buildLoggedSet, keptSplitRows, splitCountText, SplitRowValues } from "../utils/splits";
+import { plannedSegment, splitSegments } from "../utils/storedSets";
 import SetRows from "./active_workout/SetRows";
 
 const HIT = 44;
@@ -121,12 +122,12 @@ const PILL_HIT_SLOP = { top: (HIT - PILL_HEIGHT) / 2, bottom: (HIT - PILL_HEIGHT
  * - The rows are this component's state: an app kill loses them as it loses
  *   typed values (user, 2026-10-29). Rejected: storing the card's draft, which
  *   would change how every card persists for one feature.
- * - One Log for the whole set. The first row is the set (`fields`); the rest go
- *   to `splits`; a blank last row is dropped (`buildLoggedSet`). The rest
- *   starts once, after the store has the set.
+ * - One Log for the whole set. The rows are stored as they are, one segment
+ *   each (`ExerciseSet.segments`); a blank last row is dropped
+ *   (`buildLoggedSet`). The rest starts once, after the store has the set.
  * - No split while editing a logged set: changing a set's rows is TICKET-033-3.
- *   An edit keeps the set's rows as they were (`updateSet` replaces `fields`
- *   only), and the rows being typed for the next set wait.
+ *   An edit changes the first segment and passes the others back to
+ *   `updateSet` as they were; the rows being typed for the next set wait.
  */
 export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise }) {
   const { styles, t } = useThemeStyles(createStyles);
@@ -237,7 +238,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
   const onEdit = (setId: number) => {
     const set = exercise.sets.find((s) => s.id === setId);
     if (!set) return;
-    setEditing({ setId, values: editInputValues(set) });
+    setEditing({ setId, values: editInputValues(plannedSegment(set)) });
     setRefusal(null);
   };
 
@@ -257,7 +258,9 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
       return;
     }
     try {
-      await updateSet(exercise.id, editedSet.id, withUnlistedFields(exercise.fields, editedSet.fields, result.fields));
+      // The edit is the first segment; the split rows go back as they were.
+      const splits = splitSegments(editedSet);
+      await updateSet(exercise.id, editedSet.id, [withUnlistedFields(exercise.fields, plannedSegment(editedSet), result.fields), ...splits]);
     } catch {
       setRefusal(`Couldn't save set ${setNumber}`);
       return;
@@ -318,7 +321,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
 
           {editedSet && (
             <TextBase style={styles.notice}>
-              Logged <NumericText style={styles.notice}>{setValuesText(exercise.fields, editedSet.fields)}</NumericText>
+              Logged <NumericText style={styles.notice}>{setValuesText(exercise.fields, plannedSegment(editedSet))}</NumericText>
               {" · mark and position stay"}
             </TextBase>
           )}

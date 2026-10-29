@@ -14,6 +14,7 @@ import { ExerciseHistory, HistorySet } from "../types/exerciseHistory";
 import { StoredSetFields } from "../types/workoutSession";
 import { ExerciseField } from "../types/workoutType";
 import { computeSessionVolume, SessionVolume } from "./exerciseStats";
+import { SegmentedSet } from "./storedSets";
 import { NumericFieldMap, parseSet, resolveNumericFields, withUnit } from "./exerciseFields";
 import { formatStepValue, GhostTarget, resolveGhostTarget } from "./setLogger";
 
@@ -228,17 +229,13 @@ export function todaySummary(
     ExerciseHistory,
     "status" | "hasHistory" | "numericComparisonAvailable" | "lastSession" | "numericFields"
   >,
-  todaySets: StoredSetFields[],
-  todayExerciseFields: ExerciseField[],
-  /**
-   * Each of today's sets' split rows, aligned with `todaySets` (TICKET-033).
-   * Omitted means no set was split; a live caller passes it.
-   */
-  todaySplits?: readonly (readonly StoredSetFields[])[]
+  /** Today's live sets, every segment: volume counts split rows (TICKET-033). */
+  todaySets: readonly SegmentedSet[],
+  todayExerciseFields: ExerciseField[]
 ): TodaySummary {
   const todayNumeric = resolveNumericFields(todayExerciseFields);
   const setCount = todaySets.length;
-  const volume = todayNumeric ? computeSessionVolume(todaySets, todayNumeric, todaySplits) : null;
+  const volume = todayNumeric ? computeSessionVolume(todaySets, todayNumeric) : null;
   const none = (reason: NoDeltaReasonForVolume): TodaySummary => ({
     setCount,
     volume,
@@ -270,9 +267,8 @@ export function todaySummary(
       : { kind: "session", performedAt: last.performedAt };
   const pastSets = base.kind === "firstN" ? last.sets.slice(0, base.n) : last.sets;
   const pastVolume = computeSessionVolume(
-    pastSets.map((set) => set.fields),
-    history.numericFields,
-    pastSets.map((set) => set.splits)
+    pastSets,
+    history.numericFields
   );
 
   if (pastVolume.value === null) {

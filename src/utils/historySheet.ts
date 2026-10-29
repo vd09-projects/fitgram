@@ -23,6 +23,7 @@ import { computeSessionVolume } from "./exerciseStats";
 import { effortCountText } from "./effort";
 import { Effort } from "../types/workoutSession";
 import { SetDelta, setDelta, setValuesText, volumeText } from "./setDeltas";
+import { comparisonSegment, plannedSegment } from "./storedSets";
 
 type SheetHistory = Pick<
   ExerciseHistory,
@@ -62,7 +63,7 @@ export function sheetStatusMessage(history: Pick<ExerciseHistory, "status" | "ha
  */
 export function sessionSets(session: ExerciseHistorySession): HistorySet[] {
   const own = session.comparable ? resolveNumericFields(session.fields) : null;
-  return session.sets.map((set) => ({ ...set, ...parseSet(set.fields, own) }));
+  return session.sets.map((set) => ({ ...set, ...parseSet(comparisonSegment(set), own) }));
 }
 
 export type SheetRow = {
@@ -94,8 +95,7 @@ export type SheetSession = {
   /** Why this session's rows carry no deltas, or some of them; null when all can. */
   notice: string | null;
   /**
-   * "1 easy · 1 hard" for the caption; "marks unavailable" when the stored
-   * marks could not be paired with the sets; null when nothing was marked.
+   * "1 easy · 1 hard" for the caption; null when nothing was marked.
    * Counts sit in the caption, not on the date chips: chips with marks read as
    * clutter on the canvas (board 8).
    */
@@ -137,7 +137,7 @@ export function sheetSession(
     const today = todaySets[index];
     rows.push({
       setNumber,
-      past: past ? setValuesText(session.fields, past.fields) : null,
+      past: past ? setValuesText(session.fields, plannedSegment(past)) : null,
       pastEffort: past?.effort ?? null,
       today: today ? setValuesText(todayFields, today) : null,
       isNext: setNumber === nextSet,
@@ -151,11 +151,7 @@ export function sheetSession(
   const volume =
     own && history.numericComparisonAvailable
       ? volumeText(
-          computeSessionVolume(
-            session.sets.map((set) => set.fields),
-            own,
-            session.sets.map((set) => set.splits)
-          ),
+          computeSessionVolume(session.sets, own),
           own.weight.unit
         )
       : null;
@@ -168,7 +164,7 @@ export function sheetSession(
     volume,
     rows,
     notice: sessionNotice(history, session, sets, own?.weight.unit ?? null, own !== null),
-    effort: session.effortUnavailable ? "marks unavailable" : effortCountText(sets.map((set) => set.effort)),
+    effort: effortCountText(sets.map((set) => set.effort)),
   };
 }
 

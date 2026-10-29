@@ -16,6 +16,7 @@ import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 import { useNow } from "../../hooks/useNow";
 import { EffortBadge } from "./EffortBadge";
+import { comparisonSegment } from "../../utils/storedSets";
 
 const ACTION_HEIGHT = 48;
 
@@ -40,7 +41,7 @@ type Props = {
  *   rest discipline. That withholds Log set, so Skip is the filled, prominent
  *   control, one tap, no confirm; add-time is the outlined one.
  * - Rendered by ExerciseLogger in the card's slot, so the card's own state
- *   (`inputValues`, the undo row, the set number) lives on in the parent and
+ *   (`rows`, the undo row, the set number) lives on in the parent and
  *   the Today list below is never remounted.
  * - A finished rest stays on screen reading "Rest done" until the user moves
  *   on. Dismissing it by itself would swap the layout under a user who is not
@@ -75,7 +76,8 @@ export default function RestPanel({ rest, exercise, history, onSkip, onAddTime, 
   const banner = personalBestText(
     personalBest(
       history,
-      exercise.sets.map((set) => set.fields),
+      // A split row is never a best (TICKET-033).
+      exercise.sets.map(comparisonSegment),
       exercise.sets.length,
       resolveNumericFields(exercise.fields)
     )

@@ -99,7 +99,7 @@ describe("ActiveWorkoutScreen", () => {
     const log = jest.spyOn(console, "log").mockImplementation(() => {});
     // One set logged: a workout with none is refused before it reaches the save.
     const workout = buildWorkout([], {
-      exercises: [buildExercise("Bench Press", { sets: [{ id: 1, fields: { Weight: 60, Reps: 5 } }] })],
+      exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: 60, Reps: 5 }] }] })],
     });
     renderScreen(ActiveWorkoutScreen, { workout });
 

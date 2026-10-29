@@ -14,7 +14,26 @@ export interface ExerciseSet {
    * fresh from the store, never from something captured before a removal.
    */
   id: number;
-  fields: Record<string, string | number>; // Dynamic fields (e.g., reps, weight, time)
+  /**
+   * The set's values, one entry per segment, never empty (TICKET-055). A normal
+   * set is one segment; a set split mid-way (TICKET-033) is more: 15 kg × 5,
+   * then 12.5 kg × 3 is `[15 × 5, 12.5 × 3]`. Each segment holds the
+   * exercise's own fields by name (reps, weight, time, …), as the card typed
+   * them.
+   *
+   * `segments[0]` is the set as planned: everything that compares a set with
+   * last time (ghosts, deltas, `bestByReps`) reads it and never a later
+   * segment. Volume counts every segment.
+   *
+   * One list because the card drafts one list (`rows[0]` is the set). Replaced:
+   * `fields` (the first segment) plus an optional `splits` (the rest), which
+   * every write split apart and every reader stitched back. Not converted on
+   * read: an older build's workout is cleared at load (`LOCAL_DATA_VERSION` 3).
+   *
+   * Written once, on Log, from the card's rows; replaced whole by `updateSet`.
+   * On the set object, so `removeSet` / `restoreSet` carry every segment.
+   */
+  segments: Record<string, string | number>[];
   /**
    * How the set felt, marked by the user (TICKET-034). Absent or null: not
    * marked. Lives on the set object so `removeSet` / `restoreSet` carry it with
@@ -22,27 +41,6 @@ export interface ExerciseSet {
    * every reader treats absent as null.
    */
   effort?: Effort | null;
-  /**
-   * The rows after the first when the set was split mid-way (TICKET-033): 15 kg
-   * × 5, then 12.5 kg × 3 is `fields` = 15 × 5 and `splits` = [12.5 × 3]. Each
-   * row holds the exercise's own fields, like `fields`. Absent or empty: not
-   * split.
-   *
-   * `fields` stays the FIRST segment, so everything that compares a set with
-   * last time (`setAt`, ghosts, deltas, `bestByReps`) reads the weight the set
-   * was planned at and never a split row. Only volume and the screens that list
-   * a set's values read this.
-   *
-   * Written once, on Log, from the card's rows. Rows being typed live in the
-   * card's state like the first row's values, so they are lost on an app kill
-   * just as typed values are (user, 2026-10-29). On the set object, so
-   * `removeSet` / `restoreSet` carry the rows with their set.
-   *
-   * Optional and additive, so `LOCAL_DATA_VERSION` is not bumped: a workout
-   * stored by an older build reads as "no set split", which is true, and a bump
-   * would discard every unsent workout on the phone (user, 2026-10-29).
-   */
-  splits?: Record<string, string | number>[];
 }
 
 // Type for logged exercises

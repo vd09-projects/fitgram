@@ -43,15 +43,32 @@ export const EFFORTS: readonly Effort[] = [Effort.Easy, Effort.Hard];
 export type StoredSetFields = Record<string, string | number>;
 
 /**
- * One set's split rows as stored (TICKET-033): the rows after the first
- * segment, which stays in `sets[i]`.
+ * One set as stored (TICKET-055): everything about the set in one record, the
+ * live `ExerciseSet` less its id.
  *
- * A map wrapping the array, not the array itself: Firestore rejects an array
- * directly inside an array, so `StoredSetFields[][]` would fail every upload,
- * on every retry, and only at upload. Rejected for the same reason: storing
- * every segment of every set in a nested array.
+ * - `segments`: the set's values, one per segment, never empty. `segments[0]`
+ *   is the set as planned; a set split mid-way (TICKET-033) has more. Which
+ *   segment a comparison reads (records, deltas, ghosts) is decided in one
+ *   place, `comparisonSegment`, not by this shape.
+ * - `effort`: the user's mark (TICKET-034), null when not marked. Always
+ *   written: Firestore here rejects `undefined`.
+ *
+ * Built only by `toStoredSets` and read only through `decodeStoredSet`, which
+ * says when a stored set is not this shape rather than misread it.
+ *
+ * A map per set holding an array of maps. Firestore rejects an array directly
+ * inside an array (`StoredSetFields[][]` would fail every upload, on every
+ * retry, and only at upload); an array inside a map inside an array is fine.
+ *
+ * Replaced (user, 2026-10-29): `sets[i]` as the first segment's values plus
+ * the parallel arrays `setEffort` (034) and `setSplits` (033-1). Each parallel
+ * array needed its own pairing function and length-mismatch rule, a reader
+ * that forgot one silently showed less (the older logs screen dropped both),
+ * and the first-segment rule, which the ticket calls provisional, was fixed in
+ * the storage format. Also rejected: `{ segments }` only, with `setEffort`
+ * left parallel. Pre-launch, so docs in the old shape are wiped, not migrated.
  */
-export type StoredSplit = { rows: StoredSetFields[] };
+export type StoredSet = { segments: StoredSetFields[]; effort: Effort | null };
 
 /** Why a session has no totals. See `computeSessionTotalVolume`. */
 export type SessionVolumeUnavailableReason = "unparseable" | "no_weighted_exercises";
@@ -136,36 +153,8 @@ export type ExerciseSessionDoc = {
   workoutName: string;
   performedAt: number;
   fields: ExerciseField[];
-  sets: StoredSetFields[];
-  /**
-   * Per-set effort marks, positional: index i is `sets[i]`'s (TICKET-034).
-   *
-   * A parallel array rather than a field inside each set, so TICKET-033's
-   * reshape of the stored set does not have to carry it, and the volume and
-   * record code that reads `sets` is untouched. Built in one place
-   * (`buildSessionDocs`) from the live sets, so it is aligned by construction;
-   * a reader that finds a length mismatch reads every mark as null and says so
-   * (`zipSetEffort`) rather than pair marks with the wrong sets.
-   *
-   * Always written, as nulls when nothing was marked: Firestore here rejects
-   * `undefined`. Optional only for dev docs saved before 034.
-   */
-  setEffort?: (Effort | null)[];
-  /**
-   * Per-set split rows, positional like `setEffort`: index i holds the rows
-   * after `sets[i]`'s first segment, or null when set i was not split
-   * (TICKET-033).
-   *
-   * Parallel, as `setEffort` is, so `sets[i]` keeps meaning "the set as
-   * planned" and the record, delta and ghost code that reads `sets` never sees
-   * a split row. Built in `buildSessionDocs` from the same live sets, so aligned
-   * by construction; a reader finding a length mismatch reports volume as
-   * unavailable rather than pair rows with the wrong sets (`zipSetSplits`).
-   *
-   * Always written, as nulls when nothing was split: Firestore here rejects
-   * `undefined`. Optional only for docs saved before 033.
-   */
-  setSplits?: (StoredSplit | null)[];
+  /** One record per set, in set order: position is the set number. See `StoredSet`. */
+  sets: StoredSet[];
 };
 
 /** A session as embedded in the rollup. Same data, bounded count. */
@@ -175,11 +164,8 @@ export type StatsSessionEntry = {
   workoutName: string;
   performedAt: number;
   fields: ExerciseField[];
-  sets: StoredSetFields[];
-  /** Copied from `ExerciseSessionDoc.setEffort`; same rules. */
-  setEffort?: (Effort | null)[];
-  /** Copied from `ExerciseSessionDoc.setSplits`; same rules. */
-  setSplits?: (StoredSplit | null)[];
+  /** Copied from `ExerciseSessionDoc.sets` as stored. */
+  sets: StoredSet[];
   /** Precomputed at write time. null when the session's volume is unavailable. */
   volume: number | null;
 };

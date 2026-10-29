@@ -10,6 +10,7 @@ import { ExerciseField, FieldRole, WorkoutPlan } from "../types/workoutType";
 import { PendingUpload } from "../types/zustandWorkoutType";
 import { parseNumericValue, unitLabel } from "./exerciseFields";
 import { buildSessionDocs, computeSessionTotalVolume } from "./exerciseStats";
+import { comparisonSegment } from "./storedSets";
 
 /** Recent sessions read on open. Plans not done within this window show no date. */
 export const RECENT_SESSIONS_WINDOW = 20;
@@ -194,7 +195,7 @@ function bestOnFirstMeasuredField(
 
   let best: Extract<TopSet, { kind: "best" }> | null = null;
   for (const set of lastSession.sets) {
-    const value = parseNumericValue(set.fields[field.name]);
+    const value = parseNumericValue(comparisonSegment(set)[field.name]);
     if (value === null) continue;
     if (!best || value > best.value) {
       best = { kind: "best", value, role: field.role, unit: field.unit ?? null, setNumber: set.setNumber };

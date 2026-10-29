@@ -37,22 +37,28 @@ export type ExerciseHistoryEntry = {
 export type HistorySet = {
   /** 1-based position in the session's set array. The join key for "set 4". */
   setNumber: number;
-  /** Raw values as logged, for display of non-numeric fields. */
-  fields: StoredSetFields;
+  /**
+   * Raw values as logged, one entry per segment, never empty (TICKET-055), the
+   * same idea as the live `ExerciseSet.segments`: `segments[0]` is the set as
+   * planned, the rest are its split rows (TICKET-033). For display of
+   * non-numeric fields, and for volume.
+   *
+   * `weight` / `reps` below are parsed from `comparisonSegment` (the first):
+   * ghosts, deltas and records read those and never a later segment.
+   */
+  segments: StoredSetFields[];
+  /**
+   * True when some of this set's stored segments could not be read: `segments`
+   * then holds only the readable ones before the first bad one (`[{}]` when
+   * none), and volume reads the set as unknown rather than counting a partial
+   * sum. See `decodeStoredSet`.
+   */
+  segmentsIncomplete: boolean;
   /** null when the value is absent, unparseable, or the exercise has no such role. */
   weight: number | null;
   reps: number | null;
   /** The user's mark for this set, or null: not marked (TICKET-034). */
   effort: Effort | null;
-  /**
-   * The rows after the first segment when the set was split (TICKET-033), raw
-   * as logged. Empty: not split. null: the session's stored rows could not be
-   * paired with its sets, so this set's rows are unknown (`zipSetSplits`).
-   *
-   * `weight` / `reps` above stay the first segment's: ghosts, deltas and
-   * records read those and never these. Volume reads both.
-   */
-  splits: StoredSetFields[] | null;
 };
 
 export type ExerciseHistorySession = {
@@ -69,12 +75,6 @@ export type ExerciseHistorySession = {
    */
   fields: ExerciseField[];
   volume: SessionVolume;
-  /**
-   * True when the stored marks could not be paired with the sets (the array
-   * lengths differ). Every `effort` is then null; this says why, so a reader can
-   * tell "marks unavailable" from "nothing marked". See `zipSetEffort`.
-   */
-  effortUnavailable: boolean;
   /**
    * False when this session's weight unit differs from the exercise's current
    * definition. Its numbers are still shown; comparing them is not valid.

@@ -36,10 +36,14 @@ const PENDING_UPLOADS_KEY = "pendingUploads";
  * a build with a higher number (TICKET-042 stage 2). Version 2: exercise ids
  * moved to the catalog's version ids and the test data was wiped, so a queued
  * upload from before would write old ids back into the wiped Firestore, and an
- * active workout would log against them. Raise it only for another reset like
- * that one; bumping it discards unsent workouts.
+ * active workout would log against them. Version 3 (TICKET-055): sets moved
+ * from `fields` + `splits` to `segments`, with no conversion on read. An older
+ * workout would crash Today (`segments` undefined) and an older queued upload
+ * would write `segments: undefined`, which Firestore rejects on every retry.
+ * Rejected: converting on read; no phone holds unsent data (pre-launch). Raise
+ * it only for another reset like these; bumping it discards unsent workouts.
  */
-export const LOCAL_DATA_VERSION = "2";
+export const LOCAL_DATA_VERSION = "3";
 export const LOCAL_DATA_VERSION_KEY = "localDataVersion";
 
 /** Remove `activeWorkout` and the upload queue if they predate LOCAL_DATA_VERSION. */
@@ -114,8 +118,8 @@ interface WorkoutStoreState {
   // Actions
   startWorkout: (workout: WorkoutPlan) => Promise<StartWorkoutResult>;
   addSetToExercise: (exerciseId: string, newSet: ExerciseSet) => Promise<void>;
-  /** Replace a logged set's fields; id, mark and rest untouched (TICKET-040). */
-  updateSet: (exerciseId: string, setId: number, fields: Record<string, string>) => Promise<void>;
+  /** Replace a logged set's segments; id, mark and rest untouched (TICKET-040, TICKET-055). */
+  updateSet: (exerciseId: string, setId: number, segments: Record<string, string | number>[]) => Promise<void>;
   removeSet: (exerciseId: string, setId: number) => Promise<RemovedSet | null>;
   restoreSet: (exerciseId: string, removed: RemovedSet) => Promise<void>;
   /** Mark how a set felt, or clear the mark with null (TICKET-034). */
@@ -226,13 +230,15 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
   /**
    * 🔹 Edit a logged set in the active workout (TICKET-040).
    *
-   * REPLACES the set's fields with `fields`, it does not merge. The card's form
-   * holds every field, so its output (`buildSetFields`) is the whole set, and a
-   * merge would keep the old value of an optional field the user cleared.
-   * Rejected: merge, which was this action's behaviour before 040 (it had no
-   * caller).
+   * REPLACES the set's segments with `segments`, every one, it does not merge.
+   * The card's form holds every field, so its output (`buildSetFields`) is the
+   * whole segment, and a merge would keep the old value of an optional field
+   * the user cleared. Rejected: merge, which was this action's behaviour
+   * before 040 (it had no caller). A caller that edits only the first segment
+   * passes the others back as they were (TICKET-055); 033-3 passes the edited
+   * list. An empty list is ignored: a set has at least one segment.
    *
-   * Only `fields` changes. The set keeps its id — its position, which every
+   * Only `segments` changes. The set keeps its id — its position, which every
    * comparison reads — and its effort mark. No rest is started or touched, and
    * a pending undo (held by the caller) is unaffected.
    *
@@ -244,9 +250,9 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
    * Today list read-only while an edit is open, so no remove or undo can
    * renumber under it. No-op when there is no such set.
    */
-  updateSet: async (exerciseId, setId, fields) => {
+  updateSet: async (exerciseId, setId, segments) => {
     const { activeWorkout } = get();
-    if (!activeWorkout) return;
+    if (!activeWorkout || segments.length === 0) return;
 
     let changed = false;
     const updatedExercises = activeWorkout.exercises.map((exercise) => {
@@ -256,7 +262,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
         sets: exercise.sets.map((set) => {
           if (set.id !== setId) return set;
           changed = true;
-          return { ...set, fields };
+          return { ...set, segments };
         }),
       };
     });

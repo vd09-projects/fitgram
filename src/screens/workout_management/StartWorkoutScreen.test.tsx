@@ -82,7 +82,7 @@ describe("StartWorkoutScreen", () => {
       failedAttempts: 0,
       lastError: null,
     };
-    pending.workout.exercises[0].sets = [{ id: 1, fields: { Weight: "50", Reps: "10" } }];
+    pending.workout.exercises[0].sets = [{ id: 1, segments: [{ Weight: "50", Reps: "10" }] }];
 
     await renderStart(
       { workoutActions: { pendingUploads: [pending] } },
@@ -139,8 +139,8 @@ describe("StartWorkoutScreen", () => {
     const cancelWorkout = jest.fn().mockResolvedValue(undefined);
     const workout = buildWorkout(["Bench Press"], { id: "push", name: "Push", startTime: Date.now() - 90_000 });
     workout.exercises[0].sets = [
-      { id: 1, fields: { Weight: "60", Reps: "8" } },
-      { id: 2, fields: { Weight: "60", Reps: "8" } },
+      { id: 1, segments: [{ Weight: "60", Reps: "8" }] },
+      { id: 2, segments: [{ Weight: "60", Reps: "8" }] },
     ];
     await renderStart({ workout, workoutActions: { cancelWorkout } });
 

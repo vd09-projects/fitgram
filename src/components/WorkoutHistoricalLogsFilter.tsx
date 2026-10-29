@@ -15,6 +15,7 @@ import { useThemeStyles } from "../utils/useThemeStyles";
 import { useExerciseNames } from "../hooks/useExerciseNames";
 import { useCatalogStore } from "../stores/useCatalogStore";
 import { exerciseDisplayName, type CatalogIndex } from "../utils/catalog";
+import { decodeStoredSets, plannedSegment } from "../utils/storedSets";
 
 /**
  * Adapt stored, exercise-first sessions into the table view model. `SetLog.id`
@@ -39,9 +40,14 @@ const toWorkoutLogs = (
           catalogIndex
         ).title,
         timestamp: session.performedAt,
-        sets: session.sets.map((fields, index) => ({
+        // Each set's first segment only, through the decoder: this older log
+        // view has one row per set, its id the position, so a split set's
+        // later segments and its mark are not shown here (as before
+        // TICKET-055). Showing them is a change to this screen, not to the
+        // stored shape.
+        sets: decodeStoredSets(session.sets).map((set, index) => ({
           id: index + 1,
-          fields,
+          fields: plannedSegment(set),
         })),
       },
     ],

@@ -1,5 +1,5 @@
 import { buildExercise, buildStats, buildWorkout } from "../test/fixtures";
-import { WorkoutSessionDoc } from "../types/workoutSession";
+import { StoredSetFields, WorkoutSessionDoc } from "../types/workoutSession";
 import { ExerciseField, WorkoutPlan } from "../types/workoutType";
 import { PendingUpload } from "../types/zustandWorkoutType";
 import { deriveExerciseHistory } from "./exerciseHistory";
@@ -32,13 +32,15 @@ const PLATES: ExerciseField[] = [
 ];
 
 const set = (weight: string, reps: string) => ({ Weight: weight, Reps: reps });
+/** One-segment stored sets, unmarked (TICKET-055). */
+const stored = (...values: StoredSetFields[]) => values.map((v) => ({ segments: [v], effort: null }));
 
 describe("computeSessionTotalVolume", () => {
   it("sums weighted exercises and excludes a plank without failing the total", () => {
     const volume = computeSessionTotalVolume([
-      { fields: KG, sets: [set("60", "8"), set("60", "8")] },
-      { fields: PLANK, sets: [{ Time: "60" }] },
-      { fields: KG, sets: [set("20", "10")] },
+      { fields: KG, sets: stored(set("60", "8"), set("60", "8")) },
+      { fields: PLANK, sets: stored({ Time: "60" }) },
+      { fields: KG, sets: stored(set("20", "10")) },
     ]);
     expect(volume).toEqual({
       totals: [{ unit: "kg", value: 60 * 8 * 2 + 20 * 10 }],
@@ -51,8 +53,8 @@ describe("computeSessionTotalVolume", () => {
 
   it("is null, not a partial sum, when one exercise has an unparseable set", () => {
     const volume = computeSessionTotalVolume([
-      { fields: KG, sets: [set("60", "8")] },
-      { fields: KG, sets: [set("20", "")] },
+      { fields: KG, sets: stored(set("60", "8")) },
+      { fields: KG, sets: stored(set("20", "")) },
     ]);
     expect(volume.totals).toEqual([]);
     expect(volume.unavailableReason).toBe("unparseable");
@@ -61,11 +63,11 @@ describe("computeSessionTotalVolume", () => {
 
   it("keeps one total per unit, never converted, in exercise order", () => {
     const volume = computeSessionTotalVolume([
-      { fields: PLATES, sets: [set("5", "12")] },
-      { fields: KG, sets: [set("60", "8")] },
-      { fields: LB, sets: [set("20", "10")] },
-      { fields: NO_UNIT, sets: [set("10", "10")] },
-      { fields: KG, sets: [set("20", "10")] },
+      { fields: PLATES, sets: stored(set("5", "12")) },
+      { fields: KG, sets: stored(set("60", "8")) },
+      { fields: LB, sets: stored(set("20", "10")) },
+      { fields: NO_UNIT, sets: stored(set("10", "10")) },
+      { fields: KG, sets: stored(set("20", "10")) },
     ]);
     expect(volume.totals).toEqual([
       { unit: "plates", value: 60 },
@@ -78,14 +80,14 @@ describe("computeSessionTotalVolume", () => {
 
   it("is written onto the session doc by buildSessionDocs", () => {
     const workout = buildWorkout(["Bench Press"]);
-    workout.exercises[0].sets = [{ id: 1, fields: set("60", "8") }];
+    workout.exercises[0].sets = [{ id: 1, segments: [set("60", "8")] }];
     expect(buildSessionDocs(workout, workout.startTime + 1).session.volume?.totals).toEqual([
       { unit: "kg", value: 480 },
     ]);
   });
 
   it("reports no_weighted_exercises when every exercise lacks a weight+reps pair", () => {
-    const volume = computeSessionTotalVolume([{ fields: PLANK, sets: [{ Time: "60" }] }]);
+    const volume = computeSessionTotalVolume([{ fields: PLANK, sets: stored({ Time: "60" }) }]);
     expect(volume.totals).toEqual([]);
     expect(volume.unavailableReason).toBe("no_weighted_exercises");
   });
@@ -120,7 +122,7 @@ describe("buildPlanRows", () => {
 
   const pending = (uid: string, workoutId: string, startTime: number): PendingUpload => {
     const workout = buildWorkout(["Bench Press"], { id: workoutId, startTime });
-    workout.exercises[0].sets = [{ id: 1, fields: set("50", "10") }];
+    workout.exercises[0].sets = [{ id: 1, segments: [set("50", "10")] }];
     return {
       sessionId: `${workoutId}_${startTime}`,
       uid,
@@ -231,13 +233,13 @@ describe("formatVolume", () => {
     partsToString(formatVolume(v, hasSession));
 
   it("says why a session has no figure, and shows an excluded plank", () => {
-    expect(text(volume([{ fields: KG, sets: [set("1000", "5")] }, { fields: PLANK, sets: [{ Time: "60" }] }]))).toBe(
+    expect(text(volume([{ fields: KG, sets: stored(set("1000", "5")) }, { fields: PLANK, sets: stored({ Time: "60" }) }]))).toBe(
       "5,000 kg · 1 not weighted"
     );
-    expect(text(volume([{ fields: KG, sets: [set("60", "8")] }, { fields: PLATES, sets: [set("5", "23")] }]))).toBe(
+    expect(text(volume([{ fields: KG, sets: stored(set("60", "8")) }, { fields: PLATES, sets: stored(set("5", "23")) }]))).toBe(
       "480 kg · 115 plates"
     );
-    expect(text(volume([{ fields: KG, sets: [set("60", "8")] }, { fields: KG, sets: [set("", "10")] }]))).toBe(
+    expect(text(volume([{ fields: KG, sets: stored(set("60", "8")) }, { fields: KG, sets: stored(set("", "10")) }]))).toBe(
       "volume n/a · 1 of 2 lifts readable"
     );
     expect(text(null)).toBe("volume not recorded");

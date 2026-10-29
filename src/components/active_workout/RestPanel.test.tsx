@@ -47,7 +47,7 @@ describe("RestPanel", () => {
 
   it("Skip returns to the card on the next set, keeping a pending undo", async () => {
     const workout = buildWorkout([], {
-      exercises: [buildExercise("Bench Press", { sets: [{ id: 1, fields: { Weight: "60", Reps: "8" } }] })],
+      exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: "60", Reps: "8" }] }] })],
     });
     renderScreen(ActiveWorkoutScreen, { workout, history });
 
