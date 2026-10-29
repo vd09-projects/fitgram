@@ -5416,10 +5416,12 @@ new)~~ (dropped); `buildSessionDocs` output identical before and after for the s
 segments; one store round trip (log a split set, remove, restore, edit first
 segment) keeps every segment. Keep only tests seen failing first.
 
-**Device test:** with the 033-1 build installed, start a workout, log a normal
+~~**Device test:** with the 033-1 build installed, start a workout, log a normal
 set and a split set, leave it open; install this build; the workout resumes with
 both sets and the split's chip. Log one more split set, Finish; the Firestore docs
-match the 033-1 shape (option A) or the new one (option B).
+match the 033-1 shape (option A) or the new one (option B).~~ Superseded: the
+build clears an older build's workout on purpose (`LOCAL_DATA_VERSION` 3) and
+stores option C. Run **Device test plan for this build** under Built instead.
 
 
 **Part 2 decision (user, 2026-10-29): option C, one record per set.**
@@ -5532,14 +5534,19 @@ Known gaps:
   for this: it also deletes every plan and the catalog. Not run, not changed.
   Deferred to the user: either delete `sessions`, `exercise_sessions` and
   `exercise_stats` per test user in the console, or a history-only flag on the
-  wipe script as a follow-up. Loud (visibly blank history), so it does not send
-  anyone debugging the wrong layer.
+  wipe script as a follow-up. Do it before the device plan (step 0), not
+  after. Loud (visibly blank history), so it does not send anyone debugging the
+  wrong layer.
 - **`verifyHistoryReads.ts` does not run** (`npx tsx` fails on
   `react-native/index.js`), on `main` at de789be too, so it is typechecked only.
   Not fixed: unrelated to this shape.
 - **Old logs screen drops split rows** (above). Same as before 055.
 
 **Device test plan for this build** (user runs; CLAUDE.md 1.3):
+0. **Wipe first.** For the test user, delete `sessions`, `exercise_sessions` and
+   `exercise_stats` in the Firebase console. Otherwise steps 4–5 read a rollup
+   that mixes old-shape `recentSessions` (blank) with new ones, and a later wipe
+   would delete the sessions just verified.
 1. Install this build over an older one. On first launch the log shows "Local
    workout data from an older build cleared (data version 3)"; Today is empty,
    Pending Uploads 0.
@@ -5556,8 +5563,7 @@ Known gaps:
    `recentSessions[0].sets` the same shape; `bestByReps` holds no 17.5 × 3.
    Session `volume` matches Today.
 5. Next session on Bench: the Last time pill and ghosts show the first segment
-   (20 × 5) for the split set. Sessions stored before this build show blank
-   values until the test data is wiped (expected, see Known gaps).
+   (20 × 5) for the split set.
 
 **Dependencies:** TICKET-033-1 merged. Blocks 033-2 and 033-3.
 
