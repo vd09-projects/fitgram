@@ -41,7 +41,7 @@ type Props = {
  *   rest discipline. That withholds Log set, so Skip is the filled, prominent
  *   control, one tap, no confirm; add-time is the outlined one.
  * - Rendered by ExerciseLogger in the card's slot, so the card's own state
- *   (`inputValues`, the undo row, the set number) lives on in the parent and
+ *   (`rows`, the undo row, the set number) lives on in the parent and
  *   the Today list below is never remounted.
  * - A finished rest stays on screen reading "Rest done" until the user moves
  *   on. Dismissing it by itself would swap the layout under a user who is not

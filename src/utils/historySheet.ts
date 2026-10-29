@@ -95,8 +95,7 @@ export type SheetSession = {
   /** Why this session's rows carry no deltas, or some of them; null when all can. */
   notice: string | null;
   /**
-   * "1 easy · 1 hard" for the caption; "marks unavailable" when the stored
-   * marks could not be paired with the sets; null when nothing was marked.
+   * "1 easy · 1 hard" for the caption; null when nothing was marked.
    * Counts sit in the caption, not on the date chips: chips with marks read as
    * clutter on the canvas (board 8).
    */
