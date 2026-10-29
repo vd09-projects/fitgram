@@ -7,7 +7,8 @@ import { ExerciseField } from "../types/workoutType";
 import { ExerciseSet } from "../types/zustandWorkoutType";
 import { buildSessionDocs, computeSessionVolume, rebuildStatsFromSessions } from "./exerciseStats";
 import { deriveExerciseHistory } from "./exerciseHistory";
-import { buildLoggedSet, keptSplitRows, lastTimeSplit, lastTimeSplitLine } from "./splits";
+import { buildEditedSegments, buildLoggedSet, editRows, keptSplitRows, lastTimeSplit, lastTimeSplitLine, repeatSplitRows } from "./splits";
+import { GhostTarget } from "./setLogger";
 
 const KG: ExerciseField[] = [
   { name: "Weight", role: "weight", unit: "kg" },
@@ -123,5 +124,38 @@ describe("last time's split on the card", () => {
     const line = lastTimeSplitLine(split!);
     expect(line.lead + line.values + line.tail).toBe("Last time split to 17.5 kg × 3 · more rows couldn't be read");
     expect(lastTimeSplit(target([{ Weight: "20", Reps: "5" }], false), KG)).toBeNull();
+  });
+});
+
+// TICKET-033-3: what repeat copies after the first row (board S6).
+describe("repeatSplitRows", () => {
+  const target = (segments: Record<string, string>[], segmentsIncomplete = false): GhostTarget => ({
+    kind: "available",
+    set: { setNumber: 1, segments, segmentsIncomplete, weight: 20, reps: 5, effort: null },
+  });
+  const FIRST = { Weight: "20", Reps: "5" };
+
+  it("adds nothing for a set that was not split", () => {
+    expect(repeatSplitRows(target([FIRST]), NUMERIC)).toEqual({ rows: [], incomplete: false });
+  });
+
+  it("stops at the first row it cannot read, and says so", () => {
+    const set = [FIRST, { Weight: "17.5", Reps: "3" }, { Weight: "abc", Reps: "3" }, { Weight: "15", Reps: "3" }];
+    expect(repeatSplitRows(target(set), NUMERIC)).toEqual({ rows: [{ Weight: "17.5", Reps: "3" }], incomplete: true });
+    // Rows the decoder already dropped are said too.
+    expect(repeatSplitRows(target([FIRST], true), NUMERIC)).toEqual({ rows: [], incomplete: true });
+  });
+});
+
+// TICKET-033-3: each edit row keeps its own stored segment's unlisted keys.
+describe("buildEditedSegments", () => {
+  it("keeps a stored row's unlisted keys on that row after a row above it is removed; a new row has none", () => {
+    const [first, second] = editRows([{ Weight: "20", Reps: "5", Tempo: "3-1" }, { Weight: "17.5", Reps: "3", Grip: "wide" }]);
+    const added = { values: { Weight: "15", Reps: "2" }, source: null };
+    expect(buildEditedSegments(KG, [second, added], 2)).toEqual({
+      kind: "ok",
+      segments: [{ Weight: "17.5", Reps: "3", Grip: "wide" }, { Weight: "15", Reps: "2" }],
+    });
+    expect(first.values).toEqual({ Weight: "20", Reps: "5", Tempo: "3-1" });
   });
 });

@@ -3,13 +3,14 @@
 // Split sets (TICKET-033): a set whose weight changed part-way, 20 kg × 5 then
 // 17.5 kg × 3. The first segment is the set (`ExerciseSet.segments[0]`); the
 // segments after it are the split. This file decides the card's × / split
-// control, builds the set a Log tap stores, and says how last time's split
-// reads on the next session's card (033-2).
+// control, builds the set a Log or Save tap stores (033-1, 033-3), says how
+// last time's split reads on the next session's card (033-2), and what repeat
+// copies from it (033-3).
 // Pure; tests in splits.test.ts.
 
 import { ExerciseField } from "../types/workoutType";
-import { ExerciseSet } from "../types/zustandWorkoutType";
-import { buildSetFields, GhostTarget, missingFields } from "./setLogger";
+import { buildSetFields, editInputValues, formatStepValue, GhostTarget, missingFields, SetAction, withUnlistedFields } from "./setLogger";
+import { NumericFieldMap, parseSet } from "./exerciseFields";
 import { setValuesText } from "./setDeltas";
 import { splitSegments } from "./storedSets";
 
@@ -59,7 +60,8 @@ export function keptSplitRows(
 }
 
 export type LoggedSetResult =
-  | { kind: "ok"; set: Pick<ExerciseSet, "segments"> }
+  // Strings, as typed: assignable to `ExerciseSet.segments`.
+  | { kind: "ok"; set: { segments: Record<string, string>[] } }
   | { kind: "refused"; message: string };
 
 /**
@@ -70,23 +72,65 @@ export type LoggedSetResult =
  * A blank last split row is dropped (`keptSplitRows`). An earlier blank row is
  * refused, not dropped: it sits between two real rows, and the × beside it is
  * the way to take it out.
+ *
+ * `action` words the refusal only: an edit's Save is checked by exactly these
+ * rules (TICKET-033-3), as a one-row edit was by `buildSetFields` (TICKET-040).
  */
 export function buildLoggedSet(
   fields: ExerciseField[],
   rows: readonly SplitRowValues[],
-  setNumber: number
+  setNumber: number,
+  action: SetAction = "log"
 ): LoggedSetResult {
   const [first = {}, ...rest] = rows;
-  const set = buildSetFields(fields, first, setNumber, "log");
+  const set = buildSetFields(fields, first, setNumber, action);
   if (set.kind === "refused") return set;
 
   const segments: Record<string, string>[] = [set.fields];
   for (const [index, values] of keptSplitRows(fields, rest).entries()) {
-    const built = buildSetFields(fields, values, setNumber, "log");
+    const built = buildSetFields(fields, values, setNumber, action);
     if (built.kind === "refused") return { kind: "refused", message: `Split ${index + 1}: ${built.message}` };
     segments.push(built.fields);
   }
   return { kind: "ok", set: { segments } };
+}
+
+/**
+ * One edit row: its values as the card holds them, and the stored segment it
+ * was loaded from, or null for a row added during the edit (TICKET-033-3).
+ * The source travels with the row, so removing row 1 does not hand row 1's
+ * stored keys to the row that takes its place.
+ */
+export type EditRow = { values: SplitRowValues; source: Record<string, string | number> | null };
+
+/** A logged set's segments as edit rows, one each, in order. */
+export const editRows = (segments: readonly Record<string, string | number>[]): EditRow[] =>
+  segments.map((segment) => ({ values: editInputValues(segment), source: segment }));
+
+/**
+ * The segments an edit's Save passes to `updateSet`, which replaces them
+ * whole, or why it is refused. Checked as Log checks (`buildLoggedSet`, worded
+ * "save"): a half-filled row is refused and named, a blank last row dropped.
+ * Each row that came from a stored segment keeps that segment's keys the
+ * exercise no longer lists (`withUnlistedFields`); a new row has none.
+ *
+ * Kept rows are a prefix of `rows` (only the last can be dropped), so
+ * `segments[i]` is `rows[i]`.
+ */
+export function buildEditedSegments(
+  fields: ExerciseField[],
+  rows: readonly EditRow[],
+  setNumber: number
+): { kind: "ok"; segments: Record<string, string>[] } | { kind: "refused"; message: string } {
+  const built = buildLoggedSet(fields, rows.map((row) => row.values), setNumber, "save");
+  if (built.kind === "refused") return built;
+  return {
+    kind: "ok",
+    segments: built.set.segments.map((segment, index) => {
+      const source = rows[index].source;
+      return source ? withUnlistedFields(fields, source, segment) : segment;
+    }),
+  };
 }
 
 /**
@@ -133,13 +177,45 @@ export function lastTimeSplitLine(split: LastTimeSplit): SplitLine {
 }
 
 /**
- * The line after repeat on a set that was split last time (board S6), in
- * place of the "split to" line. Repeat fills the first segment only (it fills
- * from the ghosts, which read `comparisonSegment`); this says the rest were
- * left out on purpose, not lost.
+ * The rows repeat adds after the first for last time's set (board S6,
+ * TICKET-033-3): one per later segment, as values in the weight and reps
+ * fields, the fields repeat fills on the first row. The first row is still
+ * `repeatValues` over the ghosts, so a non-split set repeats exactly as before.
+ *
+ * Scope growth (user, 2026-10-29): repeat copies the whole set. Replaced
+ * "Repeat copies the first segment only; splits are never pre-built"
+ * (TICKET-033 Decisions). Cost accepted: a row the user did not do this time
+ * logs a split that was not done, unless removed. It shows in the header's
+ * count and the Today chip, and the edit card fixes it.
+ *
+ * Stops at the first later segment whose weight or reps does not parse, and
+ * says so (`incomplete`), as `decodeStoredSet` keeps the segments before the
+ * first bad one: a chain with a gap would present a split that never happened.
+ * Rejected: skipping only the bad row. Parsed with `numeric`, the map that
+ * parsed the first segment; a target is only `available` on a comparable
+ * session, so its field names are the card's. Other fields start empty.
  */
-export const repeatedSplitLine = (pillText: string): SplitLine => ({
+export type RepeatRows = { rows: SplitRowValues[]; incomplete: boolean };
+
+export function repeatSplitRows(target: GhostTarget, numeric: NumericFieldMap | null): RepeatRows {
+  if (target.kind !== "available" || !numeric) return { rows: [], incomplete: false };
+  const rows: SplitRowValues[] = [];
+  for (const segment of splitSegments(target.set)) {
+    const { weight, reps } = parseSet(segment, numeric);
+    if (weight === null || reps === null) return { rows, incomplete: true };
+    rows.push({ [numeric.weight.name]: formatStepValue(weight), [numeric.reps.name]: formatStepValue(reps) });
+  }
+  return { rows, incomplete: target.set.segmentsIncomplete };
+}
+
+/**
+ * The line after repeat on a set that was split last time (board S6), in
+ * place of the "split to" line: the chain repeat built, and that rows not
+ * done this time are the user's to remove. `copied` are the rows' texts
+ * (`lastTimeSplit`'s, cut to what repeat copied).
+ */
+export const repeatedSplitLine = (pillText: string, copied: readonly string[], incomplete: boolean): SplitLine => ({
   lead: "Repeated ",
-  values: pillText,
-  tail: " · splits not copied, tap split if you need them",
+  values: [pillText, ...copied].join(" · "),
+  tail: `${incomplete ? " · more rows couldn't be read" : ""}${copied.length > 0 ? " · remove rows you didn't do" : ""}`,
 });

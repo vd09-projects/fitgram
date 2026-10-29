@@ -8,14 +8,11 @@ import { LoggedExercise } from "../types/zustandWorkoutType";
 import { Effort } from "../types/workoutSession";
 import { useExerciseHistory } from "../hooks/useExerciseHistory";
 import {
-  buildSetFields,
-  editInputValues,
   ghostNotice,
   ghostValues,
   lastTimeText,
   repeatValues,
   resolveGhostTarget,
-  withUnlistedFields,
 } from "../utils/setLogger";
 import { TextBase, NumericText } from "./TextBase";
 import TodaySets from "./active_workout/TodaySets";
@@ -30,11 +27,15 @@ import { EffortBadge } from "./active_workout/EffortBadge";
 import { effortSpeech, lastTimeEffort } from "../utils/effort";
 import { formatSessionDate, setValuesText } from "../utils/setDeltas";
 import {
+  buildEditedSegments,
   buildLoggedSet,
+  EditRow,
+  editRows,
   keptSplitRows,
   lastTimeSplit,
   lastTimeSplitLine,
   repeatedSplitLine,
+  repeatSplitRows,
   splitCountText,
   SplitLine,
   SplitRowValues,
@@ -109,8 +110,9 @@ const PILL_HIT_SLOP = { top: (HIT - PILL_HEIGHT) / 2, bottom: (HIT - PILL_HEIGHT
  *   being corrected, not the next one.
  * - The edit's values are held apart from `rows`, so whatever was typed
  *   for the next set comes back after Save or Cancel.
- * - Log and Save share `buildSetFields`: an edit is refused for exactly what
- *   logging is refused for, worded "save".
+ * - Log and Save share one check (`buildLoggedSet`, via `buildEditedSegments`
+ *   since TICKET-033-3): an edit is refused for exactly what logging is
+ *   refused for, worded "save".
  * - Saving touches no rest. During a rest the card takes the rest panel's slot
  *   and `EditRestLine` says it keeps counting; Save or Cancel shows the panel
  *   again at the time actually left, its banner re-derived from the edit.
@@ -134,23 +136,34 @@ const PILL_HIT_SLOP = { top: (HIT - PILL_HEIGHT) / 2, bottom: (HIT - PILL_HEIGHT
  * - One Log for the whole set. The rows are stored as they are, one segment
  *   each (`ExerciseSet.segments`); a blank last row is dropped
  *   (`buildLoggedSet`). The rest starts once, after the store has the set.
- * - No split while editing a logged set: changing a set's rows is TICKET-033-3.
- *   An edit changes the first segment and passes the others back to
- *   `updateSet` as they were; the rows being typed for the next set wait.
+ * - While editing, the rows being typed for the next set wait, untouched.
  *
  * Decisions (TICKET-033-2, canvas boards S5–S6):
  * - Last time's split rides on the pill as `20 × 5 ⑂2`, and a line under the
  *   header lists the rows (`lastTimeSplit`). The pill's numbers stay the first
  *   segment, the one the ghosts and the delta compare.
- * - Repeat fills the first segment only and swaps that line for "Repeated
- *   20 × 5 · splits not copied". Repeat fills one set's targets; pre-building
- *   last time's split rows is not this ticket (TICKET-033 Decisions). The
- *   swap lasts until the card's rows change or the set is logged: after that
- *   "Repeated" would describe values the user has since typed over. It is
+ * - After repeat, that line reads "Repeated …" instead. The swap lasts until
+ *   the card's rows change (typing, split, ×) or the set is logged: after
+ *   that "Repeated" would describe values the user has since changed. It is
  *   held for the set number repeated, not as a flag: removing a set in Today
  *   renumbers the card, and the line would then name the new number's
  *   values, which the inputs do not hold (PR #29 review). Undo brings the
  *   number, and the line, back.
+ *
+ * Decisions (TICKET-033-3, canvas boards S6, S8):
+ * - Repeat copies last time's whole set: row 1 from the ghosts as before, then
+ *   one row per later segment (`repeatSplitRows`), and the line lists the
+ *   chain with "remove rows you didn't do" (user, 2026-10-29). Replaced:
+ *   first segment only, "splits not copied". Cost: a row not done this time
+ *   logs as a split unless removed; the header count and Today chip show it,
+ *   and the edit card fixes it.
+ * - The edit card shows every segment of the set as rows, with the same third
+ *   column as logging: split adds a row, × removes one, the first included
+ *   (user, 2026-10-29: one rule on the card; removing row 1 makes the next row
+ *   what today's delta and records compare, as retyping row 1 would). Save
+ *   replaces the set's segments whole (`updateSet`); id, mark and rest stay.
+ * - Each edit row carries the stored segment it came from (`EditRow`), so
+ *   Save keeps that segment's unlisted keys on the right row after a remove.
  */
 export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise }) {
   const { styles, t } = useThemeStyles(createStyles);
@@ -171,8 +184,8 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
   const [refusal, setRefusal] = useState<string | null>(null);
   const [removed, setRemoved] = useState<RemovedSet | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
-  /** The set being edited (its id, read fresh) and the edit's own values. */
-  const [editing, setEditing] = useState<{ setId: number; values: Record<string, string> } | null>(null);
+  /** The set being edited (its id, read fresh) and the edit's own rows, one per segment. */
+  const [editing, setEditing] = useState<{ setId: number; rows: EditRow[] } | null>(null);
   /** The set number repeat filled, while nothing was typed since (board S6). */
   const [repeatedFor, setRepeatedFor] = useState<number | null>(null);
 
@@ -201,28 +214,42 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
   const notice = ghostNotice(target, history.status);
   const lastEffort = lastTimeEffort(history, setNumber);
   const split = history.lastSession ? lastTimeSplit(target, history.lastSession.fields) : null;
+  const repeatChain = repeatSplitRows(target, history.numericFields);
   const splitLine: SplitLine | null =
     split === null
       ? null
       : repeatedFor === setNumber && !editedSet && pillText !== null
-        ? repeatedSplitLine(pillText)
+        ? repeatedSplitLine(pillText, split.rows.slice(0, repeatChain.rows.length), repeatChain.incomplete)
         : lastTimeSplitLine(split);
   const onSetEffort = (setId: number, effort: Effort | null) => setSetEffort(exercise.id, setId, effort);
+
+  // While editing, the card's rows are the edit's; otherwise the next set's.
+  const cardRows = editedSet && editing ? editing.rows.map((row) => row.values) : rows;
 
   const onAddSplit = () => {
     // Empty, every field (user, 2026-10-29): the app does not guess what the
     // next row was. Rejected: weight one step down from the row before, and
     // `other` fields copied from it; both put a number the user never chose in
-    // a real value, one stray Log from being stored.
-    setRows((prev) => [...prev, {}]);
-    setRepeatedFor(null);
+    // a real value, one stray Log from being stored. In an edit, a new row has
+    // no stored segment behind it.
+    if (editedSet) {
+      setEditing((prev) => prev && { ...prev, rows: [...prev.rows, { values: {}, source: null }] });
+    } else {
+      setRows((prev) => [...prev, {}]);
+      setRepeatedFor(null);
+    }
     setRefusal(null);
   };
 
-  // While editing, the card shows the edit's one row, so index 0 is the edit.
   const onChangeRow = (index: number, name: string, text: string) => {
     if (editedSet) {
-      setEditing((prev) => prev && { ...prev, values: { ...prev.values, [name]: text } });
+      setEditing(
+        (prev) =>
+          prev && {
+            ...prev,
+            rows: prev.rows.map((row, i) => (i === index ? { ...row, values: { ...row.values, [name]: text } } : row)),
+          }
+      );
     } else {
       setRows((prev) => prev.map((row, i) => (i === index ? { ...row, [name]: text } : row)));
       setRepeatedFor(null);
@@ -232,13 +259,22 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
 
   // The last row is never removed: `SetRows` offers × only with two or more.
   const onRemoveRow = (index: number) => {
-    setRows((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
+    if (editedSet) {
+      setEditing(
+        (prev) => prev && { ...prev, rows: prev.rows.length > 1 ? prev.rows.filter((_, i) => i !== index) : prev.rows }
+      );
+    } else {
+      setRows((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
+      setRepeatedFor(null);
+    }
     setRefusal(null);
   };
 
+  // Shown on a one-row card only (hidden once split), so there are no split
+  // rows to replace: the chain is added after row 1.
   const onRepeat = () => {
     if (!repeat) return;
-    setRows((prev) => [{ ...prev[0], ...repeat }, ...prev.slice(1)]);
+    setRows((prev) => [{ ...prev[0], ...repeat }, ...repeatChain.rows]);
     setRepeatedFor(setNumber);
     setRefusal(null);
   };
@@ -274,7 +310,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
   const onEdit = (setId: number) => {
     const set = exercise.sets.find((s) => s.id === setId);
     if (!set) return;
-    setEditing({ setId, values: editInputValues(plannedSegment(set)) });
+    setEditing({ setId, rows: editRows(set.segments) });
     setRefusal(null);
   };
 
@@ -288,15 +324,13 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
   // the edit open with its values and says so.
   const saveEdit = async () => {
     if (!editedSet || !editing) return;
-    const result = buildSetFields(exercise.fields, editing.values, setNumber, "save");
+    const result = buildEditedSegments(exercise.fields, editing.rows, setNumber);
     if (result.kind === "refused") {
       setRefusal(result.message);
       return;
     }
     try {
-      // The edit is the first segment; the split rows go back as they were.
-      const splits = splitSegments(editedSet);
-      await updateSet(exercise.id, editedSet.id, [withUnlistedFields(exercise.fields, plannedSegment(editedSet), result.fields), ...splits]);
+      await updateSet(exercise.id, editedSet.id, result.segments);
     } catch {
       setRefusal(`Couldn't save set ${setNumber}`);
       return;
@@ -366,6 +400,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
           {editedSet && (
             <TextBase style={styles.notice}>
               Logged <NumericText style={styles.notice}>{setValuesText(exercise.fields, plannedSegment(editedSet))}</NumericText>
+              {splitSegments(editedSet).length > 0 && ` + ${splitCountText(splitSegments(editedSet).length)}`}
               {" · mark and position stay"}
             </TextBase>
           )}
@@ -395,10 +430,10 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
               <SetRows
                 fields={exercise.fields}
                 setNumber={setNumber}
-                rows={editedSet && editing ? [editing.values] : rows}
+                rows={cardRows}
                 ghosts={ghosts}
                 onChange={onChangeRow}
-                onAddSplit={editedSet ? undefined : onAddSplit}
+                onAddSplit={onAddSplit}
                 onRemove={onRemoveRow}
               />
             </View>

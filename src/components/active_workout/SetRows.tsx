@@ -37,8 +37,7 @@ type Props = {
   /** Last session's values for this set: placeholders on the first row only. */
   ghosts: Record<string, number | null>;
   onChange: (index: number, name: string, text: string) => void;
-  /** Absent: no third column at all (editing a logged set; its rows are TICKET-033-3). */
-  onAddSplit?: () => void;
+  onAddSplit: () => void;
   /** Remove row `index` (0-based, the first segment included). */
   onRemove: (index: number) => void;
 };
@@ -70,12 +69,11 @@ export default function SetRows({ fields, setNumber, rows, ghosts, onChange, onA
   const { styles, t } = useThemeStyles(createStyles);
   const single = rows.length === 1;
   const height = single ? ROW_HEIGHT : COMPACT_ROW_HEIGHT;
-  const hasSlot = onAddSplit !== undefined;
   const hasSteppers = single && fields.some((field) => stepSizeFor(field) !== null);
   // The first row is the set itself; rows after it are numbered as splits.
   const rowLabel = (index: number, field: ExerciseField) =>
     index === 0 ? fieldLabel(field) : `Split ${index} ${fieldLabel(field)}`;
-  const emptySlot = hasSlot && <View style={styles.slot} />;
+  const emptySlot = <View style={styles.slot} />;
 
   return (
     <View style={styles.grid}>
@@ -103,19 +101,17 @@ export default function SetRows({ fields, setNumber, rows, ghosts, onChange, onA
               onChange={(text) => onChange(index, field.name, text)}
             />
           ))}
-          {onAddSplit && (
-            <RowSlot
-              kind={splitSlot(fields, rows, index)}
-              index={index}
-              setNumber={setNumber}
-              single={single}
-              height={height}
-              styles={styles}
-              t={t}
-              onAddSplit={onAddSplit}
-              onRemove={onRemove}
-            />
-          )}
+          <RowSlot
+            kind={splitSlot(fields, rows, index)}
+            index={index}
+            setNumber={setNumber}
+            single={single}
+            height={height}
+            styles={styles}
+            t={t}
+            onAddSplit={onAddSplit}
+            onRemove={onRemove}
+          />
         </View>
       ))}
 
