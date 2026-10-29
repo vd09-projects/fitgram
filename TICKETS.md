@@ -5031,8 +5031,9 @@ approach that handles these cases at least as well?
 
 ### TICKET-033: Split Sets — Log a Weight Change Within One Set
 
-**Priority:** Low | **Effort:** Medium-Large | **Status: OPEN** — design decided
-2026-10-29 (boards S1–S8 on the Workout Flow canvas, `design/workout-flow/project/Split*.dc.html`); not built.
+**Priority:** Low | **Effort:** Medium-Large | **Status: IN PROGRESS** — design decided
+2026-10-29 (boards S1–S8 on the Workout Flow canvas, `design/workout-flow/project/Split*.dc.html`;
+SH3 replaces S7). 033-1 merged (PR #27), 033-2 in review (PR #29), 033-3 open.
 Split into 033-1 (log), 033-2 (read back), 033-3 (edit), below
 
 **Description:**
@@ -5133,7 +5134,8 @@ in either order after it. Each is its own branch and PR, testable on its own.
 
 #### 033-1 · Log a split set (S1–S4)
 
-**Status: IN REVIEW** — PR from branch TICKET-033-1; device test not yet run
+**Status: MERGED** — PR #27. Not device-tested on its own; TICKET-055's device
+plan, which passed, logs a split set and reads it back (steps 2–5)
 
 - Live model: `ExerciseSet.splits?: Record<string, string | number>[]`; store
   actions to add, update and remove a split row; `LOCAL_DATA_VERSION` bump
@@ -5285,7 +5287,7 @@ rollup transaction carrying `setSplits`.
 
 #### 033-2 · Read a split set back (S5–S7)
 
-**Status: BUILT, uncommitted** — branch TICKET-033-2, 2026-10-29; device test not
+**Status: IN REVIEW** — PR #29 (branch TICKET-033-2), 2026-10-29; device test not
 yet run. Started after the user confirmed TICKET-055's device plan (steps 0–5) passed.
 
 - History reader exposes each set's split rows (done in 033-1, renamed in
@@ -5315,7 +5317,7 @@ yet run. Started after the user confirmed TICKET-055's device plan (steps 0–5)
 Device test: the session after 033-1, set 3's card and the history sheet show the
 splits; the best still reads 20 kg × 5, never a split row.
 
-**Built 2026-10-29 (branch TICKET-033-2, uncommitted for review).** Nothing new
+**Built 2026-10-29 (branch TICKET-033-2, PR #29).** Nothing new
 stored. Records, deltas, ghosts and repeat still read `comparisonSegment`; the new
 display reads `splitSegments`.
 - **Fixture:** a `buildStats` spec set is a bare values map (one segment, unmarked)
@@ -5364,13 +5366,19 @@ Deviations and decisions (comments at each site):
 - **Rows carry units** ("17.5 kg × 3"), as in the Today list (033-1). The board
   drew "17.5 × 3".
 - **"Repeated …" clears when the card's rows change** (typing, split) or on Log.
-  After that, "Repeated" would describe values the user has typed over.
+  After that, "Repeated" would describe values the user has typed over. It is held
+  for the set number repeated, not as a flag (PR #29 review): a remove in Today
+  renumbers the card, and a flag would then say "Repeated" with the new number's
+  values, which the inputs do not hold.
 - **Scope growth, stated:** the card's line also says when some of last time's
   split rows could not be read ("· more rows couldn't be read"). The ticket asked
   for this in the sheet only. Without it, the card's count and line pass a partial
   split off as the whole one (rule 2.4).
 
-Verified: `npx tsc --noEmit` clean. `npx jest`: 38 suites, 492 tests pass (487 before;
+Verified: `npx tsc --noEmit` clean. `npx jest`: 38 suites, 493 tests pass (487 before;
+PR #29 review added one: "Repeated" is held for the set number repeated, so a remove
+in Today that renumbers the card drops it and Undo brings it back, seen failing
+against the old flag;
 the sheet test also covers SH3's fold toggle and chip, each seen failing against a break;
 one existing assertion changed from `toEqual` to `toMatchObject` because of the
 new `SheetRow` fields). Added 5 tests, each seen failing against a deliberate break
@@ -5428,8 +5436,8 @@ stays. Remove every split row; the set reads as a normal set.
 
 ### TICKET-055: Set Segments — One Shape for a Set and Its Splits
 
-**Priority:** Medium | **Effort:** Medium | **Status: BUILT, uncommitted** —
-branch TICKET-055, 2026-10-29; device test not yet run. Raised 2026-10-29
+**Priority:** Medium | **Effort:** Medium | **Status: MERGED** — PR #28,
+2026-10-29; device plan (steps 0–5) passed (user, 2026-10-29). Raised 2026-10-29
 after TICKET-033-1 (PR #27); goes **before 033-2 and 033-3**, which read the shape
 this changes.
 
@@ -5550,7 +5558,7 @@ contain arrays; only an array directly inside an array is rejected.
   `segmentsIncomplete`), never as a one-segment set: its split rows and mark sit
   in arrays nothing pairs any more, so it would show a split set as a normal one.
 
-**Built 2026-10-29 (branch TICKET-055, uncommitted for review).** Two stages, each
+**Built 2026-10-29 (branch TICKET-055, merged in PR #28).** Two stages, each
 typechecks and passes on its own (Part 1 verified alone in a throwaway worktree
 off `main`):
 1. **Part 1, live model; stored docs unchanged.** `ExerciseSet.segments`; store
@@ -5777,9 +5785,10 @@ for that.
 
 ```
 1. TICKET-033  (Split sets)                — A weight change within one set.
-                                             033-1 in review (PR #27); then
-   TICKET-055  (Set segments)              — One shape for a set and its splits,
-                                             before 033-2 / 033-3 read it
+                                             033-1 merged (PR #27); 033-2 in
+                                             review (PR #29); 033-3 open
+   TICKET-055  (Set segments)              — One shape for a set and its splits.
+                                             Merged (PR #28)
 2. TICKET-032  (Edit/delete uploaded set)  — Needs the rollup rebuild; after 033 so it
                                              is written once against the final shape
 3. TICKET-029  (Pending uploads view)      — Replaces the TEMPORARY debug screen.
