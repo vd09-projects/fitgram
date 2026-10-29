@@ -5285,7 +5285,8 @@ rollup transaction carrying `setSplits`.
 
 #### 033-2 · Read a split set back (S5–S7)
 
-**Status: OPEN** — after 033-1 and TICKET-055 (one segments shape, built)
+**Status: BUILT, uncommitted** — branch TICKET-033-2, 2026-10-29; device test not
+yet run. Started after the user confirmed TICKET-055's device plan (steps 0–5) passed.
 
 - History reader exposes each set's split rows (done in 033-1, renamed in
   TICKET-055: `HistorySet.segments`, `segments[0]` the set, the rest its splits)
@@ -5313,6 +5314,84 @@ rollup transaction carrying `setSplits`.
 
 Device test: the session after 033-1, set 3's card and the history sheet show the
 splits; the best still reads 20 kg × 5, never a split row.
+
+**Built 2026-10-29 (branch TICKET-033-2, uncommitted for review).** Nothing new
+stored. Records, deltas, ghosts and repeat still read `comparisonSegment`; the new
+display reads `splitSegments`.
+- **Fixture:** a `buildStats` spec set is a bare values map (one segment, unmarked)
+  or the stored record `{ segments, effort? }`. The spec's `setEffort` is gone; its
+  two callers carry the mark on the set. Both forms, not the record only: about 30
+  tests seed plain sets, and rewriting each one adds noise.
+- **Card (S5):** `lastTimeSplit` / `lastTimeSplitLine` (`splits.ts`). The pill shows
+  `20 × 5` plus a split-icon count, and its label says "then 2 splits". The line
+  reads "Last time split to 17.5 kg × 3 · 15 kg × 3".
+- **Repeat (S6):** confirmed it copies the first segment only. It fills from the
+  ghosts, which read `HistorySet.weight/reps`, which are parsed from
+  `comparisonSegment`. It now swaps the line for "Repeated 20 × 5 · splits not
+  copied, tap split if you need them".
+- **Sheet (SH3, replaces S7; user, 2026-10-29):** `SheetRow.pastSplits` /
+  `pastIncomplete`. S7's layout looked poor once built. Three options went on the
+  canvas (SH1 inline, SH2 count chip, SH3 rail). The user chose SH3 plus SH2's chip,
+  with the chip on the right of the date column: beside the value it wrapped under
+  it, which was why SH2 lost. Split rows hang on a rail under the set's value
+  (`SplitRail`, shared with the Today list). A split set's whole row toggles the rail
+  (open by default), and the chip's chevron shows the state. The row's spoken label
+  lists the split rows. When a set's stored segments could not all be read, it shows "Couldn't
+  read all of this set, so no session volume". Any split in the session adds the
+  board's footnote ("Splits count toward volume. Bests and the Today column use
+  the first row of a set.").
+- **verifyHistoryReads.ts / ExerciseHistoryDebugScreen:** no change needed. The
+  debug screen already prints raw `segments`, and the sheet now shows the splits
+  and the incomplete flag. The script builds one-segment sets, and a split case
+  would only add value once the script runs. It still fails under `npx tsx` on
+  `react-native/index.js` (rechecked 2026-10-29, same error). Not fixed here.
+
+Deviations and decisions (comments at each site):
+- **The date column is now the wider one** (flex 1.4 / Today 1, mins 128 / 96;
+  `TABLE_MIN_WIDTH` 336). Was 1 / 1.3, mins 104 / 150. Load-bearing: Today's delta
+  label can reach "+2.5 kg · −2 reps" (~140px). **Scope growth, stated:**
+  `DeltaBadge` now shrinks and wraps instead of running past a narrow column. It is
+  shared with the Today list, where the column is wide and nothing changes. Rejected:
+  keeping Today at 150, which leaves the chip ~80px at 375pt and makes it wrap again.
+- **The Today list matches (user, 2026-10-29):** its chip moves to the right of the
+  values, gets the chevron, and an opened split set lists its rows on the same rail.
+  Opening stays the row tap that also shows Easy / Hard / Edit, so the chip is not a
+  separate toggle there. Board S4 updated to match (canvas v60).
+- **The card's split line is tied to the pill.** It shows only when the pill shows
+  numbers, because "split to" continues the pill's first segment. Cost: a split
+  last time with no weight × reps (a treadmill) gets no line on the card. The
+  sheet still lists it.
+- **Rows carry units** ("17.5 kg × 3"), as in the Today list (033-1). The board
+  drew "17.5 × 3".
+- **"Repeated …" clears when the card's rows change** (typing, split) or on Log.
+  After that, "Repeated" would describe values the user has typed over.
+- **Scope growth, stated:** the card's line also says when some of last time's
+  split rows could not be read ("· more rows couldn't be read"). The ticket asked
+  for this in the sheet only. Without it, the card's count and line pass a partial
+  split off as the whole one (rule 2.4).
+
+Verified: `npx tsc --noEmit` clean. `npx jest`: 38 suites, 492 tests pass (487 before;
+the sheet test also covers SH3's fold toggle and chip, each seen failing against a break;
+one existing assertion changed from `toEqual` to `toMatchObject` because of the
+new `SheetRow` fields). Added 5 tests, each seen failing against a deliberate break
+of the line it covers:
+- pill count and split line
+- repeat copies the first segment only (broken by a `comparisonSegment` that
+  returns the last segment), plus the "Repeated" line
+- sheet rows under their set
+- the incomplete-set notice
+- the card's incomplete tail
+
+The fixture change was also seen failing: dropping the record's mark or its
+later segments turns tests red.
+
+Unverified (device): the session after a split set shows the pill count, the line
+and the sheet rows; the best still reads the first segment. Also not checked
+(Jest does no layout):
+- the pill with count and mark on a narrow phone
+- the rail's lines
+- the chip staying on the value's line at 375pt
+- a two-part delta wrapping in the Today column
 
 #### 033-3 · Edit a split set (S8)
 
