@@ -28,7 +28,7 @@ export interface ExerciseSet {
    * One list because the card drafts one list (`rows[0]` is the set). Replaced:
    * `fields` (the first segment) plus an optional `splits` (the rest), which
    * every write split apart and every reader stitched back. Not converted on
-   * read: no phone holds a workout from the older build (pre-launch).
+   * read: an older build's workout is cleared at load (`LOCAL_DATA_VERSION` 3).
    *
    * Written once, on Log, from the card's rows; replaced whole by `updateSet`.
    * On the set object, so `removeSet` / `restoreSet` carry every segment.

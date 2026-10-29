@@ -5472,13 +5472,19 @@ off `main`):
    removed: see Deviation below).
 2. **Part 2, option C.** As above.
 
-**Deviation: no read-time conversion, and `LOCAL_DATA_VERSION` not bumped.**
-Part 1 asked for a `{ fields, splits? }` → `segments` conversion at load. Built
-(`legacySetShape.ts`), then removed on 2026-10-29: the user confirmed no phone
-holds an open workout or queued upload from the 033-1 build (its scenarios were
-tested without saving). Pre-launch, so the conversion protected nothing. A
-workout stored by 033-1 would crash on render (`set.segments` undefined), not
-read wrong. If that ever matters, bump `LOCAL_DATA_VERSION`, which clears it.
+**Deviation: no read-time conversion; `LOCAL_DATA_VERSION` bumped to 3 instead.**
+Part 1 asked for a `{ fields, splits? }` → `segments` conversion at load and no
+bump. Built (`legacySetShape.ts`), then removed on 2026-10-29: the user confirmed
+no phone holds an open workout or queued upload from the 033-1 build (its
+scenarios were tested without saving). Pre-launch, so the conversion protected
+nothing. PR #28 review: `{ fields }` is what every build before 055 wrote, not
+just 033-1, and without either guard an older open workout crashes Today and an
+older queued upload writes `segments: undefined`, which Firestore rejects on
+every retry (no `ignoreUndefinedProperties`), silently, with only the Pending
+Uploads count as a hint. So the version is bumped: an older build's workout and
+queue are cleared at first launch and never reach the new code. It discards
+nothing while nothing is unsent. Rejected: restoring the conversion (protects
+data that does not exist); neither guard (the only option that can crash).
 
 **Deviation: the 033-1 snapshot test is not kept.** The ticket asked to snapshot
 `buildSessionDocs` before changing anything and compare after. Done: Part 1
@@ -5534,7 +5540,9 @@ Known gaps:
 - **Old logs screen drops split rows** (above). Same as before 055.
 
 **Device test plan for this build** (user runs; CLAUDE.md 1.3):
-1. Install this build with no open workout or queued upload from 033-1.
+1. Install this build over an older one. On first launch the log shows "Local
+   workout data from an older build cleared (data version 3)"; Today is empty,
+   Pending Uploads 0.
 2. Start a workout, log a normal Bench set and a split set (20 × 5, then
    17.5 × 3). Close and reopen the app: Today shows both sets, the split set
    with its chip (1) and, opened, 17.5 kg × 3.

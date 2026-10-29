@@ -36,10 +36,14 @@ const PENDING_UPLOADS_KEY = "pendingUploads";
  * a build with a higher number (TICKET-042 stage 2). Version 2: exercise ids
  * moved to the catalog's version ids and the test data was wiped, so a queued
  * upload from before would write old ids back into the wiped Firestore, and an
- * active workout would log against them. Raise it only for another reset like
- * that one; bumping it discards unsent workouts.
+ * active workout would log against them. Version 3 (TICKET-055): sets moved
+ * from `fields` + `splits` to `segments`, with no conversion on read. An older
+ * workout would crash Today (`segments` undefined) and an older queued upload
+ * would write `segments: undefined`, which Firestore rejects on every retry.
+ * Rejected: converting on read; no phone holds unsent data (pre-launch). Raise
+ * it only for another reset like these; bumping it discards unsent workouts.
  */
-export const LOCAL_DATA_VERSION = "2";
+export const LOCAL_DATA_VERSION = "3";
 export const LOCAL_DATA_VERSION_KEY = "localDataVersion";
 
 /** Remove `activeWorkout` and the upload queue if they predate LOCAL_DATA_VERSION. */
