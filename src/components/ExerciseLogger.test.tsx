@@ -193,7 +193,7 @@ describe("ExerciseLogger", () => {
   // TICKET-034
   it("shows last time's mark for the set about to be logged, on the pill and spelled out", async () => {
     const marked = buildStats("Bench Press", [
-      { sets: [{ Weight: "60", Reps: "8" }, { Weight: "65", Reps: "6" }], setEffort: [null, Effort.Hard] },
+      { sets: [{ Weight: "60", Reps: "8" }, { segments: [{ Weight: "65", Reps: "6" }], effort: Effort.Hard }] },
     ]);
     renderScreen(ActiveWorkoutScreen, {
       workout: buildWorkout([], {
