@@ -5033,8 +5033,7 @@ approach that handles these cases at least as well?
 
 **Priority:** Low | **Effort:** Medium-Large | **Status: IN PROGRESS** — design decided
 2026-10-29 (boards S1–S8 on the Workout Flow canvas, `design/workout-flow/project/Split*.dc.html`;
-SH3 replaces S7). 033-1 merged (PR #27), 033-2 merged (PR #29), 033-3 built (branch
-TICKET-033-3, in review).
+SH3 replaces S7). 033-1 merged (PR #27), 033-2 merged (PR #29), 033-3 in review (PR #30).
 Split into 033-1 (log), 033-2 (read back), 033-3 (edit), below
 
 **Description:**
@@ -5407,8 +5406,8 @@ and the sheet rows; the best still reads the first segment. Also not checked
 
 #### 033-3 · Edit a split set (S8)
 
-**Status: BUILT** — branch TICKET-033-3, 2026-10-29, uncommitted for review; device
-test not yet run. Started after the user confirmed 033-2's device run passed.
+**Status: IN REVIEW** — PR #30 (branch TICKET-033-3), 2026-10-29; device test not
+yet run. Started after the user confirmed 033-2's device run passed.
 
 - TICKET-040's edit card shows the rows: change, add or remove them; Save passes
   the edited list to `updateSet`, which replaces the set's `segments` whole
@@ -5419,7 +5418,7 @@ test not yet run. Started after the user confirmed 033-2's device run passed.
 Device test: edit set 3, change one row's reps, Save; volume updates and the mark
 stays. Remove every split row; the set reads as a normal set.
 
-**Built 2026-10-29 (branch TICKET-033-3).** Nothing new stored. Comparisons still read
+**Built 2026-10-29 (branch TICKET-033-3, PR #30).** Nothing new stored. Comparisons still read
 `comparisonSegment`; volume counts every segment.
 
 Boards first (canvas v61–v62, mirrored in `design/workout-flow/project/`):
