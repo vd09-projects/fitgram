@@ -130,7 +130,7 @@ export function resolveGhostTarget(
     // `HistorySet.weight` is null on an incomparable session by design, so the
     // numbers are parsed here from the session's own fields, for the notice only.
     const own = resolveNumericFields(history.lastSession.fields);
-    const { weight, reps } = parseSet(history.lastSession.sets[setNumber - 1]?.fields, own);
+    const { weight, reps } = parseSet(history.lastSession.sets[setNumber - 1]?.segments[0], own);
     return {
       kind: "unitChanged",
       lastUnit: own?.weight.unit ?? null,
@@ -287,12 +287,13 @@ export function withUnlistedFields(
 }
 
 /**
- * A logged set's values as the card's inputs hold them, to prefill an edit.
- * Stored values may be numbers (older sets, test fixtures); inputs are strings.
+ * One logged segment's values as the card's inputs hold them, to prefill an
+ * edit. Stored values may be numbers (older sets, test fixtures); inputs are
+ * strings.
  */
-export function editInputValues(set: { fields: Record<string, string | number> }): Record<string, string> {
+export function editInputValues(segment: Record<string, string | number>): Record<string, string> {
   const values: Record<string, string> = {};
-  for (const [name, value] of Object.entries(set.fields)) values[name] = String(value);
+  for (const [name, value] of Object.entries(segment)) values[name] = String(value);
   return values;
 }
 

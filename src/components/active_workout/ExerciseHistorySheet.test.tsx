@@ -13,7 +13,7 @@ const LB: ExerciseField[] = [
 ];
 
 const sets = (...pairs: [string, string][]): ExerciseSet[] =>
-  pairs.map(([Weight, Reps], i) => ({ id: i + 1, fields: { Weight, Reps } }));
+  pairs.map(([Weight, Reps], i) => ({ id: i + 1, segments: [{ Weight, Reps }] }));
 
 const benchWith = (today: ExerciseSet[]) =>
   buildWorkout([], { exercises: [buildExercise("Bench Press", { sets: today })] });

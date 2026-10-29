@@ -194,7 +194,8 @@ function bestOnFirstMeasuredField(
 
   let best: Extract<TopSet, { kind: "best" }> | null = null;
   for (const set of lastSession.sets) {
-    const value = parseNumericValue(set.fields[field.name]);
+    // First segment only, as every comparison with last time (TICKET-033).
+    const value = parseNumericValue(set.segments[0][field.name]);
     if (value === null) continue;
     if (!best || value > best.value) {
       best = { kind: "best", value, role: field.role, unit: field.unit ?? null, setNumber: set.setNumber };

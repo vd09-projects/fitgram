@@ -205,7 +205,7 @@ export default function ExerciseHistoryDebugScreen() {
             <Row
               key={s.setNumber}
               label={`set ${s.setNumber}`}
-              value={`w=${num(s.weight)} r=${num(s.reps)}   ${JSON.stringify(s.fields)}`}
+              value={`w=${num(s.weight)} r=${num(s.reps)}   ${JSON.stringify(s.segments)}`}
             />
           ))}
         </>

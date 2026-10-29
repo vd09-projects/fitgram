@@ -73,7 +73,7 @@ export default function ExerciseHistorySheet({ visible, onClose, exercise, histo
       ? sheetSession(
           history,
           sessions[index],
-          exercise.sets.map((set) => set.fields),
+          exercise.sets.map((set) => set.segments[0]),
           exercise.fields
         )
       : null;

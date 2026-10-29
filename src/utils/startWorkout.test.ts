@@ -78,7 +78,7 @@ describe("computeSessionTotalVolume", () => {
 
   it("is written onto the session doc by buildSessionDocs", () => {
     const workout = buildWorkout(["Bench Press"]);
-    workout.exercises[0].sets = [{ id: 1, fields: set("60", "8") }];
+    workout.exercises[0].sets = [{ id: 1, segments: [set("60", "8")] }];
     expect(buildSessionDocs(workout, workout.startTime + 1).session.volume?.totals).toEqual([
       { unit: "kg", value: 480 },
     ]);
@@ -120,7 +120,7 @@ describe("buildPlanRows", () => {
 
   const pending = (uid: string, workoutId: string, startTime: number): PendingUpload => {
     const workout = buildWorkout(["Bench Press"], { id: workoutId, startTime });
-    workout.exercises[0].sets = [{ id: 1, fields: set("50", "10") }];
+    workout.exercises[0].sets = [{ id: 1, segments: [set("50", "10")] }];
     return {
       sessionId: `${workoutId}_${startTime}`,
       uid,

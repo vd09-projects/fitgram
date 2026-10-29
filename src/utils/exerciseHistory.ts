@@ -62,11 +62,11 @@ export function buildHistorySession(
     return {
       // Array position is the only source of set order.
       setNumber: index + 1,
-      fields,
+      segments: [fields, ...(splits[index] ?? [])],
+      segmentsIncomplete: splits[index] === null,
       weight,
       reps,
       effort: effort.marks[index],
-      splits: splits[index],
     };
   });
 

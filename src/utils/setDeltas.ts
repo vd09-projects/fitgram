@@ -270,9 +270,9 @@ export function todaySummary(
       : { kind: "session", performedAt: last.performedAt };
   const pastSets = base.kind === "firstN" ? last.sets.slice(0, base.n) : last.sets;
   const pastVolume = computeSessionVolume(
-    pastSets.map((set) => set.fields),
+    pastSets.map((set) => set.segments[0]),
     history.numericFields,
-    pastSets.map((set) => set.splits)
+    pastSets.map((set) => (set.segmentsIncomplete ? null : set.segments.slice(1)))
   );
 
   if (pastVolume.value === null) {

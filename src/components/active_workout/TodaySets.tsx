@@ -111,19 +111,20 @@ export default function TodaySets({
   const numeric = resolveNumericFields(exercise.fields);
   const summary = todaySummary(
     history,
-    exercise.sets.map((set) => set.fields),
+    exercise.sets.map((set) => set.segments[0]),
     exercise.fields,
-    exercise.sets.map((set) => set.splits ?? [])
+    exercise.sets.map((set) => set.segments.slice(1))
   );
   const volume = volumeText(summary.volume, numeric?.weight.unit);
   const comparison = comparisonText(summary.comparison);
 
   const rows: React.ReactNode[] = exercise.sets.map((set, index) => {
     const setNumber = index + 1;
-    const values = setValuesText(exercise.fields, set.fields);
-    const delta = setDelta(history, setNumber, set.fields, numeric);
+    // The row and its delta are the first segment; the rest list under it.
+    const values = setValuesText(exercise.fields, set.segments[0]);
+    const delta = setDelta(history, setNumber, set.segments[0], numeric);
     const effort = set.effort ?? null;
-    const splits = (set.splits ?? []).map((row) => setValuesText(exercise.fields, row));
+    const splits = set.segments.slice(1).map((row) => setValuesText(exercise.fields, row));
     const splitsSpeech =
       splits.length > 0 ? `, then ${splitCountText(splits.length)}: ${splits.join(", ").replace(/×/g, "by")}` : "";
     const readOnly = editingSetId !== null;
@@ -225,7 +226,7 @@ export default function TodaySets({
 
   if (removed) {
     const at = Math.min(removed.index, rows.length);
-    const values = setValuesText(exercise.fields, removed.set.fields);
+    const values = setValuesText(exercise.fields, removed.set.segments[0]);
     rows.splice(
       at,
       0,

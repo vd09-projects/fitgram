@@ -1,8 +1,8 @@
 // src/utils/splits.ts
 //
 // Split sets (TICKET-033): a set whose weight changed part-way, 20 kg × 5 then
-// 17.5 kg × 3. The first segment stays the set (`ExerciseSet.fields`,
-// `sets[i]`); the rows after it are the split. This file pairs the stored rows
+// 17.5 kg × 3. The first segment is the set (`ExerciseSet.segments[0]`,
+// stored as `sets[i]`); the segments after it are the split. This file pairs the stored rows
 // with their sets, decides the card's × / split control, and builds the set a
 // Log tap stores.
 // Pure; tests in splits.test.ts.
@@ -16,11 +16,13 @@ import { buildSetFields, missingFields } from "./setLogger";
 export type SplitRowValues = Record<string, string>;
 
 /**
- * What each live set stores in `setSplits`: its rows wrapped in a map, or null
- * when it was not split. Null, never undefined (Firestore rejects undefined),
- * and never a bare array (Firestore rejects an array inside an array).
+ * What each live set stores in `setSplits`: its segments after the first,
+ * wrapped in a map, or null when it was not split. Null, never undefined
+ * (Firestore rejects undefined), and never a bare array (Firestore rejects an
+ * array inside an array).
  */
-export const storedSplits = (sets: readonly Pick<ExerciseSet, "splits">[]): (StoredSplit | null)[] => sets.map((set) => (set.splits && set.splits.length > 0 ? { rows: set.splits } : null));
+export const storedSplits = (sets: readonly Pick<ExerciseSet, "segments">[]): (StoredSplit | null)[] =>
+  sets.map((set) => (set.segments.length > 1 ? { rows: set.segments.slice(1) } : null));
 
 export type ZippedSplits = {
   /** One entry per set, in set order. [] when not split; null when unknown. */
@@ -102,13 +104,12 @@ export function keptSplitRows(
 }
 
 export type LoggedSetResult =
-  | { kind: "ok"; set: Pick<ExerciseSet, "fields" | "splits"> }
+  | { kind: "ok"; set: Pick<ExerciseSet, "segments"> }
   | { kind: "refused"; message: string };
 
 /**
- * What a Log tap stores from the card's rows, or why it is refused. The first
- * row is the set's `fields`; the rest are its `splits`, left out when there are
- * none. Every row passes the set's own check (`buildSetFields`), so a split row
+ * What a Log tap stores from the card's rows, or why it is refused: the rows
+ * as they are, one segment each, the first row first. Every row passes the set's own check (`buildSetFields`), so a split row
  * cannot store what logging a set would refuse; a refusal names the split row.
  *
  * A blank last split row is dropped (`keptSplitRows`). An earlier blank row is
@@ -124,11 +125,11 @@ export function buildLoggedSet(
   const set = buildSetFields(fields, first, setNumber, "log");
   if (set.kind === "refused") return set;
 
-  const splits: Record<string, string>[] = [];
+  const segments: Record<string, string>[] = [set.fields];
   for (const [index, values] of keptSplitRows(fields, rest).entries()) {
     const built = buildSetFields(fields, values, setNumber, "log");
     if (built.kind === "refused") return { kind: "refused", message: `Split ${index + 1}: ${built.message}` };
-    splits.push(built.fields);
+    segments.push(built.fields);
   }
-  return { kind: "ok", set: { fields: set.fields, ...(splits.length > 0 && { splits }) } };
+  return { kind: "ok", set: { segments } };
 }

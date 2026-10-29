@@ -62,7 +62,7 @@ export function sheetStatusMessage(history: Pick<ExerciseHistory, "status" | "ha
  */
 export function sessionSets(session: ExerciseHistorySession): HistorySet[] {
   const own = session.comparable ? resolveNumericFields(session.fields) : null;
-  return session.sets.map((set) => ({ ...set, ...parseSet(set.fields, own) }));
+  return session.sets.map((set) => ({ ...set, ...parseSet(set.segments[0], own) }));
 }
 
 export type SheetRow = {
@@ -137,7 +137,7 @@ export function sheetSession(
     const today = todaySets[index];
     rows.push({
       setNumber,
-      past: past ? setValuesText(session.fields, past.fields) : null,
+      past: past ? setValuesText(session.fields, past.segments[0]) : null,
       pastEffort: past?.effort ?? null,
       today: today ? setValuesText(todayFields, today) : null,
       isNext: setNumber === nextSet,
@@ -152,9 +152,9 @@ export function sheetSession(
     own && history.numericComparisonAvailable
       ? volumeText(
           computeSessionVolume(
-            session.sets.map((set) => set.fields),
+            session.sets.map((set) => set.segments[0]),
             own,
-            session.sets.map((set) => set.splits)
+            session.sets.map((set) => (set.segmentsIncomplete ? null : set.segments.slice(1)))
           ),
           own.weight.unit
         )

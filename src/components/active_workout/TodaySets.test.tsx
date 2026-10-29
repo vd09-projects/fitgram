@@ -10,7 +10,7 @@ import { ExerciseSet } from "../../types/zustandWorkoutType";
 import { Effort } from "../../types/workoutSession";
 
 const sets = (...pairs: [string, string][]): ExerciseSet[] =>
-  pairs.map(([Weight, Reps], i) => ({ id: i + 1, fields: { Weight, Reps } }));
+  pairs.map(([Weight, Reps], i) => ({ id: i + 1, segments: [{ Weight, Reps }] }));
 
 const benchWith = (today: ExerciseSet[], fields?: ExerciseField[]) =>
   buildWorkout([], { exercises: [buildExercise("Bench Press", { sets: today, ...(fields && { fields }) })] });
@@ -96,7 +96,7 @@ describe("TodaySets", () => {
 
     await press("Undo: restore set 2, 650 kg by 8");
     const stored = useWorkoutStore.getState().activeWorkout!.exercises[0].sets;
-    expect(stored.map((s) => s.fields.Weight)).toEqual(["60", "650", "60"]);
+    expect(stored.map((s) => s.segments[0].Weight)).toEqual(["60", "650", "60"]);
     expect(screen.getByText("3 sets · 6,160 kg")).toBeOnTheScreen();
   });
 
@@ -184,7 +184,7 @@ describe("TodaySets split set", () => {
   it("shows the first segment against last time, counts every row in volume, and lists the rows when opened", async () => {
     const today: ExerciseSet[] = [
       ...sets(["18", "10"], ["20", "8"]),
-      { id: 3, fields: { Weight: "20", Reps: "5" }, splits: [{ Weight: "17.5", Reps: "3" }, { Weight: "15", Reps: "3" }] },
+      { id: 3, segments: [{ Weight: "20", Reps: "5" }, { Weight: "17.5", Reps: "3" }, { Weight: "15", Reps: "3" }] },
     ];
     renderScreen(ActiveWorkoutScreen, {
       workout: benchWith(today),

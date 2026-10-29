@@ -15,7 +15,7 @@ function finishedSession(startTime: number, marks: (Effort | null | undefined)[]
     startTime,
     exercises: [
       buildExercise("Bench Press", {
-        sets: marks.map((effort, i) => ({ id: i + 1, fields: { Weight: 60, Reps: 8 }, effort })),
+        sets: marks.map((effort, i) => ({ id: i + 1, segments: [{ Weight: 60, Reps: 8 }], effort })),
       }),
     ],
   });

@@ -202,7 +202,7 @@ const seedSession = (
         id: exerciseId,
         name: exerciseName,
         fields,
-        sets: sets.map((f, i) => ({ id: performedAt + i, fields: f })),
+        sets: sets.map((f, i) => ({ id: performedAt + i, segments: [f] })),
       },
     ],
   };
@@ -329,7 +329,7 @@ const run = async () => {
     }
     await store.addSetToExercise(BENCH, {
       id: Date.now() + i,
-      fields: { "Weight (kg)": "72.5", Reps: "8" },
+      segments: [{ "Weight (kg)": "72.5", Reps: "8" }],
     });
   }
   check(
@@ -408,7 +408,7 @@ const run = async () => {
   check("sessions present", plank.sessions.length === 1);
   check(
     "raw values still readable",
-    plank.lastSession?.sets[0]?.fields["Total Time (min)"] === "1.5"
+    plank.lastSession?.sets[0]?.segments[0]["Total Time (min)"] === "1.5"
   );
   check(
     "no fabricated numbers",
@@ -524,7 +524,7 @@ const run = async () => {
   );
   check(
     "its raw value is still readable",
-    lbSession?.sets[0]?.fields["Weight (lb)"] === "160"
+    lbSession?.sets[0]?.segments[0]["Weight (lb)"] === "160"
   );
   check(
     "160 lb did not become a 160 kg record",
@@ -595,7 +595,7 @@ const run = async () => {
       .activeWorkout?.exercises.find((e) => e.id === BENCH)?.sets.length ?? 0;
   await useWorkoutStore.getState().addSetToExercise(BENCH, {
     id: Date.now(),
-    fields: { "Weight (kg)": "75", Reps: "5" },
+    segments: [{ "Weight (kg)": "75", Reps: "5" }],
   });
   const setsAfter =
     useWorkoutStore

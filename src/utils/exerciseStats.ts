@@ -338,11 +338,11 @@ export function buildSessionDocs(
       fields: exercise.fields,
       // Positional only. The live `ExerciseSet.id` is a Date.now() stamp and is
       // deliberately not persisted — it was never a set number.
-      sets: exercise.sets.map((set) => set.fields),
+      sets: exercise.sets.map((set) => set.segments[0]),
       // Built from the same array as `sets`, so the two are aligned by
       // construction (TICKET-034).
       setEffort: storedEffort(exercise.sets),
-      // Same again for the split rows (TICKET-033): `sets[i]` stays the first
+      // Same again for the split rows (TICKET-033): `sets[i]` is the first
       // segment, the rest go here, positional.
       setSplits: storedSplits(exercise.sets),
     }));

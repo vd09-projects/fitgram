@@ -36,7 +36,7 @@ const logSet = () =>
 describe("ExerciseLogger", () => {
   it("ghosts last session's values for the set about to be logged", () => {
     const workout = buildWorkout([], {
-      exercises: [buildExercise("Bench Press", { sets: [{ id: 1, fields: { Weight: "60", Reps: "8" } }] })],
+      exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: "60", Reps: "8" }] }] })],
     });
     renderScreen(ActiveWorkoutScreen, { workout, history: withHistory });
 
@@ -61,8 +61,8 @@ describe("ExerciseLogger", () => {
     { name: "Reps", role: "reps" },
   ];
   const twoSetsDone = [
-    { id: 1, fields: { Weight: "60", Reps: "8" } },
-    { id: 2, fields: { Weight: "62.5", Reps: "6" } },
+    { id: 1, segments: [{ Weight: "60", Reps: "8" }] },
+    { id: 2, segments: [{ Weight: "62.5", Reps: "6" }] },
   ];
 
   it.each([
@@ -114,7 +114,7 @@ describe("ExerciseLogger", () => {
     expect(reps().props.value).toBe("8");
 
     await logSet();
-    expect(loggedSets()[0].fields).toEqual({ Weight: "60", Reps: "8" });
+    expect(loggedSets()[0].segments[0]).toEqual({ Weight: "60", Reps: "8" });
   });
 
   it("refuses Log set with an untouched field and names it, ghost or not", async () => {
@@ -151,7 +151,7 @@ describe("ExerciseLogger", () => {
     // Logging starts a rest (TICKET-021); Skip brings the card back.
     fireEvent.press(screen.getByRole("button", { name: "Skip rest" }));
 
-    expect(loggedSets()).toEqual([{ id: 1, fields: { Weight: "61", Reps: "8" } }]);
+    expect(loggedSets()).toEqual([{ id: 1, segments: [{ Weight: "61", Reps: "8" }] }]);
     expect(logButton()).toHaveAccessibleName("Log set 2");
     expect(weight().props.value).toBe("");
     expect(reps().props.value).toBe("");
@@ -172,7 +172,7 @@ describe("ExerciseLogger", () => {
 
     expect(save).toHaveBeenCalledTimes(1);
     const savedWorkout = save.mock.calls[0][1];
-    expect(savedWorkout.exercises[0].sets).toEqual([{ id: 1, fields: { Weight: "60", Reps: "8" } }]);
+    expect(savedWorkout.exercises[0].sets).toEqual([{ id: 1, segments: [{ Weight: "60", Reps: "8" }] }]);
     log.mockRestore();
   });
 
@@ -197,7 +197,7 @@ describe("ExerciseLogger", () => {
     ]);
     renderScreen(ActiveWorkoutScreen, {
       workout: buildWorkout([], {
-        exercises: [buildExercise("Bench Press", { sets: [{ id: 1, fields: { Weight: "60", Reps: "8" } }] })],
+        exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: "60", Reps: "8" }] }] })],
       }),
       history: { [marked.exerciseId]: marked },
     });
@@ -209,7 +209,7 @@ describe("ExerciseLogger", () => {
 
 // TICKET-040: edit a logged set before Finish.
 describe("ExerciseLogger edit mode", () => {
-  const benchWith = (sets: { id: number; fields: Record<string, string>; effort?: Effort }[]) =>
+  const benchWith = (sets: { id: number; segments: Record<string, string>[]; effort?: Effort }[]) =>
     buildWorkout([], { exercises: [buildExercise("Bench Press", { sets })] });
   const press = (name: string | RegExp) =>
     act(async () => {
@@ -223,9 +223,9 @@ describe("ExerciseLogger edit mode", () => {
   it("saves over the set in place: mark and position kept, no rest, next set's typing back after", async () => {
     renderScreen(ActiveWorkoutScreen, {
       workout: benchWith([
-        { id: 1, fields: { Weight: "60", Reps: "8" } },
-        { id: 2, fields: { Weight: "56", Reps: "8" }, effort: Effort.Easy },
-        { id: 3, fields: { Weight: "65", Reps: "8" } },
+        { id: 1, segments: [{ Weight: "60", Reps: "8" }] },
+        { id: 2, segments: [{ Weight: "56", Reps: "8" }], effort: Effort.Easy },
+        { id: 3, segments: [{ Weight: "65", Reps: "8" }] },
       ]),
       history: withHistory,
     });
@@ -238,9 +238,9 @@ describe("ExerciseLogger edit mode", () => {
     await press("Save set 2");
 
     expect(loggedSets()).toEqual([
-      { id: 1, fields: { Weight: "60", Reps: "8" } },
-      { id: 2, fields: { Weight: "65", Reps: "8" }, effort: Effort.Easy },
-      { id: 3, fields: { Weight: "65", Reps: "8" } },
+      { id: 1, segments: [{ Weight: "60", Reps: "8" }] },
+      { id: 2, segments: [{ Weight: "65", Reps: "8" }], effort: Effort.Easy },
+      { id: 3, segments: [{ Weight: "65", Reps: "8" }] },
     ]);
     expect(useWorkoutStore.getState().rest).toBeNull();
     expect(logButton()).toHaveAccessibleName("Log set 4");
@@ -255,7 +255,7 @@ describe("ExerciseLogger edit mode", () => {
     ];
     const exercise = buildExercise("Bench Press", {
       fields,
-      sets: [{ id: 1, fields: { Weight: "60", Reps: "8", Band: "red" } }],
+      sets: [{ id: 1, segments: [{ Weight: "60", Reps: "8", Band: "red" }] }],
     });
     renderScreen(ActiveWorkoutScreen, { workout: buildWorkout([], { exercises: [exercise] }) });
 
@@ -263,7 +263,7 @@ describe("ExerciseLogger edit mode", () => {
     fireEvent.changeText(screen.getByLabelText("Band"), "");
     await press("Save set 1");
 
-    expect(loggedSets()).toEqual([{ id: 1, fields: { Weight: "60", Reps: "8" } }]);
+    expect(loggedSets()).toEqual([{ id: 1, segments: [{ Weight: "60", Reps: "8" }] }]);
   });
 
   // Ids are ordinals: a remove or undo during the edit would renumber the set
@@ -271,9 +271,9 @@ describe("ExerciseLogger edit mode", () => {
   it("keeps the list read-only while editing, so the edit lands on its own set; Undo waits", async () => {
     renderScreen(ActiveWorkoutScreen, {
       workout: benchWith([
-        { id: 1, fields: { Weight: "60", Reps: "8" } },
-        { id: 2, fields: { Weight: "650", Reps: "8" } },
-        { id: 3, fields: { Weight: "70", Reps: "8" } },
+        { id: 1, segments: [{ Weight: "60", Reps: "8" }] },
+        { id: 2, segments: [{ Weight: "650", Reps: "8" }] },
+        { id: 3, segments: [{ Weight: "70", Reps: "8" }] },
       ]),
     });
     await press("Remove set 1: 60 kg by 8");
@@ -286,11 +286,11 @@ describe("ExerciseLogger edit mode", () => {
     fireEvent.changeText(weight(), "65");
     await press("Save set 1");
     await press(/^Undo/);
-    expect(loggedSets().map((s) => s.fields.Weight)).toEqual(["60", "65", "70"]);
+    expect(loggedSets().map((s) => s.segments[0].Weight)).toEqual(["60", "65", "70"]);
   });
 
   it("a failed save keeps the edit open and says so", async () => {
-    renderScreen(ActiveWorkoutScreen, { workout: benchWith([{ id: 1, fields: { Weight: "60", Reps: "8" } }]) });
+    renderScreen(ActiveWorkoutScreen, { workout: benchWith([{ id: 1, segments: [{ Weight: "60", Reps: "8" }] }]) });
     await openEdit(/^Set 1, /, 1);
     fireEvent.changeText(weight(), "65");
     jest.spyOn(AsyncStorage, "setItem").mockRejectedValueOnce(new Error("disk full"));
@@ -298,15 +298,15 @@ describe("ExerciseLogger edit mode", () => {
 
     expect(screen.getByText("Couldn't save set 1")).toBeOnTheScreen();
     expect(weight().props.value).toBe("65");
-    expect(loggedSets()[0].fields.Weight).toBe("60");
+    expect(loggedSets()[0].segments[0].Weight).toBe("60");
   });
 
   // No UI path removes the edited set; this stands in for the next one that does.
   it("ends an edit whose set leaves the store, so it cannot reopen when that id returns", async () => {
     renderScreen(ActiveWorkoutScreen, {
       workout: benchWith([
-        { id: 1, fields: { Weight: "60", Reps: "8" } },
-        { id: 2, fields: { Weight: "62.5", Reps: "8" } },
+        { id: 1, segments: [{ Weight: "60", Reps: "8" }] },
+        { id: 2, segments: [{ Weight: "62.5", Reps: "8" }] },
       ]),
     });
     await openEdit(/^Set 2, /, 2);
@@ -326,7 +326,7 @@ describe("ExerciseLogger edit mode", () => {
 
   it("during a rest, takes the panel's slot without touching the rest, and gives it back on Save", async () => {
     renderScreen(ActiveWorkoutScreen, {
-      workout: benchWith([{ id: 1, fields: { Weight: "60", Reps: "8" } }]),
+      workout: benchWith([{ id: 1, segments: [{ Weight: "60", Reps: "8" }] }]),
     });
     const rest = { exerciseId: "bench-press", startedAt: Date.now(), durationMs: 90_000, setNumber: 1 };
     act(() => useWorkoutStore.setState({ rest }));
@@ -343,7 +343,7 @@ describe("ExerciseLogger edit mode", () => {
     await press("Save set 1");
     expect(useWorkoutStore.getState().rest).toBe(rest);
     expect(screen.getByRole("button", { name: "Skip rest" })).toBeOnTheScreen();
-    expect(loggedSets()[0].fields.Weight).toBe("62.5");
+    expect(loggedSets()[0].segments[0].Weight).toBe("62.5");
   });
 });
 
@@ -380,7 +380,7 @@ describe("ExerciseLogger split set", () => {
     expect(screen.getByRole("button", { name: "Cancel split 2" })).toBeOnTheScreen();
   });
 
-  it("logs the whole set with one Log: first segment as the set, the rest as splits, empty last row dropped, one rest", async () => {
+  it("logs the whole set with one Log: the rows as its segments, empty last row dropped, one rest", async () => {
     start(["20", "5"]);
     fireEvent.changeText(splitWeight(1), "17.5");
     fireEvent.changeText(splitReps(1), "3");
@@ -388,13 +388,35 @@ describe("ExerciseLogger split set", () => {
     await logSet();
 
     expect(loggedSets()).toEqual([
-      { id: 1, fields: { Weight: "20", Reps: "5" }, splits: [{ Weight: "17.5", Reps: "3" }] },
+      { id: 1, segments: [{ Weight: "20", Reps: "5" }, { Weight: "17.5", Reps: "3" }] },
     ]);
     expect(useWorkoutStore.getState().rest?.setNumber).toBe(1);
     fireEvent.press(screen.getByRole("button", { name: "Skip rest" }));
     // The next set starts as a normal set.
     expect(screen.queryByLabelText("Split 1 Weight · kg")).toBeNull();
     expect(screen.getByRole("button", { name: "Add a split to set 2" })).toBeOnTheScreen();
+  });
+
+  // TICKET-055: every segment survives the store's round trip, and an edit of
+  // the first segment hands the split rows back as they were.
+  it("keeps every segment through log, remove, undo and an edit of the first", async () => {
+    start(["20", "5"]);
+    fireEvent.changeText(splitWeight(1), "17.5");
+    fireEvent.changeText(splitReps(1), "3");
+    await logSet();
+    fireEvent.press(screen.getByRole("button", { name: "Skip rest" }));
+
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Remove set 1: 20 kg by 5" })));
+    expect(loggedSets()).toEqual([]);
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: /^Undo: restore set 1/ })));
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: /^Set 1, 20 kg by 5, then 1 split/ })));
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Edit set 1" })));
+    fireEvent.changeText(weight(), "22.5");
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Save set 1" })));
+
+    expect(loggedSets()).toEqual([
+      { id: 1, segments: [{ Weight: "22.5", Reps: "5" }, { Weight: "17.5", Reps: "3" }] },
+    ]);
   });
 
   it("refuses Log while an earlier split row is half filled, and names the row", async () => {
@@ -421,7 +443,7 @@ describe("ExerciseLogger split set", () => {
     expect(screen.queryByLabelText("Split 1 Weight · kg")).toBeNull();
     expect(weight().props.value).toBe("17.5");
     await logSet();
-    expect(loggedSets()).toEqual([{ id: 1, fields: { Weight: "17.5", Reps: "3" } }]);
+    expect(loggedSets()).toEqual([{ id: 1, segments: [{ Weight: "17.5", Reps: "3" }] }]);
   });
 
   it("cancelling the only split row returns to a normal set with what was typed", () => {

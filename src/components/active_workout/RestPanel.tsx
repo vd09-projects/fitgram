@@ -75,7 +75,8 @@ export default function RestPanel({ rest, exercise, history, onSkip, onAddTime, 
   const banner = personalBestText(
     personalBest(
       history,
-      exercise.sets.map((set) => set.fields),
+      // First segments only: a split row is never a best (TICKET-033).
+      exercise.sets.map((set) => set.segments[0]),
       exercise.sets.length,
       resolveNumericFields(exercise.fields)
     )

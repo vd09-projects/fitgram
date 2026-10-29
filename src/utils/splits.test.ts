@@ -36,7 +36,7 @@ describe("volume", () => {
 
   it("reaches the stored session total", () => {
     const { session } = finished([
-      { id: 1, fields: { Weight: "20", Reps: "5" }, splits: [{ Weight: "17.5", Reps: "3" }] },
+      { id: 1, segments: [{ Weight: "20", Reps: "5" }, { Weight: "17.5", Reps: "3" }] },
     ]);
     expect(session.volume?.totals).toEqual([{ unit: "kg", value: 152.5 }]);
   });
@@ -45,9 +45,9 @@ describe("volume", () => {
 describe("stored shape", () => {
   it("keeps sets, setEffort and setSplits the same length, null where not split", () => {
     const { exerciseSessions } = finished([
-      { id: 1, fields: { Weight: "20", Reps: "8" } },
-      { id: 2, fields: { Weight: "20", Reps: "5" }, effort: "hard", splits: [{ Weight: "17.5", Reps: "3" }] },
-      { id: 3, fields: { Weight: "18", Reps: "8" }, splits: [] },
+      { id: 1, segments: [{ Weight: "20", Reps: "8" }] },
+      { id: 2, segments: [{ Weight: "20", Reps: "5" }, { Weight: "17.5", Reps: "3" }], effort: "hard" },
+      { id: 3, segments: [{ Weight: "18", Reps: "8" }] },
     ]);
     const doc = exerciseSessions[0];
     expect(doc.sets).toHaveLength(3);
@@ -58,7 +58,7 @@ describe("stored shape", () => {
 
   it("never lets a split row become a record", () => {
     const { exerciseSessions } = finished([
-      { id: 1, fields: { Weight: "20", Reps: "5" }, splits: [{ Weight: "40", Reps: "3" }] },
+      { id: 1, segments: [{ Weight: "20", Reps: "5" }, { Weight: "40", Reps: "3" }] },
     ]);
     const stats = rebuildStatsFromSessions("bench-press", exerciseSessions);
     expect(Object.values(stats!.bestByReps).map((best) => [best.weight, best.reps])).toEqual([[20, 5]]);
@@ -80,7 +80,7 @@ describe("reading stored rows back", () => {
 
   it("carries the rows from the live set through upload and the rollup into last time's volume", () => {
     const { exerciseSessions } = finished([
-      { id: 1, fields: { Weight: "20", Reps: "5" }, splits: [{ Weight: "17.5", Reps: "3" }] },
+      { id: 1, segments: [{ Weight: "20", Reps: "5" }, { Weight: "17.5", Reps: "3" }] },
     ]);
     const history = deriveExerciseHistory({
       exerciseId: "bench-press",
@@ -90,19 +90,23 @@ describe("reading stored rows back", () => {
       error: null,
     });
     expect(history.lastSession?.volume.value).toBe(152.5);
-    expect(history.setAt(1)?.splits).toEqual([{ Weight: "17.5", Reps: "3" }]);
+    expect(history.setAt(1)?.segments).toEqual([{ Weight: "20", Reps: "5" }, { Weight: "17.5", Reps: "3" }]);
   });
 });
 
 describe("the set Log stores", () => {
   const FIRST = { Weight: "20", Reps: "5" };
 
+  it("stores the card's rows as segments, one for a normal set", () => {
+    expect(buildLoggedSet(KG, [FIRST], 1)).toEqual({ kind: "ok", set: { segments: [FIRST] } });
+  });
+
   it("drops a blank last row, and refuses a half-filled one rather than drop what was typed", () => {
     // The card's "· N splits" counts these, so it matches what Log stores.
     expect(keptSplitRows(KG, [{ Weight: "17.5", Reps: "3" }, { Weight: " " }])).toHaveLength(1);
     expect(buildLoggedSet(KG, [FIRST, { Weight: "17.5", Reps: "3" }, {}], 3)).toEqual({
       kind: "ok",
-      set: { fields: FIRST, splits: [{ Weight: "17.5", Reps: "3" }] },
+      set: { segments: [FIRST, { Weight: "17.5", Reps: "3" }] },
     });
     expect(buildLoggedSet(KG, [FIRST, { Weight: "17.5", Reps: "3" }, { Weight: "15" }], 3)).toEqual({
       kind: "refused",
