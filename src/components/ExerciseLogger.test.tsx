@@ -495,4 +495,43 @@ describe("ExerciseLogger after a split set", () => {
     await logSet();
     expect(loggedSets()[0].segments).toEqual([{ Weight: "20", Reps: "6" }]);
   });
+
+  // PR #29 review: a remove in Today renumbers the card under a repeat.
+  it("says Repeated only for the set it repeated, when a remove renumbers the card and when undo restores it", async () => {
+    const twoSplits = buildStats("Bench Press", [
+      {
+        sets: [
+          { Weight: "18", Reps: "10" },
+          { segments: [{ Weight: "20", Reps: "5" }, { Weight: "17.5", Reps: "3" }] },
+          { segments: [{ Weight: "25", Reps: "5" }, { Weight: "20", Reps: "3" }] },
+        ],
+      },
+    ]);
+    renderScreen(ActiveWorkoutScreen, {
+      workout: buildWorkout([], {
+        exercises: [
+          buildExercise("Bench Press", {
+            sets: [
+              { id: 1, segments: [{ Weight: "18", Reps: "10" }] },
+              { id: 2, segments: [{ Weight: "20", Reps: "8" }] },
+            ],
+          }),
+        ],
+      }),
+      history: { [twoSplits.exerciseId]: twoSplits },
+    });
+    fireEvent.press(screen.getByRole("button", { name: /^Repeat last session's set 3/ }));
+    expect(screen.getByTestId("split-line")).toHaveTextContent(/^Repeated 25 × 5/);
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole("button", { name: "Remove set 2: 20 kg by 8" }));
+    });
+    expect(weight().props.value).toBe("25");
+    expect(screen.getByTestId("split-line")).toHaveTextContent("Last time split to 17.5 kg × 3");
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole("button", { name: "Undo: restore set 2, 20 kg by 8" }));
+    });
+    expect(screen.getByTestId("split-line")).toHaveTextContent(/^Repeated 25 × 5/);
+  });
 });

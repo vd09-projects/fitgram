@@ -146,7 +146,11 @@ const PILL_HIT_SLOP = { top: (HIT - PILL_HEIGHT) / 2, bottom: (HIT - PILL_HEIGHT
  *   20 × 5 · splits not copied". Repeat fills one set's targets; pre-building
  *   last time's split rows is not this ticket (TICKET-033 Decisions). The
  *   swap lasts until the card's rows change or the set is logged: after that
- *   "Repeated" would describe values the user has since typed over.
+ *   "Repeated" would describe values the user has since typed over. It is
+ *   held for the set number repeated, not as a flag: removing a set in Today
+ *   renumbers the card, and the line would then name the new number's
+ *   values, which the inputs do not hold (PR #29 review). Undo brings the
+ *   number, and the line, back.
  */
 export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise }) {
   const { styles, t } = useThemeStyles(createStyles);
@@ -169,8 +173,8 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
   const [historyOpen, setHistoryOpen] = useState(false);
   /** The set being edited (its id, read fresh) and the edit's own values. */
   const [editing, setEditing] = useState<{ setId: number; values: Record<string, string> } | null>(null);
-  /** Repeat filled the card and nothing was typed since (board S6). */
-  const [repeated, setRepeated] = useState(false);
+  /** The set number repeat filled, while nothing was typed since (board S6). */
+  const [repeatedFor, setRepeatedFor] = useState<number | null>(null);
 
   const nextSetNumber = exercise.sets.length + 1;
   const editedSet = editing ? exercise.sets.find((set) => set.id === editing.setId) ?? null : null;
@@ -200,7 +204,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
   const splitLine: SplitLine | null =
     split === null
       ? null
-      : repeated && !editedSet && pillText !== null
+      : repeatedFor === setNumber && !editedSet && pillText !== null
         ? repeatedSplitLine(pillText)
         : lastTimeSplitLine(split);
   const onSetEffort = (setId: number, effort: Effort | null) => setSetEffort(exercise.id, setId, effort);
@@ -211,7 +215,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
     // `other` fields copied from it; both put a number the user never chose in
     // a real value, one stray Log from being stored.
     setRows((prev) => [...prev, {}]);
-    setRepeated(false);
+    setRepeatedFor(null);
     setRefusal(null);
   };
 
@@ -221,7 +225,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
       setEditing((prev) => prev && { ...prev, values: { ...prev.values, [name]: text } });
     } else {
       setRows((prev) => prev.map((row, i) => (i === index ? { ...row, [name]: text } : row)));
-      setRepeated(false);
+      setRepeatedFor(null);
     }
     setRefusal(null);
   };
@@ -235,7 +239,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
   const onRepeat = () => {
     if (!repeat) return;
     setRows((prev) => [{ ...prev[0], ...repeat }, ...prev.slice(1)]);
-    setRepeated(true);
+    setRepeatedFor(setNumber);
     setRefusal(null);
   };
 
@@ -261,7 +265,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
     // about what that id will be.
     setRemoved(null);
     setRows([{}]);
-    setRepeated(false);
+    setRepeatedFor(null);
     setRefusal(null);
     await addSetToExercise(exercise.id, { id: setNumber, ...result.set });
     startRest(exercise.id, useRestPreferenceStore.getState().restDurationMs, setNumber);
