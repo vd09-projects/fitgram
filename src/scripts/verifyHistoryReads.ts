@@ -482,8 +482,8 @@ const run = async () => {
   section("9. A session with an unparseable set reports no volume, not less");
   const partial = computeSessionVolume(
     [
-      { "Weight (kg)": "60", Reps: "10" },
-      { "Weight (kg)": "", Reps: "8" },
+      { segments: [{ "Weight (kg)": "60", Reps: "10" }] },
+      { segments: [{ "Weight (kg)": "", Reps: "8" }] },
     ],
     { weight: KG_FIELDS[0], reps: KG_FIELDS[1] }
   );
@@ -495,8 +495,8 @@ const run = async () => {
   );
   const whole = computeSessionVolume(
     [
-      { "Weight (kg)": "60", Reps: "10" },
-      { "Weight (kg)": "65", Reps: "8" },
+      { segments: [{ "Weight (kg)": "60", Reps: "10" }] },
+      { segments: [{ "Weight (kg)": "65", Reps: "8" }] },
     ],
     { weight: KG_FIELDS[0], reps: KG_FIELDS[1] }
   );

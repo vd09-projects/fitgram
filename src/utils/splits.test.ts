@@ -1,12 +1,13 @@
-// TICKET-033-1: a split set's rows count toward volume, are stored aligned with
-// the sets, and never become a record. The first segment stays the set.
+// TICKET-033-1: a split set's rows count toward volume, are stored with their
+// set, and never become a record. The first segment is the set. TICKET-055:
+// one record per set, `{ segments, effort }`.
 
 import { buildExercise, buildWorkout } from "../test/fixtures";
 import { ExerciseField } from "../types/workoutType";
 import { ExerciseSet } from "../types/zustandWorkoutType";
 import { buildSessionDocs, computeSessionVolume, rebuildStatsFromSessions } from "./exerciseStats";
 import { deriveExerciseHistory } from "./exerciseHistory";
-import { buildLoggedSet, keptSplitRows, zipSetSplits } from "./splits";
+import { buildLoggedSet, keptSplitRows } from "./splits";
 
 const KG: ExerciseField[] = [
   { name: "Weight", role: "weight", unit: "kg" },
@@ -21,17 +22,22 @@ function finished(sets: ExerciseSet[]) {
 }
 
 describe("volume", () => {
-  it("counts every row of a split set", () => {
-    const sets = [{ Weight: "20", Reps: "8" }, { Weight: "20", Reps: "5" }];
-    expect(computeSessionVolume(sets, NUMERIC).value).toBe(260);
-    const splits = [[], [{ Weight: "17.5", Reps: "3" }, { Weight: "15", Reps: "3" }]];
-    expect(computeSessionVolume(sets, NUMERIC, splits).value).toBe(160 + 100 + 52.5 + 45);
+  it("counts every segment of a split set", () => {
+    const sets = [
+      { segments: [{ Weight: "20", Reps: "8" }] },
+      { segments: [{ Weight: "20", Reps: "5" }, { Weight: "17.5", Reps: "3" }, { Weight: "15", Reps: "3" }] },
+    ];
+    expect(computeSessionVolume(sets, NUMERIC).value).toBe(160 + 100 + 52.5 + 45);
   });
 
-  it("is null, not a partial sum, when a split row lacks weight or reps", () => {
-    const sets = [{ Weight: "20", Reps: "5" }];
-    expect(computeSessionVolume(sets, NUMERIC, [[{ Weight: "17.5" }]])).toEqual({ value: null, setsCounted: 0, setsTotal: 1 });
-    expect(computeSessionVolume(sets, NUMERIC, [[{ Reps: "3" }]]).value).toBeNull();
+  it("is null, not a partial sum, when a split row lacks weight or reps, or a set's segments are incomplete", () => {
+    const FIRST = { Weight: "20", Reps: "5" };
+    expect(computeSessionVolume([{ segments: [FIRST, { Weight: "17.5" }] }], NUMERIC)).toEqual({
+      value: null,
+      setsCounted: 0,
+      setsTotal: 1,
+    });
+    expect(computeSessionVolume([{ segments: [FIRST], segmentsIncomplete: true }], NUMERIC).value).toBeNull();
   });
 
   it("reaches the stored session total", () => {
@@ -43,17 +49,16 @@ describe("volume", () => {
 });
 
 describe("stored shape", () => {
-  it("keeps sets, setEffort and setSplits the same length, null where not split", () => {
+  it("stores each set as one record: every segment and the mark, null when unmarked", () => {
     const { exerciseSessions } = finished([
       { id: 1, segments: [{ Weight: "20", Reps: "8" }] },
       { id: 2, segments: [{ Weight: "20", Reps: "5" }, { Weight: "17.5", Reps: "3" }], effort: "hard" },
-      { id: 3, segments: [{ Weight: "18", Reps: "8" }] },
     ]);
-    const doc = exerciseSessions[0];
-    expect(doc.sets).toHaveLength(3);
-    expect(doc.setEffort).toHaveLength(3);
-    expect(doc.setSplits).toEqual([null, { rows: [{ Weight: "17.5", Reps: "3" }] }, null]);
-    expect(doc.sets[1]).toEqual({ Weight: "20", Reps: "5" });
+    expect(exerciseSessions[0].sets).toEqual([
+      { segments: [{ Weight: "20", Reps: "8" }], effort: null },
+      { segments: [{ Weight: "20", Reps: "5" }, { Weight: "17.5", Reps: "3" }], effort: "hard" },
+    ]);
+    expect(Object.keys(exerciseSessions[0])).not.toContain("setSplits");
   });
 
   it("never lets a split row become a record", () => {
@@ -66,18 +71,6 @@ describe("stored shape", () => {
 });
 
 describe("reading stored rows back", () => {
-  it("trusts no rows when setSplits and sets differ in length", () => {
-    expect(zipSetSplits(2, [null])).toEqual({ rows: [null, null], unavailable: true });
-  });
-
-  it("marks one malformed entry unknown and keeps the others", () => {
-    const row = { Weight: "17.5", Reps: "3" };
-    expect(zipSetSplits(3, [{ rows: 5 }, [row], { rows: [row] }])).toEqual({
-      rows: [null, null, [row]],
-      unavailable: false,
-    });
-  });
-
   it("carries the rows from the live set through upload and the rollup into last time's volume", () => {
     const { exerciseSessions } = finished([
       { id: 1, segments: [{ Weight: "20", Reps: "5" }, { Weight: "17.5", Reps: "3" }] },

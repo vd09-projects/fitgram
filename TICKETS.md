@@ -5285,31 +5285,38 @@ rollup transaction carrying `setSplits`.
 
 #### 033-2 · Read a split set back (S5–S7)
 
-**Status: OPEN** — after 033-1 and TICKET-055 (one segments shape)
+**Status: OPEN** — after 033-1 and TICKET-055 (one segments shape, built)
 
-- History reader exposes each set's split rows (done in 033-1: `HistorySet.splits`)
-- Say why a session's volume is unavailable when its stored rows could not be
-  paired with its sets: `zipSetSplits` computes `unavailable` but nothing reads
-  it yet, so today that reads like any unparseable session (PR #27 review;
-  rule 2.4). Expose it beside `effortUnavailable` and show it where the sheet
-  shows split rows
+- History reader exposes each set's split rows (done in 033-1, renamed in
+  TICKET-055: `HistorySet.segments`, `segments[0]` the set, the rest its splits)
+- Say why a session's volume is unavailable when a set's stored segments could
+  not be read: `HistorySet.segmentsIncomplete` is set by `decodeStoredSet` but
+  nothing shows it yet, so today that reads like any unparseable session
+  (PR #27 review; rule 2.4). Show it where the sheet shows split rows.
+  (TICKET-055 removed `zipSetSplits` and `effortUnavailable`: a set's rows and
+  mark are stored on the set, so they can no longer be misaligned.)
 - History sheet lists them under their set (S7)
 - Next session: Last time pill shows `20 × 5 ⑂2` plus the "Last time split to …"
   line (S5)
-- Repeat copies the first segment only (S6). Already true through `setAt`;
-  confirm, and add the "splits not copied" line
-- Check whether `scripts/verifyHistoryReads.ts` and ExerciseHistoryDebugScreen
-  need the new field
+- Repeat copies the first segment only (S6). Already true through `setAt` and
+  `comparisonSegment`; confirm, and add the "splits not copied" line
+- Check whether `src/scripts/verifyHistoryReads.ts` and
+  ExerciseHistoryDebugScreen need more than 055 gave them (the debug screen
+  prints `segments`; the script builds one-segment sets). The script does not
+  run on main either: `npx tsx` fails transforming `react-native/index.js`
+  (found during 055, not fixed there)
 
 Device test: the session after 033-1, set 3's card and the history sheet show the
 splits; the best still reads 20 kg × 5, never a split row.
 
 #### 033-3 · Edit a split set (S8)
 
-**Status: OPEN** — after 033-1 and TICKET-055 (one segments shape)
+**Status: OPEN** — after 033-1 and TICKET-055 (one segments shape, built)
 
-- TICKET-040's edit card shows the rows: change, add or remove them; Save rewrites
-  the set's `splits`
+- TICKET-040's edit card shows the rows: change, add or remove them; Save passes
+  the edited list to `updateSet`, which replaces the set's `segments` whole
+  (TICKET-055). Today the card edits `segments[0]` and passes the rest back
+  unchanged (`ExerciseLogger.saveEdit`)
 - The Easy/Hard mark and the set's position stay
 
 Device test: edit set 3, change one row's reps, Save; volume updates and the mark
@@ -5333,7 +5340,8 @@ stays. Remove every split row; the set reads as a normal set.
 
 ### TICKET-055: Set Segments — One Shape for a Set and Its Splits
 
-**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — raised 2026-10-29
+**Priority:** Medium | **Effort:** Medium | **Status: BUILT, uncommitted** —
+branch TICKET-055, 2026-10-29; device test not yet run. Raised 2026-10-29
 after TICKET-033-1 (PR #27); goes **before 033-2 and 033-3**, which read the shape
 this changes.
 
@@ -5369,7 +5377,7 @@ the data `segments` (TICKET-033 Decisions, "Data name: `segments`"); 033-1 shipp
 - `buildLoggedSet` returns `segments`; the card logs `rows` as they are.
 - Read-time conversion: `{ fields, splits? }` → `segments: [fields, ...splits]`,
   in `loadWorkoutFromStorage` for both the active workout and every queued upload.
-  One pure function, tested, marked with the date it can be deleted.
+  One pure function, tested, marked with the date it can be deleted. *(Dropped in the build: see Deviation under Built.)*
 
 **Part 2 — stored shape (decide at the start of this ticket):**
 - **Option A, keep (recommended):** `sets[i]` = first segment, `setSplits[i]` =
@@ -5391,17 +5399,20 @@ the data `segments` (TICKET-033 Decisions, "Data name: `segments`"); 033-1 shipp
   rest under one name) so 033-2 reads the same idea the card writes.
 
 **Acceptance Criteria:**
-- [ ] `ExerciseSet` has `segments` (≥ 1) and no `fields` / `splits`; tsc clean
-- [ ] A workout saved by the 033-1 build (split and unsplit sets, active and
-      queued) loads, shows the same Today list, and uploads the same docs
-- [ ] Part 2 decision recorded here, with what was rejected and why
-- [ ] Stored docs, volume and records unchanged for the same input: a split
-      set's `bestByReps` still comes from its first segment only
-- [ ] 033-2 and 033-3 sub-tickets updated to the new names
+- [x] `ExerciseSet` has `segments` (≥ 1) and no `fields` / `splits`; tsc clean
+- ~~A workout saved by the 033-1 build loads, shows the same Today list, and
+      uploads the same docs~~ dropped 2026-10-29: no such workout exists (see
+      Deviation under Built)
+- [x] Part 2 decision recorded here, with what was rejected and why (option C)
+- [x] Stored docs, volume and records unchanged for the same input: a split
+      set's `bestByReps` still comes from its first segment only (values,
+      volume and records unchanged; under C the docs regroup per set)
+- [x] 033-2 and 033-3 sub-tickets updated to the new names
 
-**Tests (pure where possible):** the read-time conversion (unsplit, split, already
-new); `buildSessionDocs` output identical before and after for the same sets
-(snapshot the 033-1 output first, then compare); `buildLoggedSet` returns
+**Tests (pure where possible):** ~~the read-time conversion (unsplit, split, already
+new)~~ (dropped); `buildSessionDocs` output identical before and after for the same sets
+(snapshot the 033-1 output first, then compare; run during the build, not kept);
+`buildLoggedSet` returns
 segments; one store round trip (log a split set, remove, restore, edit first
 segment) keeps every segment. Keep only tests seen failing first.
 
@@ -5409,6 +5420,136 @@ segment) keeps every segment. Keep only tests seen failing first.
 set and a split set, leave it open; install this build; the workout resumes with
 both sets and the split's chip. Log one more split set, Finish; the Firestore docs
 match the 033-1 shape (option A) or the new one (option B).
+
+
+**Part 2 decision (user, 2026-10-29): option C, one record per set.**
+`ExerciseSessionDoc.sets` / `StatsSessionEntry.sets`: `{ segments: StoredSetFields[];
+effort: Effort | null }[]`, `segments.length ≥ 1`. `setEffort` (TICKET-034) and
+`setSplits` (033-1) are gone, and so are `zipSetEffort` / `zipSetSplits`. The live
+`ExerciseSet` is the same record plus `id`. Written by `toStoredSets`, read raw
+only by `decodeStoredSet(s)`; which segment a comparison reads is one function,
+`comparisonSegment` (today `segments[0]`). Firestore takes an array of maps that
+contain arrays; only an array directly inside an array is rejected.
+- **Why** (verified in code before choosing): no Firestore query reads inside
+  `sets` (every `where`/`orderBy` is on a top-level field), so the shape has no
+  index cost. Few readers touch raw docs (`applyBest`, `buildStatsSessionEntry`,
+  `buildHistorySession`, `computeSessionTotalVolume`,
+  `WorkoutHistoricalLogsFilter`); tsc listed exactly these once `sets` changed.
+  The parallel arrays were multiplying, each with a pairing function and a
+  mismatch rule, and A had already failed silently once:
+  `WorkoutHistoricalLogsFilter` mapped `sets` only and dropped split rows and
+  marks with no error. And the first-segment rule is provisional (cardio sums
+  and rising splits are listed costs), so it belongs in one function, not in the
+  storage format.
+- **Rejected A** (keep `sets[i]` + `setSplits`, the ticket's recommendation): it
+  makes the first-segment rule impossible to break by accident, which is real,
+  but it fixes a provisional rule into storage, leaves live and stored shapes
+  permanently different, and every new per-set attribute adds another parallel
+  array to keep aligned. A reader that forgets an array under-reports silently.
+- **Rejected B** (`sets[i] = { segments }`, `setEffort` left parallel): one
+  shape for values but still one parallel array, with its zip and mismatch rule.
+- **Cost accepted:** the over-count guard (a split row never becomes a record) is
+  discipline plus a test, not the type system: readers must go through
+  `decodeStoredSet` and `comparisonSegment`. The test "never lets a split row
+  become a record" stays and was seen failing against a `comparisonSegment` that
+  returns the last segment.
+- **Scope growth, stated:** this changes TICKET-034's stored `setEffort`, outside
+  055 as written. TICKET-034's "Stored shape" decision is marked superseded.
+- **Pre-launch:** Firestore docs in the old shape are not migrated. The decoder
+  reads an old `sets[i]` (a bare map) as unreadable (`[{}]`,
+  `segmentsIncomplete`), never as a one-segment set: its split rows and mark sit
+  in arrays nothing pairs any more, so it would show a split set as a normal one.
+
+**Built 2026-10-29 (branch TICKET-055, uncommitted for review).** Two stages, each
+typechecks and passes on its own (Part 1 verified alone in a throwaway worktree
+off `main`):
+1. **Part 1, live model; stored docs unchanged.** `ExerciseSet.segments`; store
+   actions on segments (`updateSet(exerciseId, setId, segments)` replaces them
+   whole, ignores `[]`); `buildLoggedSet` returns `{ segments }`;
+   `HistorySet.segments` + `segmentsIncomplete`
+   replace `fields` + `splits`. `buildSessionDocs` output identical to a
+   snapshot taken from `main` at de789be (checked during the build, then
+   removed: see Deviation below).
+2. **Part 2, option C.** As above.
+
+**Deviation: no read-time conversion, and `LOCAL_DATA_VERSION` not bumped.**
+Part 1 asked for a `{ fields, splits? }` → `segments` conversion at load. Built
+(`legacySetShape.ts`), then removed on 2026-10-29: the user confirmed no phone
+holds an open workout or queued upload from the 033-1 build (its scenarios were
+tested without saving). Pre-launch, so the conversion protected nothing. A
+workout stored by 033-1 would crash on render (`set.segments` undefined), not
+read wrong. If that ever matters, bump `LOCAL_DATA_VERSION`, which clears it.
+
+**Deviation: the 033-1 snapshot test is not kept.** The ticket asked to snapshot
+`buildSessionDocs` before changing anything and compare after. Done: Part 1
+matched it exactly, Part 2 matched it regrouped into one record per set. Then
+removed with its fixture (2026-10-29): it checked the rewrite during the build,
+not stored data, and after merge it would pin tests to a stored format nothing
+reads. Ongoing cover: the stored-record, session-total and no-split-record
+tests in `splits.test.ts`.
+
+Deviations and decisions in the build (comments at each site):
+- **`HistorySet` is one list plus a flag**, `segments` (never empty) and
+  `segmentsIncomplete`, not `segments | null`: a set whose first segment read but
+  whose later ones did not still shows and compares its first segment; volume
+  reads it as unknown.
+- **An unreadable stored set decodes to `[{}]` + `segmentsIncomplete`**: no values,
+  every number null, flagged. Rejected `segments: []`, which every
+  `segments[0]` reader would crash on.
+- **`computeSessionVolume(sets, numeric)` and `todaySummary(history, sets, fields)`
+  take segmented sets** (Part 2), so live sets, decoded sets and `HistorySet`
+  pass as they are. Replaced the `(firstSegments, numeric, splits?)` pair.
+- **`effortUnavailable` removed** from `ExerciseHistorySession`, with the
+  "marks unavailable" sheet text: marks can no longer be misaligned. An unknown
+  stored mark still reads null.
+- **`WorkoutHistoricalLogsFilter` still shows each set's first segment only**:
+  that older log view has one row per set, its id the position. Now explicit in
+  a comment and read through the decoder; showing splits there is a screen change.
+
+Verified: `npx tsc --noEmit` clean; `npx jest` 38 suites, 487 tests pass (Part 1
+alone: 37 suites, 487). During the build, `buildSessionDocs` matched the 033-1
+snapshot (Part 1 exactly, Part 2 regrouped); that test is not kept (Deviation
+above). Kept tests, each seen failing against a deliberate break of the line it
+covers: `buildLoggedSet`
+returns segments (unsplit and split); card round trip (log a split set, remove,
+undo, edit the first segment: both segments kept); stored record (every segment,
+mark null when unmarked); decoder (unknown mark, bad later segment, old bare map);
+volume with an incomplete set. Removed: the `zipSetEffort` / `zipSetSplits`
+mismatch tests and the sheet's "marks unavailable" case (the states no longer exist).
+
+Unverified (needs a device run, below): the Firestore upload of the new shape
+(nested `segments` inside `sets`) and the rollup transaction carrying it.
+
+Known gaps:
+- **Firestore test data in the old shape reads as unreadable sets** (blank last
+  time, no ghosts) until it is wiped. `src/scripts/wipeTestData.ts` is too broad
+  for this: it also deletes every plan and the catalog. Not run, not changed.
+  Deferred to the user: either delete `sessions`, `exercise_sessions` and
+  `exercise_stats` per test user in the console, or a history-only flag on the
+  wipe script as a follow-up. Loud (visibly blank history), so it does not send
+  anyone debugging the wrong layer.
+- **`verifyHistoryReads.ts` does not run** (`npx tsx` fails on
+  `react-native/index.js`), on `main` at de789be too, so it is typechecked only.
+  Not fixed: unrelated to this shape.
+- **Old logs screen drops split rows** (above). Same as before 055.
+
+**Device test plan for this build** (user runs; CLAUDE.md 1.3):
+1. Install this build with no open workout or queued upload from 033-1.
+2. Start a workout, log a normal Bench set and a split set (20 × 5, then
+   17.5 × 3). Close and reopen the app: Today shows both sets, the split set
+   with its chip (1) and, opened, 17.5 kg × 3.
+3. Finish one short workout **offline** (Pending Uploads 1), then this one
+   online → "Workout saved". Reconnect → the queued one uploads (Pending
+   Uploads 0).
+4. Firestore console, `users/{uid}/exercise_sessions/{session}__{bench id}`: no
+   `setEffort`, no `setSplits`; `sets` is a list of maps, each
+   `{ segments: [ {Weight, Reps}, … ], effort }`, the split set with two or more
+   segments, effort `null` where unmarked. `exercise_stats/{bench id}` →
+   `recentSessions[0].sets` the same shape; `bestByReps` holds no 17.5 × 3.
+   Session `volume` matches Today.
+5. Next session on Bench: the Last time pill and ghosts show the first segment
+   (20 × 5) for the split set. Sessions stored before this build show blank
+   values until the test data is wiped (expected, see Known gaps).
 
 **Dependencies:** TICKET-033-1 merged. Blocks 033-2 and 033-3.
 
@@ -5438,7 +5579,9 @@ lost form or needed a spot — hold the weight, save energy, or rest longer.
   "done in good form, as planned". Rejected a stored `ok`: the user marks exceptions,
   not every set, so `ok` would be indistinguishable from unmarked in practice
   (`src/types/workoutSession.ts`).
-- **Stored shape.** `ExerciseSessionDoc.setEffort: (Effort | null)[]`, parallel to
+- ~~**Stored shape.**~~ **Superseded by TICKET-055 (user, 2026-10-29):** the mark
+  is stored on its set, `sets[i].effort`, and `setEffort` / `zipSetEffort` are
+  gone. Was: `ExerciseSessionDoc.setEffort: (Effort | null)[]`, parallel to
   `sets`, copied into the rollup's `StatsSessionEntry`. A parallel array so TICKET-033's
   reshape of the stored set does not have to carry it. Built once from the live sets
   (`buildSessionDocs`), so aligned by construction; a reader finding a length mismatch

@@ -23,6 +23,7 @@ import { EffortBadge } from "./EffortBadge";
 import { effortSpeech } from "../../utils/effort";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
+import { comparisonSegment } from "../../utils/storedSets";
 import { useExerciseName } from "../../hooks/useExerciseNames";
 
 const HIT = 44;
@@ -73,7 +74,7 @@ export default function ExerciseHistorySheet({ visible, onClose, exercise, histo
       ? sheetSession(
           history,
           sessions[index],
-          exercise.sets.map((set) => set.segments[0]),
+          exercise.sets.map(comparisonSegment),
           exercise.fields
         )
       : null;

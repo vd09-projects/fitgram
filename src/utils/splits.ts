@@ -1,65 +1,17 @@
 // src/utils/splits.ts
 //
 // Split sets (TICKET-033): a set whose weight changed part-way, 20 kg × 5 then
-// 17.5 kg × 3. The first segment is the set (`ExerciseSet.segments[0]`,
-// stored as `sets[i]`); the segments after it are the split. This file pairs the stored rows
-// with their sets, decides the card's × / split control, and builds the set a
-// Log tap stores.
+// 17.5 kg × 3. The first segment is the set (`ExerciseSet.segments[0]`); the
+// segments after it are the split. This file decides the card's × / split
+// control and builds the set a Log tap stores.
 // Pure; tests in splits.test.ts.
 
 import { ExerciseField } from "../types/workoutType";
-import { StoredSetFields, StoredSplit } from "../types/workoutSession";
 import { ExerciseSet } from "../types/zustandWorkoutType";
 import { buildSetFields, missingFields } from "./setLogger";
 
 /** One row's values as the card's inputs hold them. */
 export type SplitRowValues = Record<string, string>;
-
-/**
- * What each live set stores in `setSplits`: its segments after the first,
- * wrapped in a map, or null when it was not split. Null, never undefined
- * (Firestore rejects undefined), and never a bare array (Firestore rejects an
- * array inside an array).
- */
-export const storedSplits = (sets: readonly Pick<ExerciseSet, "segments">[]): (StoredSplit | null)[] =>
-  sets.map((set) => (set.segments.length > 1 ? { rows: set.segments.slice(1) } : null));
-
-export type ZippedSplits = {
-  /** One entry per set, in set order. [] when not split; null when unknown. */
-  rows: (StoredSetFields[] | null)[];
-  /** True when the stored rows could not be paired with the sets. */
-  unavailable: boolean;
-};
-
-const isRow = (value: unknown): value is StoredSetFields =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-/**
- * Pair a session's stored `setSplits` with its `setCount` sets. The same rules
- * as `zipSetEffort`, except that an unknown entry is unknown rather than
- * "nothing": a missing mark is harmless, missing rows would understate volume.
- *
- * - **Missing array** (a doc saved before TICKET-033): no set split. Nothing
- *   could have been split then, so that is true.
- * - **Not an array, or a length mismatch**: every set's rows null, and
- *   `unavailable`. Pairing by position could hang rows on the wrong set.
- * - **null entry**: that set was not split, [].
- * - **Any other entry that is not `{ rows: [row, …] }`**: that set's rows null.
- *   Its volume is then unavailable; the other sets stand.
- */
-export function zipSetSplits(setCount: number, setSplits: unknown): ZippedSplits {
-  const all = (value: StoredSetFields[] | null) => Array.from({ length: setCount }, () => value);
-  if (setSplits === undefined) return { rows: all([]), unavailable: false };
-  if (!Array.isArray(setSplits) || setSplits.length !== setCount) return { rows: all(null), unavailable: true };
-  return {
-    rows: setSplits.map((entry) => {
-      if (entry === null) return [];
-      const rows = typeof entry === "object" ? (entry as { rows?: unknown }).rows : undefined;
-      return Array.isArray(rows) && rows.every(isRow) ? rows : null;
-    }),
-    unavailable: false,
-  };
-}
 
 /** "1 split", "2 splits". Counts the rows after the first segment. */
 export const splitCountText = (count: number): string => `${count} ${count === 1 ? "split" : "splits"}`;

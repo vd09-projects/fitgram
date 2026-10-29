@@ -21,6 +21,8 @@ const historyOf = (stats: ExerciseStatsDoc | null, fields: ExerciseField[] = BEN
   );
 
 const set = (weight: string, reps: string): StoredSetFields => ({ Weight: weight, Reps: reps });
+/** Today\'s live sets, one segment each (TICKET-055). */
+const live = (sets: StoredSetFields[]) => sets.map((values) => ({ segments: [values] }));
 
 describe("compareSets", () => {
   const unit = "kg";
@@ -97,7 +99,7 @@ describe("todaySummary", () => {
   ]);
 
   it("compares with last session's first N sets while today has fewer", () => {
-    const summary = todaySummary(historyOf(lastTime), [set("60", "11"), set("60", "11")], BENCH);
+    const summary = todaySummary(historyOf(lastTime), live([set("60", "11"), set("60", "11")]), BENCH);
     expect(summary.volume).toEqual({ value: 1320, setsCounted: 2, setsTotal: 2 });
     expect(summary.comparison).toMatchObject({ kind: "percent", direction: 1, base: { kind: "firstN", n: 2 } });
     expect(comparisonText(summary.comparison)).toBe("+10.0% volume vs first 2 sets");
@@ -105,14 +107,14 @@ describe("todaySummary", () => {
 
   it("compares full totals once today has as many sets, and names the session", () => {
     const today = [set("60", "10"), set("60", "10"), set("60", "10"), set("60", "10")];
-    const summary = todaySummary(historyOf(lastTime), today, BENCH);
+    const summary = todaySummary(historyOf(lastTime), live(today), BENCH);
     expect(summary.comparison).toMatchObject({ kind: "percent", base: { kind: "session" } });
     expect(summary.comparison.kind === "percent" && Math.round(summary.comparison.percent)).toBe(33);
     expect(comparisonText(summary.comparison)).toMatch(/^\+33\.3% volume vs \d{1,2} [A-Z][a-z]{2}$/);
   });
 
   it("reports today's volume unavailable with counts, never a partial sum", () => {
-    const summary = todaySummary(historyOf(lastTime), [set("60", "10"), set("60", "")], BENCH);
+    const summary = todaySummary(historyOf(lastTime), live([set("60", "10"), set("60", "")]), BENCH);
     expect(summary.volume).toEqual({ value: null, setsCounted: 1, setsTotal: 2 });
     expect(volumeText(summary.volume, "kg")).toBe("volume unavailable (1 of 2 sets)");
     expect(summary.comparison).toEqual({ kind: "none", reason: "todayUnavailable" });
@@ -120,25 +122,25 @@ describe("todaySummary", () => {
 
   it("has no comparison when last time's first N sets did not all parse", () => {
     const partial = buildStats("Bench Press", [{ sets: [set("60", "10"), set("?", "10"), set("60", "10")] }]);
-    const summary = todaySummary(historyOf(partial), [set("60", "10"), set("60", "10")], BENCH);
+    const summary = todaySummary(historyOf(partial), live([set("60", "10"), set("60", "10")]), BENCH);
     expect(summary.volume?.value).toBe(1200);
     expect(comparisonText(summary.comparison)).toBe("Last session's volume unavailable (1 of 2 sets)");
   });
 
   it("has no comparison when last session was in another unit", () => {
     const lb = buildStats("Bench Press", [{ fields: [LB, REPS], sets: [set("135", "10")] }]);
-    const summary = todaySummary(historyOf(lb), [set("60", "10")], BENCH);
+    const summary = todaySummary(historyOf(lb), live([set("60", "10")]), BENCH);
     expect(comparisonText(summary.comparison)).toBe("Last time was in lb, so no comparison");
   });
 
   it("gives no percentage of a 0 kg session", () => {
     const bodyweight = buildStats("Bench Press", [{ sets: [set("0", "10")] }]);
-    const summary = todaySummary(historyOf(bodyweight), [set("5", "10")], BENCH);
+    const summary = todaySummary(historyOf(bodyweight), live([set("5", "10")]), BENCH);
     expect(summary.comparison).toEqual({ kind: "none", reason: "pastZero" });
   });
 
   it("has no volume at all for a plank, rather than 0", () => {
-    const summary = todaySummary(historyOf(null, PLANK), [{ Time: "60" }], PLANK);
+    const summary = todaySummary(historyOf(null, PLANK), live([{ Time: "60" }]), PLANK);
     expect(summary.volume).toBeNull();
     expect(volumeText(summary.volume, undefined)).toBeNull();
   });
@@ -146,7 +148,7 @@ describe("todaySummary", () => {
   it("reads today's fields from the live exercise, not last session's shape", () => {
     // Last session had no weight+reps pair; today the exercise does.
     const plankBefore = buildStats("Bench Press", [{ fields: PLANK, sets: [{ Time: "60" }] }]);
-    const summary = todaySummary(historyOf(plankBefore, PLANK), [set("60", "10")], BENCH);
+    const summary = todaySummary(historyOf(plankBefore, PLANK), live([set("60", "10")]), BENCH);
     expect(summary.volume?.value).toBe(600);
   });
 });

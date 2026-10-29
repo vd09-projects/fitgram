@@ -20,6 +20,7 @@ import { DeltaBadge, deltaSpeech } from "./DeltaBadge";
 import { EffortBadge } from "./EffortBadge";
 import { EFFORT_LABEL, effortSpeech, toggleEffort } from "../../utils/effort";
 import { splitCountText } from "../../utils/splits";
+import { comparisonSegment, plannedSegment, splitSegments } from "../../utils/storedSets";
 import { SplitIcon } from "./SetRows";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
@@ -109,22 +110,17 @@ export default function TodaySets({
   const { styles, t } = useThemeStyles(createStyles);
   const [openSetId, setOpenSetId] = useState<number | null>(null);
   const numeric = resolveNumericFields(exercise.fields);
-  const summary = todaySummary(
-    history,
-    exercise.sets.map((set) => set.segments[0]),
-    exercise.fields,
-    exercise.sets.map((set) => set.segments.slice(1))
-  );
+  const summary = todaySummary(history, exercise.sets, exercise.fields);
   const volume = volumeText(summary.volume, numeric?.weight.unit);
   const comparison = comparisonText(summary.comparison);
 
   const rows: React.ReactNode[] = exercise.sets.map((set, index) => {
     const setNumber = index + 1;
     // The row and its delta are the first segment; the rest list under it.
-    const values = setValuesText(exercise.fields, set.segments[0]);
-    const delta = setDelta(history, setNumber, set.segments[0], numeric);
+    const values = setValuesText(exercise.fields, plannedSegment(set));
+    const delta = setDelta(history, setNumber, comparisonSegment(set), numeric);
     const effort = set.effort ?? null;
-    const splits = set.segments.slice(1).map((row) => setValuesText(exercise.fields, row));
+    const splits = splitSegments(set).map((row) => setValuesText(exercise.fields, row));
     const splitsSpeech =
       splits.length > 0 ? `, then ${splitCountText(splits.length)}: ${splits.join(", ").replace(/×/g, "by")}` : "";
     const readOnly = editingSetId !== null;
@@ -226,7 +222,7 @@ export default function TodaySets({
 
   if (removed) {
     const at = Math.min(removed.index, rows.length);
-    const values = setValuesText(exercise.fields, removed.set.segments[0]);
+    const values = setValuesText(exercise.fields, plannedSegment(removed.set));
     rows.splice(
       at,
       0,

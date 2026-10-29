@@ -37,18 +37,13 @@ const historyOf = (
 
 describe("sheetSession", () => {
   // TICKET-034
-  it("puts each set's mark on its own row and counts them; misaligned marks say so instead", () => {
+  it("puts each set's mark on its own row and counts them", () => {
     const history = historyOf([
       { sets: [set("60", "8"), set("65", "8"), set("65", "6")], setEffort: [null, Effort.Easy, Effort.Hard] },
-      { sets: [set("60", "8"), set("65", "8")], setEffort: [Effort.Hard] },
     ]);
     const marked = sheetSession(history, history.sessions[0], [], BENCH);
     expect(marked.rows.map((row) => row.pastEffort)).toEqual([null, Effort.Easy, Effort.Hard]);
     expect(marked.effort).toBe("1 easy · 1 hard");
-
-    const misaligned = sheetSession(history, history.sessions[1], [], BENCH);
-    expect(misaligned.rows.map((row) => row.pastEffort)).toEqual([null, null]);
-    expect(misaligned.effort).toBe("marks unavailable");
   });
 
   it("gives the last session the Today list's deltas, aligned by set index", () => {

@@ -16,6 +16,7 @@ import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 import { useNow } from "../../hooks/useNow";
 import { EffortBadge } from "./EffortBadge";
+import { comparisonSegment } from "../../utils/storedSets";
 
 const ACTION_HEIGHT = 48;
 
@@ -75,8 +76,8 @@ export default function RestPanel({ rest, exercise, history, onSkip, onAddTime, 
   const banner = personalBestText(
     personalBest(
       history,
-      // First segments only: a split row is never a best (TICKET-033).
-      exercise.sets.map((set) => set.segments[0]),
+      // A split row is never a best (TICKET-033).
+      exercise.sets.map(comparisonSegment),
       exercise.sets.length,
       resolveNumericFields(exercise.fields)
     )

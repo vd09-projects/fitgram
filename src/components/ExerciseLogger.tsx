@@ -30,6 +30,7 @@ import { EffortBadge } from "./active_workout/EffortBadge";
 import { effortSpeech, lastTimeEffort } from "../utils/effort";
 import { formatSessionDate, setValuesText } from "../utils/setDeltas";
 import { buildLoggedSet, keptSplitRows, splitCountText, SplitRowValues } from "../utils/splits";
+import { plannedSegment, splitSegments } from "../utils/storedSets";
 import SetRows from "./active_workout/SetRows";
 
 const HIT = 44;
@@ -237,7 +238,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
   const onEdit = (setId: number) => {
     const set = exercise.sets.find((s) => s.id === setId);
     if (!set) return;
-    setEditing({ setId, values: editInputValues(set.segments[0]) });
+    setEditing({ setId, values: editInputValues(plannedSegment(set)) });
     setRefusal(null);
   };
 
@@ -258,8 +259,8 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
     }
     try {
       // The edit is the first segment; the split rows go back as they were.
-      const [first, ...splits] = editedSet.segments;
-      await updateSet(exercise.id, editedSet.id, [withUnlistedFields(exercise.fields, first, result.fields), ...splits]);
+      const splits = splitSegments(editedSet);
+      await updateSet(exercise.id, editedSet.id, [withUnlistedFields(exercise.fields, plannedSegment(editedSet), result.fields), ...splits]);
     } catch {
       setRefusal(`Couldn't save set ${setNumber}`);
       return;
@@ -320,7 +321,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
 
           {editedSet && (
             <TextBase style={styles.notice}>
-              Logged <NumericText style={styles.notice}>{setValuesText(exercise.fields, editedSet.segments[0])}</NumericText>
+              Logged <NumericText style={styles.notice}>{setValuesText(exercise.fields, plannedSegment(editedSet))}</NumericText>
               {" · mark and position stay"}
             </TextBase>
           )}

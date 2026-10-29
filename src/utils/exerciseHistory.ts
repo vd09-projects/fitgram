@@ -21,8 +21,7 @@ import {
   resolveNumericFields,
 } from "./exerciseFields";
 import { computeSessionVolume } from "./exerciseStats";
-import { zipSetSplits } from "./splits";
-import { zipSetEffort } from "./effort";
+import { comparisonSegment, decodeStoredSets } from "./storedSets";
 
 /** `sessions` window. */
 export const HISTORY_RECENT_SESSION_COUNT = 3;
@@ -50,23 +49,16 @@ export function buildHistorySession(
   // A session logged in different units keeps its raw values but contributes no
   // numbers, so nothing downstream can compare 80 lb against 70 kg.
   const sessionNumeric = comparable ? numeric : null;
-  // Marks are about how the set felt, not its numbers, so an incomparable
-  // session keeps them.
-  const effort = zipSetEffort(entry.sets.length, entry.setEffort);
-  // Split rows ride along so volume can count them (TICKET-033). Raw, like
-  // `fields`: an incomparable session keeps them and contributes no numbers.
-  const splits = zipSetSplits(entry.sets.length, entry.setSplits).rows;
-
-  const sets: HistorySet[] = entry.sets.map((fields, index) => {
-    const { weight, reps } = parseSet(fields, sessionNumeric);
+  // Segments and marks are kept raw on an incomparable session: it shows its
+  // values and how the sets felt, and contributes no numbers.
+  const sets: HistorySet[] = decodeStoredSets(entry.sets).map((set, index) => {
+    const { weight, reps } = parseSet(comparisonSegment(set), sessionNumeric);
     return {
       // Array position is the only source of set order.
       setNumber: index + 1,
-      segments: [fields, ...(splits[index] ?? [])],
-      segmentsIncomplete: splits[index] === null,
+      ...set,
       weight,
       reps,
-      effort: effort.marks[index],
     };
   });
 
@@ -77,8 +69,7 @@ export function buildHistorySession(
     performedAt: entry.performedAt,
     sets,
     fields: entry.fields,
-    volume: computeSessionVolume(entry.sets, sessionNumeric, splits),
-    effortUnavailable: effort.unavailable,
+    volume: computeSessionVolume(sets, sessionNumeric),
     comparable,
   };
 }

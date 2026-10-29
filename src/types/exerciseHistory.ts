@@ -43,14 +43,15 @@ export type HistorySet = {
    * planned, the rest are its split rows (TICKET-033). For display of
    * non-numeric fields, and for volume.
    *
-   * `weight` / `reps` below are the FIRST segment's: ghosts, deltas and records
-   * read those and never a later segment.
+   * `weight` / `reps` below are parsed from `comparisonSegment` (the first):
+   * ghosts, deltas and records read those and never a later segment.
    */
   segments: StoredSetFields[];
   /**
-   * True when some of this set's segments could not be read: `segments` then
-   * holds only the first, and volume reads the set as unknown rather than
-   * counting the first segment alone (a partial sum). See `zipSetSplits`.
+   * True when some of this set's stored segments could not be read: `segments`
+   * then holds only the readable ones before the first bad one (`[{}]` when
+   * none), and volume reads the set as unknown rather than counting a partial
+   * sum. See `decodeStoredSet`.
    */
   segmentsIncomplete: boolean;
   /** null when the value is absent, unparseable, or the exercise has no such role. */
@@ -74,12 +75,6 @@ export type ExerciseHistorySession = {
    */
   fields: ExerciseField[];
   volume: SessionVolume;
-  /**
-   * True when the stored marks could not be paired with the sets (the array
-   * lengths differ). Every `effort` is then null; this says why, so a reader can
-   * tell "marks unavailable" from "nothing marked". See `zipSetEffort`.
-   */
-  effortUnavailable: boolean;
   /**
    * False when this session's weight unit differs from the exercise's current
    * definition. Its numbers are still shown; comparing them is not valid.

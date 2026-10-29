@@ -6,6 +6,7 @@
 import { ActiveWorkout, LoggedExercise } from "../types/zustandWorkoutType";
 import { ExerciseField } from "../types/workoutType";
 import {
+  Effort,
   ExerciseSessionDoc,
   ExerciseStatsDoc,
   StoredSetFields,
@@ -45,15 +46,18 @@ export function buildWorkout(
 
 /** One past session for `buildStats`. Only `sets` is required. */
 export type StatsSessionSpec = {
-  /** Positional: index 0 is set 1. Keyed by field name, as logged. */
+  /**
+   * Positional: index 0 is set 1. Keyed by field name, as logged. Each is a
+   * one-segment set; stored as `{ segments: [values], effort }` (TICKET-055).
+   */
   sets: StoredSetFields[];
   /** Field definitions that session was logged with. Default: kg weight + reps. */
   fields?: ExerciseField[];
   /** Default: one day earlier per position, so the first spec is the newest. */
   performedAt?: number;
   workoutName?: string;
-  /** Per-set effort marks, positional like `sets` (TICKET-034). Default: none stored. */
-  setEffort?: ExerciseSessionDoc["setEffort"];
+  /** Per-set effort marks, positional like `sets` (TICKET-034). Default: none marked. */
+  setEffort?: (Effort | null)[];
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -83,8 +87,7 @@ export function buildStats(name: string, sessions: StatsSessionSpec[]): Exercise
       workoutName: spec.workoutName ?? "Test Workout",
       performedAt: spec.performedAt ?? now - (index + 1) * DAY_MS,
       fields: spec.fields ?? buildExercise(name).fields,
-      sets: spec.sets,
-      ...(spec.setEffort && { setEffort: spec.setEffort }),
+      sets: spec.sets.map((values, i) => ({ segments: [values], effort: spec.setEffort?.[i] ?? null })),
     };
   });
 

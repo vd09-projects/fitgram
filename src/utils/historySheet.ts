@@ -23,6 +23,7 @@ import { computeSessionVolume } from "./exerciseStats";
 import { effortCountText } from "./effort";
 import { Effort } from "../types/workoutSession";
 import { SetDelta, setDelta, setValuesText, volumeText } from "./setDeltas";
+import { comparisonSegment, plannedSegment } from "./storedSets";
 
 type SheetHistory = Pick<
   ExerciseHistory,
@@ -62,7 +63,7 @@ export function sheetStatusMessage(history: Pick<ExerciseHistory, "status" | "ha
  */
 export function sessionSets(session: ExerciseHistorySession): HistorySet[] {
   const own = session.comparable ? resolveNumericFields(session.fields) : null;
-  return session.sets.map((set) => ({ ...set, ...parseSet(set.segments[0], own) }));
+  return session.sets.map((set) => ({ ...set, ...parseSet(comparisonSegment(set), own) }));
 }
 
 export type SheetRow = {
@@ -137,7 +138,7 @@ export function sheetSession(
     const today = todaySets[index];
     rows.push({
       setNumber,
-      past: past ? setValuesText(session.fields, past.segments[0]) : null,
+      past: past ? setValuesText(session.fields, plannedSegment(past)) : null,
       pastEffort: past?.effort ?? null,
       today: today ? setValuesText(todayFields, today) : null,
       isNext: setNumber === nextSet,
@@ -151,11 +152,7 @@ export function sheetSession(
   const volume =
     own && history.numericComparisonAvailable
       ? volumeText(
-          computeSessionVolume(
-            session.sets.map((set) => set.segments[0]),
-            own,
-            session.sets.map((set) => (set.segmentsIncomplete ? null : set.segments.slice(1)))
-          ),
+          computeSessionVolume(session.sets, own),
           own.weight.unit
         )
       : null;
@@ -168,7 +165,7 @@ export function sheetSession(
     volume,
     rows,
     notice: sessionNotice(history, session, sets, own?.weight.unit ?? null, own !== null),
-    effort: session.effortUnavailable ? "marks unavailable" : effortCountText(sets.map((set) => set.effort)),
+    effort: effortCountText(sets.map((set) => set.effort)),
   };
 }
 

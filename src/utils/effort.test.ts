@@ -1,9 +1,10 @@
 // TICKET-034: a set's effort mark survives every hop from the live workout to
-// "last time" on the next session, and is never paired with the wrong set.
+// "last time" on the next session. Stored on its own set (TICKET-055), so it
+// cannot be paired with the wrong one.
 
 import { buildExercise, buildWorkout } from "../test/fixtures";
 import { Effort, ExerciseSessionDoc } from "../types/workoutSession";
-import { lastTimeEffort, zipSetEffort } from "./effort";
+import { lastTimeEffort } from "./effort";
 import { deriveExerciseHistory } from "./exerciseHistory";
 import { buildSessionDocs, rebuildStatsFromSessions } from "./exerciseStats";
 
@@ -40,11 +41,10 @@ describe("effort marks, end to end", () => {
   it("survive storage, upload and the rollup rebuild; an unmarked set is null, never undefined", () => {
     const doc = finishedSession(10 * DAY, [undefined, Effort.Easy, null, Effort.Hard]);
     // Firestore rejects undefined; a set logged without a mark must store null.
-    expect(doc.setEffort).toEqual([null, Effort.Easy, null, Effort.Hard]);
+    expect(doc.sets.map((set) => set.effort)).toEqual([null, Effort.Easy, null, Effort.Hard]);
 
     const history = historyOf([doc]);
     expect(history.lastSession!.sets.map((s) => s.effort)).toEqual([null, Effort.Easy, null, Effort.Hard]);
-    expect(history.lastSession!.effortUnavailable).toBe(false);
   });
 
   it("'last time' is the last session only: an older mark never stands in for an unmarked set", () => {
@@ -56,15 +56,5 @@ describe("effort marks, end to end", () => {
     expect(lastTimeEffort(history, 2)).toEqual({ effort: Effort.Easy, performedAt: 8 * DAY });
     // Not done last time at all.
     expect(lastTimeEffort(history, 3)).toBeNull();
-  });
-});
-
-describe("zipSetEffort", () => {
-  it("reads every mark as unavailable when the stored marks do not line up with the sets", () => {
-    expect(zipSetEffort(3, [Effort.Hard, null])).toEqual({ marks: [null, null, null], unavailable: true });
-    // Stored, but not marks: unavailable, and never a throw that takes the whole history down.
-    expect(zipSetEffort(2, null)).toEqual({ marks: [null, null], unavailable: true });
-    // A doc from before marks existed: nothing was marked, which is true.
-    expect(zipSetEffort(2, undefined)).toEqual({ marks: [null, null], unavailable: false });
   });
 });
