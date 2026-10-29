@@ -5033,7 +5033,7 @@ approach that handles these cases at least as well?
 
 **Priority:** Low | **Effort:** Medium-Large | **Status: IN PROGRESS** — design decided
 2026-10-29 (boards S1–S8 on the Workout Flow canvas, `design/workout-flow/project/Split*.dc.html`;
-SH3 replaces S7). 033-1 merged (PR #27), 033-2 in review (PR #29), 033-3 open.
+SH3 replaces S7). 033-1 merged (PR #27), 033-2 merged (PR #29), 033-3 open.
 Split into 033-1 (log), 033-2 (read back), 033-3 (edit), below
 
 **Description:**
@@ -5287,8 +5287,9 @@ rollup transaction carrying `setSplits`.
 
 #### 033-2 · Read a split set back (S5–S7)
 
-**Status: IN REVIEW** — PR #29 (branch TICKET-033-2), 2026-10-29; device test not
-yet run. Started after the user confirmed TICKET-055's device plan (steps 0–5) passed.
+**Status: MERGED** — PR #29 (b709803), 2026-10-29. Device test passed (user,
+2026-10-29: pill, split chip and rail on a narrow phone). Started after the user
+confirmed TICKET-055's device plan (steps 0–5) passed.
 
 - History reader exposes each set's split rows (done in 033-1, renamed in
   TICKET-055: `HistorySet.segments`, `segments[0]` the set, the rest its splits)

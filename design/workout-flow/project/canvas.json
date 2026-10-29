@@ -484,7 +484,7 @@
     "SplitRepeat.dc.html": {
       "h": 844,
       "radius": 28,
-      "title": "S6 \u00b7 Repeat copies the first row only",
+      "title": "S6 \u00b7 Repeat copies the whole set; remove rows you didn't do",
       "w": 390,
       "x": 2350,
       "y": 23300
