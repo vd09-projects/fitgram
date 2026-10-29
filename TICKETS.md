@@ -5300,6 +5300,11 @@ rollup transaction carrying `setSplits`.
   line (S5)
 - Repeat copies the first segment only (S6). Already true through `setAt` and
   `comparisonSegment`; confirm, and add the "splits not copied" line
+- Test fixture first: `buildStats` (`src/test/fixtures.ts`) seeds every past set
+  as one segment, so a split past session (pill `⑂2`, sheet rows) can't be
+  seeded yet. Let a spec set carry its segments and its mark on the set, as
+  stored, and drop the spec's parallel `setEffort` (PR #28 review; deferred from
+  055 because no 055 test needs a split past session)
 - Check whether `src/scripts/verifyHistoryReads.ts` and
   ExerciseHistoryDebugScreen need more than 055 gave them (the debug screen
   prints `segments`; the script builds one-segment sets). The script does not
@@ -5323,15 +5328,19 @@ Device test: edit set 3, change one row's reps, Save; volume updates and the mar
 stays. Remove every split row; the set reads as a normal set.
 
 **Technical Notes:**
-- This is a data-model change. `ExerciseSet.fields` holds one value per field,
+- ~~This is a data-model change. `ExerciseSet.fields` holds one value per field,
   and `StoredSetFields`, `computeSessionVolume`, `applyBest`, `setAt` and the
   delta maths all assume one weight and one rep count per set. Settle the stored
-  shape first. The app is pre-launch, so no migration is needed
+  shape first.~~ Superseded by TICKET-055: a set is `segments` (live and stored),
+  comparisons read `comparisonSegment`, volume reads every segment. The app is
+  pre-launch, so no migration is needed
 - Not an extra free-text field: deltas and records would have to guess its
   meaning, which is the inference the field-role model exists to avoid
-- TICKET-034 stores `setEffort` parallel to `sets`, one mark per set position. Keep a
+- ~~TICKET-034 stores `setEffort` parallel to `sets`, one mark per set position. Keep a
   drop set as **one** entry in `sets`, or rebuild `setEffort` alongside: if the two
-  lengths differ, every mark in that session reads as "marks unavailable" (`zipSetEffort`)
+  lengths differ, every mark in that session reads as "marks unavailable" (`zipSetEffort`)~~
+  Superseded by TICKET-055: the mark is stored on its set (`{ segments, effort }`);
+  `setEffort` and `zipSetEffort` are gone, and marks cannot be misaligned
 
 **Dependencies:** Phase 3 complete (TICKET-019, TICKET-020, TICKET-021), TICKET-040
 (edit card, for 033-3). Within the ticket: 033-1 before 033-2 and 033-3.
