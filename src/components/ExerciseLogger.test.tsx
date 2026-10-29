@@ -368,7 +368,9 @@ describe("ExerciseLogger split set", () => {
     expect(screen.queryByRole("button", { name: "Increase Weight by 2.5" })).toBeNull();
     // A blank row is dropped on Log, so it is not counted yet.
     expect(screen.getByLabelText("Set 1")).toBeOnTheScreen();
-    expect(screen.getByRole("button", { name: "Cancel split 1" })).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Remove split 1" })).toBeOnTheScreen();
+    // "+ split" waits for the last row to be filled: no second blank row.
+    expect(screen.queryByRole("button", { name: "Add another split" })).toBeNull();
 
     fireEvent.changeText(splitWeight(1), "17.5");
     expect(screen.getByLabelText("Set 1, 1 split")).toBeOnTheScreen();
@@ -377,7 +379,7 @@ describe("ExerciseLogger split set", () => {
 
     expect(splitWeight(2).props.value).toBe("");
     expect(screen.getByRole("button", { name: "Remove split 1" })).toBeOnTheScreen();
-    expect(screen.getByRole("button", { name: "Cancel split 2" })).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Remove split 2" })).toBeOnTheScreen();
   });
 
   it("logs the whole set with one Log: the rows as its segments, empty last row dropped, one rest", async () => {
@@ -446,9 +448,9 @@ describe("ExerciseLogger split set", () => {
     expect(loggedSets()).toEqual([{ id: 1, segments: [{ Weight: "17.5", Reps: "3" }] }]);
   });
 
-  it("cancelling the only split row returns to a normal set with what was typed", () => {
+  it("removing the only split row returns to a normal set with what was typed", () => {
     start(["20", "5"]);
-    fireEvent.press(screen.getByRole("button", { name: "Cancel split 1" }));
+    fireEvent.press(screen.getByRole("button", { name: "Remove split 1" }));
 
     expect(screen.queryByLabelText("Split 1 Weight · kg")).toBeNull();
     expect(weight().props.value).toBe("20");
@@ -493,20 +495,17 @@ describe("ExerciseLogger after a split set", () => {
     );
   });
 
-  it("after repeat, × on the split rows and Log stores a normal set", async () => {
+  // PR #30 review: every row a repeat built is one × away, the last included.
+  it("after repeat, × on split rows 2 and 1 and Log stores 20 × 5, no retyping", async () => {
     start();
     fireEvent.press(screen.getByRole("button", { name: /^Repeat last session's set 1/ }));
+    fireEvent.press(screen.getByRole("button", { name: "Remove split 2" }));
     fireEvent.press(screen.getByRole("button", { name: "Remove split 1" }));
-    // Row 3 is now split 1, and the last row.
-    fireEvent.press(screen.getByRole("button", { name: "Remove the first row of set 1" }));
-    expect(weight().props.value).toBe("15");
     // The rows changed: "Repeated" no longer describes the card.
     expect(screen.getByTestId("split-line")).toHaveTextContent(/^Last time split to/);
-    fireEvent.changeText(weight(), "20");
-    fireEvent.changeText(reps(), "6");
 
     await logSet();
-    expect(loggedSets()[0].segments).toEqual([{ Weight: "20", Reps: "6" }]);
+    expect(loggedSets()[0].segments).toEqual([{ Weight: "20", Reps: "5" }]);
   });
 
   // PR #29 review: a remove in Today renumbers the card under a repeat.
@@ -617,11 +616,8 @@ describe("ExerciseLogger editing a split set", () => {
     start();
     await openEdit();
     await press("Remove split 1");
-    // The last row, filled, offers split, not × (033-1's `splitSlot`): it is
-    // cleared first, then cancelled.
-    fireEvent.changeText(splitWeight(1), "");
-    fireEvent.changeText(splitReps(1), "");
-    await press("Cancel split 1");
+    // The last row has × too, filled or not (PR #30 review).
+    await press("Remove split 1");
     expect(screen.getByRole("button", { name: "Increase Weight by 2.5" })).toBeOnTheScreen();
     await press("Save set 2");
 

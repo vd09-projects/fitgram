@@ -123,9 +123,9 @@ const PILL_HIT_SLOP = { top: (HIT - PILL_HEIGHT) / 2, bottom: (HIT - PILL_HEIGHT
  *
  * Decisions (TICKET-033, canvas boards S1–S3):
  * - A third column beside the fields holds split. The fields are `SetRows`, one
- *   row per segment, for a normal set, a split set and an edit alike. Once
- *   split, repeat is hidden, as on the boards: repeat fills one set's targets,
- *   and a split is past that point.
+ *   row per segment, for a normal set, a split set and an edit alike. Repeat
+ *   is hidden once the card has two rows or more, as on the boards: repeat
+ *   builds the rows from one (TICKET-033-3), so there is nothing to replace.
  * - One list of rows is the whole draft: `rows[0]` is the set as typed, and a
  *   normal set is just one row. Splitting adds rows; removing rows down to one
  *   is a normal set again. Rejected: the first row held apart from the split

@@ -145,6 +145,15 @@ describe("repeatSplitRows", () => {
     // Rows the decoder already dropped are said too.
     expect(repeatSplitRows(target([FIRST], true), NUMERIC)).toEqual({ rows: [], incomplete: true });
   });
+
+  // PR #30 review: no pill means no line, so no rows to explain.
+  it("adds nothing when last time's first segment has no weight or reps", () => {
+    const unreadFirst: GhostTarget = {
+      kind: "available",
+      set: { setNumber: 1, segments: [{ Weight: "abc", Reps: "5" }, { Weight: "17.5", Reps: "3" }], segmentsIncomplete: false, weight: null, reps: 5, effort: null },
+    };
+    expect(repeatSplitRows(unreadFirst, NUMERIC)).toEqual({ rows: [], incomplete: false });
+  });
 });
 
 // TICKET-033-3: each edit row keeps its own stored segment's unlisted keys.

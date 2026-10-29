@@ -32,16 +32,27 @@ export const splitCountText = (count: number): string => `${count} ${count === 1
  *   stored, so which row is first is the user's to choose. Replaced: no × on
  *   the first row (board S2), which meant a wrong first row could only be
  *   fixed by retyping it.
- * - The last row: `cancel` (×) until every required field has a value, then
- *   `split` to add another. Gated on the whole row rather than reps alone so a
- *   distance × time row works the same way.
+ * - The last row too (PR #30 review, user, 2026-10-29), filled or blank: a row
+ *   repeat built and the user did not do is one × away. Adding another row
+ *   moves to "+ split" under the rows (`canAddSplit`). Replaced: the last row's
+ *   slot was `cancel` (×) while blank and `split` once filled, so a filled last
+ *   row could only be dropped by clearing it first.
  */
-export type SplitSlot = "remove" | "cancel" | "split";
+export type SplitSlot = "remove" | "split";
 
-export function splitSlot(fields: ExerciseField[], rows: readonly SplitRowValues[], index: number): SplitSlot {
-  if (rows.length === 1) return "split";
-  if (index < rows.length - 1) return "remove";
-  return missingFields(fields, rows[index] ?? {}).length === 0 ? "split" : "cancel";
+export function splitSlot(rows: readonly SplitRowValues[]): SplitSlot {
+  return rows.length === 1 ? "split" : "remove";
+}
+
+/**
+ * Whether "+ split" shows under the rows of a split card: once the last row
+ * has every required field. Hidden, not dimmed, like repeat, so a second blank
+ * row cannot be added. Gated on the whole row rather than reps alone so a
+ * distance × time row works the same way (033-1's gate, moved here from the
+ * last row's slot). One row: the slot's split button instead.
+ */
+export function canAddSplit(fields: ExerciseField[], rows: readonly SplitRowValues[]): boolean {
+  return rows.length > 1 && missingFields(fields, rows[rows.length - 1]).length === 0;
 }
 
 /**
@@ -191,14 +202,19 @@ export function lastTimeSplitLine(split: LastTimeSplit): SplitLine {
  * Stops at the first later segment whose weight or reps does not parse, and
  * says so (`incomplete`), as `decodeStoredSet` keeps the segments before the
  * first bad one: a chain with a gap would present a split that never happened.
- * Rejected: skipping only the bad row. Parsed with `numeric`, the map that
+ * Rejected: skipping only the bad row. No chain when last time's first
+ * segment has no weight or reps, the same gate as `lastTimeSplit`: without
+ * the pill there is no line, and rows would appear unexplained (PR #30
+ * review). Parsed with `numeric`, the map that
  * parsed the first segment; a target is only `available` on a comparable
  * session, so its field names are the card's. Other fields start empty.
  */
 export type RepeatRows = { rows: SplitRowValues[]; incomplete: boolean };
 
 export function repeatSplitRows(target: GhostTarget, numeric: NumericFieldMap | null): RepeatRows {
-  if (target.kind !== "available" || !numeric) return { rows: [], incomplete: false };
+  if (target.kind !== "available" || !numeric || target.set.weight === null || target.set.reps === null) {
+    return { rows: [], incomplete: false };
+  }
   const rows: SplitRowValues[] = [];
   for (const segment of splitSegments(target.set)) {
     const { weight, reps } = parseSet(segment, numeric);
