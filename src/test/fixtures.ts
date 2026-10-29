@@ -9,6 +9,7 @@ import {
   Effort,
   ExerciseSessionDoc,
   ExerciseStatsDoc,
+  StoredSet,
   StoredSetFields,
 } from "../types/workoutSession";
 import { rebuildStatsFromSessions } from "../utils/exerciseStats";
@@ -44,21 +45,34 @@ export function buildWorkout(
   };
 }
 
+/**
+ * One past set for `buildStats`. A bare map of values is a one-segment set with
+ * no mark, the common case. A `{ segments, effort? }` record is the set as
+ * stored (TICKET-055): its split rows and its mark ride on the set.
+ *
+ * Both forms, not the record only: thirty-odd tests seed plain sets, and
+ * rewriting each as `{ segments: [values] }` adds noise to every one of them.
+ * Rejected: a parallel `setEffort` on the spec, which is the shape 055 removed
+ * from storage. A bare map can never be mistaken for a record: a stored value
+ * is a string or number, and `segments` here is an array.
+ */
+export type StatsSpecSet = StoredSetFields | { segments: StoredSetFields[]; effort?: Effort | null };
+
 /** One past session for `buildStats`. Only `sets` is required. */
 export type StatsSessionSpec = {
-  /**
-   * Positional: index 0 is set 1. Keyed by field name, as logged. Each is a
-   * one-segment set; stored as `{ segments: [values], effort }` (TICKET-055).
-   */
-  sets: StoredSetFields[];
+  /** Positional: index 0 is set 1. Values keyed by field name, as logged. */
+  sets: StatsSpecSet[];
   /** Field definitions that session was logged with. Default: kg weight + reps. */
   fields?: ExerciseField[];
   /** Default: one day earlier per position, so the first spec is the newest. */
   performedAt?: number;
   workoutName?: string;
-  /** Per-set effort marks, positional like `sets` (TICKET-034). Default: none marked. */
-  setEffort?: (Effort | null)[];
 };
+
+const toStoredSpecSet = (set: StatsSpecSet): StoredSet =>
+  Array.isArray(set.segments)
+    ? { segments: set.segments as StoredSetFields[], effort: (set.effort as Effort | null | undefined) ?? null }
+    : { segments: [set as StoredSetFields], effort: null };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -87,7 +101,7 @@ export function buildStats(name: string, sessions: StatsSessionSpec[]): Exercise
       workoutName: spec.workoutName ?? "Test Workout",
       performedAt: spec.performedAt ?? now - (index + 1) * DAY_MS,
       fields: spec.fields ?? buildExercise(name).fields,
-      sets: spec.sets.map((values, i) => ({ segments: [values], effort: spec.setEffort?.[i] ?? null })),
+      sets: spec.sets.map(toStoredSpecSet),
     };
   });
 

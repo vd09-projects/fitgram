@@ -22,6 +22,7 @@ import { EFFORT_LABEL, effortSpeech, toggleEffort } from "../../utils/effort";
 import { splitCountText } from "../../utils/splits";
 import { comparisonSegment, plannedSegment, splitSegments } from "../../utils/storedSets";
 import { SplitIcon } from "./SetRows";
+import { SplitRail } from "./SplitRail";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 
@@ -91,7 +92,9 @@ type Props = {
  * Decisions (TICKET-033, canvas board S4):
  * - A split set shows its first segment, which is what the delta compares, and
  *   a ⑂N chip for the rows after it. Opening the row lists them above the
- *   strip. Rejected: listing them always, which makes a split set two or three
+ *   strip, on the history sheet's rail, and the chip's chevron turns up
+ *   (TICKET-033-2, board SH3: chip at the right of the values, not beside
+ *   them). Rejected: listing them always, which makes a split set two or three
  *   rows tall in a list read at a glance.
  * - Rows read as `setValuesText` writes them, unit included ("17.5 kg × 3";
  *   the board drew "17.5 × 3"), so a distance × time row keeps its units.
@@ -145,13 +148,18 @@ export default function TodaySets({
               <NumericText style={styles.values} numberOfLines={1}>
                 {values}
               </NumericText>
+              {effort !== null && <EffortBadge effort={effort} />}
               {splits.length > 0 && (
-                <View style={styles.splitChip}>
+                <View style={styles.splitChip} testID={`today-split-chip-${setNumber}`}>
                   <SplitIcon size={11} color={t.colors.role.textPrimary} />
                   <NumericText style={styles.splitChipText}>{splits.length}</NumericText>
+                  <Ionicons
+                    name={open ? "chevron-up" : "chevron-down"}
+                    size={11}
+                    color={t.colors.role.textSecondary}
+                  />
                 </View>
               )}
-              {effort !== null && <EffortBadge effort={effort} />}
             </View>
             {editing ? <TextBase style={styles.editingLabel}>EDITING</TextBase> : <DeltaBadge delta={delta} />}
           </TouchableOpacity>
@@ -170,13 +178,7 @@ export default function TodaySets({
           )}
         </View>
         {open && splits.length > 0 && (
-          <View style={styles.splitList}>
-            {splits.map((text, splitIndex) => (
-              <NumericText key={splitIndex} style={styles.splitRow} numberOfLines={1}>
-                {text}
-              </NumericText>
-            ))}
-          </View>
+          <SplitRail rows={splits} style={styles.rail} textStyle={styles.splitRow} />
         )}
         {open && (
           <View style={styles.strip}>
@@ -369,7 +371,10 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     fontSize: 15.5,
     color: t.colors.role.textPrimary,
   },
+  // At the right of the values, as in the history sheet (board SH3), so the
+  // chip never crowds the numbers.
   splitChip: {
+    marginLeft: "auto",
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
@@ -384,7 +389,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     color: t.colors.role.textPrimary,
   },
   // Indented to the values, as the strip is.
-  splitList: {
+  rail: {
     paddingLeft: 13 + 22 + SPACING.medium,
     paddingRight: 13,
     paddingBottom: 2,

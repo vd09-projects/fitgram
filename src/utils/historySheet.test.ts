@@ -39,7 +39,13 @@ describe("sheetSession", () => {
   // TICKET-034
   it("puts each set's mark on its own row and counts them", () => {
     const history = historyOf([
-      { sets: [set("60", "8"), set("65", "8"), set("65", "6")], setEffort: [null, Effort.Easy, Effort.Hard] },
+      {
+        sets: [
+          set("60", "8"),
+          { segments: [set("65", "8")], effort: Effort.Easy },
+          { segments: [set("65", "6")], effort: Effort.Hard },
+        ],
+      },
     ]);
     const marked = sheetSession(history, history.sessions[0], [], BENCH);
     expect(marked.rows.map((row) => row.pastEffort)).toEqual([null, Effort.Easy, Effort.Hard]);
@@ -62,7 +68,7 @@ describe("sheetSession", () => {
       false,
     ]);
     // Set 3 was done last time, not yet today: values on one side, no delta.
-    expect(view.rows[2]).toEqual({ setNumber: 3, past: "60 kg × 8", pastEffort: null, today: null, isNext: true, delta: null });
+    expect(view.rows[2]).toMatchObject({ setNumber: 3, past: "60 kg × 8", pastEffort: null, today: null, isNext: true, delta: null });
   });
 
   it("compares against the selected session, not the last one, and keeps today's extra sets", () => {

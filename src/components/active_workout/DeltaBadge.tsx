@@ -46,12 +46,17 @@ export function deltaSpeech(delta: SetDelta | null): string {
 }
 
 const createStyles = (_t: ReturnTypeUseThemeTokens) => StyleSheet.create({
+  // Shrinks and wraps in a narrow column ("+2.5 kg · −2 reps" in the history
+  // sheet's Today column, TICKET-033-2) rather than running past its edge.
   delta: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
+    flexShrink: 1,
+    maxWidth: "100%",
   },
   deltaText: {
+    flexShrink: 1,
     fontSize: 12,
     fontWeight: "600",
   },

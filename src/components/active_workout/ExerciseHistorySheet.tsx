@@ -25,11 +25,17 @@ import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 import { comparisonSegment } from "../../utils/storedSets";
 import { useExerciseName } from "../../hooks/useExerciseNames";
+import { splitCountText } from "../../utils/splits";
+import { SplitIcon } from "./SetRows";
+import { SplitRail } from "./SplitRail";
 
 const HIT = 44;
 const TREND_HEIGHT = 46;
-/** Below this the table scrolls sideways inside its box, not the sheet. */
-const TABLE_MIN_WIDTH = 320;
+/**
+ * Below this the table scrolls sideways inside its box, not the sheet: the
+ * row padding and gaps plus each column's minimum (12·2 + 8·3 + 28 + 128 + 36 + 96).
+ */
+const TABLE_MIN_WIDTH = 336;
 
 type Props = {
   visible: boolean;
@@ -158,9 +164,11 @@ export default function ExerciseHistorySheet({ visible, onClose, exercise, histo
                     </TextBase>
                     {session.notice !== null && <TextBase style={styles.notice}>{session.notice}</TextBase>}
                     <SessionTable
+                      key={session.sessionId}
                       rows={session.rows}
                       dateLabel={formatSessionDate(session.performedAt)}
                       styles={styles}
+                      t={t}
                     />
                   </>
                 )}
@@ -172,6 +180,11 @@ export default function ExerciseHistorySheet({ visible, onClose, exercise, histo
                   iconColor={t.colors.role.signal}
                   styles={styles}
                 />
+                {session?.hasSplits && (
+                  <TextBase style={styles.footnote}>
+                    Splits count toward volume. Bests and the Today column use the first row of a set.
+                  </TextBase>
+                )}
                 <TrendBars trend={trend} unit={unit} styles={styles} />
               </>
             )}
@@ -184,7 +197,32 @@ export default function ExerciseHistorySheet({ visible, onClose, exercise, histo
 
 type Styles = ReturnType<typeof createStyles>;
 
-function SessionTable({ rows, dateLabel, styles }: { rows: SheetRow[]; dateLabel: string; styles: Styles }) {
+/**
+ * Under a set whose stored segments could not all be read. The session's
+ * volume is unavailable because of this set; this puts the reason on it.
+ */
+const INCOMPLETE_SET_TEXT = "Couldn't read all of this set, so no session volume";
+
+function SessionTable({
+  rows,
+  dateLabel,
+  styles,
+  t,
+}: {
+  rows: SheetRow[];
+  dateLabel: string;
+  styles: Styles;
+  t: ReturnTypeUseThemeTokens;
+}) {
+  // Split rows show by default; a tap folds a set's rail away. Keyed by set
+  // number, and reset per session by the caller's `key`.
+  const [folded, setFolded] = useState<ReadonlySet<number>>(new Set());
+  const toggle = (setNumber: number) =>
+    setFolded((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(setNumber)) next.add(setNumber);
+      return next;
+    });
   return (
     <View style={styles.table}>
       <ScrollView horizontal contentContainerStyle={styles.tableScroll} testID="history-table">
@@ -195,52 +233,105 @@ function SessionTable({ rows, dateLabel, styles }: { rows: SheetRow[]; dateLabel
             <TextBase style={[styles.headText, styles.colFelt]}>FELT</TextBase>
             <TextBase style={[styles.headText, styles.colToday]}>TODAY</TextBase>
           </View>
-          {rows.map((row) => (
-            <View
-              key={row.setNumber}
-              style={[styles.tableRow, styles.divider, row.isNext && styles.nextRow]}
-              accessible
-              accessibilityLabel={rowSpeech(row, dateLabel)}
-            >
-              <NumericText style={[styles.setNumber, styles.colSet, row.isNext && styles.nextText]}>
-                {row.setNumber}
-              </NumericText>
-              <NumericText style={[styles.past, styles.colPast]} numberOfLines={1}>
-                {row.past ?? "—"}
-              </NumericText>
-              <View style={[styles.colFelt, styles.feltCell]}>
-                {row.pastEffort !== null && <EffortBadge effort={row.pastEffort} />}
+          {rows.map((row) => {
+            const splitCount = row.pastSplits.length;
+            const open = splitCount > 0 && !folded.has(row.setNumber);
+            const cells = (
+              <View style={styles.tableRow}>
+                <NumericText style={[styles.setNumber, styles.colSet, row.isNext && styles.nextText]}>
+                  {row.setNumber}
+                </NumericText>
+                <View style={[styles.colPast, styles.pastCell]}>
+                  <NumericText style={[styles.past, styles.pastValue]} numberOfLines={1}>
+                    {row.past ?? "—"}
+                  </NumericText>
+                  {splitCount > 0 && (
+                    <View style={styles.splitChip} testID={`split-chip-${row.setNumber}`}>
+                      <SplitIcon size={11} color={t.colors.role.textPrimary} />
+                      <NumericText style={styles.splitChipText}>{splitCount}</NumericText>
+                      <Ionicons
+                        name={open ? "chevron-up" : "chevron-down"}
+                        size={11}
+                        color={t.colors.role.textSecondary}
+                      />
+                    </View>
+                  )}
+                </View>
+                <View style={[styles.colFelt, styles.feltCell]}>
+                  {row.pastEffort !== null && <EffortBadge effort={row.pastEffort} />}
+                </View>
+                <View style={[styles.colToday, styles.todayCell]}>
+                  {row.today !== null ? (
+                    <>
+                      <NumericText style={styles.today} numberOfLines={1}>
+                        {row.today}
+                      </NumericText>
+                      <DeltaBadge delta={row.delta} />
+                    </>
+                  ) : row.isNext ? (
+                    // Today's next set, not a status of the past session beside it.
+                    // Not "Logging": with the sheet open nothing is being logged, and
+                    // beside an older date it read as that session's state.
+                    <TextBase style={styles.logging}>UP NEXT</TextBase>
+                  ) : (
+                    <NumericText style={styles.absent}>—</NumericText>
+                  )}
+                </View>
               </View>
-              <View style={[styles.colToday, styles.todayCell]}>
-                {row.today !== null ? (
-                  <>
-                    <NumericText style={styles.today} numberOfLines={1}>
-                      {row.today}
-                    </NumericText>
-                    <DeltaBadge delta={row.delta} />
-                  </>
-                ) : row.isNext ? (
-                  // Today's next set, not a status of the past session beside it.
-                  // Not "Logging": with the sheet open nothing is being logged, and
-                  // beside an older date it read as that session's state.
-                  <TextBase style={styles.logging}>UP NEXT</TextBase>
-                ) : (
-                  <NumericText style={styles.absent}>—</NumericText>
+            );
+            const after = (
+              <>
+                {/* Board SH3: split rows on a rail under the set's value. Not
+                   compared: the delta and the best read the set. */}
+                {open && (
+                  <SplitRail rows={row.pastSplits} style={styles.rail} textStyle={styles.splitText} />
                 )}
+                {row.pastIncomplete && <TextBase style={styles.splitIncomplete}>{INCOMPLETE_SET_TEXT}</TextBase>}
+              </>
+            );
+            const rowStyle = [styles.divider, row.isNext && styles.nextRow];
+            const label = rowSpeech(row, dateLabel);
+            const testID = `history-row-${row.setNumber}`;
+            // A split set's whole row is the toggle, not the chip alone: a
+            // full-row target, and one control to announce. The chip shows the
+            // state.
+            return splitCount > 0 ? (
+              <TouchableOpacity
+                key={row.setNumber}
+                style={rowStyle}
+                onPress={() => toggle(row.setNumber)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: open }}
+                accessibilityLabel={label}
+                accessibilityHint={open ? "Hides the split rows" : "Shows the split rows"}
+                testID={testID}
+              >
+                {cells}
+                {after}
+              </TouchableOpacity>
+            ) : (
+              <View key={row.setNumber} style={rowStyle} accessible accessibilityLabel={label} testID={testID}>
+                {cells}
+                {after}
               </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
       </ScrollView>
     </View>
   );
 }
 
-/** "Set 2: 26 Sep 65 kg by 10; today 65 kg by 10, matched". */
+/** "Set 2: 26 Sep 65 kg by 10, then 1 split: 60 kg by 4; today 65 kg by 10, matched". */
 function rowSpeech(row: SheetRow, dateLabel: string): string {
+  const splits =
+    row.pastSplits.length > 0
+      ? `, then ${splitCountText(row.pastSplits.length)}: ${row.pastSplits.join(", ").replace(/×/g, "by")}`
+      : "";
+  const incomplete = row.pastIncomplete ? `. ${INCOMPLETE_SET_TEXT}` : "";
   const past =
     row.past !== null
-      ? `${dateLabel} ${row.past.replace("×", "by")}${effortSpeech(row.pastEffort)}`
+      ? `${dateLabel} ${row.past.replace("×", "by")}${splits}${effortSpeech(row.pastEffort)}${incomplete}`
       : `not done on ${dateLabel}`;
   const today =
     row.today !== null
@@ -484,9 +575,11 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   colSet: {
     width: 28,
   },
+  // Board SH3: the date column is the wider one, so a split set's value and
+  // chip share a line. Today's delta wraps instead (DeltaBadge).
   colPast: {
-    flex: 1,
-    minWidth: 104,
+    flex: 1.4,
+    minWidth: 128,
   },
   colFelt: {
     width: 36,
@@ -496,13 +589,59 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     alignItems: "center",
   },
   colToday: {
-    flex: 1.3,
-    minWidth: 150,
+    flex: 1,
+    minWidth: 96,
     textAlign: "right",
   },
   todayCell: {
     alignItems: "flex-end",
     gap: 2,
+  },
+  // Board SH3: the chip sits at the right of the date column, the value on
+  // the left, so the chip never wraps under the value.
+  pastCell: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: SPACING.small,
+  },
+  pastValue: {
+    flexShrink: 1,
+  },
+  splitChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    height: 22,
+    paddingHorizontal: 6,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: t.colors.role.hairlineStrong,
+  },
+  splitChipText: {
+    fontSize: t.fonts.small,
+    color: t.colors.role.textPrimary,
+  },
+  // Indented to the values column: row padding 12 + set column 28 + gap.
+  rail: {
+    paddingLeft: 12 + 28 + SPACING.small,
+    paddingBottom: SPACING.small,
+  },
+  splitText: {
+    fontSize: t.fonts.small,
+    color: t.colors.role.textSecondary,
+  },
+  // Indented to the values column: set column 28 + the row gap.
+  splitIncomplete: {
+    fontSize: t.fonts.small,
+    color: t.colors.role.textPrimary,
+    paddingLeft: 12 + 28 + SPACING.small,
+    paddingRight: 12,
+    paddingBottom: 6,
+  },
+  footnote: {
+    fontSize: t.fonts.small,
+    color: t.colors.role.textSecondary,
   },
   setNumber: {
     fontSize: 12,

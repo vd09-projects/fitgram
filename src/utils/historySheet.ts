@@ -23,7 +23,7 @@ import { computeSessionVolume } from "./exerciseStats";
 import { effortCountText } from "./effort";
 import { Effort } from "../types/workoutSession";
 import { SetDelta, setDelta, setValuesText, volumeText } from "./setDeltas";
-import { comparisonSegment, plannedSegment } from "./storedSets";
+import { comparisonSegment, plannedSegment, splitSegments } from "./storedSets";
 
 type SheetHistory = Pick<
   ExerciseHistory,
@@ -73,6 +73,18 @@ export type SheetRow = {
   past: string | null;
   /** That set's mark, or null: not marked, or no such set (TICKET-034). */
   pastEffort: Effort | null;
+  /**
+   * That set's split rows, one line each, listed under it (board S7). Display
+   * only: the delta and the best read `past`'s segment. Empty for a normal set.
+   */
+  pastSplits: string[];
+  /**
+   * True when some of that set's stored segments could not be read
+   * (`HistorySet.segmentsIncomplete`): `pastSplits` holds only the readable
+   * ones, and the session's volume is unavailable because of it. The sheet
+   * says so on the set, so "volume unavailable" has a visible cause.
+   */
+  pastIncomplete: boolean;
   /** Today's set as one line, or null when it is not logged yet. */
   today: string | null;
   /** The row of the set about to be logged. */
@@ -92,6 +104,8 @@ export type SheetSession = {
   /** "1,955 kg", "volume unavailable (2 of 3 sets)", or null (a plank). */
   volume: string | null;
   rows: SheetRow[];
+  /** Any set was split: the sheet says what splits count toward (board S7). */
+  hasSplits: boolean;
   /** Why this session's rows carry no deltas, or some of them; null when all can. */
   notice: string | null;
   /**
@@ -139,6 +153,8 @@ export function sheetSession(
       setNumber,
       past: past ? setValuesText(session.fields, plannedSegment(past)) : null,
       pastEffort: past?.effort ?? null,
+      pastSplits: past ? splitSegments(past).map((segment) => setValuesText(session.fields, segment)) : [],
+      pastIncomplete: past?.segmentsIncomplete ?? false,
       today: today ? setValuesText(todayFields, today) : null,
       isNext: setNumber === nextSet,
       delta: past && today ? setDelta(asLast, setNumber, today, todayNumeric) : null,
@@ -163,6 +179,7 @@ export function sheetSession(
     setCount: sets.length,
     volume,
     rows,
+    hasSplits: sets.some((set) => set.segments.length > 1),
     notice: sessionNotice(history, session, sets, own?.weight.unit ?? null, own !== null),
     effort: effortCountText(sets.map((set) => set.effort)),
   };

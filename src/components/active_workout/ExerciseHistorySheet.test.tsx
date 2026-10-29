@@ -109,4 +109,52 @@ describe("ExerciseHistorySheet", () => {
     fireEvent.press(screen.getByRole("button", { name: "Skip rest" }));
     expect(screen.getByRole("button", { name: "Log set 3" })).toBeOnTheScreen();
   });
+
+  // TICKET-033-2, board S7
+  it("lists a split set's rows under it, folds them on tap, and says what splits count toward", () => {
+    renderScreen(ActiveWorkoutScreen, {
+      workout: benchWith(sets(["18", "10"])),
+      history: historyOf({
+        sets: [
+          { Weight: "18", Reps: "10" },
+          { segments: [{ Weight: "20", Reps: "5" }, { Weight: "17.5", Reps: "3" }, { Weight: "15", Reps: "3" }] },
+        ],
+      }),
+    });
+    openHistory();
+
+    const row = within(sheet()).getByTestId("history-row-2");
+    expect(row).toHaveProp(
+      "accessibilityLabel",
+      `Set 2: ${daysAgo(1)} 20 kg by 5, then 2 splits: 17.5 kg by 3, 15 kg by 3; up next today`
+    );
+    expect(within(row).getByText("17.5 kg × 3")).toBeOnTheScreen();
+    expect(within(row).getByText("15 kg × 3")).toBeOnTheScreen();
+    expect(within(within(sheet()).getByTestId("split-chip-2")).getByText("2")).toBeOnTheScreen();
+
+    // The row folds the rail away and opens it again.
+    fireEvent.press(row);
+    expect(within(row).queryByText("17.5 kg × 3")).toBeNull();
+    expect(row).toHaveProp("accessibilityState", { expanded: false });
+    fireEvent.press(row);
+    expect(within(row).getByText("17.5 kg × 3")).toBeOnTheScreen();
+    expect(
+      within(sheet()).getByText("Splits count toward volume. Bests and the Today column use the first row of a set.")
+    ).toBeOnTheScreen();
+  });
+
+  it("says on the set why the session's volume is unavailable when its segments could not all be read", () => {
+    renderScreen(ActiveWorkoutScreen, {
+      workout: benchWith([]),
+      history: historyOf({
+        // A later segment that is not a map: the decoder keeps 20 × 5 and flags the set.
+        sets: [{ segments: [{ Weight: "20", Reps: "5" }, "17.5 × 3" as unknown as { Weight: string }] }],
+      }),
+    });
+    openHistory();
+
+    expect(within(sheet()).getByText(/volume unavailable/)).toBeOnTheScreen();
+    const row = within(sheet()).getByTestId("history-row-1");
+    expect(within(row).getByText("Couldn't read all of this set, so no session volume")).toBeOnTheScreen();
+  });
 });

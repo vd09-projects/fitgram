@@ -492,7 +492,7 @@
     "SplitHistory.dc.html": {
       "h": 844,
       "radius": 28,
-      "title": "S7 \u00b7 History sheet: split rows under their set",
+      "title": "S7 \u00b7 History sheet: split rows under their set (superseded by SH3)",
       "w": 390,
       "x": 2820,
       "y": 23300
@@ -504,6 +504,14 @@
       "w": 390,
       "x": 3290,
       "y": 23300
+    },
+    "SplitHistoryRail.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "SH3 \u00b7 History sheet: split chip on the set row, split rows on a rail (replaces S7)",
+      "w": 390,
+      "x": 0,
+      "y": 24600
     }
   },
   "createdOnFiles": {
@@ -706,6 +714,13 @@
       "x": 3760,
       "y": 23300,
       "text": "DECIDED (user, 2026-10-29), explored on the Drop Sets Lab canvas.\n\nUnplanned only: no split flag in the plan; a split is added live, on any set.\n\nNamed split, not drop: weight may go back up (20 \u2192 15 \u2192 17.5), and treadmill speed or incline uses the same row. Icon: split arrows (C, row plus, read as add set).\n\nSplit sits in the row's third column: beside the fields on a normal set, on the last row once its reps are in; \u00d7 on a row still empty. One Log saves the whole set; the rest timer starts once.\n\nNew row weight = last weight minus the last step (first split: one stepper step down). Pre-filled as a value, editable.\n\nVolume counts every row. Bests and the Today comparison use the first row only. One Easy/Hard mark per set.\n\nNext session: placeholders from the first row; a line says it was split. Repeat copies the first row only."
+    },
+    "splithistoryopts": {
+      "kind": "title1",
+      "maxW": 390,
+      "text": "Split history, chosen",
+      "x": 0,
+      "y": 24300
     }
   },
   "order": [
@@ -771,7 +786,8 @@
     "SplitNext.dc.html",
     "SplitRepeat.dc.html",
     "SplitHistory.dc.html",
-    "SplitEdit.dc.html"
+    "SplitEdit.dc.html",
+    "SplitHistoryRail.dc.html"
   ],
   "pages": [],
   "title": "Fitgram Workout Flow Redesign"

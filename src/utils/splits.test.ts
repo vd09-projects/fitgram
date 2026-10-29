@@ -7,7 +7,7 @@ import { ExerciseField } from "../types/workoutType";
 import { ExerciseSet } from "../types/zustandWorkoutType";
 import { buildSessionDocs, computeSessionVolume, rebuildStatsFromSessions } from "./exerciseStats";
 import { deriveExerciseHistory } from "./exerciseHistory";
-import { buildLoggedSet, keptSplitRows } from "./splits";
+import { buildLoggedSet, keptSplitRows, lastTimeSplit, lastTimeSplitLine } from "./splits";
 
 const KG: ExerciseField[] = [
   { name: "Weight", role: "weight", unit: "kg" },
@@ -109,5 +109,19 @@ describe("the set Log stores", () => {
       kind: "refused",
       message: "Split 1: Enter Weight to log set 3",
     });
+  });
+});
+
+// TICKET-033-2: the card's "split to" line says when it is not the whole split.
+describe("last time's split on the card", () => {
+  const target = (segments: Record<string, string>[], segmentsIncomplete: boolean) =>
+    ({ kind: "available", set: { setNumber: 1, segments, segmentsIncomplete, weight: 20, reps: 5, effort: null } }) as const;
+
+  it("names unreadable rows instead of passing the readable ones off as the whole split", () => {
+    const split = lastTimeSplit(target([{ Weight: "20", Reps: "5" }, { Weight: "17.5", Reps: "3" }], true), KG);
+    expect(split).toEqual({ count: 1, rows: ["17.5 kg × 3"], incomplete: true });
+    const line = lastTimeSplitLine(split!);
+    expect(line.lead + line.values + line.tail).toBe("Last time split to 17.5 kg × 3 · more rows couldn't be read");
+    expect(lastTimeSplit(target([{ Weight: "20", Reps: "5" }], false), KG)).toBeNull();
   });
 });
