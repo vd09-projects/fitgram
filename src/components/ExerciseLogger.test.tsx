@@ -19,6 +19,8 @@ jest.mock("../services/db/workoutSessions", () => ({
 
 const weight = () => screen.getByLabelText("Weight · kg");
 const reps = () => screen.getByLabelText("Reps");
+const splitWeight = (n: number) => screen.getByLabelText(`Split ${n} Weight · kg`);
+const splitReps = (n: number) => screen.getByLabelText(`Split ${n} Reps`);
 const logButton = () => screen.getByRole("button", { name: /^Log set \d+$/ });
 const loggedSets = () => useWorkoutStore.getState().activeWorkout?.exercises[0].sets ?? [];
 
@@ -349,8 +351,6 @@ describe("ExerciseLogger edit mode", () => {
 
 // TICKET-033-1, canvas boards S1–S3.
 describe("ExerciseLogger split set", () => {
-  const splitWeight = (n: number) => screen.getByLabelText(`Split ${n} Weight · kg`);
-  const splitReps = (n: number) => screen.getByLabelText(`Split ${n} Reps`);
   const start = (first: [string, string]) => {
     renderScreen(ActiveWorkoutScreen, { workout: buildWorkout(["Bench Press"]), history: withHistory });
     fireEvent.changeText(weight(), first[0]);
@@ -368,7 +368,9 @@ describe("ExerciseLogger split set", () => {
     expect(screen.queryByRole("button", { name: "Increase Weight by 2.5" })).toBeNull();
     // A blank row is dropped on Log, so it is not counted yet.
     expect(screen.getByLabelText("Set 1")).toBeOnTheScreen();
-    expect(screen.getByRole("button", { name: "Cancel split 1" })).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Remove split 1" })).toBeOnTheScreen();
+    // "+ split" waits for the last row to be filled: no second blank row.
+    expect(screen.queryByRole("button", { name: "Add another split" })).toBeNull();
 
     fireEvent.changeText(splitWeight(1), "17.5");
     expect(screen.getByLabelText("Set 1, 1 split")).toBeOnTheScreen();
@@ -377,7 +379,7 @@ describe("ExerciseLogger split set", () => {
 
     expect(splitWeight(2).props.value).toBe("");
     expect(screen.getByRole("button", { name: "Remove split 1" })).toBeOnTheScreen();
-    expect(screen.getByRole("button", { name: "Cancel split 2" })).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Remove split 2" })).toBeOnTheScreen();
   });
 
   it("logs the whole set with one Log: the rows as its segments, empty last row dropped, one rest", async () => {
@@ -446,9 +448,9 @@ describe("ExerciseLogger split set", () => {
     expect(loggedSets()).toEqual([{ id: 1, segments: [{ Weight: "17.5", Reps: "3" }] }]);
   });
 
-  it("cancelling the only split row returns to a normal set with what was typed", () => {
+  it("removing the only split row returns to a normal set with what was typed", () => {
     start(["20", "5"]);
-    fireEvent.press(screen.getByRole("button", { name: "Cancel split 1" }));
+    fireEvent.press(screen.getByRole("button", { name: "Remove split 1" }));
 
     expect(screen.queryByLabelText("Split 1 Weight · kg")).toBeNull();
     expect(weight().props.value).toBe("20");
@@ -478,22 +480,30 @@ describe("ExerciseLogger after a split set", () => {
     expect(screen.getByTestId("split-line")).toHaveTextContent("Last time split to 17.5 kg × 3 · 15 kg × 3");
   });
 
-  it("repeat copies the first segment only and says the splits were not copied", async () => {
+  // TICKET-033-3 (user, 2026-10-29): repeat copies the whole set, board S6.
+  it("repeat builds one row per segment of last time's set, and says to remove rows not done", () => {
     start();
     fireEvent.press(screen.getByRole("button", { name: /^Repeat last session's set 1/ }));
-    expect(weight().props.value).toBe("20");
-    expect(reps().props.value).toBe("5");
-    expect(screen.queryByLabelText("Split 1 Weight · kg")).toBeNull();
-    expect(screen.getByTestId("split-line")).toHaveTextContent(
-      "Repeated 20 × 5 · splits not copied, tap split if you need them"
-    );
 
-    // Typed over: "Repeated" no longer describes the card.
-    fireEvent.changeText(reps(), "6");
+    expect([weight(), reps(), splitWeight(1), splitReps(1), splitWeight(2), splitReps(2)].map((i) => i.props.value))
+      .toEqual(["20", "5", "17.5", "3", "15", "3"]);
+    expect(screen.getByLabelText("Set 1, 2 splits")).toBeOnTheScreen();
+    expect(screen.getByTestId("split-line")).toHaveTextContent(
+      "Repeated 20 × 5 · 17.5 kg × 3 · 15 kg × 3 · remove rows you didn't do"
+    );
+  });
+
+  // PR #30 review: every row a repeat built is one × away, the last included.
+  it("after repeat, × on split rows 2 and 1 and Log stores 20 × 5, no retyping", async () => {
+    start();
+    fireEvent.press(screen.getByRole("button", { name: /^Repeat last session's set 1/ }));
+    fireEvent.press(screen.getByRole("button", { name: "Remove split 2" }));
+    fireEvent.press(screen.getByRole("button", { name: "Remove split 1" }));
+    // The rows changed: "Repeated" no longer describes the card.
     expect(screen.getByTestId("split-line")).toHaveTextContent(/^Last time split to/);
 
     await logSet();
-    expect(loggedSets()[0].segments).toEqual([{ Weight: "20", Reps: "6" }]);
+    expect(loggedSets()[0].segments).toEqual([{ Weight: "20", Reps: "5" }]);
   });
 
   // PR #29 review: a remove in Today renumbers the card under a repeat.
@@ -533,5 +543,91 @@ describe("ExerciseLogger after a split set", () => {
       fireEvent.press(screen.getByRole("button", { name: "Undo: restore set 2, 20 kg by 8" }));
     });
     expect(screen.getByTestId("split-line")).toHaveTextContent(/^Repeated 25 × 5/);
+  });
+});
+
+// TICKET-033-3, board S8: editing a logged split set.
+describe("ExerciseLogger editing a split set", () => {
+  const press = (name: string | RegExp) =>
+    act(async () => {
+      fireEvent.press(screen.getByRole("button", { name }));
+    });
+  const SPLIT_SET = [{ Weight: "20", Reps: "5" }, { Weight: "17.5", Reps: "3" }, { Weight: "15", Reps: "3" }];
+  const start = () => {
+    renderScreen(ActiveWorkoutScreen, {
+      workout: buildWorkout([], {
+        exercises: [
+          buildExercise("Bench Press", {
+            sets: [
+              { id: 1, segments: [{ Weight: "20", Reps: "8" }] },
+              { id: 2, segments: SPLIT_SET, effort: Effort.Hard },
+            ],
+          }),
+        ],
+      }),
+      history: withHistory,
+    });
+  };
+  const openEdit = async () => {
+    await press(/^Set 2, 20 kg by 5/);
+    await press("Edit set 2");
+  };
+
+  it("shows every segment and saves the edited list in place: mark kept, volume updated", async () => {
+    start();
+    // 160 + 100 + 52.5 + 45
+    expect(screen.getByText("2 sets · 357.5 kg")).toBeOnTheScreen();
+    await openEdit();
+    expect([weight(), reps(), splitWeight(1), splitReps(1), splitWeight(2), splitReps(2)].map((i) => i.props.value))
+      .toEqual(["20", "5", "17.5", "3", "15", "3"]);
+
+    fireEvent.changeText(splitReps(2), "4");
+    await press("Save set 2");
+
+    expect(loggedSets()[1]).toEqual({
+      id: 2,
+      segments: [{ Weight: "20", Reps: "5" }, { Weight: "17.5", Reps: "3" }, { Weight: "15", Reps: "4" }],
+      effort: Effort.Hard,
+    });
+    expect(screen.getByText("2 sets · 372.5 kg")).toBeOnTheScreen();
+  });
+
+  it("adds and removes rows in the edit", async () => {
+    start();
+    await openEdit();
+    await press("Add another split");
+    fireEvent.changeText(splitWeight(3), "12.5");
+    fireEvent.changeText(splitReps(3), "2");
+    await press("Remove split 1");
+    await press("Save set 2");
+
+    expect(loggedSets()[1].segments).toEqual([
+      { Weight: "20", Reps: "5" },
+      { Weight: "15", Reps: "3" },
+      { Weight: "12.5", Reps: "2" },
+    ]);
+  });
+
+  it("removing every split row saves a normal set", async () => {
+    start();
+    await openEdit();
+    await press("Remove split 1");
+    // The last row has × too, filled or not (PR #30 review).
+    await press("Remove split 1");
+    expect(screen.getByRole("button", { name: "Increase Weight by 2.5" })).toBeOnTheScreen();
+    await press("Save set 2");
+
+    expect(loggedSets()[1].segments).toEqual([{ Weight: "20", Reps: "5" }]);
+    expect(screen.queryByTestId("today-split-chip-2")).toBeNull();
+  });
+
+  it("refuses Save while a row is half filled, names it, and says save", async () => {
+    start();
+    await openEdit();
+    fireEvent.changeText(splitReps(1), "");
+    await press("Save set 2");
+
+    expect(screen.getByText("Split 1: Enter Reps to save set 2")).toBeOnTheScreen();
+    expect(loggedSets()[1].segments).toEqual(SPLIT_SET);
   });
 });

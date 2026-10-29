@@ -452,7 +452,7 @@
     "SplitAdding.dc.html": {
       "h": 844,
       "radius": 28,
-      "title": "S2 \u00b7 Split added: weight pre-filled, \u00d7 until reps",
+      "title": "S2 \u00b7 Split added: new row empty, \u00d7 on every row, no + split until it is filled",
       "w": 390,
       "x": 470,
       "y": 23300
@@ -460,7 +460,7 @@
     "SplitChain.dc.html": {
       "h": 844,
       "radius": 28,
-      "title": "S3 \u00b7 Two splits, one Log for the whole set",
+      "title": "S3 \u00b7 Two splits: \u00d7 on every row, + split under the rows, one Log",
       "w": 390,
       "x": 940,
       "y": 23300
@@ -484,7 +484,7 @@
     "SplitRepeat.dc.html": {
       "h": 844,
       "radius": 28,
-      "title": "S6 \u00b7 Repeat copies the first row only",
+      "title": "S6 \u00b7 Repeat copies the whole set; remove rows you didn't do",
       "w": 390,
       "x": 2350,
       "y": 23300

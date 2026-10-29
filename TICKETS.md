@@ -5033,7 +5033,7 @@ approach that handles these cases at least as well?
 
 **Priority:** Low | **Effort:** Medium-Large | **Status: IN PROGRESS** — design decided
 2026-10-29 (boards S1–S8 on the Workout Flow canvas, `design/workout-flow/project/Split*.dc.html`;
-SH3 replaces S7). 033-1 merged (PR #27), 033-2 in review (PR #29), 033-3 open.
+SH3 replaces S7). 033-1 merged (PR #27), 033-2 merged (PR #29), 033-3 in review (PR #30).
 Split into 033-1 (log), 033-2 (read back), 033-3 (edit), below
 
 **Description:**
@@ -5063,8 +5063,10 @@ the chosen boards copied to the Workout Flow canvas as S1–S8):
   exercise. "Drop" is wrong whenever the weight rises. Data name: `segments`.
 - **Where it lives (S1–S3).** A third column beside the fields. Normal set: a
   **split** button next to weight and reps. Once split, each segment is one row
-  (weight × reps, no labels); the last row's slot shows × while its reps are empty
-  (cancel it) and **split** once they are filled (add another). Earlier split rows
+  (weight × reps, no labels); ~~the last row's slot shows × while its reps are empty
+  (cancel it) and **split** once they are filled (add another)~~ **superseded (user,
+  2026-10-29, PR #30 review): every row carries ×, the last included, and "+ split"
+  sits under the rows once the last row is filled** (see 033-3). Earlier split rows
   carry ×; ~~the first row has none (removing it is removing the set)~~ the first
   row carries × too while there are two rows or more, and removing it makes the
   next row the set (user, 2026-10-29, after using the 033-1 build: before Log,
@@ -5088,8 +5090,10 @@ the chosen boards copied to the Workout Flow canvas as S1–S8):
   "best 3-rep set" for someone who never did a real one. Cost accepted: in a split
   that goes up, the heavier later segment earns no record.
 - **Next session (S5–S6).** The Last time pill shows the first segment plus the split
-  count (`20 × 5 ⑂2`) and a line lists the rest. Repeat copies the first segment
-  only; splits are never pre-built.
+  count (`20 × 5 ⑂2`) and a line lists the rest. ~~Repeat copies the first segment
+  only; splits are never pre-built.~~ **Superseded (user, 2026-10-29, 033-3):**
+  repeat copies last time's whole set, one row per segment; splits are still never
+  pre-built on opening the card. See 033-3.
 - **One Easy/Hard mark per set**, not per segment, so `setEffort` stays aligned.
   "Couldn't finish the first weight" is the Hard mark, not a new field.
 - **Icon.** Split arrows (one line branching in two). Rejected "row plus": reads as
@@ -5246,8 +5250,10 @@ Deviations from the sub-ticket as written (user, 2026-10-29):
 Decisions made in the build (comments at each site):
 - **A new row starts empty, every field** (user, 2026-10-29). Replaced the
   first build's weight-one-step-down and copied `other` fields.
-- **Last row: × until every required field is filled, then split**
-  (`splitSlot`), rather than reps alone, so distance × time behaves the same.
+- ~~**Last row: × until every required field is filled, then split**
+  (`splitSlot`), rather than reps alone, so distance × time behaves the same.~~
+  Superseded in 033-3 (PR #30 review): × on every row; the whole-row gate moved
+  to "+ split" under the rows (`canAddSplit`).
 - **One `rows` array is the card's whole draft** (user, 2026-10-29): `rows[0]`
   is the set, a normal set is one row. Every row but the last carries ×, the
   first included; with one row left there is no ×. Replaced `inputValues` plus a
@@ -5287,8 +5293,9 @@ rollup transaction carrying `setSplits`.
 
 #### 033-2 · Read a split set back (S5–S7)
 
-**Status: IN REVIEW** — PR #29 (branch TICKET-033-2), 2026-10-29; device test not
-yet run. Started after the user confirmed TICKET-055's device plan (steps 0–5) passed.
+**Status: MERGED** — PR #29 (b709803), 2026-10-29. Device test passed (user,
+2026-10-29: pill, split chip and rail on a narrow phone). Started after the user
+confirmed TICKET-055's device plan (steps 0–5) passed.
 
 - History reader exposes each set's split rows (done in 033-1, renamed in
   TICKET-055: `HistorySet.segments`, `segments[0]` the set, the rest its splits)
@@ -5403,16 +5410,128 @@ and the sheet rows; the best still reads the first segment. Also not checked
 
 #### 033-3 · Edit a split set (S8)
 
-**Status: OPEN** — after 033-1 and TICKET-055 (one segments shape, built)
+**Status: IN REVIEW** — PR #30 (branch TICKET-033-3), 2026-10-29; device test not
+yet run. Started after the user confirmed 033-2's device run passed.
 
 - TICKET-040's edit card shows the rows: change, add or remove them; Save passes
   the edited list to `updateSet`, which replaces the set's `segments` whole
-  (TICKET-055). Today the card edits `segments[0]` and passes the rest back
-  unchanged (`ExerciseLogger.saveEdit`)
+  (TICKET-055). ~~Today the card edits `segments[0]` and passes the rest back
+  unchanged (`ExerciseLogger.saveEdit`)~~ (done)
 - The Easy/Hard mark and the set's position stay
 
 Device test: edit set 3, change one row's reps, Save; volume updates and the mark
 stays. Remove every split row; the set reads as a normal set.
+
+**Built 2026-10-29 (branch TICKET-033-3, PR #30).** Nothing new stored. Comparisons still read
+`comparisonSegment`; volume counts every segment.
+
+Boards first (canvas v61–v62, mirrored in `design/workout-flow/project/`):
+- **S8 redrawn to the 033-1 build** (it predated it): × on the first row too,
+  labels WEIGHT · KG, "Logged 20 kg × 5 + 2 splits · mark and position stay", the
+  Today row's chip on the right with its chevron (S4 / 033-2).
+- **S6 redrawn for whole-set repeat** (below).
+
+Built:
+- **Edit shows every segment** as rows in `SetRows`, with the same third column as
+  logging (split adds a row, × removes one). Edit state is `EditRow[]`: each row's
+  values plus the stored segment it came from (`editRows`), or null for a row added
+  in the edit.
+- **Save is checked like Log**: `buildEditedSegments` runs `buildLoggedSet` with the
+  new `action` argument "save". A half-filled row is refused and named ("Split 1:
+  Enter Reps to save set 2"); a blank last row is dropped. Each row from a stored
+  segment keeps that segment's unlisted keys (`withUnlistedFields`); a new row has
+  none. `updateSet` gets the whole list; id, mark and rest are untouched (verified:
+  it spreads the set and swaps `segments`, and ignores `[]`).
+- `SetRows.onAddSplit` is required now: no caller omits the third column.
+
+Decisions (comments at each site):
+- **× on the first row in edit too** (user, 2026-10-29): one rule on the card.
+  Removing row 1 of a logged set makes the next row what today's delta and records
+  compare, as retyping row 1 would. Rejected: no × on the first row in edit (S8 as
+  first drawn), a different rule for the same card.
+- **The source travels with the row**, not by index, so removing row 1 does not hand
+  row 1's stored keys to the row that moves up. Rejected: matching rows to
+  `segments[i]` by position.
+- **Scope growth (user, 2026-10-29): repeat copies last time's whole set.** Was:
+  first segment only, "splits not copied, tap split if you need them" (TICKET-033
+  Decisions, S6 as first drawn). Now row 1 fills from the ghosts as before, and
+  `repeatSplitRows` adds one row per later segment, in the weight and reps fields
+  only (the fields repeat fills); other fields start empty. The line reads
+  "Repeated 20 × 5 · 17.5 kg × 3 · 15 kg × 3 · remove rows you didn't do". Opening
+  the card is unchanged: one row, ghosts on row 1. **Cost accepted:** a row not done
+  this time logs a split that was not done unless removed; it shows in the header's
+  count and the Today chip, and this ticket's edit fixes it.
+- **Repeat stops at the first later segment it cannot parse** and says "· more rows
+  couldn't be read", as `decodeStoredSet` keeps only the segments before the first
+  bad one: a chain with a gap would present a split that never happened. Rejected:
+  skipping only the bad row.
+- **× now clears "Repeated"** as typing and split already did: after a remove the
+  line would list rows the card no longer holds.
+- **× on every row; "+ split" under the rows** (PR #30 review, finding 1; user,
+  2026-10-29). Repeat's "remove rows you didn't do" could not be done with ×: the
+  last filled row offered split, so dropping it meant clearing it first or removing
+  row 1 and retyping. Now, with two rows or more, every row's third column is ×,
+  the first and last included (`splitSlot`), and "+ split" ("Add another split")
+  sits under the rows, the fields' width, shown only when the last row has every
+  required field (`canAddSplit`: 033-1's gate, moved). Hidden, not dimmed, like
+  repeat, so a second blank row cannot be added. One row keeps the split button in
+  its third column (S1). The `cancel` slot is gone; a blank last row is still
+  dropped on Log/Save. Same card for log and edit. Boards S2, S3, S6, S8 redrawn
+  (canvas v63). **Scope growth, stated:** S3 was not in the user's list but drew
+  the old slot.
+- **Repeat builds no chain when last time's first segment is unreadable** (PR #30
+  review, finding 2): the same gate as `lastTimeSplit`. Without the pill there is
+  no line, so rows would appear unexplained.
+
+Verified: `npx tsc --noEmit` clean. `npx jest`: 38 suites, 502 tests pass (493
+before; 033-2's "repeat copies the first segment only" replaced). 10 new tests, each
+seen failing against a deliberate break of the line it covers (14 breaks, all red):
+- card: repeat builds one row per segment and the line; after repeat, × on split
+  rows 2 and 1 and Log stores 20 × 5 with no retyping (and × clears "Repeated";
+  seen failing on the old `splitSlot`, PR #30 review)
+- card: "+ split" hidden until the last row is filled (in "starts each new row
+  empty"; seen failing with the gate removed)
+- pure: a non-split set adds no rows; repeat stops at an unreadable row, and says so
+  when the decoder already dropped rows; no chain when the first segment is
+  unreadable (PR #30 review)
+- card, edit: shows every segment and Save replaces them (mark kept, Today volume
+  357.5 → 372.5 kg); add and remove rows; remove every split row → normal set;
+  half-filled row refused with "save"
+- pure: a stored row keeps its own unlisted keys after the row above it is removed;
+  a new row has none
+
+Unverified (device run, below): layout of a three-row edit card and a three-row
+repeat at phone width; nothing in Jest checks layout.
+
+Known gaps:
+- ~~**A filled last row offers split, not ×**~~ Fixed in PR #30 review (× on every
+  row, "+ split" under the rows; above).
+- **The edit header does not count splits** ("EDIT SET 3", as S8). The notice line
+  says how many the set was logged with; the rows show how many it has now.
+
+**Device test plan** (user runs; CLAUDE.md 1.3). Bench, with a past session whose
+set 3 was split (20 × 5, 17.5 × 3, 15 × 3):
+1. Today's set 3, before logging: tap repeat → three rows 20/5, 17.5/3, 15/3, header
+   "SET 3 · 2 splits", × on all three rows, "+ split" under them, repeat gone, line
+   "Repeated 20 × 5 · 17.5 kg × 3 · 15 kg × 3 · remove rows you didn't do". × the
+   last row → two rows, line goes back to "Last time split to …". × again → a
+   normal set reading 20 / 5, steppers back, nothing retyped. Tap repeat again
+   for step 2.
+1a. Split a fresh set: the new row is blank, "+ split" is not shown until both its
+   fields are filled. With VoiceOver on, fill it and tap "+ split": the next
+   row appears and "+ split" hides, so note where focus lands (PR #30 review
+   pass 2: it may jump to the top; no code change unless it does).
+2. Log set 3 as split. Mark it Hard. Open it in Today → Edit: every row shown,
+   "Logged 20 kg × 5 + 2 splits · mark and position stay", × on all three rows,
+   "+ split" under them.
+3. Change one row's reps, Save → Today's volume changes by that row; H stays; set
+   still 3rd.
+4. Edit again: × split 1, × split 1 again, Save → the set reads as normal: no chip,
+   steppers in the next edit.
+5. Edit: clear one field of a split row, Save → "Split 1: Enter Reps to save set 3";
+   nothing changed.
+6. Edit set 1 (a normal set): split → add a row, fill it, Save → set 1 gains the
+   chip.
 
 **Technical Notes:**
 - ~~This is a data-model change. `ExerciseSet.fields` holds one value per field,
