@@ -5063,8 +5063,10 @@ the chosen boards copied to the Workout Flow canvas as S1–S8):
   exercise. "Drop" is wrong whenever the weight rises. Data name: `segments`.
 - **Where it lives (S1–S3).** A third column beside the fields. Normal set: a
   **split** button next to weight and reps. Once split, each segment is one row
-  (weight × reps, no labels); the last row's slot shows × while its reps are empty
-  (cancel it) and **split** once they are filled (add another). Earlier split rows
+  (weight × reps, no labels); ~~the last row's slot shows × while its reps are empty
+  (cancel it) and **split** once they are filled (add another)~~ **superseded (user,
+  2026-10-29, PR #30 review): every row carries ×, the last included, and "+ split"
+  sits under the rows once the last row is filled** (see 033-3). Earlier split rows
   carry ×; ~~the first row has none (removing it is removing the set)~~ the first
   row carries × too while there are two rows or more, and removing it makes the
   next row the set (user, 2026-10-29, after using the 033-1 build: before Log,
@@ -5248,8 +5250,10 @@ Deviations from the sub-ticket as written (user, 2026-10-29):
 Decisions made in the build (comments at each site):
 - **A new row starts empty, every field** (user, 2026-10-29). Replaced the
   first build's weight-one-step-down and copied `other` fields.
-- **Last row: × until every required field is filled, then split**
-  (`splitSlot`), rather than reps alone, so distance × time behaves the same.
+- ~~**Last row: × until every required field is filled, then split**
+  (`splitSlot`), rather than reps alone, so distance × time behaves the same.~~
+  Superseded in 033-3 (PR #30 review): × on every row; the whole-row gate moved
+  to "+ split" under the rows (`canAddSplit`).
 - **One `rows` array is the card's whole draft** (user, 2026-10-29): `rows[0]`
   is the set, a normal set is one row. Every row but the last carries ×, the
   first included; with one row left there is no ×. Replaced `inputValues` plus a
@@ -5463,14 +5467,33 @@ Decisions (comments at each site):
   skipping only the bad row.
 - **× now clears "Repeated"** as typing and split already did: after a remove the
   line would list rows the card no longer holds.
+- **× on every row; "+ split" under the rows** (PR #30 review, finding 1; user,
+  2026-10-29). Repeat's "remove rows you didn't do" could not be done with ×: the
+  last filled row offered split, so dropping it meant clearing it first or removing
+  row 1 and retyping. Now, with two rows or more, every row's third column is ×,
+  the first and last included (`splitSlot`), and "+ split" ("Add another split")
+  sits under the rows, the fields' width, shown only when the last row has every
+  required field (`canAddSplit`: 033-1's gate, moved). Hidden, not dimmed, like
+  repeat, so a second blank row cannot be added. One row keeps the split button in
+  its third column (S1). The `cancel` slot is gone; a blank last row is still
+  dropped on Log/Save. Same card for log and edit. Boards S2, S3, S6, S8 redrawn
+  (canvas v63). **Scope growth, stated:** S3 was not in the user's list but drew
+  the old slot.
+- **Repeat builds no chain when last time's first segment is unreadable** (PR #30
+  review, finding 2): the same gate as `lastTimeSplit`. Without the pill there is
+  no line, so rows would appear unexplained.
 
-Verified: `npx tsc --noEmit` clean. `npx jest`: 38 suites, 501 tests pass (493
-before; 033-2's "repeat copies the first segment only" replaced). 9 new tests, each
-seen failing against a deliberate break of the line it covers (12 breaks, all red):
-- card: repeat builds one row per segment and the line; × rows 2–3 after repeat,
-  then Log, stores a normal set (and × clears "Repeated")
+Verified: `npx tsc --noEmit` clean. `npx jest`: 38 suites, 502 tests pass (493
+before; 033-2's "repeat copies the first segment only" replaced). 10 new tests, each
+seen failing against a deliberate break of the line it covers (14 breaks, all red):
+- card: repeat builds one row per segment and the line; after repeat, × on split
+  rows 2 and 1 and Log stores 20 × 5 with no retyping (and × clears "Repeated";
+  seen failing on the old `splitSlot`, PR #30 review)
+- card: "+ split" hidden until the last row is filled (in "starts each new row
+  empty"; seen failing with the gate removed)
 - pure: a non-split set adds no rows; repeat stops at an unreadable row, and says so
-  when the decoder already dropped rows
+  when the decoder already dropped rows; no chain when the first segment is
+  unreadable (PR #30 review)
 - card, edit: shows every segment and Save replaces them (mark kept, Today volume
   357.5 → 372.5 kg); add and remove rows; remove every split row → normal set;
   half-filled row refused with "save"
@@ -5481,27 +5504,28 @@ Unverified (device run, below): layout of a three-row edit card and a three-row
 repeat at phone width; nothing in Jest checks layout.
 
 Known gaps:
-- **A filled last row offers split, not ×** (033-1's `splitSlot`, drawn so on S6
-  and S8). To drop the last split row, clear its fields (× appears as Cancel), or
-  clear it and Save (a blank last row is dropped). Found writing the "remove every
-  split row" test. Not changed: it is the approved board and the logging card's
-  rule; changing it is the user's call. Loud (the user sees no ×), so it misleads
-  no one into the wrong layer.
+- ~~**A filled last row offers split, not ×**~~ Fixed in PR #30 review (× on every
+  row, "+ split" under the rows; above).
 - **The edit header does not count splits** ("EDIT SET 3", as S8). The notice line
   says how many the set was logged with; the rows show how many it has now.
 
 **Device test plan** (user runs; CLAUDE.md 1.3). Bench, with a past session whose
 set 3 was split (20 × 5, 17.5 × 3, 15 × 3):
 1. Today's set 3, before logging: tap repeat → three rows 20/5, 17.5/3, 15/3, header
-   "SET 3 · 2 splits", repeat gone, line "Repeated 20 × 5 · 17.5 kg × 3 · 15 kg × 3
-   · remove rows you didn't do". × row 2 → line goes back to "Last time split to …".
+   "SET 3 · 2 splits", × on all three rows, "+ split" under them, repeat gone, line
+   "Repeated 20 × 5 · 17.5 kg × 3 · 15 kg × 3 · remove rows you didn't do". × the
+   last row → two rows, line goes back to "Last time split to …". × again → a
+   normal set reading 20 / 5, steppers back, nothing retyped. Tap repeat again
+   for step 2.
+1a. Split a fresh set: the new row is blank, "+ split" is not shown until both its
+   fields are filled.
 2. Log set 3 as split. Mark it Hard. Open it in Today → Edit: every row shown,
-   "Logged 20 kg × 5 + 2 splits · mark and position stay", × on rows 1–2, split on
-   row 3.
+   "Logged 20 kg × 5 + 2 splits · mark and position stay", × on all three rows,
+   "+ split" under them.
 3. Change one row's reps, Save → Today's volume changes by that row; H stays; set
    still 3rd.
-4. Edit again: × split 1; clear the last split row's two fields, tap × (Cancel), Save
-   → the set reads as normal: no chip, steppers in the next edit.
+4. Edit again: × split 1, × split 1 again, Save → the set reads as normal: no chip,
+   steppers in the next edit.
 5. Edit: clear one field of a split row, Save → "Split 1: Enter Reps to save set 3";
    nothing changed.
 6. Edit set 1 (a normal set): split → add a row, fill it, Save → set 1 gains the
