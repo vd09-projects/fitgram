@@ -5518,7 +5518,9 @@ set 3 was split (20 × 5, 17.5 × 3, 15 × 3):
    normal set reading 20 / 5, steppers back, nothing retyped. Tap repeat again
    for step 2.
 1a. Split a fresh set: the new row is blank, "+ split" is not shown until both its
-   fields are filled.
+   fields are filled. With VoiceOver on, fill it and tap "+ split": the next
+   row appears and "+ split" hides, so note where focus lands (PR #30 review
+   pass 2: it may jump to the top; no code change unless it does).
 2. Log set 3 as split. Mark it Hard. Open it in Today → Edit: every row shown,
    "Logged 20 kg × 5 + 2 splits · mark and position stay", × on all three rows,
    "+ split" under them.

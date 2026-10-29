@@ -19,6 +19,8 @@ jest.mock("../services/db/workoutSessions", () => ({
 
 const weight = () => screen.getByLabelText("Weight · kg");
 const reps = () => screen.getByLabelText("Reps");
+const splitWeight = (n: number) => screen.getByLabelText(`Split ${n} Weight · kg`);
+const splitReps = (n: number) => screen.getByLabelText(`Split ${n} Reps`);
 const logButton = () => screen.getByRole("button", { name: /^Log set \d+$/ });
 const loggedSets = () => useWorkoutStore.getState().activeWorkout?.exercises[0].sets ?? [];
 
@@ -349,8 +351,6 @@ describe("ExerciseLogger edit mode", () => {
 
 // TICKET-033-1, canvas boards S1–S3.
 describe("ExerciseLogger split set", () => {
-  const splitWeight = (n: number) => screen.getByLabelText(`Split ${n} Weight · kg`);
-  const splitReps = (n: number) => screen.getByLabelText(`Split ${n} Reps`);
   const start = (first: [string, string]) => {
     renderScreen(ActiveWorkoutScreen, { workout: buildWorkout(["Bench Press"]), history: withHistory });
     fireEvent.changeText(weight(), first[0]);
@@ -460,8 +460,6 @@ describe("ExerciseLogger split set", () => {
 
 // TICKET-033-2, boards S5–S6: the session after a split set.
 describe("ExerciseLogger after a split set", () => {
-  const splitWeight = (n: number) => screen.getByLabelText(`Split ${n} Weight · kg`);
-  const splitReps = (n: number) => screen.getByLabelText(`Split ${n} Reps`);
   const splitLastTime = buildStats("Bench Press", [
     {
       sets: [
@@ -550,8 +548,6 @@ describe("ExerciseLogger after a split set", () => {
 
 // TICKET-033-3, board S8: editing a logged split set.
 describe("ExerciseLogger editing a split set", () => {
-  const splitWeight = (n: number) => screen.getByLabelText(`Split ${n} Weight · kg`);
-  const splitReps = (n: number) => screen.getByLabelText(`Split ${n} Reps`);
   const press = (name: string | RegExp) =>
     act(async () => {
       fireEvent.press(screen.getByRole("button", { name }));

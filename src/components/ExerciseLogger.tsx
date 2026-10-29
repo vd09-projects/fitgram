@@ -191,6 +191,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
 
   const nextSetNumber = exercise.sets.length + 1;
   const editedSet = editing ? exercise.sets.find((set) => set.id === editing.setId) ?? null : null;
+  const editedSplitCount = editedSet ? splitSegments(editedSet).length : 0;
   // Ids are ordinals, so the edited set's id is its number.
   const setNumber = editedSet ? editedSet.id : nextSetNumber;
   const splitting = !editedSet && rows.length > 1;
@@ -257,7 +258,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
     setRefusal(null);
   };
 
-  // The last row is never removed: `SetRows` offers × only with two or more.
+  // The only row is never removed: `SetRows` offers × only with two or more.
   const onRemoveRow = (index: number) => {
     if (editedSet) {
       setEditing(
@@ -400,7 +401,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
           {editedSet && (
             <TextBase style={styles.notice}>
               Logged <NumericText style={styles.notice}>{setValuesText(exercise.fields, plannedSegment(editedSet))}</NumericText>
-              {splitSegments(editedSet).length > 0 && ` + ${splitCountText(splitSegments(editedSet).length)}`}
+              {editedSplitCount > 0 && ` + ${splitCountText(editedSplitCount)}`}
               {" · mark and position stay"}
             </TextBase>
           )}
