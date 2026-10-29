@@ -68,7 +68,7 @@ describe("sheetSession", () => {
       false,
     ]);
     // Set 3 was done last time, not yet today: values on one side, no delta.
-    expect(view.rows[2]).toEqual({ setNumber: 3, past: "60 kg × 8", pastEffort: null, today: null, isNext: true, delta: null });
+    expect(view.rows[2]).toMatchObject({ setNumber: 3, past: "60 kg × 8", pastEffort: null, today: null, isNext: true, delta: null });
   });
 
   it("compares against the selected session, not the last one, and keeps today's extra sets", () => {

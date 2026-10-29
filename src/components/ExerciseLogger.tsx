@@ -29,9 +29,18 @@ import { ACTIVE_WORKOUT_STEP_NAMES } from "../tour_steps/activeWorkout";
 import { EffortBadge } from "./active_workout/EffortBadge";
 import { effortSpeech, lastTimeEffort } from "../utils/effort";
 import { formatSessionDate, setValuesText } from "../utils/setDeltas";
-import { buildLoggedSet, keptSplitRows, splitCountText, SplitRowValues } from "../utils/splits";
+import {
+  buildLoggedSet,
+  keptSplitRows,
+  lastTimeSplit,
+  lastTimeSplitLine,
+  repeatedSplitLine,
+  splitCountText,
+  SplitLine,
+  SplitRowValues,
+} from "../utils/splits";
 import { plannedSegment, splitSegments } from "../utils/storedSets";
-import SetRows from "./active_workout/SetRows";
+import SetRows, { SplitIcon } from "./active_workout/SetRows";
 
 const HIT = 44;
 const ACTION_HEIGHT = 56;
@@ -128,6 +137,16 @@ const PILL_HIT_SLOP = { top: (HIT - PILL_HEIGHT) / 2, bottom: (HIT - PILL_HEIGHT
  * - No split while editing a logged set: changing a set's rows is TICKET-033-3.
  *   An edit changes the first segment and passes the others back to
  *   `updateSet` as they were; the rows being typed for the next set wait.
+ *
+ * Decisions (TICKET-033-2, canvas boards S5–S6):
+ * - Last time's split rides on the pill as `20 × 5 ⑂2`, and a line under the
+ *   header lists the rows (`lastTimeSplit`). The pill's numbers stay the first
+ *   segment, the one the ghosts and the delta compare.
+ * - Repeat fills the first segment only and swaps that line for "Repeated
+ *   20 × 5 · splits not copied". Repeat fills one set's targets; pre-building
+ *   last time's split rows is not this ticket (TICKET-033 Decisions). The
+ *   swap lasts until the card's rows change or the set is logged: after that
+ *   "Repeated" would describe values the user has since typed over.
  */
 export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise }) {
   const { styles, t } = useThemeStyles(createStyles);
@@ -150,6 +169,8 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
   const [historyOpen, setHistoryOpen] = useState(false);
   /** The set being edited (its id, read fresh) and the edit's own values. */
   const [editing, setEditing] = useState<{ setId: number; values: Record<string, string> } | null>(null);
+  /** Repeat filled the card and nothing was typed since (board S6). */
+  const [repeated, setRepeated] = useState(false);
 
   const nextSetNumber = exercise.sets.length + 1;
   const editedSet = editing ? exercise.sets.find((set) => set.id === editing.setId) ?? null : null;
@@ -175,6 +196,13 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
   const pillText = lastTimeText(target);
   const notice = ghostNotice(target, history.status);
   const lastEffort = lastTimeEffort(history, setNumber);
+  const split = history.lastSession ? lastTimeSplit(target, history.lastSession.fields) : null;
+  const splitLine: SplitLine | null =
+    split === null
+      ? null
+      : repeated && !editedSet && pillText !== null
+        ? repeatedSplitLine(pillText)
+        : lastTimeSplitLine(split);
   const onSetEffort = (setId: number, effort: Effort | null) => setSetEffort(exercise.id, setId, effort);
 
   const onAddSplit = () => {
@@ -183,6 +211,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
     // `other` fields copied from it; both put a number the user never chose in
     // a real value, one stray Log from being stored.
     setRows((prev) => [...prev, {}]);
+    setRepeated(false);
     setRefusal(null);
   };
 
@@ -192,6 +221,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
       setEditing((prev) => prev && { ...prev, values: { ...prev.values, [name]: text } });
     } else {
       setRows((prev) => prev.map((row, i) => (i === index ? { ...row, [name]: text } : row)));
+      setRepeated(false);
     }
     setRefusal(null);
   };
@@ -205,6 +235,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
   const onRepeat = () => {
     if (!repeat) return;
     setRows((prev) => [{ ...prev[0], ...repeat }, ...prev.slice(1)]);
+    setRepeated(true);
     setRefusal(null);
   };
 
@@ -230,6 +261,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
     // about what that id will be.
     setRemoved(null);
     setRows([{}]);
+    setRepeated(false);
     setRefusal(null);
     await addSetToExercise(exercise.id, { id: setNumber, ...result.set });
     startRest(exercise.id, useRestPreferenceStore.getState().restDurationMs, setNumber);
@@ -308,12 +340,20 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
               accessibilityRole="button"
               accessibilityLabel={
                 pillText !== null
-                  ? `Last time ${pillText.replace("×", "by")}${effortSpeech(lastEffort?.effort)}. Show history`
+                  ? `Last time ${pillText.replace("×", "by")}${
+                      split !== null && split.count > 0 ? `, then ${splitCountText(split.count)}` : ""
+                    }${effortSpeech(lastEffort?.effort)}. Show history`
                   : "Show history"
               }
             >
               <TextBase style={styles.pillLabel}>{pillText !== null ? "LAST TIME" : "HISTORY"}</TextBase>
               {pillText !== null && <NumericText style={styles.pillValue}>{pillText}</NumericText>}
+              {split !== null && split.count > 0 && (
+                <View style={styles.pillSplit} testID="pill-split">
+                  <SplitIcon size={11} color={t.colors.role.textPrimary} />
+                  <NumericText style={styles.pillSplitText}>{split.count}</NumericText>
+                </View>
+              )}
               {pillText !== null && lastEffort !== null && <EffortBadge effort={lastEffort.effort} />}
               <Ionicons name="chevron-up" size={14} color={t.colors.role.textSecondary} />
             </TouchableOpacity>
@@ -330,6 +370,15 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
             <TextBase style={styles.notice}>
               Felt {lastEffort.effort} last time ·{" "}
               <NumericText style={styles.notice}>{formatSessionDate(lastEffort.performedAt)}</NumericText>
+            </TextBase>
+          )}
+          {splitLine !== null && (
+            <TextBase style={styles.notice} testID="split-line">
+              {splitLine.lead}
+              {splitLine.values !== "" && (
+                <NumericText style={[styles.notice, styles.splitLineValues]}>{splitLine.values}</NumericText>
+              )}
+              {splitLine.tail}
             </TextBase>
           )}
           {notice !== null && <TextBase style={styles.notice}>{notice}</TextBase>}
@@ -515,6 +564,19 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   splitCount: {
     fontSize: t.fonts.small,
     color: t.colors.role.textSecondary,
+  },
+  // Board S5: the count beside the pill's numbers, the Today chip's icon.
+  pillSplit: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  pillSplitText: {
+    fontSize: t.fonts.small,
+    color: t.colors.role.textPrimary,
+  },
+  splitLineValues: {
+    color: t.colors.role.textPrimary,
   },
   refusal: {
     fontSize: t.fonts.small,

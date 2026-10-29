@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from "@testing-library/react-native";
+import { act, fireEvent, screen, within } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
 import ActiveWorkoutScreen from "../screens/workout_management/ActiveWorkoutScreen";
 import { renderScreen } from "../test/renderScreen";
@@ -453,5 +453,46 @@ describe("ExerciseLogger split set", () => {
     expect(screen.queryByLabelText("Split 1 Weight · kg")).toBeNull();
     expect(weight().props.value).toBe("20");
     expect(screen.getByRole("button", { name: "Increase Weight by 2.5" })).toBeOnTheScreen();
+  });
+});
+
+// TICKET-033-2, boards S5–S6: the session after a split set.
+describe("ExerciseLogger after a split set", () => {
+  const splitLastTime = buildStats("Bench Press", [
+    {
+      sets: [
+        { segments: [{ Weight: "20", Reps: "5" }, { Weight: "17.5", Reps: "3" }, { Weight: "15", Reps: "3" }] },
+      ],
+    },
+  ]);
+  const start = () =>
+    renderScreen(ActiveWorkoutScreen, {
+      workout: buildWorkout(["Bench Press"]),
+      history: { [splitLastTime.exerciseId]: splitLastTime },
+    });
+
+  it("shows the first segment and the split count on the pill, and lists the rest", () => {
+    start();
+    expect(screen.getByRole("button", { name: "Last time 20 by 5, then 2 splits. Show history" })).toBeOnTheScreen();
+    expect(within(screen.getByTestId("pill-split")).getByText("2")).toBeOnTheScreen();
+    expect(screen.getByTestId("split-line")).toHaveTextContent("Last time split to 17.5 kg × 3 · 15 kg × 3");
+  });
+
+  it("repeat copies the first segment only and says the splits were not copied", async () => {
+    start();
+    fireEvent.press(screen.getByRole("button", { name: /^Repeat last session's set 1/ }));
+    expect(weight().props.value).toBe("20");
+    expect(reps().props.value).toBe("5");
+    expect(screen.queryByLabelText("Split 1 Weight · kg")).toBeNull();
+    expect(screen.getByTestId("split-line")).toHaveTextContent(
+      "Repeated 20 × 5 · splits not copied, tap split if you need them"
+    );
+
+    // Typed over: "Repeated" no longer describes the card.
+    fireEvent.changeText(reps(), "6");
+    expect(screen.getByTestId("split-line")).toHaveTextContent(/^Last time split to/);
+
+    await logSet();
+    expect(loggedSets()[0].segments).toEqual([{ Weight: "20", Reps: "6" }]);
   });
 });

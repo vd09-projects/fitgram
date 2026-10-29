@@ -3,12 +3,15 @@
 // Split sets (TICKET-033): a set whose weight changed part-way, 20 kg × 5 then
 // 17.5 kg × 3. The first segment is the set (`ExerciseSet.segments[0]`); the
 // segments after it are the split. This file decides the card's × / split
-// control and builds the set a Log tap stores.
+// control, builds the set a Log tap stores, and says how last time's split
+// reads on the next session's card (033-2).
 // Pure; tests in splits.test.ts.
 
 import { ExerciseField } from "../types/workoutType";
 import { ExerciseSet } from "../types/zustandWorkoutType";
-import { buildSetFields, missingFields } from "./setLogger";
+import { buildSetFields, GhostTarget, missingFields } from "./setLogger";
+import { setValuesText } from "./setDeltas";
+import { splitSegments } from "./storedSets";
 
 /** One row's values as the card's inputs hold them. */
 export type SplitRowValues = Record<string, string>;
@@ -85,3 +88,58 @@ export function buildLoggedSet(
   }
   return { kind: "ok", set: { segments } };
 }
+
+/**
+ * Last time's split for the set about to be logged, for the card (board S5):
+ * the pill shows `20 × 5 ⑂{count}` and a line lists `rows`. `null` when the
+ * pill shows no numbers (no target: first time, other unit, a plank, a set
+ * not reached) or last time's set was not split.
+ *
+ * - Tied to the pill, not to last session's set at this number whatever its
+ *   state: the line reads "split to" the pill's first segment, so without the
+ *   pill it has nothing to continue from. Cost: a treadmill split last time
+ *   (no weight × reps, so no pill) shows no split line on the card; the sheet
+ *   still lists it.
+ * - Rows read in last session's own fields with units ("17.5 kg × 3"), as the
+ *   Today list's split rows do (TodaySets, TICKET-033); the board drew
+ *   "17.5 × 3".
+ * - `incomplete`: some of that set's segments could not be read, so `rows`
+ *   (and the count) hold only the readable ones. Said, never hidden, so a
+ *   short list does not pass for the whole split (rule 2.4).
+ */
+export type LastTimeSplit = { count: number; rows: string[]; incomplete: boolean };
+
+export function lastTimeSplit(target: GhostTarget, sessionFields: ExerciseField[]): LastTimeSplit | null {
+  if (target.kind !== "available" || target.set.weight === null || target.set.reps === null) return null;
+  const rows = splitSegments(target.set).map((segment) => setValuesText(sessionFields, segment));
+  if (rows.length === 0 && !target.set.segmentsIncomplete) return null;
+  return { count: rows.length, rows, incomplete: target.set.segmentsIncomplete };
+}
+
+/**
+ * A card line whose middle is numbers: `values` renders in the numeric face,
+ * as on the boards. Read as one string it is `lead + values + tail`.
+ */
+export type SplitLine = { lead: string; values: string; tail: string };
+
+/** The card's line under the header for `lastTimeSplit` (board S5). */
+export function lastTimeSplitLine(split: LastTimeSplit): SplitLine {
+  if (split.rows.length === 0) return { lead: "Last time's split rows couldn't be read", values: "", tail: "" };
+  return {
+    lead: "Last time split to ",
+    values: split.rows.join(" · "),
+    tail: split.incomplete ? " · more rows couldn't be read" : "",
+  };
+}
+
+/**
+ * The line after repeat on a set that was split last time (board S6), in
+ * place of the "split to" line. Repeat fills the first segment only (it fills
+ * from the ghosts, which read `comparisonSegment`); this says the rest were
+ * left out on purpose, not lost.
+ */
+export const repeatedSplitLine = (pillText: string): SplitLine => ({
+  lead: "Repeated ",
+  values: pillText,
+  tail: " · splits not copied, tap split if you need them",
+});
