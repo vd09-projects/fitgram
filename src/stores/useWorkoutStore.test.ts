@@ -459,6 +459,10 @@ describe("swapExercise", () => {
     expect(await stored()).toEqual(store().activeWorkout);
     // A rest on the swapped slot would otherwise hide under the old id.
     expect(store().rest).toBeNull();
+
+    // D1: `planned` is live state only; the session doc carries no trace of it.
+    const logged = { ...store().activeWorkout!, exercises: [{ ...exercises[0], sets: [{ id: 1, segments: [{ Reps: 10 }] }] }] };
+    expect(buildSessionDocs(logged, Date.now()).exerciseSessions[0]).not.toHaveProperty("planned");
   });
 
   it("is refused once the slot has a set, and changes nothing", async () => {

@@ -42,7 +42,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
 | 053 | Guided tour: end-to-end pass after the catalog work | Medium | After 043, 050, 051, 052. The tour is not working and is no longer fixed per ticket (user, 2026-10-27) |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap. Storage: per-plan copies today, library undecided |
-| 047 | Swap an exercise mid-workout | Medium | **Built, uncommitted** on branch TICKET-047 (2026-10-31), awaiting review and a device run. Only at 0 sets, full picker, the new exercise's own history, this workout only |
+| 047 | Swap an exercise mid-workout | Medium | **In review**, PR #34 (branch TICKET-047, 2026-10-31); device re-run owed after the offline and layering fixes. Only at 0 sets, full picker, the new exercise's own history, this workout only |
 | 056 | Add an exercise mid-workout | Small-Med | After 047; reuses its picker mode. Appended, this workout only |
 | 057 | Free-flow workout (name not final) | Medium | Deferred 2026-10-30. An empty session plus 056 |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
@@ -4917,8 +4917,8 @@ recorded.
 
 ### TICKET-047: Swap an Exercise Mid-Workout
 
-**Priority:** High | **Effort:** Medium | **Status: BUILT, IN REVIEW** — branch TICKET-047,
-uncommitted for the user's review (2026-10-31); device run not yet done.
+**Priority:** High | **Effort:** Medium | **Status: BUILT, IN REVIEW** — PR #34 (branch TICKET-047,
+2026-10-31); device re-run owed after the offline and layering fixes.
 Was "Switch an exercise's version", deferred 2026-10-24; widened 2026-10-30 to any
 exercise, not only another version of the same movement
 
@@ -5021,7 +5021,7 @@ Flow canvas and `design/workout-flow/` before code. `SwitchBefore.dc.html` and
   the phone's cache; no `sync()`.
 - **D4 — one history path** for planned and swapped exercises (above).
 
-**Built 2026-10-31 (branch TICKET-047, uncommitted).**
+**Built 2026-10-31 (branch TICKET-047, PR #34).**
 - `useWorkoutStore.swapExercise(exerciseId, exercise)`: replaces the slot in place (index,
   "N of M" unchanged), persists, refuses with sets (`SWAP_LOCKED_REASON`, shared with the
   menu) and for an id already in today's workout. Fetches the new id's history (not
@@ -5124,6 +5124,12 @@ Android it won over the sheet despite tree order. Pre-existing since TICKET-043
 (e45837f, same overlay on main), so Manage Workout had it too. Fixed: the
 version and filter sheet overlays get `zIndex`/`elevation` 10. Untested by
 jest (layering does not render there); needs a device look.
+
+**PR #34 review, pass 1 (2026-10-31):** "Back to plan" was offered when the store
+could only refuse it (slot A swapped X→Y, then slot B swapped to X). The row is now
+taken like every other row: disabled, with the "In workout" badge. Test seen red
+with the check removed. Also added (reviewer's nit): a swapped slot's session doc
+has no `planned` key, seen red with an exercise spread in `buildSessionDocs`.
 
 **Known gaps:**
 - The failed sheet says "Network issue" for any failure (a permission error too); the

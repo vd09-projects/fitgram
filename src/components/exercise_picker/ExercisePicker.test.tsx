@@ -14,7 +14,7 @@ import type { WorkoutSessionDoc } from "../../types/workoutSession";
 import { buildCatalogIndex, planExerciseForVersion } from "../../utils/catalog";
 import { preparePicker } from "../../utils/pickerData";
 import { buildRecentHistory, recentDateLabel, type RecentHistory } from "../../utils/recents";
-import ExercisePicker from "./ExercisePicker";
+import ExercisePicker, { type PickerMode } from "./ExercisePicker";
 
 const bench = CATALOG.find((m) => m.id === "bench_press")!;
 const closeGrip = bench.versions.find((v) => v.id === "bench_press__barbell__close_grip")!;
@@ -29,7 +29,7 @@ const history = (): RecentHistory => {
   return buildRecentHistory([session], [], "me", buildCatalogIndex(CATALOG), [])!;
 };
 
-function renderPicker(inPlan: string[] = [], customExercises: Exercise[] = [], recentHistory: RecentHistory | null = null) {
+function renderPicker(inPlan: string[] = [], customExercises: Exercise[] = [], recentHistory: RecentHistory | null = null, mode?: PickerMode) {
   const onPick = jest.fn();
   const plan = new Set(inPlan);
   renderScreen(() => (
@@ -39,6 +39,7 @@ function renderPicker(inPlan: string[] = [], customExercises: Exercise[] = [], r
       customExercises={customExercises}
       inPlan={plan}
       recentHistory={recentHistory}
+      mode={mode}
       onPick={onPick}
       onClose={jest.fn()}
     />
@@ -160,5 +161,20 @@ describe("ExercisePicker", () => {
     const first = preparePicker(CATALOG, SEARCH_WORDS, custom);
     expect(preparePicker(CATALOG, SEARCH_WORDS, custom)).toBe(first);
     expect(preparePicker(CATALOG, SEARCH_WORDS, [])).not.toBe(first);
+  });
+
+  it("swap: Back to plan reads In workout and is disabled when another slot holds the plan's exercise", () => {
+    const plank: Exercise = { id: "plank__bodyweight", name: "Plank", fields: [] };
+    const mode: PickerMode = {
+      kind: "swap",
+      replacing: { id: "bench_press__dumbbell__flat", title: "Bench Press" },
+      planned: { exercise: plank, title: "Plank" },
+    };
+    const onPick = renderPicker(["bench_press__dumbbell__flat", plank.id], [], null, mode);
+    const back = screen.getByRole("button", { name: "Back to plan: Plank" });
+    expect(back.props.accessibilityState).toMatchObject({ disabled: true });
+    expect(within(back).getByText("In workout")).toBeTruthy();
+    fireEvent.press(back);
+    expect(onPick).not.toHaveBeenCalled();
   });
 });

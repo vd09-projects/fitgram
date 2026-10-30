@@ -288,6 +288,8 @@ export default function ExercisePicker({
     );
   };
 
+  const backTaken = mode.kind === "swap" && !!mode.planned && inPlan.has(mode.planned.exercise.id);
+
   return (
     // iOS: padding lifts the search box over the keyboard. Android: none, the
     // window already resizes for the keyboard (Expo's default), and "height"
@@ -312,19 +314,24 @@ export default function ExercisePicker({
           )}
         </View>
       </View>
-      {/* Board SwapBack: the way back from a swap is here, not on the logger. */}
+      {/* Board SwapBack: the way back from a swap is here, not on the logger.
+          Taken like any other row: another slot may have been swapped to the
+          plan's exercise, and the store refuses a duplicate id (PR #34 review). */}
       {mode.kind === "swap" && mode.planned && (
         <TouchableOpacity
-          style={styles.backToPlan}
+          style={[styles.backToPlan, backTaken && styles.rowDisabled]}
+          disabled={backTaken}
           onPress={() => mode.planned && onPick(mode.planned.exercise)}
           accessibilityRole="button"
           accessibilityLabel={`Back to plan: ${mode.planned.title}`}
+          accessibilityState={{ disabled: backTaken }}
         >
           <Ionicons name="arrow-undo" size={20} color={t.colors.role.accent} />
           <View style={styles.rowText}>
             <TextBase style={styles.name}>{`Back to plan: ${mode.planned.title}`}</TextBase>
             <TextBase style={styles.detail}>The one your plan has</TextBase>
           </View>
+          {backTaken && <TextBase style={styles.badge}>{takenLabel(mode, mode.planned.exercise.id)}</TextBase>}
         </TouchableOpacity>
       )}
       {movements === null ? (
