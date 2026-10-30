@@ -29,6 +29,7 @@ import { formatSessionDate, setValuesText } from "../utils/setDeltas";
 import {
   buildEditedSegments,
   buildLoggedSet,
+  canAddSplit,
   EditRow,
   editRows,
   keptSplitRows,
@@ -42,6 +43,8 @@ import {
 } from "../utils/splits";
 import { plannedSegment, splitSegments } from "../utils/storedSets";
 import SetRows, { SplitIcon } from "./active_workout/SetRows";
+import ExerciseMenu, { ExerciseMenuItem } from "./active_workout/ExerciseMenu";
+import { useExerciseName } from "../hooks/useExerciseNames";
 
 const HIT = 44;
 const ACTION_HEIGHT = 56;
@@ -122,7 +125,7 @@ const PILL_HIT_SLOP = { top: (HIT - PILL_HEIGHT) / 2, bottom: (HIT - PILL_HEIGHT
  *   drops typed values. Finish saves what is stored; an unsaved edit is lost.
  *
  * Decisions (TICKET-033, canvas boards S1–S3):
- * - A third column beside the fields holds split. The fields are `SetRows`, one
+ * - The fields are `SetRows`, one
  *   row per segment, for a normal set, a split set and an edit alike. Repeat
  *   is hidden once the card has two rows or more, as on the boards: repeat
  *   builds the rows from one (TICKET-033-3), so there is nothing to replace.
@@ -164,8 +167,28 @@ const PILL_HIT_SLOP = { top: (HIT - PILL_HEIGHT) / 2, bottom: (HIT - PILL_HEIGHT
  *   replaces the set's segments whole (`updateSet`); id, mark and rest stay.
  * - Each edit row carries the stored segment it came from (`EditRow`), so
  *   Save keeps that segment's unlisted keys on the right row after a remove.
+ *
+ * Decisions (TICKET-058, boards MenuLogger–MenuSplitWait):
+ * - A split starts from the exercise ⋯ menu, which this component renders (it
+ *   owns the rows and the edit the item acts on); the screen owns the ⋯ in the
+ *   nav header and whether the menu is open. The one-row card has no third
+ *   column. Once split, the card's last row offers split again when filled
+ *   (`splitSlot`), and so does the menu's "Split set N again".
+ * - The item's set is `setNumber`, the card's: the set being edited while
+ *   editing, otherwise the next set, during rest too. A split added during
+ *   rest goes on the next set's rows, behind the rest panel; the rest keeps
+ *   running. `onAddSplit` is unchanged: only its entry point moved.
  */
-export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise }) {
+export default function ExerciseLogger({
+  exercise,
+  menuOpen,
+  onCloseMenu,
+}: {
+  exercise: LoggedExercise;
+  /** The exercise ⋯ menu, opened from the screen's nav header. */
+  menuOpen: boolean;
+  onCloseMenu: () => void;
+}) {
   const { styles, t } = useThemeStyles(createStyles);
   const {
     addSetToExercise,
@@ -179,6 +202,7 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
     endRest,
   } = useWorkoutStore();
   const history = useExerciseHistory(exercise.id);
+  const name = useExerciseName(exercise);
   /** The next set as typed: the first segment, then any split rows. Never empty. */
   const [rows, setRows] = useState<SplitRowValues[]>([{}]);
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -270,6 +294,27 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
     }
     setRefusal(null);
   };
+
+  // Always in the menu, so the menu is never empty. Once split it reads
+  // "again" and waits for the last row, the same gate as the card's slot.
+  const splitItem: ExerciseMenuItem =
+    cardRows.length === 1
+      ? {
+          key: "split",
+          renderIcon: (color) => <SplitIcon size={20} color={color} />,
+          title: `Split set ${setNumber}`,
+          detail: "Change the weight partway through this set",
+          disabledReason: null,
+          onPress: onAddSplit,
+        }
+      : {
+          key: "split",
+          renderIcon: (color) => <SplitIcon size={20} color={color} />,
+          title: `Split set ${setNumber} again`,
+          detail: "Add another row to this set",
+          disabledReason: canAddSplit(exercise.fields, cardRows) ? null : "Fill the last row first",
+          onPress: onAddSplit,
+        };
 
   // Shown on a one-row card only (hidden once split), so there are no split
   // rows to replace: the chain is added after row 1.
@@ -510,6 +555,8 @@ export default function ExerciseLogger({ exercise }: { exercise: LoggedExercise 
           />
         </View>
       </MaybeTourStep>
+
+      <ExerciseMenu visible={menuOpen} title={name.title} items={[splitItem]} onClose={onCloseMenu} />
 
       <ExerciseHistorySheet
         visible={historyOpen}

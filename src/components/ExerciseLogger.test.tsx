@@ -23,6 +23,10 @@ const splitWeight = (n: number) => screen.getByLabelText(`Split ${n} Weight · k
 const splitReps = (n: number) => screen.getByLabelText(`Split ${n} Reps`);
 const logButton = () => screen.getByRole("button", { name: /^Log set \d+$/ });
 const loggedSets = () => useWorkoutStore.getState().activeWorkout?.exercises[0].sets ?? [];
+// TICKET-058: a split starts from the exercise ⋯ menu.
+const openMenu = () => fireEvent.press(screen.getByRole("button", { name: "Bench Press options" }));
+const splitItem = (n: number) =>
+  screen.getByRole("button", { name: `Split set ${n}, Change the weight partway through this set` });
 
 const lastTime = buildStats("Bench Press", [
   { sets: [{ Weight: "60", Reps: "8" }, { Weight: "62.5", Reps: "6" }] },
@@ -355,8 +359,18 @@ describe("ExerciseLogger split set", () => {
     renderScreen(ActiveWorkoutScreen, { workout: buildWorkout(["Bench Press"]), history: withHistory });
     fireEvent.changeText(weight(), first[0]);
     fireEvent.changeText(reps(), first[1]);
-    fireEvent.press(screen.getByRole("button", { name: "Add a split to set 1" }));
+    openMenu();
+    fireEvent.press(splitItem(1));
   };
+
+  it("the exercise menu is titled with the exercise name; the one-row card has no split column", () => {
+    renderScreen(ActiveWorkoutScreen, { workout: buildWorkout(["Bench Press"]), history: withHistory });
+    expect(screen.queryByRole("button", { name: "Add another split" })).toBeNull();
+    openMenu();
+
+    expect(within(screen.getByTestId("exercise-menu")).getByRole("header")).toHaveTextContent("Bench Press");
+    expect(splitItem(1)).toBeOnTheScreen();
+  });
 
   it("starts each new row empty, and counts a row once something is typed in it", () => {
     start(["20", "5"]);
@@ -368,13 +382,15 @@ describe("ExerciseLogger split set", () => {
     expect(screen.queryByRole("button", { name: "Increase Weight by 2.5" })).toBeNull();
     // A blank row is dropped on Log, so it is not counted yet.
     expect(screen.getByLabelText("Set 1")).toBeOnTheScreen();
+    // The last row's slot is × until the row is filled, then split: no
+    // second blank row (TICKET-058, 033-1's rule).
     expect(screen.getByRole("button", { name: "Remove split 1" })).toBeOnTheScreen();
-    // "+ split" waits for the last row to be filled: no second blank row.
     expect(screen.queryByRole("button", { name: "Add another split" })).toBeNull();
 
     fireEvent.changeText(splitWeight(1), "17.5");
     expect(screen.getByLabelText("Set 1, 1 split")).toBeOnTheScreen();
     fireEvent.changeText(splitReps(1), "3");
+    expect(screen.queryByRole("button", { name: "Remove split 1" })).toBeNull();
     fireEvent.press(screen.getByRole("button", { name: "Add another split" }));
 
     expect(splitWeight(2).props.value).toBe("");
@@ -396,7 +412,25 @@ describe("ExerciseLogger split set", () => {
     fireEvent.press(screen.getByRole("button", { name: "Skip rest" }));
     // The next set starts as a normal set.
     expect(screen.queryByLabelText("Split 1 Weight · kg")).toBeNull();
-    expect(screen.getByRole("button", { name: "Add a split to set 2" })).toBeOnTheScreen();
+    openMenu();
+    expect(splitItem(2)).toBeOnTheScreen();
+  });
+
+  it("the menu's Split set N again waits for the last row, then adds a row", () => {
+    start(["20", "5"]);
+    openMenu();
+    const again = () => screen.getByRole("button", { name: /^Split set 1 again, / });
+    expect(again()).toHaveAccessibleName("Split set 1 again, Fill the last row first");
+    expect(again()).toBeDisabled();
+    fireEvent.press(screen.getByRole("button", { name: "Close" }));
+
+    fireEvent.changeText(splitWeight(1), "17.5");
+    fireEvent.changeText(splitReps(1), "3");
+    openMenu();
+    expect(again()).toHaveAccessibleName("Split set 1 again, Add another row to this set");
+    fireEvent.press(again());
+
+    expect(splitWeight(2).props.value).toBe("");
   });
 
   // TICKET-055: every segment survives the store's round trip, and an edit of
@@ -493,11 +527,13 @@ describe("ExerciseLogger after a split set", () => {
     );
   });
 
-  // PR #30 review: every row a repeat built is one × away, the last included.
-  it("after repeat, × on split rows 2 and 1 and Log stores 20 × 5, no retyping", async () => {
+  // TICKET-058 reverses PR #30 finding 1: an earlier row is one × away; a
+  // filled last row shows split, so it is cleared first, then ×.
+  it("after repeat, × split 1, then clear and × the last row, and Log stores 20 × 5", async () => {
     start();
     fireEvent.press(screen.getByRole("button", { name: /^Repeat last session's set 1/ }));
-    fireEvent.press(screen.getByRole("button", { name: "Remove split 2" }));
+    fireEvent.press(screen.getByRole("button", { name: "Remove split 1" }));
+    fireEvent.changeText(splitReps(1), "");
     fireEvent.press(screen.getByRole("button", { name: "Remove split 1" }));
     // The rows changed: "Repeated" no longer describes the card.
     expect(screen.getByTestId("split-line")).toHaveTextContent(/^Last time split to/);
@@ -612,7 +648,8 @@ describe("ExerciseLogger editing a split set", () => {
     start();
     await openEdit();
     await press("Remove split 1");
-    // The last row has × too, filled or not (PR #30 review).
+    // The last row, filled, shows split: cleared first, then × (TICKET-058).
+    fireEvent.changeText(splitReps(1), "");
     await press("Remove split 1");
     expect(screen.getByRole("button", { name: "Increase Weight by 2.5" })).toBeOnTheScreen();
     await press("Save set 2");

@@ -39,6 +39,7 @@ export default function ActiveWorkoutScreen() {
   const { activeWorkout, endWorkout, cancelWorkout, setCurrentExerciseIndex } = useWorkoutStore();
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [exerciseMenuOpen, setExerciseMenuOpen] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [finishing, setFinishing] = useState(false);
 
@@ -151,6 +152,7 @@ export default function ActiveWorkoutScreen() {
                     nextName={names[currentIndex + 1]?.title ?? null}
                     onPrevious={goPrevious}
                     onNext={goNext}
+                    onOpenMenu={() => setExerciseMenuOpen(true)}
                   />
                 </MaybeTourStep>
                 <View style={styles.progress}>
@@ -165,7 +167,12 @@ export default function ActiveWorkoutScreen() {
                 {/* Keyed so typed-but-unlogged values stay with their exercise
                     instead of following the user to the next one, where they
                     would be logged against the wrong exercise. */}
-                <ExerciseLogger key={currentExercise.id} exercise={currentExercise} />
+                <ExerciseLogger
+                  key={currentExercise.id}
+                  exercise={currentExercise}
+                  menuOpen={exerciseMenuOpen}
+                  onCloseMenu={() => setExerciseMenuOpen(false)}
+                />
               </ScrollableScreen>
             </>
           ) : (
