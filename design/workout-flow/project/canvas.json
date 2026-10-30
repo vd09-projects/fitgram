@@ -624,6 +624,54 @@
       "w": 390,
       "x": 3760,
       "y": 27600
+    },
+    "TodayBefore.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "TA0 \u00b7 Before: the change text crowds the values",
+      "w": 390,
+      "x": 0,
+      "y": 29300
+    },
+    "TodayArrows.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "TA1 \u00b7 Closed rows: arrow only",
+      "w": 390,
+      "x": 470,
+      "y": 29300
+    },
+    "TodayOpenSplit.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "TA2 \u00b7 Set 1 open: the change, then its splits",
+      "w": 390,
+      "x": 940,
+      "y": 29300
+    },
+    "TodayOpenDown.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "TA3 \u00b7 Set 4 open: down",
+      "w": 390,
+      "x": 1410,
+      "y": 29300
+    },
+    "TodayOpenMatched.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "TA4 \u00b7 Set 3 open: matched",
+      "w": 390,
+      "x": 1880,
+      "y": 29300
+    },
+    "TodayOpenEven.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "TA5 \u00b7 Set 4 open: even (same volume)",
+      "w": 390,
+      "x": 2350,
+      "y": 29300
     }
   },
   "createdOnFiles": {
@@ -868,6 +916,27 @@
       "w": 300,
       "x": 4230,
       "y": 28100
+    },
+    "todayarrows": {
+      "kind": "title1",
+      "maxW": 2270,
+      "text": "TICKET-059 \u2014 Today list: arrow on the row, change inside",
+      "x": 0,
+      "y": 29000
+    },
+    "todayarrowswhy": {
+      "fill": "orange",
+      "text": "DECIDED (user, 2026-10-30).\n\nClosed row: values, H/E, \u2442N, then one glyph. The values never truncate; the glyph is fixed width.\n\nGlyph per verdict (already one per set, setDeltas.ts): improved \u25b2 gold, down \u25bc grey, even ~ grey (numbers changed, same volume), matched = grey (user, 2026-10-30; matched had only the word, and = moves from even to matched). No delta (first time, other unit): nothing.\n\nOpen row, in order: the change line (\"+5 plates \u00b7 +5 reps vs last time\"), then split rows, then Easy / Hard / Edit.\n\nScreen reader keeps the full change (\"improved: +5 plates, +5 reps\").\n\nFooter volume line unchanged. History sheet keeps its full labels.\n\nThe \u2442N chip keeps its chevron (as drawn).",
+      "w": 300,
+      "x": 2820,
+      "y": 29300
+    },
+    "todayarrowskey": {
+      "fill": "teal",
+      "text": "Symbols on a Today row (vs the same set last time):\n\n\u25b2 gold: better (more volume)\n\u25bc grey: worse (less volume)\n~ grey: numbers changed, same volume. Last time 6 plates \u00d7 10, today 5 plates \u00d7 12 (TA5)\n= grey: identical weight and reps (TA4)\nnothing: no comparison (first time, other unit)",
+      "w": 300,
+      "x": 2820,
+      "y": 29820
     }
   },
   "order": [
@@ -948,7 +1017,13 @@
     "SwapFailed.dc.html",
     "SwapSheet.dc.html",
     "SwapBack.dc.html",
-    "SwapLocked.dc.html"
+    "SwapLocked.dc.html",
+    "TodayBefore.dc.html",
+    "TodayArrows.dc.html",
+    "TodayOpenSplit.dc.html",
+    "TodayOpenDown.dc.html",
+    "TodayOpenMatched.dc.html",
+    "TodayOpenEven.dc.html"
   ],
   "pages": [],
   "title": "Fitgram Workout Flow Redesign"
