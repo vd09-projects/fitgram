@@ -1,4 +1,4 @@
-import { ExerciseField } from "./workoutType";
+import { Exercise, ExerciseField } from "./workoutType";
 import { Effort } from "./workoutSession";
 
 // Type for a single set in an exercise
@@ -57,6 +57,21 @@ export interface LoggedExercise {
   /** Carried from the plan's `Exercise.fields`, roles included. */
   fields: ExerciseField[];
   sets: ExerciseSet[];
+  /**
+   * The plan's exercise this slot replaced, while it is swapped (TICKET-047):
+   * what "Back to plan: <name>" in the swap picker offers. Absent when the slot
+   * holds what the plan has. Set by the first `swapExercise`, kept by a second
+   * one (it is still the plan's), dropped by swapping back.
+   *
+   * Live state only, in AsyncStorage with the rest of the workout. It never
+   * reaches Firestore: `buildSessionDocs` builds each session doc from named
+   * fields, not a spread. That is the edge of the ticket's "Not recorded",
+   * which rules out a stored `substitutedFor`, not what Back to plan needs.
+   * Rejected: rereading the plan, which Manage Workout can change mid-workout
+   * and which is not on the phone offline. Optional, so a workout stored
+   * before it loads unchanged (no `LOCAL_DATA_VERSION` bump).
+   */
+  planned?: Exercise;
 }
 
 // Type for active workout

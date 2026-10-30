@@ -323,8 +323,10 @@ export function ghostNotice(
     case "available":
       return null;
     case "notLoaded":
-      if (status === "loading") return "Loading last session…";
-      if (status === "error") return "Couldn't load last session";
+      // Loading and failed are the pill's to say (TICKET-047, boards
+      // SwapLoading, SwapFailed): "LAST TIME" with dots, "HISTORY" with a
+      // no-signal mark and Reload in the sheet. A line as well said it twice.
+      if (status === "loading" || status === "error") return null;
       return "Last session not loaded";
     case "firstTime":
       return "First time on this exercise";

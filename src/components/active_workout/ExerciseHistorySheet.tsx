@@ -44,6 +44,8 @@ type Props = {
   history: ExerciseHistory;
   /** The set about to be logged. */
   setNumber: number;
+  /** Refetch this exercise's history; offered when the fetch failed (TICKET-047). */
+  onReload: () => void;
 };
 
 /**
@@ -66,7 +68,7 @@ type Props = {
  * - The scrim is `rgba(0,0,0,0.5)`, as `AlertBase` and the tour overlay. There
  *   is no role token for it.
  */
-export default function ExerciseHistorySheet({ visible, onClose, exercise, history, setNumber }: Props) {
+export default function ExerciseHistorySheet({ visible, onClose, exercise, history, setNumber, onReload }: Props) {
   const { styles, t } = useThemeStyles(createStyles);
   const insets = useSafeAreaInsets();
   const [selected, setSelected] = useState(0);
@@ -127,7 +129,19 @@ export default function ExerciseHistorySheet({ visible, onClose, exercise, histo
           </View>
 
           <ScrollView contentContainerStyle={styles.body}>
-            {status !== null ? (
+            {history.status === "error" ? (
+              // Board SwapSheet. "Network issue" whatever the cause: the
+              // pinned copy; the store keeps the real message in `error`.
+              <View style={styles.failed}>
+                <TextBase style={styles.failedTitle}>{status}</TextBase>
+                <TextBase style={styles.failedBody}>
+                  Network issue. Try again on a better connection. Sets you log now still save.
+                </TextBase>
+                <TouchableOpacity style={styles.reload} onPress={onReload} accessibilityRole="button" accessibilityLabel="Reload history">
+                  <TextBase style={styles.reloadText}>Reload</TextBase>
+                </TouchableOpacity>
+              </View>
+            ) : status !== null ? (
               <TextBase style={styles.status}>{status}</TextBase>
             ) : (
               <>
@@ -503,6 +517,19 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     color: t.colors.role.textSecondary,
     paddingVertical: SPACING.large,
   },
+  failed: { gap: SPACING.small, paddingVertical: SPACING.large },
+  failedTitle: { fontSize: t.fonts.medium, fontWeight: "bold", color: t.colors.role.textPrimary },
+  failedBody: { fontSize: t.fonts.small, color: t.colors.role.textSecondary },
+  reload: {
+    marginTop: SPACING.small,
+    height: HIT,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: t.colors.role.hairlineStrong,
+  },
+  reloadText: { fontSize: t.fonts.medium, fontWeight: "600", color: t.colors.role.accent },
   chips: {
     flexDirection: "row",
     gap: SPACING.small,

@@ -103,7 +103,8 @@ describe("ExerciseLogger", () => {
 
     const [first] = exercise.fields;
     const input = screen.getByLabelText(first.unit ? `${first.name} · ${first.unit}` : first.name);
-    expect(input.props.placeholder).toBeUndefined();
+    // No ghost number: the placeholder names what goes in (TICKET-047, board SwapLoading).
+    expect(input.props.placeholder).toBe(first.role === "reps" ? "reps" : first.unit);
 
     for (const field of exercise.fields.filter((f) => f.role !== "other")) {
       fireEvent.changeText(screen.getByLabelText(field.unit ? `${field.name} · ${field.unit}` : field.name), "5");

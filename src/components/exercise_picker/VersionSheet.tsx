@@ -23,6 +23,7 @@ import { TextBase } from "../TextBase";
 import { MaybeTourStep } from "../guide_tour/MaybeTourStep";
 import { makeStepId } from "../../tour_steps/utils";
 import { EXERCISE_PICKER_STEP_NAMES } from "../../tour_steps/commonStepNames";
+import type { PickerMode } from "./ExercisePicker";
 
 type Props = {
   movement: Movement;
@@ -31,12 +32,14 @@ type Props = {
   /** The version logged last, or null. A preselection the query names wins over it (`initialSheet`). */
   lastUsed: LastUsed | null;
   inPlan: ReadonlySet<string>;
+  /** Swap (TICKET-047, board SwapVersion) words the sheet for replacing today's exercise. */
+  mode: PickerMode;
   onAdd: (version: MovementVersion) => void;
   onClose: () => void;
   tourStepPrefix?: string;
 };
 
-export default function VersionSheet({ movement, subtitle, preselect, lastUsed, inPlan, onAdd, onClose, tourStepPrefix }: Props) {
+export default function VersionSheet({ movement, subtitle, preselect, lastUsed, inPlan, mode, onAdd, onClose, tourStepPrefix }: Props) {
   const { styles, t } = useThemeStyles(createStyles);
   const [state, setState] = useState(() => initialSheet(movement, preselect, inPlan, lastUsed?.version ?? null));
   const rows = sheetRows(movement, state, inPlan);
@@ -47,22 +50,38 @@ export default function VersionSheet({ movement, subtitle, preselect, lastUsed, 
   // looks the same as a combination that does not exist (device, 2026-10-27:
   // a last-used Dumbbell decline already in the plan showed greyed with "last"
   // and no reason).
-  const planned = movement.versions.filter((v) => inPlan.has(v.id)).map((v) => versionDetail(movement, v) ?? movement.name);
+  // In swap mode the exercise being replaced is marked "now" in the sentence.
+  // Rejected for now: board SwapVersion's "now" on the chip itself, which needs
+  // a per-axis mark the sheet's rows do not carry.
+  const swap = mode.kind === "swap" ? mode : null;
+  const label = (v: MovementVersion) => versionDetail(movement, v) ?? movement.name;
+  const planned = movement.versions
+    .filter((v) => inPlan.has(v.id))
+    .map((v) => (swap && v.id === swap.replacing.id ? `${label(v)} (now)` : label(v)));
+  // Board SwapVersion: "Replaces Machine for this workout." The version's own
+  // detail when it is one of this movement's, else the whole name (a pull-up
+  // replacing a pulldown).
+  const replaced = swap ? movement.versions.find((v) => v.id === swap.replacing.id) : undefined;
+  const sheetSubtitle = swap
+    ? `Replaces ${replaced ? label(replaced) : swap.replacing.title} for this workout.`
+    : subtitle;
   const addLabel = version
-    ? `Add ${buildVersionName(movement, version)}`
+    ? `${swap ? "Swap to" : "Add"} ${buildVersionName(movement, version)}`
     : missing && !chosenAllInPlan(movement, state, inPlan)
       ? `Choose ${missing.title.toLowerCase()}`
-      : "Already in this plan";
+      : swap
+        ? "Already in this workout"
+        : "Already in this plan";
 
   return (
-    <View style={StyleSheet.absoluteFill}>
+    <View style={styles.overlay}>
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
       <MaybeTourStep stepId={makeStepId(EXERCISE_PICKER_STEP_NAMES.VERSION_SHEET, tourStepPrefix)} positionType="above">
         <View style={styles.sheet} testID="version-sheet">
           <View style={styles.header}>
             <View style={styles.headerText}>
               <TextBase style={styles.title}>{movement.name}</TextBase>
-              <TextBase style={styles.subtitle}>{subtitle}</TextBase>
+              <TextBase style={styles.subtitle}>{sheetSubtitle}</TextBase>
             </View>
             <TouchableOpacity style={styles.close} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
               <Ionicons name="close" size={20} color={t.colors.role.textSecondary} />
@@ -98,7 +117,7 @@ export default function VersionSheet({ movement, subtitle, preselect, lastUsed, 
             ))}
           </ScrollView>
 
-          {planned.length > 0 && <TextBase style={styles.lastLine}>{`In this plan: ${planned.join("; ")}`}</TextBase>}
+          {planned.length > 0 && <TextBase style={styles.lastLine}>{`${swap ? "In this workout" : "In this plan"}: ${planned.join("; ")}`}</TextBase>}
           {lastUsed && (
             <TextBase style={styles.lastLine}>
               {`Last logged: ${versionDetail(movement, lastUsed.version) ?? movement.name}, ${recentDateLabel(lastUsed.performedAt, Date.now())}`}
@@ -121,6 +140,10 @@ export default function VersionSheet({ movement, subtitle, preselect, lastUsed, 
 }
 
 const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
+  // Above the picker's search box: Paper's floating "Search" label carries
+  // its own zIndex and, once Android flattens the views between, drew over
+  // this sheet (device, 2026-10-31). Order in the tree alone does not win.
+  overlay: { ...StyleSheet.absoluteFillObject, zIndex: 10, elevation: 10 },
   backdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",

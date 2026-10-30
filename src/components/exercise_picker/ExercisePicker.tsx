@@ -59,6 +59,33 @@ type Row =
   | { kind: "header"; key: string; title: string }
   | { kind: "recent"; key: string; recent: RecentRow };
 
+/**
+ * What the picker is for (TICKET-047). One prop rather than a label each: swap
+ * changes the heading, the taken badge, a "Back to plan" row and the version
+ * step's button, and TICKET-056 adds its own kind beside these.
+ * - `plan`: Manage Workout adds to a plan. Taken ids read "In plan".
+ * - `swap`: the active workout replaces `replacing`, for this workout only.
+ *   Taken ids are today's exercises: `replacing` reads "Now", the rest "In
+ *   workout". `planned` is the plan's exercise while the slot is swapped, for
+ *   the "Back to plan" row; null when the slot holds what the plan has.
+ * Titles come resolved from the caller, which holds the names (`useExerciseNames`).
+ */
+export type PickerMode =
+  | { kind: "plan" }
+  | {
+      kind: "swap";
+      replacing: { id: string; title: string };
+      planned: { exercise: Exercise; title: string } | null;
+    };
+
+const PLAN_MODE: PickerMode = { kind: "plan" };
+
+/** The badge on a row that cannot be picked because its id is taken. */
+export function takenLabel(mode: PickerMode, id: string): string {
+  if (mode.kind === "plan") return "In plan";
+  return id === mode.replacing.id ? "Now" : "In workout";
+}
+
 type Props = {
   /** Null while the phone has no catalog (first launch offline, before the upload). */
   movements: readonly Movement[] | null;
@@ -66,8 +93,10 @@ type Props = {
   searchWords: SearchWords | null;
   /** The user's custom exercises (from their plans), searched by name only. */
   customExercises: readonly Exercise[];
-  /** Exercise ids already in the plan: those versions are disabled. */
+  /** Exercise ids already taken (in the plan, or in today's workout): those versions are disabled. */
   inPlan: ReadonlySet<string>;
+  /** Default `plan`. */
+  mode?: PickerMode;
   /** Recents and last-used versions (`buildRecentHistory`); null while unknown: no Recent, nothing preselected. */
   recentHistory: RecentHistory | null;
   onPick: (exercise: Exercise) => void;
@@ -86,7 +115,17 @@ export function muscleLine(movement: Movement): string {
   return others.length ? `${label} · ${others.map((m) => MUSCLES[m].label.toLowerCase()).join(", ")}` : label;
 }
 
-export default function ExercisePicker({ movements, searchWords, customExercises, inPlan, recentHistory, onPick, onClose, tourStepPrefix }: Props) {
+export default function ExercisePicker({
+  movements,
+  searchWords,
+  customExercises,
+  inPlan,
+  mode = PLAN_MODE,
+  recentHistory,
+  onPick,
+  onClose,
+  tourStepPrefix,
+}: Props) {
   const { styles, t } = useThemeStyles(createStyles);
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<PickerFilters>(NO_FILTERS);
@@ -176,7 +215,7 @@ export default function ExercisePicker({ movements, searchWords, customExercises
             <TextBase style={styles.name}>{item.exercise.name}</TextBase>
             <TextBase style={styles.detail}>Custom</TextBase>
           </View>
-          {taken && <TextBase style={styles.badge}>In plan</TextBase>}
+          {taken && <TextBase style={styles.badge}>{takenLabel(mode, item.exercise.id)}</TextBase>}
         </TouchableOpacity>
       );
     }
@@ -197,7 +236,7 @@ export default function ExercisePicker({ movements, searchWords, customExercises
           <TextBase style={styles.detail}>{muscleLine(movement)}</TextBase>
         </View>
         {taken ? (
-          <TextBase style={styles.badge}>In plan</TextBase>
+          <TextBase style={styles.badge}>{takenLabel(mode, movement.versions[0].id)}</TextBase>
         ) : (
           count > 1 && <TextBase style={styles.count}>{`${count} versions`}</TextBase>
         )}
@@ -225,7 +264,7 @@ export default function ExercisePicker({ movements, searchWords, customExercises
             <TextBase style={styles.name}>{recent.exercise.name}</TextBase>
             <TextBase style={styles.detail}>{`Custom · ${date}`}</TextBase>
           </View>
-          {taken && <TextBase style={styles.badge}>In plan</TextBase>}
+          {taken && <TextBase style={styles.badge}>{takenLabel(mode, recent.exercise.id)}</TextBase>}
         </TouchableOpacity>
       );
     }
@@ -244,7 +283,7 @@ export default function ExercisePicker({ movements, searchWords, customExercises
           <TextBase style={styles.name}>{movement.name}</TextBase>
           <TextBase style={styles.detail}>{detail ? `${detail} · ${date}` : date}</TextBase>
         </View>
-        {taken && <TextBase style={styles.badge}>In plan</TextBase>}
+        {taken && <TextBase style={styles.badge}>{takenLabel(mode, movement.versions[0].id)}</TextBase>}
       </TouchableOpacity>
     );
   };
@@ -262,8 +301,32 @@ export default function ExercisePicker({ movements, searchWords, customExercises
         <TouchableOpacity style={styles.back} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={22} color={t.colors.role.textPrimary} />
         </TouchableOpacity>
-        <TextBase style={styles.heading}>Add exercise</TextBase>
+        <View style={styles.headingText}>
+          <TextBase style={styles.heading} numberOfLines={2}>
+            {mode.kind === "swap" ? `Swap ${mode.replacing.title}` : "Add exercise"}
+          </TextBase>
+          {mode.kind === "swap" && (
+            <TextBase style={styles.detail}>
+              {`For this workout only. Your plan keeps ${mode.planned ? mode.planned.title : "it"}.`}
+            </TextBase>
+          )}
+        </View>
       </View>
+      {/* Board SwapBack: the way back from a swap is here, not on the logger. */}
+      {mode.kind === "swap" && mode.planned && (
+        <TouchableOpacity
+          style={styles.backToPlan}
+          onPress={() => mode.planned && onPick(mode.planned.exercise)}
+          accessibilityRole="button"
+          accessibilityLabel={`Back to plan: ${mode.planned.title}`}
+        >
+          <Ionicons name="arrow-undo" size={20} color={t.colors.role.accent} />
+          <View style={styles.rowText}>
+            <TextBase style={styles.name}>{`Back to plan: ${mode.planned.title}`}</TextBase>
+            <TextBase style={styles.detail}>The one your plan has</TextBase>
+          </View>
+        </TouchableOpacity>
+      )}
       {movements === null ? (
         <TextBase style={[styles.empty, styles.body]}>Exercise catalog not loaded yet. Connect once and reopen.</TextBase>
       ) : !hasResults ? (
@@ -306,6 +369,7 @@ export default function ExercisePicker({ movements, searchWords, customExercises
           preselect={sheet.preselect}
           lastUsed={sheet.lastUsed}
           inPlan={inPlan}
+          mode={mode}
           onClose={() => setSheet(null)}
           onAdd={(version) => onPick(planExerciseForVersion(sheet.movement, version))}
           tourStepPrefix={tourStepPrefix}
@@ -329,7 +393,19 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   top: { flexDirection: "row", alignItems: "center", gap: SPACING.small },
   body: { flex: 1 },
   back: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
+  headingText: { flex: 1, minWidth: 0 },
   heading: { fontSize: t.fonts.large, fontWeight: "bold", color: t.colors.role.textPrimary },
+  backToPlan: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.small,
+    marginTop: SPACING.medium,
+    padding: SPACING.medium,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: t.colors.role.hairlineStrong,
+    backgroundColor: t.colors.role.raised,
+  },
   section: {
     fontSize: t.fonts.small,
     fontWeight: "600",

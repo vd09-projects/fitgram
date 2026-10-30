@@ -3,7 +3,7 @@ import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WorkoutPlan, Exercise } from "../types/workoutType";
 import { Effort } from "../types/workoutSession";
-import { ActiveWorkout, ExerciseSet, PendingUpload } from "../types/zustandWorkoutType";
+import { ActiveWorkout, ExerciseSet, LoggedExercise, PendingUpload } from "../types/zustandWorkoutType";
 import { saveWorkoutSession } from "../services/db/workoutSessions";
 import show from "../utils/toastUtils";
 import { normalizeExerciseFields } from "../utils/exerciseFields";
@@ -80,6 +80,11 @@ const refused = (reason: string): EndWorkoutResult => ({ status: "refused", reas
 
 export type StartWorkoutResult = { status: "started" } | { status: "refused"; reason: string };
 
+export type SwapExerciseResult = { status: "swapped" } | { status: "refused"; reason: string };
+
+/** The menu item's reason too (board SwapLocked), so the two say the same thing. */
+export const SWAP_LOCKED_REASON = "Only before set 1. Delete the logged sets to swap.";
+
 /**
  * A set taken out by `removeSet`, with the exercise it came from and the 0-based
  * position it held. Undo puts it back by `index`, never by `set.id`: ids are
@@ -125,6 +130,8 @@ interface WorkoutStoreState {
   /** Mark how a set felt, or clear the mark with null (TICKET-034). */
   setSetEffort: (exerciseId: string, setId: number, effort: Effort | null) => Promise<void>;
   setCurrentExerciseIndex: (index: number) => Promise<void>;
+  /** Replace an unlogged exercise in its slot, for this workout only (TICKET-047). */
+  swapExercise: (exerciseId: string, exercise: Exercise) => Promise<SwapExerciseResult>;
   endWorkout: (userId : string | undefined) => Promise<EndWorkoutResult>;
   cancelWorkout: () => Promise<void>;
   loadWorkoutFromStorage: () => Promise<void>;
@@ -420,6 +427,81 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     // Update memory first so the screen moves on the tap, not after the disk write.
     set({ activeWorkout: updatedWorkout });
     await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
+  },
+
+  /**
+   * 🔹 Swap an exercise for another, for this workout only (TICKET-047).
+   *
+   * Replaces the slot holding `exerciseId` in place: same position, so
+   * "Exercise N of M" keeps its M, and the index in view is unchanged. The new
+   * exercise brings its own id, name and fields (a catalog version's, from the
+   * picker); nothing carries over, since a plan holds no targets. The plan is
+   * never written.
+   *
+   * Refused, here and not only in the UI, when:
+   * - the slot has sets. The rule reads the live count, so deleting every set
+   *   makes swap available again. Swap after sets is out of scope;
+   * - `exercise.id` is already in today's workout. Load-bearing: an
+   *   `exercise_sessions` doc id is `{sessionId}__{exerciseId}`, so the same id
+   *   twice would overwrite one at upload, silently.
+   *
+   * The plan's exercise is kept in `planned` (set on the first swap, kept on a
+   * second). Swapping to the planned id is swapping back: the slot is the plan's
+   * exercise again and `planned` goes, whether the pick came from "Back to plan"
+   * or from search.
+   *
+   * A rest running on the swapped slot ends: the slot can be at 0 sets with a
+   * rest still counting (log set 1, then delete it), and a rest keyed to the old
+   * id would hide behind the new exercise and come back on a swap back.
+   *
+   * History for the new id is fetched here, a session moment like start and
+   * resume, never by a screen. Not awaited, never rejects: the swap is local.
+   */
+  swapExercise: async (exerciseId, exercise) => {
+    const { activeWorkout, rest } = get();
+    if (!activeWorkout) return { status: "refused", reason: "No active workout." };
+
+    const index = activeWorkout.exercises.findIndex((ex) => ex.id === exerciseId);
+    if (index === -1) return { status: "refused", reason: "That exercise is not in this workout." };
+    const slot = activeWorkout.exercises[index];
+    if (slot.sets.length > 0) return { status: "refused", reason: SWAP_LOCKED_REASON };
+    if (exercise.id === slot.id) return { status: "refused", reason: "That is the exercise already here." };
+    if (activeWorkout.exercises.some((ex) => ex.id === exercise.id)) {
+      return { status: "refused", reason: "That exercise is already in today's workout." };
+    }
+
+    const planned: Exercise = slot.planned ?? {
+      id: slot.id,
+      name: slot.name,
+      ...(slot.nameSnapshot ? { nameSnapshot: slot.nameSnapshot } : {}),
+      fields: slot.fields,
+    };
+    const catalogIndex = useCatalogStore.getState().catalog?.index ?? null;
+    const swapped: LoggedExercise = {
+      id: exercise.id,
+      name: exercise.name,
+      // Refreshed from the catalog as `startWorkout` does, so the session doc
+      // keeps the name as it read when logged.
+      ...(exercise.nameSnapshot ? { nameSnapshot: exerciseDisplayName(exercise, catalogIndex).title } : {}),
+      fields: exercise.fields,
+      sets: [],
+      ...(exercise.id === planned.id ? {} : { planned }),
+    };
+
+    const updatedWorkout: ActiveWorkout = {
+      ...activeWorkout,
+      exercises: activeWorkout.exercises.map((ex, i) => (i === index ? swapped : ex)),
+      lastUpdated: Date.now(),
+    };
+
+    await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
+    set({ activeWorkout: updatedWorkout, ...(rest?.exerciseId === exerciseId ? { rest: null } : {}) });
+
+    useExerciseHistoryStore
+      .getState()
+      .prefetchExerciseHistory(useAuthStore.getState().user?.uid, [exercise.id])
+      .catch(() => {});
+    return { status: "swapped" };
   },
 
   /**

@@ -435,3 +435,67 @@ describe("rest timer", () => {
     expect(store().rest).toBeNull();
   });
 });
+
+// TICKET-047. The slot keeps its place, the plan's exercise is kept for "Back
+// to plan", and the two refusals live here, not only in the menu and picker.
+describe("swapExercise", () => {
+  const cable = { id: "lat-pulldown-cable", name: "", nameSnapshot: "Lat Pulldown · Cable", fields: [{ name: "Reps", role: "reps" as const }] };
+  const seedSwappable = () => {
+    const workout = buildWorkout(["Lat Pulldown", "Seated Row"], { startTime: ++startTime });
+    useWorkoutStore.setState({ activeWorkout: workout });
+    return workout;
+  };
+  const stored = async () => JSON.parse((await AsyncStorage.getItem("activeWorkout")) ?? "null");
+
+  it("replaces the slot in place with the new exercise's fields, keeps the planned one, and stores it", async () => {
+    seedSwappable();
+    store().startRest("lat-pulldown", 90_000, 1);
+
+    expect(await store().swapExercise("lat-pulldown", cable)).toEqual({ status: "swapped" });
+
+    const exercises = store().activeWorkout!.exercises;
+    expect(exercises.map((e) => e.id)).toEqual(["lat-pulldown-cable", "seated-row"]);
+    expect(exercises[0]).toMatchObject({ fields: cable.fields, sets: [], planned: { id: "lat-pulldown", name: "Lat Pulldown" } });
+    expect(await stored()).toEqual(store().activeWorkout);
+    // A rest on the swapped slot would otherwise hide under the old id.
+    expect(store().rest).toBeNull();
+  });
+
+  it("is refused once the slot has a set, and changes nothing", async () => {
+    const workout = buildWorkout([], {
+      startTime: ++startTime,
+      exercises: [buildExercise("Lat Pulldown", { sets: [{ id: 1, segments: [{ Weight: 55, Reps: 10 }] }] })],
+    });
+    useWorkoutStore.setState({ activeWorkout: workout });
+
+    const result = await store().swapExercise("lat-pulldown", cable);
+
+    expect(result.status).toBe("refused");
+    expect(store().activeWorkout).toBe(workout);
+    expect(await stored()).toBeNull();
+  });
+
+  it("is refused for an exercise already in today's workout (one session doc per id)", async () => {
+    const workout = seedSwappable();
+    const row = workout.exercises[1];
+
+    const result = await store().swapExercise("lat-pulldown", { id: row.id, name: row.name, fields: row.fields });
+
+    expect(result.status).toBe("refused");
+    expect(store().activeWorkout).toBe(workout);
+  });
+
+  it("swapping again keeps the plan's exercise; swapping to it is back to plan and clears it", async () => {
+    seedSwappable();
+    await store().swapExercise("lat-pulldown", cable);
+    await store().swapExercise("lat-pulldown-cable", { id: "pull-up", name: "Pull-Up", fields: cable.fields });
+    expect(store().activeWorkout!.exercises[0]).toMatchObject({ id: "pull-up", planned: { id: "lat-pulldown" } });
+
+    await store().swapExercise("pull-up", store().activeWorkout!.exercises[0].planned!);
+
+    const slot = store().activeWorkout!.exercises[0];
+    expect(slot).toMatchObject({ id: "lat-pulldown", name: "Lat Pulldown" });
+    expect(slot.planned).toBeUndefined();
+    expect((await stored()).exercises[0].planned).toBeUndefined();
+  });
+});
