@@ -512,6 +512,118 @@
       "w": 390,
       "x": 0,
       "y": 24600
+    },
+    "MenuLogger.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "EM1 \u00b7 Logger: exercise \u22ef, no split column",
+      "w": 390,
+      "x": 0,
+      "y": 26100
+    },
+    "MenuSplit.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "EM2 \u00b7 Exercise menu: Split set 1",
+      "w": 390,
+      "x": 470,
+      "y": 26100
+    },
+    "MenuSplitSet.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "EM3 \u00b7 Split set: \u00d7 on earlier rows, split on a filled last row",
+      "w": 390,
+      "x": 940,
+      "y": 26100
+    },
+    "MenuSplitAgain.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "EM4 \u00b7 Menu on a split set: also adds a row",
+      "w": 390,
+      "x": 1410,
+      "y": 26100
+    },
+    "MenuSplitWait.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "EM5 \u00b7 Last row empty: \u00d7 on the card, Split disabled",
+      "w": 390,
+      "x": 1880,
+      "y": 26100
+    },
+    "SwapMenu.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "SW1 \u00b7 Exercise menu: Split + Swap",
+      "w": 390,
+      "x": 0,
+      "y": 27600
+    },
+    "SwapPicker.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "SW2 \u00b7 Picker (Add Exercise screen)",
+      "w": 390,
+      "x": 470,
+      "y": 27600
+    },
+    "SwapVersion.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "SW3 \u00b7 Version step",
+      "w": 390,
+      "x": 940,
+      "y": 27600
+    },
+    "SwapLoading.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "SW4 \u00b7 Swapped: history loading",
+      "w": 390,
+      "x": 1410,
+      "y": 27600
+    },
+    "SwapLoaded.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "SW5 \u00b7 Swapped: history loaded",
+      "w": 390,
+      "x": 1880,
+      "y": 27600
+    },
+    "SwapFailed.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "SW6 \u00b7 Swapped: history failed",
+      "w": 390,
+      "x": 2350,
+      "y": 27600
+    },
+    "SwapSheet.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "SW7 \u00b7 Tap pill: reason + Reload",
+      "w": 390,
+      "x": 2820,
+      "y": 27600
+    },
+    "SwapBack.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "SW8 \u00b7 Swap again: Back to plan",
+      "w": 390,
+      "x": 3290,
+      "y": 27600
+    },
+    "SwapLocked.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "SW9 \u00b7 Set logged: Split on, Swap disabled",
+      "w": 390,
+      "x": 3760,
+      "y": 27600
     }
   },
   "createdOnFiles": {
@@ -721,6 +833,41 @@
       "text": "Split history, chosen",
       "x": 0,
       "y": 24300
+    },
+    "exmenu": {
+      "kind": "title1",
+      "maxW": 2270,
+      "text": "TICKET-058 \u2014 exercise menu, split moved into it",
+      "x": 0,
+      "y": 25800
+    },
+    "exmenuwhy": {
+      "fill": "orange",
+      "text": "DECIDED (user, 2026-10-30), explored on a separate exploration canvas.\n\nAn exercise \u22ef beside \"Exercise N of M\": exercise actions. The header \u22ef stays workout actions (Discard; Add exercise, TICKET-056).\n\nSplit leaves the one-row card: the first split is \"Split set N\" in the menu. Most sets are never split.\n\nOnce split: earlier rows \u00d7; the last row \u00d7 while a field is empty, split once filled. \"+ split\" under the rows is removed. The menu also offers \"Split set N again\", disabled with \"Fill the last row first\".\n\nAccepted cost: reverses PR #30 finding 1. A filled last row Repeat built and the user skipped takes clear-then-\u00d7 to drop.\n\nSupersedes in TICKET-033's note: \"Split sits in the row's third column: beside the fields on a normal set\".",
+      "w": 300,
+      "x": 2350,
+      "y": 26100
+    },
+    "swap": {
+      "kind": "title1",
+      "maxW": 4150,
+      "text": "TICKET-047 \u2014 swap an exercise, this workout only",
+      "x": 0,
+      "y": 27300
+    },
+    "swapwhy": {
+      "fill": "orange",
+      "text": "DECIDED (user, 2026-10-30), explored on a separate exploration canvas.\n\nSwap is in the exercise \u22ef menu, only while the exercise has 0 sets; after set 1 it stays, disabled, with its reason.\n\nThe picker is the Add Exercise screen, shared: search, filters, Recent, version step. Exercises already in today's workout are \"In workout\".\n\nThe new exercise uses its own history and fields; nothing carries over from the planned one. The plan never changes.\n\nAfter a swap the logger shows nothing extra. The way back is \"Back to plan\" at the top of the picker.\n\nHistory stays in the pill: dots while loading; \"HISTORY\" with a no-signal mark on failure; tap it for the reason and Reload. Never \"First time\".\n\nSupersedes SwitchBefore and SwitchAfter (TICKET-041 B2).",
+      "w": 300,
+      "x": 4230,
+      "y": 27600
+    },
+    "addex": {
+      "fill": "teal",
+      "text": "Next: TICKET-056 Add exercise, in the workout \u22ef menu (header), next to Discard. Not drawn yet.",
+      "w": 300,
+      "x": 4230,
+      "y": 28100
     }
   },
   "order": [
@@ -787,7 +934,21 @@
     "SplitRepeat.dc.html",
     "SplitHistory.dc.html",
     "SplitEdit.dc.html",
-    "SplitHistoryRail.dc.html"
+    "SplitHistoryRail.dc.html",
+    "MenuLogger.dc.html",
+    "MenuSplit.dc.html",
+    "MenuSplitSet.dc.html",
+    "MenuSplitAgain.dc.html",
+    "MenuSplitWait.dc.html",
+    "SwapMenu.dc.html",
+    "SwapPicker.dc.html",
+    "SwapVersion.dc.html",
+    "SwapLoading.dc.html",
+    "SwapLoaded.dc.html",
+    "SwapFailed.dc.html",
+    "SwapSheet.dc.html",
+    "SwapBack.dc.html",
+    "SwapLocked.dc.html"
   ],
   "pages": [],
   "title": "Fitgram Workout Flow Redesign"
