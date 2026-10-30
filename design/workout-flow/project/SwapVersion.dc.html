@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>W3 Version step</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body { margin: 0; }
+a { color: #5FA8B8; } a:hover { color: #8CC6D2; }
+button { font: inherit; color: inherit; background: none; border: none; padding: 0; cursor: pointer; }
+.num { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #121414; color: #E8EDEC; font-family: 'Archivo', 'Helvetica Neue', system-ui, sans-serif; position: relative; overflow: hidden">
+  <div aria-hidden="true" style="opacity: 0.3; padding: 20px 14px 0; display: flex; flex-direction: column; gap: 14px">
+    <div style="text-align: center; font-size: 17px; font-weight: 700; padding-top: 10px">Swap Lat Pulldown · Machine</div>
+    <div style="height: 50px; border-radius: 13px; background: #222628; border: 1px solid #3A4245"></div>
+    <div style="height: 40px; width: 280px; border-radius: 12px; border: 1px solid #3A4245"></div>
+    <div style="height: 240px; border-radius: 14px; background: #1A1D1F; border: 1px solid #2A2F31"></div>
+  </div>
+  <div style="position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; background: rgba(8,10,10,0.55)">
+    <section role="dialog" aria-label="Pick a Lat Pulldown version" style="background: #1A1D1F; border-top: 1px solid #3A4245; border-radius: 22px 22px 0 0; padding: 10px 16px 24px; display: flex; flex-direction: column; gap: 16px">
+      <span style="align-self: center; display: block; width: 40px; height: 4px; border-radius: 2px; background: #3A4245"></span>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h2 style="margin: 0; font-size: 20px; font-weight: 700">Lat Pulldown</h2>
+        <div style="font-size: 12.5px; color: #8A9593">Replaces Machine for this workout.</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Equipment</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px">
+          <button type="button" aria-pressed="true" style="height: 40px; padding: 0 13px; border-radius: 12px; display: flex; align-items: center; gap: 6px; font-size: 14px; background: #1E3A41; border: 1px solid {{accent}}; font-weight: 700">Cable<span style="font-size: 11px; font-weight: 500; color: #8A9593">last</span></button>
+          <button type="button" disabled aria-disabled="true" style="height: 40px; padding: 0 13px; border-radius: 12px; display: flex; align-items: center; gap: 6px; font-size: 14px; border: 1px dashed #3A4245; color: #8A9593">Machine<span style="font-size: 11px">now</span></button>
+          <button type="button" aria-pressed="false" style="height: 40px; padding: 0 13px; border-radius: 12px; font-size: 14px; border: 1px solid #3A4245">Plate-Loaded</button>
+          <button type="button" aria-pressed="false" style="height: 40px; padding: 0 13px; border-radius: 12px; font-size: 14px; border: 1px solid #3A4245">Band</button>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Grip</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px">
+          <button type="button" aria-pressed="true" style="height: 40px; padding: 0 13px; border-radius: 12px; font-size: 14px; background: #1E3A41; border: 1px solid {{accent}}; font-weight: 700">Wide</button>
+          <button type="button" aria-pressed="false" style="height: 40px; padding: 0 13px; border-radius: 12px; font-size: 14px; border: 1px solid #3A4245">Close</button>
+          <button type="button" aria-pressed="false" style="height: 40px; padding: 0 13px; border-radius: 12px; font-size: 14px; border: 1px solid #3A4245">Neutral</button>
+          <button type="button" aria-pressed="false" style="height: 40px; padding: 0 13px; border-radius: 12px; font-size: 14px; border: 1px solid #3A4245">Reverse</button>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Arms</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px">
+          <button type="button" aria-pressed="true" style="height: 40px; padding: 0 13px; border-radius: 12px; font-size: 14px; background: #1E3A41; border: 1px solid {{accent}}; font-weight: 700">Both</button>
+          <button type="button" aria-pressed="false" style="height: 40px; padding: 0 13px; border-radius: 12px; font-size: 14px; border: 1px solid #3A4245">One arm</button>
+        </div>
+      </div>
+      <div style="font-size: 12.5px; line-height: 1.45; color: #8A9593">Last time on Cable: <span class="num" style="color: #E8EDEC">50 kg × 10</span>, 25 Oct.</div>
+      <button type="button" style="height: 54px; border-radius: 15px; background: {{accent}}; color: #121414; font-size: 15.5px; font-weight: 700">Swap to Lat Pulldown · Cable</button>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5FA8B8","options":["#5FA8B8","#B5A3CF","#D8A13B","#8FB573"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#5FA8B8' };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>W1 Exercise menu, split and swap</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body { margin: 0; }
+a { color: #5FA8B8; } a:hover { color: #8CC6D2; }
+button { font: inherit; color: inherit; background: none; border: none; padding: 0; cursor: pointer; }
+.num { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #121414; color: #E8EDEC; font-family: 'Archivo', 'Helvetica Neue', system-ui, sans-serif; position: relative; overflow: hidden">
+  <div aria-hidden="true" style="opacity: 0.35; display: flex; flex-direction: column">
+    <header style="padding: 16px 14px 0; display: flex; align-items: center; gap: 8px">
+      <span style="width: 44px; height: 44px"></span>
+      <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; gap: 2px"><div style="font-size: 15px; font-weight: 700">Pull · Back &amp; Biceps</div><div class="num" style="font-size: 12px; color: #8A9593">12:04 elapsed</div></div>
+      <span style="width: 44px; height: 44px"></span>
+    </header>
+    <section style="padding: 36px 14px 0; display: flex; flex-direction: column; align-items: center; gap: 2px">
+      <div style="text-align: center; font-size: 25px; font-weight: 700; line-height: 1.1">Lat Pulldown <span style="color: #8A9593">· Machine</span></div>
+      <div style="display: flex; align-items: center"><span style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Exercise <span class="num">1</span> of <span class="num">6</span></span><span style="width: 44px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid {{accent}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg></span></div>
+    </section>
+    <div style="margin: 12px 14px 0; height: 300px; border-radius: 16px; background: #1A1D1F; border: 1px solid #2A2F31"></div>
+  </div>
+  <div style="position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; background: rgba(8,10,10,0.55)">
+    <section role="dialog" aria-label="Lat Pulldown, Machine options" style="background: #1A1D1F; border-top: 1px solid #3A4245; border-radius: 22px 22px 0 0; padding: 10px 16px 24px; display: flex; flex-direction: column; gap: 12px">
+      <span style="align-self: center; display: block; width: 40px; height: 4px; border-radius: 2px; background: #3A4245"></span>
+      <h2 style="margin: 0; font-size: 18px; font-weight: 700">Lat Pulldown <span style="color: #8A9593">· Machine</span></h2>
+      <ul style="margin: 0; padding: 0; list-style: none; border-radius: 14px; border: 1px solid #2A2F31; overflow: hidden">
+        <li><button type="button" style="width: 100%; min-height: 60px; padding: 10px 14px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; text-align: left; background: #222628"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{{accent}}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5"></path><path d="M8 3H3v5"></path><path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"></path><path d="m15 9 6-6"></path></svg><span style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 15px; font-weight: 600">Split set 1</span><span style="font-size: 12px; color: #8A9593">Change the weight partway through this set</span></span></button></li>
+        <li style="border-top: 1px solid #2A2F31"><button type="button" style="width: 100%; min-height: 60px; padding: 10px 14px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; text-align: left; background: #222628"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{{accent}}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h14l-4-4"></path><path d="M20 16H6l4 4"></path></svg><span style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 15px; font-weight: 600">Swap exercise</span><span style="font-size: 12px; color: #8A9593">For this workout only. Your plan keeps it.</span></span></button></li>
+      </ul>
+      <button type="button" style="height: 50px; border-radius: 14px; border: 1px solid #3A4245; font-size: 15px; font-weight: 600">Close</button>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5FA8B8","options":["#5FA8B8","#B5A3CF","#D8A13B","#8FB573"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#5FA8B8' };
+  }
+}
+</script>
+</body>
+</html>
