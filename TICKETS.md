@@ -35,19 +35,17 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 030 | Drop unit suffixes from catalogue field names | Small | **Silent data loss:** renaming a field nulls every past value for it, and the session stays `comparable` so nothing flags it |
 | 031 | Contrast guards for the rest of the role palette | Small | Extends the `colors.test.ts` pattern |
 | 032 | Edit or delete an already-uploaded set | Med-Large | Needs a rollup rebuild |
-| 033 | Split sets | Med-Large | Data-model change. Three sub-tickets: 033-1 log (in review, PR #27), then 055, then 033-2 read back and 033-3 edit |
 | 035 | Measures beyond weight x reps | Med-Large | "Which way is better" is a product decision |
 | 036 | Put a unit on volume trend points | Small-Med | Today the trend over-suppresses; held by an invariant test, not a fix |
 | 037 | Tell apart two sessions on the same day | Small | |
 | 038 | Per-exercise rest duration, and a control | Medium | **Nothing can set a non-default rest today** |
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
 | 053 | Guided tour: end-to-end pass after the catalog work | Medium | After 043, 050, 051, 052. The tour is not working and is no longer fixed per ticket (user, 2026-10-27) |
-| 055 | Set segments: one shape for a set and its splits | Medium | Before 033-2 / 033-3. Live model decided (`segments`, ≥ 1); stored shape decided at the start (keep parallel, recommended, or unify) |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap. Storage: per-plan copies today, library undecided |
 | 047 | Swap an exercise mid-workout | Medium | After 058 (user, 2026-10-30). Only at 0 sets, full picker, the new exercise's own history, this workout only |
 | 056 | Add an exercise mid-workout | Small-Med | After 047; reuses its picker mode. Appended, this workout only |
 | 057 | Free-flow workout (name not final) | Medium | Deferred 2026-10-30. An empty session plus 056 |
-| 058 | Exercise menu, with split moved into it | Small-Med | **Next** (user, 2026-10-30). Builds the exercise ⋯; the card loses its split column |
+| 058 | Exercise menu, with split moved into it | Small-Med | **In review**, PR #32 (branch TICKET-058, 2026-10-30); device test not yet run. Exercise ⋯ beside "Exercise N of M"; the one-row card has no split column |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
 
 ### Not tickets — verification owed
@@ -5063,8 +5061,9 @@ the default path.
 
 ### TICKET-058: Exercise Menu, With Split Moved Into It
 
-**Priority:** High | **Effort:** Small-Med | **Status: OPEN** — next (user, 2026-10-30),
-before TICKET-047
+**Priority:** High | **Effort:** Small-Med | **Status: IN REVIEW** — PR #32 (branch
+TICKET-058), 2026-10-30; device test not yet run. Started after
+the user confirmed 033-3's (PR #30) device run passed. Before TICKET-047
 
 **Description:**
 The set card carries a "split" button in a third column beside the inputs
@@ -5119,6 +5118,84 @@ can point at the ⋯ once.
 **Design:** exploration canvas https://claude.ai/artifact/M9TtULG3eQWuW8u4zD67rS,
 row "Final · Stage 1": F1 logger, F2 menu, F3 split set (split on the filled last row),
 F4 the menu also adds a row, F5 last row empty: × on the card, Split disabled.
+
+**Built 2026-10-30 (branch TICKET-058, PR #32).** Nothing stored changes; no store action;
+`onAddSplit` unchanged, only its entry point moved.
+- `ExerciseNavHeader`: a ⋯ ("<name> options") beside "Exercise N of M", 36 tall with
+  hitSlop to 44. The screen holds whether the menu is open and passes it to the logger.
+- `ExerciseMenu` (new): the sheet. Items are `{ title, detail, disabledReason, onPress }`;
+  a disabled item stays listed with its reason in the detail line, so 047's Swap is one
+  more item. **An RN `Modal`, not PlanSheet's View:** the logger owns the rows and edit
+  the item acts on and sits inside the scroll view, where an absolute View would cover
+  only the scroll content; lifting the draft or a ref was rejected. The tour points at
+  the ⋯, not inside the sheet. Decision comment at the top of the file.
+- `ExerciseLogger` renders the menu: "Split set N" on a one-row card, else "Split set N
+  again", disabled "Fill the last row first" by `canAddSplit`. N is `setNumber`: the
+  edited set while editing, else the next set, during rest too.
+- **Deviation from the pinned copy** (PR #32 review, finding 3; user, 2026-10-30): "Change
+  the weight partway through this set" only when the exercise has a weight field;
+  otherwise "Log this set in parts". Split is field-generic, so a plank or band set was
+  offered a line about weight. Rejected: one neutral line for every exercise.
+- `splitSlot(fields, rows, index)` is per-row again: null on one row (no third column),
+  × on earlier rows, × / split on the last by `canAddSplit`. The reversal of PR #30
+  finding 1 is written on it. "+ split" and its styles are gone from `SetRows`.
+
+Verified: `npx tsc --noEmit` clean. `npx jest`: 38 suites, 505 tests pass (502 before).
+Three new tests: menu title and no column on one row; "again" disabled then adds a row;
+no weight line on a time-only exercise (PR #32 review, seen failing with the condition
+forced true);
+the "starts each row empty" case now asserts the × → split flip; four cases changed
+(menu first; clear then × on a filled last row). Seven deliberate breaks, each red:
+menu title, a column on one row, "again" never disabled, last row never split, last row
+split while blank, Split item a no-op, "again" a no-op. Lint not run: `main` has no
+ESLint config or script (TICKET-001's work is not on `main`).
+
+Unverified: layout, the sheet's animation, the rest case and VoiceOver; Jest checks none.
+
+**Device test plan** (user runs; CLAUDE.md 1.3). Branch TICKET-058, Metro restarted
+with `npx expo start -c`. A weight × reps exercise with a past session (ghosts and
+repeat show); for step 10, one whose last session had a split set.
+1. **F1, set 1:** the card has no third column; weight and reps take the full width,
+   steppers under them. A ⋯ sits beside "Exercise 1 of N". The header ⋯ still holds
+   only Discard. The ⋯ makes the name block about 20pt taller, so the card sits lower
+   than on `main`: on a small phone, do the card and Log set still fit without
+   scrolling? (PR #32 review, finding 2)
+2. **F2:** tap the exercise ⋯ → a sheet titled with the exercise name, one item
+   "Split set 1 · Change the weight partway through this set", and Close. Close, a tap
+   on the dimmed backdrop and Android back each close it.
+3. **F2 → F5:** type 55 / 6, ⋯ → Split set 1. The sheet closes; a blank second row
+   appears; **watch the inputs narrow as the third column appears** (the jump the
+   ticket left open). Steppers and repeat are gone; × on both rows; header "SET 1".
+4. **F5:** ⋯ → "Split set 1 again", dimmed, "Fill the last row first"; tapping it does
+   nothing. Close.
+5. **F3:** type 45 in row 2 → header "SET 1 · 1 split". Type 4 → row 2's × turns to
+   **split**; row 1 keeps ×. Tap split → a blank row 3, with ×.
+6. **F4:** × row 3 → back to two rows. ⋯ → "Split set 1 again · Add another row to
+   this set", enabled; tap it → a blank row 3. × it again.
+7. **Dropping a filled last row is two steps** (the accepted cost): clear row 2's reps
+   → its slot turns back to ×; tap × → one row, the card a normal set again, steppers
+   back, 55 / 6 kept.
+8. Split again (⋯ → Split set 1, fill 45 / 4), Log set 1 → Today shows set 1 with the
+   split chip; the rest starts.
+9. **During rest:** ⋯ → "Split set 2"; tap it. The rest keeps counting and the panel
+   stays. Skip (or let it end) → set 2's card has two rows, the second blank. **Does
+   this read as broken?** If yes, say so: the fix is to disable the item during rest.
+10. **Repeat** (exercise whose last session split): repeat → the rows fill and the line
+   reads "Repeated … remove rows you didn't do". × an earlier split row works in one
+   tap; the filled last row shows split and needs a field cleared before ×.
+11. **Editing a logged set:** Today → set 1 → Edit → ⋯ → "Split set 1 again" (it is
+   split); on a normal logged set it reads "Split set N" with that set's number. Tap it
+   → a blank row in the edit card. Fill it, Save → the set gains the row; mark and
+   position stay.
+12. **Layout:** an exercise whose name wraps to two lines: the ⋯ stays beside
+   "Exercise N of M", not clipped; the position line is off-centre by half the ⋯ (as
+   the board draws it). Swipe to the next exercise, ⋯ → the sheet titles that one.
+13. **VoiceOver / TalkBack:** the ⋯ reads "<exercise name> options"; the disabled item
+   reads "Split set 1 again, Fill the last row first", dimmed.
+
+Known gaps:
+- The ⋯ is reachable while the guided tour runs; the tour does not point at it yet
+  (TICKET-053, as the ticket says).
 
 **Dependencies:** TICKET-033 (done).
 
@@ -5199,11 +5276,14 @@ approach that handles these cases at least as well?
 
 ---
 
-### TICKET-033: Split Sets — Log a Weight Change Within One Set
+### ~~TICKET-033: Split Sets — Log a Weight Change Within One Set~~ ✅ DONE
 
-**Priority:** Low | **Effort:** Medium-Large | **Status: IN PROGRESS** — design decided
-2026-10-29 (boards S1–S8 on the Workout Flow canvas, `design/workout-flow/project/Split*.dc.html`;
-SH3 replaces S7). 033-1 merged (PR #27), 033-2 merged (PR #29), 033-3 in review (PR #30).
+**Priority:** Low | **Effort:** Medium-Large | **Status: DONE** — 033-1 (PR #27), 033-2
+(PR #29) and 033-3 (PR #30) merged, device runs passed (033-3 confirmed by the user
+2026-10-30, before TICKET-058). Left, not ticketed: the edit header does not count splits
+(033-3 known gap). TICKET-058 later moved the first split into the exercise menu. Design
+decided 2026-10-29 (boards S1–S8 on the Workout Flow canvas,
+`design/workout-flow/project/Split*.dc.html`; SH3 replaces S7).
 Split into 033-1 (log), 033-2 (read back), 033-3 (edit), below
 
 **Description:**
@@ -5580,8 +5660,8 @@ and the sheet rows; the best still reads the first segment. Also not checked
 
 #### 033-3 · Edit a split set (S8)
 
-**Status: IN REVIEW** — PR #30 (branch TICKET-033-3), 2026-10-29; device test not
-yet run. Started after the user confirmed 033-2's device run passed.
+**Status: MERGED** — PR #30, 2026-10-29. Device test passed (user, 2026-10-30).
+Started after the user confirmed 033-2's device run passed.
 
 - TICKET-040's edit card shows the rows: change, add or remove them; Save passes
   the edited list to `updateSet`, which replaces the set's `segments` whole
@@ -5637,8 +5717,8 @@ Decisions (comments at each site):
   skipping only the bad row.
 - **× now clears "Repeated"** as typing and split already did: after a remove the
   line would list rows the card no longer holds.
-- **× on every row; "+ split" under the rows** (PR #30 review, finding 1; user,
-  2026-10-29). Repeat's "remove rows you didn't do" could not be done with ×: the
+- **Superseded by TICKET-058 (end of this bullet).** **× on every row; "+ split"
+  under the rows** (PR #30 review, finding 1; user, 2026-10-29). Repeat's "remove rows you didn't do" could not be done with ×: the
   last filled row offered split, so dropping it meant clearing it first or removing
   row 1 and retyping. Now, with two rows or more, every row's third column is ×,
   the first and last included (`splitSlot`), and "+ split" ("Add another split")
@@ -5648,7 +5728,9 @@ Decisions (comments at each site):
   its third column (S1). The `cancel` slot is gone; a blank last row is still
   dropped on Log/Save. Same card for log and edit. Boards S2, S3, S6, S8 redrawn
   (canvas v63). **Scope growth, stated:** S3 was not in the user's list but drew
-  the old slot.
+  the old slot. **Reversed by TICKET-058** (user, 2026-10-30): the last row is × while
+  missing a field and split once filled, "+ split" is gone, and a one-row card has no
+  third column (the first split starts from the exercise menu).
 - **Repeat builds no chain when last time's first segment is unreadable** (PR #30
   review, finding 2): the same gate as `lastTimeSplit`. Without the pill there is
   no line, so rows would appear unexplained.

@@ -24,32 +24,40 @@ export const splitCountText = (count: number): string => `${count} ${count === 1
  * The third-column control beside row `index` of the set card, where `rows` is
  * every row, the first segment first (0-based).
  *
- * - One row (a normal set): `split`, whatever is typed, so a set can be split
- *   before or after its first values go in (board S1).
+ * - One row (a normal set): null, no third column; weight and reps take the
+ *   full width, and the first split starts from the exercise menu (TICKET-058,
+ *   board MenuLogger). Replaced: a split button beside every set (board S1),
+ *   on the screen used every set for an action most sets never take.
  * - Any row but the last, the first segment included: `remove` (×). Removing
  *   the first makes the next row the set, and its values become what last
  *   time, targets and records compare (user, 2026-10-29). Before Log nothing is
  *   stored, so which row is first is the user's to choose. Replaced: no × on
  *   the first row (board S2), which meant a wrong first row could only be
  *   fixed by retyping it.
- * - The last row too (PR #30 review, user, 2026-10-29), filled or blank: a row
- *   repeat built and the user did not do is one × away. Adding another row
- *   moves to "+ split" under the rows (`canAddSplit`). Replaced: the last row's
- *   slot was `cancel` (×) while blank and `split` once filled, so a filled last
- *   row could only be dropped by clearing it first.
+ * - The last row: `remove` (×) while it is missing a field, `split` once it is
+ *   filled (`canAddSplit`). Back to 033-1's rule (TICKET-058, user,
+ *   2026-10-30), reversing PR #30 finding 1. Cost accepted: a filled last row
+ *   that repeat built and the user did not do shows split, not ×, so dropping
+ *   it is two steps (clear a field, then ×). Chosen so adding a row stays one
+ *   tap on the card; the menu's "Split set N again" adds one too. Rejected: ×
+ *   on every row with the menu as the only add (one tap to drop, two to add);
+ *   "+ split" under the rows (PR #30's fix: an extra full-width button on
+ *   every split set).
  */
 export type SplitSlot = "remove" | "split";
 
-export function splitSlot(rows: readonly SplitRowValues[]): SplitSlot {
-  return rows.length === 1 ? "split" : "remove";
+export function splitSlot(fields: ExerciseField[], rows: readonly SplitRowValues[], index: number): SplitSlot | null {
+  if (rows.length === 1) return null;
+  return index === rows.length - 1 && canAddSplit(fields, rows) ? "split" : "remove";
 }
 
 /**
- * Whether "+ split" shows under the rows of a split card: once the last row
- * has every required field. Hidden, not dimmed, like repeat, so a second blank
- * row cannot be added. Gated on the whole row rather than reps alone so a
- * distance × time row works the same way (033-1's gate, moved here from the
- * last row's slot). One row: the slot's split button instead.
+ * Whether a split card can take another row: once the last row has every
+ * required field, so a second blank row cannot be added. Gates the last row's
+ * split slot and the menu's "Split set N again" (disabled with "Fill the last
+ * row first"). Gated on the whole row rather than reps alone so a distance ×
+ * time row works the same way. One row: false; the menu's "Split set N" is
+ * always available there.
  */
 export function canAddSplit(fields: ExerciseField[], rows: readonly SplitRowValues[]): boolean {
   return rows.length > 1 && missingFields(fields, rows[rows.length - 1]).length === 0;

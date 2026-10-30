@@ -4,7 +4,7 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SPACING } from "../../constants/styles";
 import { ExerciseField } from "../../types/workoutType";
 import { formatStepValue, stepFieldValue, stepSizeFor } from "../../utils/setLogger";
-import { canAddSplit, SplitRowValues, SplitSlot, splitSlot } from "../../utils/splits";
+import { SplitRowValues, SplitSlot, splitSlot } from "../../utils/splits";
 import { TextBase, NumericText } from "../TextBase";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
@@ -44,20 +44,20 @@ type Props = {
 
 /**
  * The set card's fields: one row per segment of the set, each field a column
- * under one line of labels, and a third column for split / ×. A normal set is
+ * under one line of labels, and on a split set a third column for split / ×. A normal set is
  * one row; a split set is several (TICKET-033, canvas boards S1–S3). One
  * component for both, and for editing a logged set, so the inputs, labels and
  * the third column are built in one place (user, 2026-10-29). Replaced
  * `SetField` (one large field per column) plus a separate `SplitRows` grid.
  *
  * What the row count changes, and only this:
- * - One row: large inputs, and steppers under them. A field with no stepper
- *   (time, distance) keeps the stepper line's height when a neighbour has one,
- *   so the inputs line up.
+ * - One row: large inputs, and steppers under them, at the full width: no
+ *   third column; the first split starts from the exercise menu (TICKET-058).
+ *   A field with no stepper (time, distance) keeps the stepper line's height
+ *   when a neighbour has one, so the inputs line up.
  * - Two or more: compact inputs and no steppers, as the boards draw them.
- *   Weight is typed; a new row starts empty. Every row's third column is ×,
- *   and "+ split" sits under the rows, the fields' width, once the last row
- *   is filled (boards S2, S3, S6, S8; `splitSlot`, `canAddSplit`).
+ *   Weight is typed; a new row starts empty. A third column appears: × on
+ *   every row, except split on a filled last row (`splitSlot`).
  *
  * The ghost is a placeholder, never a value: the field stays empty until the
  * user types, steps, or taps repeat. See `missingFields`.
@@ -75,7 +75,8 @@ export default function SetRows({ fields, setNumber, rows, ghosts, onChange, onA
   // The first row is the set itself; rows after it are numbered as splits.
   const rowLabel = (index: number, field: ExerciseField) =>
     index === 0 ? fieldLabel(field) : `Split ${index} ${fieldLabel(field)}`;
-  const emptySlot = <View style={styles.slot} />;
+  // The labels and steppers keep the slot's width so they stay over their inputs.
+  const emptySlot = single ? null : <View style={styles.slot} />;
 
   return (
     <View style={styles.grid}>
@@ -104,7 +105,7 @@ export default function SetRows({ fields, setNumber, rows, ghosts, onChange, onA
             />
           ))}
           <RowSlot
-            kind={splitSlot(rows)}
+            kind={splitSlot(fields, rows, index)}
             index={index}
             setNumber={setNumber}
             height={height}
@@ -115,21 +116,6 @@ export default function SetRows({ fields, setNumber, rows, ghosts, onChange, onA
           />
         </View>
       ))}
-
-      {canAddSplit(fields, rows) && (
-        <View style={styles.row}>
-          <TouchableOpacity
-            style={styles.addSplit}
-            onPress={onAddSplit}
-            accessibilityRole="button"
-            accessibilityLabel="Add another split"
-          >
-            <SplitIcon size={16} color={t.colors.role.textPrimary} />
-            <TextBase style={styles.addSplitText}>+ split</TextBase>
-          </TouchableOpacity>
-          {emptySlot}
-        </View>
-      )}
 
       {/* Under the one row only: a split set's rows are compact (board S2). */}
       {hasSteppers && (
@@ -153,7 +139,7 @@ export default function SetRows({ fields, setNumber, rows, ghosts, onChange, onA
 
 type Styles = ReturnType<typeof createStyles>;
 
-/** The third column of one row: split, or × to remove / cancel the row. */
+/** The third column of one row of a split set: split, or × to remove the row. */
 function RowSlot({
   kind,
   index,
@@ -164,7 +150,7 @@ function RowSlot({
   onAddSplit,
   onRemove,
 }: {
-  kind: SplitSlot;
+  kind: SplitSlot | null;
   index: number;
   setNumber: number;
   height: number;
@@ -173,13 +159,14 @@ function RowSlot({
   onAddSplit: () => void;
   onRemove: (index: number) => void;
 }) {
+  if (kind === null) return null;
   if (kind === "split") {
     return (
       <TouchableOpacity
         style={[styles.slot, styles.splitButton, { height }]}
         onPress={onAddSplit}
         accessibilityRole="button"
-        accessibilityLabel={`Add a split to set ${setNumber}`}
+        accessibilityLabel="Add another split"
       >
         <SplitIcon size={18} color={t.colors.role.textPrimary} />
         <TextBase style={styles.splitText}>split</TextBase>
@@ -311,23 +298,6 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   splitText: {
     fontSize: t.fonts.xSmall,
     fontWeight: "bold",
-    color: t.colors.role.textPrimary,
-  },
-  // Board S3: "+ split" spans the field columns, at touch height.
-  addSplit: {
-    flex: 1,
-    height: HIT,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: t.colors.role.hairlineStrong,
-  },
-  addSplitText: {
-    fontSize: t.fonts.xMedium,
-    fontWeight: "600",
     color: t.colors.role.textPrimary,
   },
   input: {

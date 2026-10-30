@@ -7,6 +7,8 @@ import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 
 const HIT = 44;
+const MENU_HEIGHT = 36;
+const MENU_HIT_SLOP = { top: (HIT - MENU_HEIGHT) / 2, bottom: (HIT - MENU_HEIGHT) / 2 };
 
 type Props = {
   exerciseName: string;
@@ -19,6 +21,8 @@ type Props = {
   nextName: string | null;
   onPrevious: () => void;
   onNext: () => void;
+  /** The exercise ⋯ menu (TICKET-058). */
+  onOpenMenu: () => void;
 };
 
 /**
@@ -28,6 +32,10 @@ type Props = {
  * disappearing, so the name does not shift sideways and the user can see they
  * are at the end. Rejected: wrapping from the last exercise to the first, which
  * makes "next" on the final exercise silently go backwards.
+ *
+ * The exercise ⋯ sits beside "Exercise N of M" (TICKET-058, board MenuLogger):
+ * exercise-level actions, apart from the header's workout ⋯. Always shown, as
+ * the menu always holds split.
  */
 export default function ExerciseNavHeader({
   exerciseName,
@@ -38,6 +46,7 @@ export default function ExerciseNavHeader({
   nextName,
   onPrevious,
   onNext,
+  onOpenMenu,
 }: Props) {
   const { styles, t } = useThemeStyles(createStyles);
   const canGoBack = previousName !== null;
@@ -59,11 +68,22 @@ export default function ExerciseNavHeader({
       <View style={styles.titleBlock}>
         <TextBase style={styles.exerciseName} numberOfLines={2}>{exerciseName}</TextBase>
         {exerciseSubtitle !== null && <TextBase style={styles.positionLabel}>{exerciseSubtitle}</TextBase>}
-        <View style={styles.positionRow} accessible accessibilityLabel={`Exercise ${index + 1} of ${count}`}>
-          <TextBase style={styles.positionLabel}>EXERCISE </TextBase>
-          <NumericText style={styles.positionLabel}>{index + 1}</NumericText>
-          <TextBase style={styles.positionLabel}> OF </TextBase>
-          <NumericText style={styles.positionLabel}>{count}</NumericText>
+        <View style={styles.positionRow}>
+          <View style={styles.positionRow} accessible accessibilityLabel={`Exercise ${index + 1} of ${count}`}>
+            <TextBase style={styles.positionLabel}>EXERCISE </TextBase>
+            <NumericText style={styles.positionLabel}>{index + 1}</NumericText>
+            <TextBase style={styles.positionLabel}> OF </TextBase>
+            <NumericText style={styles.positionLabel}>{count}</NumericText>
+          </View>
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={onOpenMenu}
+            hitSlop={MENU_HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityLabel={`${exerciseName} options`}
+          >
+            <Ionicons name="ellipsis-horizontal" size={18} color={t.colors.role.textSecondary} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -117,6 +137,15 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   positionRow: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  // 36, not 44, so the name block grows less (the position line was one xSmall
+  // line; it is now this tall, as on board MenuLogger). hitSlop takes it to 44.
+  menuButton: {
+    width: HIT,
+    height: MENU_HEIGHT,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
   },
   positionLabel: {
     fontSize: t.fonts.xSmall,
