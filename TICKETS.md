@@ -45,8 +45,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 047 | Swap an exercise mid-workout | Medium | After 058 (user, 2026-10-30). Only at 0 sets, full picker, the new exercise's own history, this workout only |
 | 056 | Add an exercise mid-workout | Small-Med | After 047; reuses its picker mode. Appended, this workout only |
 | 057 | Free-flow workout (name not final) | Medium | Deferred 2026-10-30. An empty session plus 056 |
-| 058 | Exercise menu, with split moved into it | Small-Med | **In review**, PR #32 (branch TICKET-058, 2026-10-30); device test not yet run. Exercise ⋯ beside "Exercise N of M"; the one-row card has no split column |
-| 059 | Today list: arrow on the row, change inside | Small | **Built, committed** (branch TICKET-059, on TICKET-058, 2026-10-30; not pushed); device test not yet run. Boards TA0–TA5 |
+| 059 | Today list: arrow on the row, change inside | Small | **In review**, PR #33 (branch TICKET-059, 2026-10-30); device test not yet run. Boards TA0–TA5 |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
 
 ### Not tickets — verification owed
@@ -5060,10 +5059,10 @@ the default path.
 
 ---
 
-### TICKET-058: Exercise Menu, With Split Moved Into It
+### ~~TICKET-058: Exercise Menu, With Split Moved Into It~~ ✅ DONE
 
-**Priority:** High | **Effort:** Small-Med | **Status: IN REVIEW** — PR #32 (branch
-TICKET-058), 2026-10-30; device test not yet run. Started after
+**Priority:** High | **Effort:** Small-Med | **Status: MERGED** — PR #32 (f40e5b8),
+2026-10-30, by the user; device run not recorded here. Started after
 the user confirmed 033-3's (PR #30) device run passed. Before TICKET-047
 
 **Description:**
@@ -5204,9 +5203,8 @@ Known gaps:
 
 ### TICKET-059: Today List — Arrow on the Row, Change Inside
 
-**Priority:** Medium | **Effort:** Small | **Status: BUILT** — committed on branch
-TICKET-059 (stacked on TICKET-058, whose PR #32 carries the boards), 2026-10-30;
-device test not yet run
+**Priority:** Medium | **Effort:** Small | **Status: IN REVIEW** — PR #33 (branch
+TICKET-059, on main after #32), 2026-10-30; device test not yet run
 
 **Description:**
 A Today row shows the set's values, its marks, the ⑂N chip and the change against
