@@ -156,6 +156,15 @@ const chunk = <T,>(items: T[], size: number): T[][] => {
  *
  * An exercise that has never been performed is returned as `null`, which is the
  * no-history path and not an error.
+ *
+ * Rejects when any answer came from the cache (TICKET-047, device 2026-10-31):
+ * offline, `getDocs` resolves from the memory cache instead of rejecting, and
+ * on a cold start that cache is empty, so every id read as `null` — "First time
+ * on this exercise" in airplane mode, a plausible wrong answer. The same trap
+ * `getAllWorkoutPlans` guards (TICKET-052 D5). Unlike plans, a non-empty cached
+ * answer is refused too: an id missing from it is unknown, not never done. The
+ * history store keeps stats it already holds (`ready`, `error` set), so a
+ * rejection costs nothing already shown.
  */
 export const getExerciseStats = async (
   userId: string,
@@ -172,6 +181,10 @@ export const getExerciseStats = async (
       getDocs(query(exerciseStatsRef(userId), where(documentId(), "in", ids)))
     )
   );
+
+  if (snapshots.some((snapshot) => snapshot.metadata.fromCache)) {
+    throw new Error("History unavailable offline");
+  }
 
   for (const snapshot of snapshots) {
     for (const docSnap of snapshot.docs) {
