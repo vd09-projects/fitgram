@@ -46,6 +46,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 056 | Add an exercise mid-workout | Small-Med | After 047; reuses its picker mode. Appended, this workout only |
 | 057 | Free-flow workout (name not final) | Medium | Deferred 2026-10-30. An empty session plus 056 |
 | 058 | Exercise menu, with split moved into it | Small-Med | **In review**, PR #32 (branch TICKET-058, 2026-10-30); device test not yet run. Exercise ⋯ beside "Exercise N of M"; the one-row card has no split column |
+| 059 | Today list: arrow on the row, change inside | Small | **Built, committed** (branch TICKET-059, on TICKET-058, 2026-10-30; not pushed); device test not yet run. Boards TA0–TA5 |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
 
 ### Not tickets — verification owed
@@ -5200,6 +5201,63 @@ Known gaps:
 **Dependencies:** TICKET-033 (done).
 
 ---
+
+### TICKET-059: Today List — Arrow on the Row, Change Inside
+
+**Priority:** Medium | **Effort:** Small | **Status: BUILT** — committed on branch
+TICKET-059 (stacked on TICKET-058, whose PR #32 carries the boards), 2026-10-30;
+device test not yet run
+
+**Description:**
+A Today row shows the set's values, its marks, the ⑂N chip and the change against
+last time ("+5 plates · +5 reps"). On a phone the change text squeezes the values
+to "7 pla…" (board TA0): the number the user logged is the one that gets cut.
+
+**Why (user, 2026-10-30):** the set is already logged; at a glance the user only
+needs whether it went up. The exact change is one tap away.
+
+**Decided** (Workout Flow canvas, row "TICKET-059", boards TA0–TA5):
+- **Closed row:** values, E/H, ⑂N, then one fixed-width glyph, then ×. No change
+  text. The values never truncate for it
+- **Glyph per verdict** (`setDelta` already gives one per set): improved ▲ gold,
+  down ▼ grey, even **~** grey (numbers changed, same volume), matched **=** grey.
+  No delta (first time, other unit): nothing. `=` moves from even to matched
+  (user): matched had only the word
+- **Open row, in order:** the change line ("▲ +5 plates · +5 reps vs last time";
+  even adds ", same volume"; matched reads "Same weight and reps as last time"),
+  then the split rows, then Easy / Hard / Edit
+- **Screen reader** keeps the full change in the row's label
+- **Unchanged:** the footer volume line; the history sheet keeps glyph plus text
+  (it gets the new ~ and = glyphs, so a verdict still looks the same in both);
+  the ⑂N chip keeps its chevron
+
+**Dependencies:** none in code. The boards are on TICKET-058's branch.
+
+**Built (2026-10-30):**
+- `DeltaBadge.tsx`: `DeltaGlyph` (glyph alone, for the Today row) and
+  `VerdictGlyph`; even is MaterialCommunityIcons `tilde`, matched `equal`.
+  `DeltaBadge` (history sheet) now shows a glyph for matched too
+- `TodaySets.tsx`: the glyph in a 20px slot; the open row's change line before
+  the split rows. Type: `t.fonts.small` (board drew 13px; tokens are 12 / 14,
+  and the line sits under the 14px split rows)
+- Verified: tsc clean; jest 38 suites, 506 tests. `TodaySets.test.tsx`: three
+  cases changed to open the row for the change, one new (even). Six breaks
+  (swap ~/=, label back on the closed row, no change line, even's note, matched
+  text, colour) each turned the expected tests red
+- Not verified: how it looks on a device; the history sheet's new glyphs are
+  not asserted (its tests pass unchanged)
+
+**Device test plan:**
+1. Log sets that beat, match, fall below, and equal last time's volume with
+   different numbers. Closed rows: ▲ gold, = grey, ▼ grey, ~ grey; no change text
+2. A long value with a mark and a split ("10 plates × 11 [H] ⑂2"): the values are
+   not cut off
+3. Tap each row: the first line is the change ("vs last time"; even adds "same
+   volume"; matched reads "Same weight and reps as last time"), then splits, then
+   Easy / Hard / Edit
+4. First-time exercise: no glyph, no change line when opened
+5. History sheet: still glyph plus text; matched now has =, even ~
+6. Screen reader on a row: reads the full change
 
 ### TICKET-049: Move the Client-SDK Scripts to the Admin SDK
 
