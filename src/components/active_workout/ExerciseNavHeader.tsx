@@ -138,7 +138,8 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  // Visual height 36 so the name block does not grow; hitSlop takes it to 44.
+  // 36, not 44, so the name block grows less (the position line was one xSmall
+  // line; it is now this tall, as on board MenuLogger). hitSlop takes it to 44.
   menuButton: {
     width: HIT,
     height: MENU_HEIGHT,

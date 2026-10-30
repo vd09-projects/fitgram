@@ -303,7 +303,13 @@ export default function ExerciseLogger({
           key: "split",
           renderIcon: (color) => <SplitIcon size={20} color={color} />,
           title: `Split set ${setNumber}`,
-          detail: "Change the weight partway through this set",
+          // The pinned line only where it is true: split is field-generic, and a
+          // plank or band set has no weight (PR #32 review, finding 3; user,
+          // 2026-10-30). Rejected: one neutral line for all, which loses the
+          // clearer wording on the common case.
+          detail: exercise.fields.some((field) => field.role === "weight")
+            ? "Change the weight partway through this set"
+            : "Log this set in parts",
           disabledReason: null,
           onPress: onAddSplit,
         }

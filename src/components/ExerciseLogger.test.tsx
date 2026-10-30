@@ -372,6 +372,15 @@ describe("ExerciseLogger split set", () => {
     expect(splitItem(1)).toBeOnTheScreen();
   });
 
+  // PR #32 review: no weight field, so no line about changing the weight.
+  it("the menu's split line does not mention weight on an exercise without one", () => {
+    const fields: ExerciseField[] = [{ name: "Time", role: "time", unit: "s" }];
+    renderScreen(ActiveWorkoutScreen, { workout: buildWorkout([], { exercises: [buildExercise("Plank", { fields })] }) });
+    fireEvent.press(screen.getByRole("button", { name: "Plank options" }));
+
+    expect(screen.getByRole("button", { name: "Split set 1, Log this set in parts" })).toBeOnTheScreen();
+  });
+
   it("starts each new row empty, and counts a row once something is typed in it", () => {
     start(["20", "5"]);
 
