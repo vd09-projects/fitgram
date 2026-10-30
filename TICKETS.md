@@ -63,8 +63,10 @@ Order is *not* decided here — see Recommended Execution Order at the end.
   unit-tested only. Unwatched: the layout at phone width (the three-button strip
   and its hint, the Editing label, Cancel/Save, the rest line), the rest line
   switching to "Rest done" mid-edit, and the guided tour over the card in edit mode.
+- **TICKET-058's exercise menu has never run on a device.** Merged in PR #32;
+  unit-tested only. Its 13-step plan is under TICKET-058 → Device test plan.
 
-One device session covers all four: start a workout, log two sets, mark one
+One device session covers the first four: start a workout, log two sets, mark one
 easy or hard, edit the other during its rest and wait for the rest to end, Save,
 Finish online, start the same workout again and check "last time" shows the mark
 and the edited values, then run the tour from Profile (once with an edit open).
@@ -5229,7 +5231,7 @@ needs whether it went up. The exact change is one tap away.
   (it gets the new ~ and = glyphs, so a verdict still looks the same in both);
   the ⑂N chip keeps its chevron
 
-**Dependencies:** none in code. The boards are on TICKET-058's branch.
+**Dependencies:** none; boards TA0–TA5 merged in PR #32.
 
 **Built (2026-10-30):**
 - `DeltaBadge.tsx`: `DeltaGlyph` (glyph alone, for the Today row) and
@@ -5256,6 +5258,8 @@ needs whether it went up. The exact change is one tap away.
 4. First-time exercise: no glyph, no change line when opened
 5. History sheet: still glyph plus text; matched now has =, even ~
 6. Screen reader on a row: reads the full change
+7. An even set in plates (last time 6 × 10, today 5 × 12, or longer), opened: the
+   change line wraps inside the card, not clipped at its edge (PR #33 finding 1)
 
 ### TICKET-049: Move the Client-SDK Scripts to the Admin SDK
 
@@ -6210,8 +6214,9 @@ it) once 046's content exists. Phase 3B; research is in
 mid-workout, ahead of 032 and 029 below.
 
 ```
-1. TICKET-058  (Exercise menu + split)    — Next. Builds the menu with a working feature
-2. TICKET-047  (Swap an exercise)         — Adds Swap to 058's menu
+1. TICKET-058  (Exercise menu + split)    — Done (PR #32, 2026-10-30); device run owed
+   TICKET-059  (Today list arrows)        — In review (PR #33)
+2. TICKET-047  (Swap an exercise)         — Next. Adds Swap to 058's menu
 3. TICKET-056  (Add an exercise)          — Workout ⋯ menu; boards not drawn yet
    TICKET-057  (Free-flow workout)        — Deferred; an empty session plus 056
 ```
@@ -6222,8 +6227,8 @@ for that.
 
 ```
 1. TICKET-033  (Split sets)                — A weight change within one set.
-                                             033-1 merged (PR #27); 033-2 in
-                                             review (PR #29); 033-3 open
+                                             Done: 033-1 (PR #27), 033-2
+                                             (PR #29), 033-3 (PR #30) merged
    TICKET-055  (Set segments)              — One shape for a set and its splits.
                                              Merged (PR #28)
 2. TICKET-032  (Edit/delete uploaded set)  — Needs the rollup rebuild; after 033 so it

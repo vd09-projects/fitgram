@@ -428,11 +428,16 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     alignItems: "center",
   },
   // The open row's first line (TICKET-059, board TA2), indented to the values.
+  // Wraps: an even set in plates ("+5 plates · −3 reps vs last time, same
+  // volume") is wider than the card at 12pt, and Text in a row does not shrink.
   change: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
-    gap: 7,
+    columnGap: 7,
+    rowGap: 2,
     minHeight: 30,
+    paddingVertical: 6,
     paddingLeft: 13 + 22 + SPACING.medium,
     paddingRight: 13,
   },
