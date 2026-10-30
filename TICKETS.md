@@ -42,10 +42,9 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
 | 053 | Guided tour: end-to-end pass after the catalog work | Medium | After 043, 050, 051, 052. The tour is not working and is no longer fixed per ticket (user, 2026-10-27) |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap. Storage: per-plan copies today, library undecided |
-| 047 | Swap an exercise mid-workout | Medium | After 058 (user, 2026-10-30). Only at 0 sets, full picker, the new exercise's own history, this workout only |
+| 047 | Swap an exercise mid-workout | Medium | **Built, uncommitted** on branch TICKET-047 (2026-10-31), awaiting review and a device run. Only at 0 sets, full picker, the new exercise's own history, this workout only |
 | 056 | Add an exercise mid-workout | Small-Med | After 047; reuses its picker mode. Appended, this workout only |
 | 057 | Free-flow workout (name not final) | Medium | Deferred 2026-10-30. An empty session plus 056 |
-| 059 | Today list: arrow on the row, change inside | Small | **In review**, PR #33 (branch TICKET-059, 2026-10-30); device test not yet run. Boards TA0–TA5 |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
 
 ### Not tickets — verification owed
@@ -63,8 +62,6 @@ Order is *not* decided here — see Recommended Execution Order at the end.
   unit-tested only. Unwatched: the layout at phone width (the three-button strip
   and its hint, the Editing label, Cancel/Save, the rest line), the rest line
   switching to "Rest done" mid-edit, and the guided tour over the card in edit mode.
-- **TICKET-058's exercise menu has never run on a device.** Merged in PR #32;
-  unit-tested only. Its 13-step plan is under TICKET-058 → Device test plan.
 
 One device session covers the first four: start a workout, log two sets, mark one
 easy or hard, edit the other during its rest and wait for the rest to end, Save,
@@ -4920,7 +4917,8 @@ recorded.
 
 ### TICKET-047: Swap an Exercise Mid-Workout
 
-**Priority:** High | **Effort:** Medium | **Status: OPEN** — next (user, 2026-10-30).
+**Priority:** High | **Effort:** Medium | **Status: BUILT, IN REVIEW** — branch TICKET-047,
+uncommitted for the user's review (2026-10-31); device run not yet done.
 Was "Switch an exercise's version", deferred 2026-10-24; widened 2026-10-30 to any
 exercise, not only another version of the same movement
 
@@ -4992,9 +4990,9 @@ the plan changes only in Manage Workout.
   the pill already reads with no value — never "First time". Rejected: a banner in
   the card, and the pill itself as the Reload button
 
-**Open when it is built:**
-- Whether a planned exercise's failed history fetch gets the same pill and sheet
-  (the logger has no Reload today)
+**Open when it is built:** ~~whether a planned exercise's failed history fetch gets the
+same pill and sheet~~ — **yes** (user, 2026-10-31, D4): the pill and sheet read
+`history.status`, not whether the slot was swapped, so it is one path.
 
 **Design:** exploration canvas https://claude.ai/artifact/M9TtULG3eQWuW8u4zD67rS
 (row "Final · Stage 2" is the design to build). The set card is as
@@ -5004,6 +5002,136 @@ Flow canvas and `design/workout-flow/` before code. `SwitchBefore.dc.html` and
 
 **Dependencies:** TICKET-058 (the exercise menu). TICKET-043 (picker), TICKET-050
 (start page): done.
+
+**Decided at build (user, 2026-10-31, D1–D4):**
+- **D1 — `LoggedExercise.planned?: Exercise`**, the plan's exercise, on the live slot
+  while it is swapped. Set by the first swap, kept by a second, dropped by swapping back
+  (by "Back to plan" or by picking the planned id in search). AsyncStorage only:
+  `buildSessionDocs` builds session docs from named fields, so it never reaches Firestore
+  and needs no strip code. The edge of "Not recorded" (CLAUDE.md 2.6): that rules out a
+  stored `substitutedFor` on the session doc, not the live state Back to plan needs.
+  Rejected: rereading the plan (Manage can edit it mid-workout; empty offline on a cold
+  start). Optional, so older stored workouts load; no `LOCAL_DATA_VERSION` bump.
+- **D2 — `ExercisePicker` takes `mode: { kind: "plan" } | { kind: "swap", replacing,
+  planned }`**, not label props. **TICKET-056 adds its own kind** (taken badge "In
+  workout", heading "Add exercise").
+- **D3 — picker data loads only while the picker is open** (`SwapExercisePicker`):
+  `getAllWorkoutPlans` (custom exercises) and `getWorkoutSessions` (Recent). Starting a
+  workout costs no extra reads; each open costs those two. Catalog and search words are
+  the phone's cache; no `sync()`.
+- **D4 — one history path** for planned and swapped exercises (above).
+
+**Built 2026-10-31 (branch TICKET-047, uncommitted).**
+- `useWorkoutStore.swapExercise(exerciseId, exercise)`: replaces the slot in place (index,
+  "N of M" unchanged), persists, refuses with sets (`SWAP_LOCKED_REASON`, shared with the
+  menu) and for an id already in today's workout. Fetches the new id's history (not
+  awaited). **Ends a rest running on the swapped slot**: a slot can be at 0 sets with a
+  rest counting (log set 1, delete it), and a rest keyed to the old id would hide behind
+  the new exercise and come back on a swap back.
+- Exercise ⋯ menu: "Swap exercise · For this workout only. Your plan keeps it." under
+  Split; disabled with "Only before set 1. Delete the logged sets to swap." while the live
+  set count is above 0.
+- Picker in swap mode (boards SwapPicker, SwapBack): heading "Swap <name>", "For this
+  workout only. Your plan keeps it/<planned>."; today's exercises taken, the slot's own
+  badged "Now", the rest "In workout"; "Back to plan: <name> · The one your plan has"
+  under the heading while swapped. Version step (SwapVersion): "Replaces <x> for this
+  workout.", "Swap to <name>", "In this workout: … (now)".
+- History (boards SwapLoading, SwapFailed, SwapSheet), for every exercise: loading pill
+  "LAST TIME" + three static dots; failed pill "HISTORY" + no-signal mark (`role.signal`);
+  never done stays "HISTORY". The "Loading last session…" / "Couldn't load last session"
+  notice lines are gone (`ghostNotice` returns null). The sheet on `error`: "Couldn't load
+  history", "Network issue. Try again on a better connection. Sets you log now still
+  save.", Reload (refetches this id, no `force`: `error` is always retried, an in-flight
+  fetch is joined). An input with no ghost shows "kg" / "reps" (its unit, or "reps")
+  as placeholder, everywhere, not only after a swap.
+- Type: picker heading `t.fonts.large` (board 17), subtitle `small` (12); sheet title
+  `medium` (16), body `small` (board 13), Reload `medium` (15.5).
+
+**Deviations from the boards** (CLAUDE.md 2.2):
+- SwapVersion's "now" mark on the chip: shown in the "In this workout: Machine (now)"
+  sentence instead. The sheet's rows carry per-axis options, not versions, so a chip mark
+  needs a per-axis rule the sheet does not have.
+- SwapVersion's "Last time on Cable: 50 kg × 10, 25 Oct": kept 050's "Last logged:
+  Cable, 25 Oct". `recentHistory` holds the version and date, no set values; numbers
+  would need a stats read per open.
+- SwapBack's "Your plan keeps Machine.": the planned exercise's whole name ("…keeps Lat
+  Pulldown · Machine."), which also reads right when the swap is to another movement.
+
+Verified: `npx tsc --noEmit` clean; `npx jest` 38 suites, 514 tests (506 before). New:
+4 store tests (`swapExercise`: replaces and stores; refused with a set; refused for an id
+in the workout; swap again keeps `planned`, swap back clears it), 4 screen tests (Swap
+disabled with its reason; a pick shows the new exercise's fields and its own last time;
+a failed fetch reads HISTORY with its mark and Reload refetches; Back to plan restores).
+Changed: `ghostNotice`'s loading/error case, and the no-ghost placeholder assertion in
+`ExerciseLogger.test.tsx`. Fourteen deliberate breaks, each turned its test red (no sets
+check, no duplicate check, `planned` not kept, swap back keeps `planned`, not persisted,
+rest kept, Swap never disabled, history read from the planned id, planned fields kept,
+Back to plan a no-op, failure read as never done, no failed pill, Reload a no-op, swap
+without a fetch), plus the placeholder reverting.
+
+Unverified (no test): the loading pill's dots; the picker's "Now" / "In workout" badges,
+heading and subtitle; the version sheet's swap copy; the two reads happening only on open
+(by construction: the hooks live in the component mounted with the picker); layout,
+VoiceOver, anything on a device; the Firestore round trip of a swapped session.
+
+**Device test plan** (user runs; CLAUDE.md 1.3). Branch TICKET-047, `npx expo start -c`.
+A plan with a machine exercise you have history on, a cable version of it with history,
+and a reps-only exercise (pull-up or band).
+1. **W1:** start the workout, ⋯ beside "Exercise 1 of N" → Split, then "Swap exercise ·
+   For this workout only. Your plan keeps it."
+2. **W2:** Swap → full-screen picker titled "Swap <machine>", the subtitle, filters,
+   Recent, A–Z. Today's other exercises read "In workout" and cannot be picked.
+3. **W3:** pick the movement → version step says "Replaces Machine for this workout.",
+   "In this workout: Machine (now)", button "Swap to Lat Pulldown · Cable". Tap it.
+4. **W5:** the logger shows the cable exercise, "Exercise 1 of N" unchanged, the pill
+   "LAST TIME" with the **cable's** numbers, not the machine's. Ghosts are the cable's.
+5. Swap to the reps-only exercise (⋯ → Swap, search): the card has only Reps; "Back to
+   plan: Lat Pulldown · Machine" is at the top of the picker.
+6. **W8:** ⋯ → Swap → Back to plan → the machine again, its own last time; the picker no
+   longer shows Back to plan.
+7. **W9:** log set 1 → ⋯ → Swap dimmed, "Only before set 1. Delete the logged sets to
+   swap."; tapping does nothing. × the set in Today (during its rest) → Swap enabled
+   again; swap → the rest panel is gone, the new exercise's card shows.
+8. **W4/W6/W7:** network off (or gym wifi), swap to an exercise not yet in this
+   workout → the pill reads "LAST TIME" with dots, then "HISTORY" with the no-signal
+   mark; the inputs read "kg" / "reps"; no "First time" line. Tap the pill → "Couldn't
+   load history. Network issue…" and Reload. Network on, Reload → the sheet fills; the
+   pill shows last time.
+9. Start a workout with the network off: a planned exercise shows the same failed pill
+   and Reload (D4).
+10. Swap a slot, log a set, force-quit, reopen → the workout resumes on the swapped
+    exercise with its set; ⋯ → Swap is disabled; delete the set → Swap → Back to plan is
+    still offered.
+11. Finish online → History / Start screens: the session lists the swapped exercise
+    only; its history sheet next time has this session; the machine's history does not.
+12. Next time you start the plan: the machine is back (the plan was not changed).
+
+**Device finding, 2026-10-31 (user, airplane mode): "First time on this exercise",
+pill "HISTORY", sheet "No history yet", no Reload.** Offline, `getDocs` does not reject:
+it resolves from the memory cache, empty on a cold start, so `getExerciseStats` returned
+`null` for every id and the store read it as fetched, never done. The failed state above
+was never reached; the screen test mocked a rejection that real Firestore does not give
+offline. Present since `getExerciseStats` was written (history keyed by exercise); 047's
+history design rested on it. Fix: `getExerciseStats` rejects when any snapshot is
+`metadata.fromCache`, as `getAllWorkoutPlans` does (TICKET-052 D5), and refuses a
+non-empty cached answer too (a missing id there is unknown). New test
+`workoutSessions.test.ts`, seen red with the check removed. jest: 39 suites, 515 tests.
+Still unverified on a device: that this now shows the failed pill and Reload offline.
+
+**Device finding 2, 2026-10-31 (user): the picker's "Search" label drew over
+the version sheet's button.** Paper's floating label has its own zIndex; on
+Android it won over the sheet despite tree order. Pre-existing since TICKET-043
+(e45837f, same overlay on main), so Manage Workout had it too. Fixed: the
+version and filter sheet overlays get `zIndex`/`elevation` 10. Untested by
+jest (layering does not render there); needs a device look.
+
+**Known gaps:**
+- The failed sheet says "Network issue" for any failure (a permission error too); the
+  real message is kept in the history entry's `error`, unshown. Deferred: pinned copy,
+  and every failure seen so far offline was the network.
+- Each picker open costs two reads (plans, recent sessions), and Recent is empty until
+  the second lands. Accepted (D3); a shared cache would be TICKET-050's rejected store.
+- The guided tour does not cover the swap picker (no `tourStepPrefix`): TICKET-053.
 
 ---
 
@@ -5064,7 +5192,7 @@ the default path.
 ### ~~TICKET-058: Exercise Menu, With Split Moved Into It~~ ✅ DONE
 
 **Priority:** High | **Effort:** Small-Med | **Status: MERGED** — PR #32 (f40e5b8),
-2026-10-30, by the user; device run not recorded here. Started after
+2026-10-30, by the user. Device run passed (user, 2026-10-31). Started after
 the user confirmed 033-3's (PR #30) device run passed. Before TICKET-047
 
 **Description:**
@@ -5203,10 +5331,10 @@ Known gaps:
 
 ---
 
-### TICKET-059: Today List — Arrow on the Row, Change Inside
+### ~~TICKET-059: Today List — Arrow on the Row, Change Inside~~ ✅ DONE
 
-**Priority:** Medium | **Effort:** Small | **Status: IN REVIEW** — PR #33 (branch
-TICKET-059, on main after #32), 2026-10-30; device test not yet run
+**Priority:** Medium | **Effort:** Small | **Status: MERGED** — PR #33 (233c17b),
+2026-10-30. Device run passed (user, 2026-10-31)
 
 **Description:**
 A Today row shows the set's values, its marks, the ⑂N chip and the change against
@@ -6214,9 +6342,9 @@ it) once 046's content exists. Phase 3B; research is in
 mid-workout, ahead of 032 and 029 below.
 
 ```
-1. TICKET-058  (Exercise menu + split)    — Done (PR #32, 2026-10-30); device run owed
-   TICKET-059  (Today list arrows)        — In review (PR #33)
-2. TICKET-047  (Swap an exercise)         — Next. Adds Swap to 058's menu
+1. TICKET-058  (Exercise menu + split)    — Done (PR #32, 2026-10-30); device run passed
+   TICKET-059  (Today list arrows)        — Done (PR #33, 2026-10-30); device run passed
+2. TICKET-047  (Swap an exercise)         — Built (2026-10-31), in review. Adds Swap to 058's menu
 3. TICKET-056  (Add an exercise)          — Workout ⋯ menu; boards not drawn yet
    TICKET-057  (Free-flow workout)        — Deferred; an empty session plus 056
 ```
