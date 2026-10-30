@@ -16,7 +16,7 @@ import {
   volumeText,
 } from "../../utils/setDeltas";
 import { TextBase, NumericText } from "../TextBase";
-import { DeltaBadge, deltaSpeech } from "./DeltaBadge";
+import { DeltaGlyph, deltaSpeech, VerdictGlyph, verdictColor } from "./DeltaBadge";
 import { EffortBadge } from "./EffortBadge";
 import { EFFORT_LABEL, effortSpeech, toggleEffort } from "../../utils/effort";
 import { splitCountText } from "../../utils/splits";
@@ -99,6 +99,17 @@ type Props = {
  * - Rows read as `setValuesText` writes them, unit included ("17.5 kg × 3";
  *   the board drew "17.5 × 3"), so a distance × time row keeps its units.
  * - The footer's volume counts every row (`todaySummary`).
+ *
+ * Decisions (TICKET-059, canvas boards TA0–TA5, user 2026-10-30):
+ * - A closed row shows the verdict glyph alone (`DeltaGlyph`) in a fixed
+ *   slot, not the change text: the text squeezed the values the user logged
+ *   to "7 pla…" (board TA0). The row's spoken label keeps the full change.
+ * - Opening the row shows the change first, then the split rows, then the
+ *   strip. Matched reads "Same weight and reps as last time"; even adds "same
+ *   volume", since its numbers moved and its glyph alone does not say why it
+ *   is not up or down.
+ * - The history sheet keeps glyph and text (`DeltaBadge`): comparing is what
+ *   that screen is for.
  */
 export default function TodaySets({
   exercise,
@@ -161,7 +172,13 @@ export default function TodaySets({
                 </View>
               )}
             </View>
-            {editing ? <TextBase style={styles.editingLabel}>EDITING</TextBase> : <DeltaBadge delta={delta} />}
+            {editing ? (
+              <TextBase style={styles.editingLabel}>EDITING</TextBase>
+            ) : (
+              <View style={styles.glyphSlot}>
+                <DeltaGlyph delta={delta} />
+              </View>
+            )}
           </TouchableOpacity>
           {!readOnly && (
             <TouchableOpacity
@@ -177,6 +194,23 @@ export default function TodaySets({
             </TouchableOpacity>
           )}
         </View>
+        {open && delta?.kind === "delta" && (
+          <View style={styles.change}>
+            <VerdictGlyph verdict={delta.verdict} size={11} />
+            {delta.verdict === "matched" ? (
+              <TextBase style={styles.changeNote}>Same weight and reps as last time</TextBase>
+            ) : (
+              <>
+                <NumericText style={[styles.changeText, { color: verdictColor(t, delta.verdict) }]}>
+                  {delta.label}
+                </NumericText>
+                <TextBase style={styles.changeNote}>
+                  {delta.verdict === "even" ? "vs last time, same volume" : "vs last time"}
+                </TextBase>
+              </>
+            )}
+          </View>
+        )}
         {open && splits.length > 0 && (
           <SplitRail rows={splits} style={styles.rail} textStyle={styles.splitRow} />
         )}
@@ -387,6 +421,33 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   splitChipText: {
     fontSize: t.fonts.small,
     color: t.colors.role.textPrimary,
+  },
+  // Fixed width, so the values end at the same place on every row.
+  glyphSlot: {
+    width: 20,
+    alignItems: "center",
+  },
+  // The open row's first line (TICKET-059, board TA2), indented to the values.
+  // Wraps: an even set in plates ("+5 plates · −3 reps vs last time, same
+  // volume") is wider than the card at 12pt, and Text in a row does not shrink.
+  change: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    columnGap: 7,
+    rowGap: 2,
+    minHeight: 30,
+    paddingVertical: 6,
+    paddingLeft: 13 + 22 + SPACING.medium,
+    paddingRight: 13,
+  },
+  changeText: {
+    fontSize: t.fonts.small,
+    fontWeight: "600",
+  },
+  changeNote: {
+    fontSize: t.fonts.small,
+    color: t.colors.role.textSecondary,
   },
   // Indented to the values, as the strip is.
   rail: {

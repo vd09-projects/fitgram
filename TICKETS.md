@@ -45,7 +45,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 047 | Swap an exercise mid-workout | Medium | After 058 (user, 2026-10-30). Only at 0 sets, full picker, the new exercise's own history, this workout only |
 | 056 | Add an exercise mid-workout | Small-Med | After 047; reuses its picker mode. Appended, this workout only |
 | 057 | Free-flow workout (name not final) | Medium | Deferred 2026-10-30. An empty session plus 056 |
-| 058 | Exercise menu, with split moved into it | Small-Med | **In review**, PR #32 (branch TICKET-058, 2026-10-30); device test not yet run. Exercise ⋯ beside "Exercise N of M"; the one-row card has no split column |
+| 059 | Today list: arrow on the row, change inside | Small | **In review**, PR #33 (branch TICKET-059, 2026-10-30); device test not yet run. Boards TA0–TA5 |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
 
 ### Not tickets — verification owed
@@ -63,8 +63,10 @@ Order is *not* decided here — see Recommended Execution Order at the end.
   unit-tested only. Unwatched: the layout at phone width (the three-button strip
   and its hint, the Editing label, Cancel/Save, the rest line), the rest line
   switching to "Rest done" mid-edit, and the guided tour over the card in edit mode.
+- **TICKET-058's exercise menu has never run on a device.** Merged in PR #32;
+  unit-tested only. Its 13-step plan is under TICKET-058 → Device test plan.
 
-One device session covers all four: start a workout, log two sets, mark one
+One device session covers the first four: start a workout, log two sets, mark one
 easy or hard, edit the other during its rest and wait for the rest to end, Save,
 Finish online, start the same workout again and check "last time" shows the mark
 and the edited values, then run the tour from Profile (once with an edit open).
@@ -5059,10 +5061,10 @@ the default path.
 
 ---
 
-### TICKET-058: Exercise Menu, With Split Moved Into It
+### ~~TICKET-058: Exercise Menu, With Split Moved Into It~~ ✅ DONE
 
-**Priority:** High | **Effort:** Small-Med | **Status: IN REVIEW** — PR #32 (branch
-TICKET-058), 2026-10-30; device test not yet run. Started after
+**Priority:** High | **Effort:** Small-Med | **Status: MERGED** — PR #32 (f40e5b8),
+2026-10-30, by the user; device run not recorded here. Started after
 the user confirmed 033-3's (PR #30) device run passed. Before TICKET-047
 
 **Description:**
@@ -5200,6 +5202,64 @@ Known gaps:
 **Dependencies:** TICKET-033 (done).
 
 ---
+
+### TICKET-059: Today List — Arrow on the Row, Change Inside
+
+**Priority:** Medium | **Effort:** Small | **Status: IN REVIEW** — PR #33 (branch
+TICKET-059, on main after #32), 2026-10-30; device test not yet run
+
+**Description:**
+A Today row shows the set's values, its marks, the ⑂N chip and the change against
+last time ("+5 plates · +5 reps"). On a phone the change text squeezes the values
+to "7 pla…" (board TA0): the number the user logged is the one that gets cut.
+
+**Why (user, 2026-10-30):** the set is already logged; at a glance the user only
+needs whether it went up. The exact change is one tap away.
+
+**Decided** (Workout Flow canvas, row "TICKET-059", boards TA0–TA5):
+- **Closed row:** values, E/H, ⑂N, then one fixed-width glyph, then ×. No change
+  text. The values never truncate for it
+- **Glyph per verdict** (`setDelta` already gives one per set): improved ▲ gold,
+  down ▼ grey, even **~** grey (numbers changed, same volume), matched **=** grey.
+  No delta (first time, other unit): nothing. `=` moves from even to matched
+  (user): matched had only the word
+- **Open row, in order:** the change line ("▲ +5 plates · +5 reps vs last time";
+  even adds ", same volume"; matched reads "Same weight and reps as last time"),
+  then the split rows, then Easy / Hard / Edit
+- **Screen reader** keeps the full change in the row's label
+- **Unchanged:** the footer volume line; the history sheet keeps glyph plus text
+  (it gets the new ~ and = glyphs, so a verdict still looks the same in both);
+  the ⑂N chip keeps its chevron
+
+**Dependencies:** none; boards TA0–TA5 merged in PR #32.
+
+**Built (2026-10-30):**
+- `DeltaBadge.tsx`: `DeltaGlyph` (glyph alone, for the Today row) and
+  `VerdictGlyph`; even is MaterialCommunityIcons `tilde`, matched `equal`.
+  `DeltaBadge` (history sheet) now shows a glyph for matched too
+- `TodaySets.tsx`: the glyph in a 20px slot; the open row's change line before
+  the split rows. Type: `t.fonts.small` (board drew 13px; tokens are 12 / 14,
+  and the line sits under the 14px split rows)
+- Verified: tsc clean; jest 38 suites, 506 tests. `TodaySets.test.tsx`: three
+  cases changed to open the row for the change, one new (even). Six breaks
+  (swap ~/=, label back on the closed row, no change line, even's note, matched
+  text, colour) each turned the expected tests red
+- Not verified: how it looks on a device; the history sheet's new glyphs are
+  not asserted (its tests pass unchanged)
+
+**Device test plan:**
+1. Log sets that beat, match, fall below, and equal last time's volume with
+   different numbers. Closed rows: ▲ gold, = grey, ▼ grey, ~ grey; no change text
+2. A long value with a mark and a split ("10 plates × 11 [H] ⑂2"): the values are
+   not cut off
+3. Tap each row: the first line is the change ("vs last time"; even adds "same
+   volume"; matched reads "Same weight and reps as last time"), then splits, then
+   Easy / Hard / Edit
+4. First-time exercise: no glyph, no change line when opened
+5. History sheet: still glyph plus text; matched now has =, even ~
+6. Screen reader on a row: reads the full change
+7. An even set in plates (last time 6 × 10, today 5 × 12, or longer), opened: the
+   change line wraps inside the card, not clipped at its edge (PR #33 finding 1)
 
 ### TICKET-049: Move the Client-SDK Scripts to the Admin SDK
 
@@ -6154,8 +6214,9 @@ it) once 046's content exists. Phase 3B; research is in
 mid-workout, ahead of 032 and 029 below.
 
 ```
-1. TICKET-058  (Exercise menu + split)    — Next. Builds the menu with a working feature
-2. TICKET-047  (Swap an exercise)         — Adds Swap to 058's menu
+1. TICKET-058  (Exercise menu + split)    — Done (PR #32, 2026-10-30); device run owed
+   TICKET-059  (Today list arrows)        — In review (PR #33)
+2. TICKET-047  (Swap an exercise)         — Next. Adds Swap to 058's menu
 3. TICKET-056  (Add an exercise)          — Workout ⋯ menu; boards not drawn yet
    TICKET-057  (Free-flow workout)        — Deferred; an empty session plus 056
 ```
@@ -6166,8 +6227,8 @@ for that.
 
 ```
 1. TICKET-033  (Split sets)                — A weight change within one set.
-                                             033-1 merged (PR #27); 033-2 in
-                                             review (PR #29); 033-3 open
+                                             Done: 033-1 (PR #27), 033-2
+                                             (PR #29), 033-3 (PR #30) merged
    TICKET-055  (Set segments)              — One shape for a set and its splits.
                                              Merged (PR #28)
 2. TICKET-032  (Edit/delete uploaded set)  — Needs the rollup rebuild; after 033 so it

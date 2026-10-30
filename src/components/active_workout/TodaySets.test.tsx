@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, within } from "@testing-library/react-native";
+import { act, fireEvent, screen } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
 import { AllColorSchemas, DefaultColorSchema } from "../../constants/colors";
 import ActiveWorkoutScreen from "../../screens/workout_management/ActiveWorkoutScreen";
@@ -21,8 +21,9 @@ const historyOf = (...pastSets: [string, string][]) => {
 };
 
 const role = AllColorSchemas[DefaultColorSchema].role;
-const colorOf = (testID: string, label: string) =>
-  StyleSheet.flatten(within(screen.getByTestId(testID)).getByText(label).props.style).color;
+/** The icon name inside a row's verdict glyph. */
+const glyphOf = (testID: string) =>
+  screen.getByTestId(testID).find((node) => typeof node.props.name === "string").props.name;
 
 const press = (name: string | RegExp) =>
   act(async () => {
@@ -30,30 +31,51 @@ const press = (name: string | RegExp) =>
   });
 
 describe("TodaySets", () => {
-  it("shows today's sets with deltas against the same set last time", () => {
+  it("shows today's sets with a glyph per verdict, and the change when a row opens", async () => {
     renderScreen(ActiveWorkoutScreen, {
       workout: benchWith(sets(["60", "9"], ["62.5", "6"])),
       history: historyOf(["60", "8"], ["62.5", "6"], ["60", "8"]),
     });
 
     expect(screen.getByText("60 kg × 9")).toBeOnTheScreen();
-    expect(within(screen.getByTestId("delta-improved")).getByText("+1 rep")).toBeOnTheScreen();
-    expect(within(screen.getByTestId("delta-matched")).getByText("matched")).toBeOnTheScreen();
-    expect(colorOf("delta-improved", "+1 rep")).toBe(role.signal);
+    // Closed rows carry the glyph only; the change is in the spoken label.
+    expect(glyphOf("delta-improved")).toBe("caret-up");
+    expect(glyphOf("delta-matched")).toBe("equal");
+    expect(screen.queryByText("+1 rep")).toBeNull();
+    expect(screen.getByRole("button", { name: /^Set 1, 60 kg by 9, improved: \+1 rep/ })).toBeOnTheScreen();
     // 915 today against last time's first two sets, 855 — not its full 1,335.
     expect(screen.getByText("2 sets · 915 kg")).toBeOnTheScreen();
     expect(screen.getByText("+7.0% volume vs first 2 sets")).toBeOnTheScreen();
+
+    await press(/^Set 1, 60 kg by 9/);
+    expect(screen.getByText("vs last time")).toBeOnTheScreen();
+    expect(StyleSheet.flatten(screen.getByText("+1 rep").props.style).color).toBe(role.signal);
+    await press(/^Set 2, 62.5 kg by 6/);
+    expect(screen.getByText("Same weight and reps as last time")).toBeOnTheScreen();
   });
 
-  it("calls heavier-but-fewer down when volume fell, and shows both numbers", () => {
+  it("calls heavier-but-fewer down when volume fell, and shows both numbers", async () => {
     renderScreen(ActiveWorkoutScreen, {
       workout: benchWith(sets(["67.5", "8"])),
       history: historyOf(["65", "9"]),
     });
 
     // 540 against 585: not an improvement because the weight went up.
-    expect(within(screen.getByTestId("delta-down")).getByText("+2.5 kg · −1 rep")).toBeOnTheScreen();
-    expect(colorOf("delta-down", "+2.5 kg · −1 rep")).toBe(role.textSecondary);
+    expect(glyphOf("delta-down")).toBe("caret-down");
+    await press(/^Set 1, 67.5 kg by 8/);
+    expect(StyleSheet.flatten(screen.getByText("+2.5 kg · −1 rep").props.style).color).toBe(role.textSecondary);
+  });
+
+  it("marks same volume from different numbers ~, and says so when opened", async () => {
+    renderScreen(ActiveWorkoutScreen, {
+      workout: benchWith(sets(["50", "12"])),
+      history: historyOf(["60", "10"]),
+    });
+
+    expect(glyphOf("delta-even")).toBe("tilde");
+    await press(/^Set 1, 50 kg by 12/);
+    expect(screen.getByText("−10 kg · +2 reps")).toBeOnTheScreen();
+    expect(screen.getByText("vs last time, same volume")).toBeOnTheScreen();
   });
 
   const LB: ExerciseField[] = [
@@ -193,11 +215,11 @@ describe("TodaySets split set", () => {
 
     // 180 + 160 + (100 + 52.5 + 45): the board's figure.
     expect(screen.getByText("3 sets · 537.5 kg")).toBeOnTheScreen();
-    // The delta reads the first segment only: 20 × 5 against 20 × 8.
-    expect(screen.getByText("−3 reps")).toBeOnTheScreen();
     expect(screen.queryByText("17.5 kg × 3")).toBeNull();
 
     await press(/^Set 3, 20 kg by 5, then 2 splits: 17.5 kg by 3, 15 kg by 3/);
+    // The delta reads the first segment only: 20 × 5 against 20 × 8.
+    expect(screen.getByText("−3 reps")).toBeOnTheScreen();
     expect(screen.getByText("17.5 kg × 3")).toBeOnTheScreen();
     expect(screen.getByText("15 kg × 3")).toBeOnTheScreen();
   });
