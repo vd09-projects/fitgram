@@ -44,7 +44,10 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 053 | Guided tour: end-to-end pass after the catalog work | Medium | After 043, 050, 051, 052. The tour is not working and is no longer fixed per ticket (user, 2026-10-27) |
 | 055 | Set segments: one shape for a set and its splits | Medium | Before 033-2 / 033-3. Live model decided (`segments`, ≥ 1); stored shape decided at the start (keep parallel, recommended, or unify) |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap. Storage: per-plan copies today, library undecided |
-| 047 | Switch an exercise's version mid-workout | Medium | Deferred 2026-10-24. For this workout only; the plan keeps its version |
+| 047 | Swap an exercise mid-workout | Medium | After 058 (user, 2026-10-30). Only at 0 sets, full picker, the new exercise's own history, this workout only |
+| 056 | Add an exercise mid-workout | Small-Med | After 047; reuses its picker mode. Appended, this workout only |
+| 057 | Free-flow workout (name not final) | Medium | Deferred 2026-10-30. An empty session plus 056 |
+| 058 | Exercise menu, with split moved into it | Small-Med | **Next** (user, 2026-10-30). Builds the exercise ⋯; the card loses its split column |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
 
 ### Not tickets — verification owed
@@ -4915,42 +4918,209 @@ recorded.
 
 ---
 
-### TICKET-047: Switch an Exercise's Version Mid-Workout
+### TICKET-047: Swap an Exercise Mid-Workout
 
-**Priority:** Low | **Effort:** Medium | **Status: DEFERRED** — decided 2026-10-24
+**Priority:** High | **Effort:** Medium | **Status: OPEN** — next (user, 2026-10-30).
+Was "Switch an exercise's version", deferred 2026-10-24; widened 2026-10-30 to any
+exercise, not only another version of the same movement
 
 **Description:**
-The machine is taken, so the user does dumbbells instead; or the shoulder is sore,
-so close grip today. Both are a version switch (grip is a version), for one
-workout. Today the only options are
-logging dumbbell numbers under the machine's history (a wrong number) or skipping the
-exercise. Wanted (user, 2026-10-24), not built now.
+The planned machine is missing, broken or taken, so the user does something else:
+lat pulldown machine → cable lat pulldown, or → pull-ups. Today the only options are
+logging the new exercise's numbers under the planned one's history (a wrong number)
+or skipping it. Going back to edit the plan mid-workout is not an option either:
+the plan changes only in Manage Workout.
+
+**Decided (user, 2026-10-30):**
+- **Only while the exercise has 0 sets.** Swap replaces the exercise in its slot;
+  "Exercise 1 of 6" stays 6. The rule reads the live set count, so deleting every
+  set makes swap available again. With sets logged, Swap stays in the exercise
+  menu, disabled, with its reason ("Only before set 1. Delete the logged sets to
+  swap."). Changed 2026-10-30 from "hidden": with the menu entry (below), hiding
+  it would leave an empty menu, or a ⋯ that comes and goes. Swap after sets (keep
+  the logged sets on the old exercise, add the new one beside it) is out of scope
+- **The full picker**, the same page as Add Exercise and Manage Workout (search,
+  start page, filters, version step). No "similar exercises" tier: rejected as
+  extra ranking and design for a case search already covers. The version step is
+  where one arm / both arms, grip and equipment are chosen
+- **Exercises already in today's workout are disabled**, as "In plan" is today
+  (`ExercisePicker` takes the taken ids; pass today's). Load-bearing: an
+  `exercise_sessions` doc id is `{sessionId}__{exerciseId}`, so the same exercise
+  twice in one session would silently overwrite one at upload
+- **The new exercise uses its own history and fields.** Last time, ghosts and
+  deltas come from that exercise's own history, never the planned one's. Plans
+  hold no set or rep targets (`Exercise` is id, name, fields), so nothing carries
+  over. Fields come from the catalog version: cable is weight × reps, band is reps
+  only
+- **History fetch failure is said, with Reload.** The swapped-in exercise was not
+  in the start-of-workout prefetch, so it is fetched on swap, often on gym wifi.
+  On failure: "Couldn't load history (network issue)" and a Reload button, never a
+  "first time" state, which would be a plausible wrong answer. The history store
+  already has an `error` status; the logger has no Reload today
+- **For this workout only.** The plan keeps its exercise; next session starts on
+  it again. No "update the plan?" prompt at Finish (Hevy asks; its users report
+  accepting it by accident)
+- **Not recorded.** The session does not store what was replaced
+  (`substitutedFor`). With the 0-sets rule nothing reads it; add it with the
+  "you swapped this 3 times, update the plan?" nudge if that is ever built.
+  Pre-launch, so adding it later costs nothing
+- **Undo is another swap.** While the new exercise has 0 sets, swap back
+- "Copy a plan and replace two exercises before starting" is covered: start the
+  workout, swap those two (any unlogged exercise can be swapped, not only the one
+  in view). No plan-copy feature
+
+**Design decided (user, 2026-10-30, exploration canvas):**
+- **Entry: the exercise ⋯ menu TICKET-058 builds**, beside "Exercise 1 of 6".
+  047 adds "Swap exercise · For this workout only" under "Split set N". Separate from
+  the workout ⋯ in the header (Discard; TICKET-056's Add exercise goes there):
+  workout-level actions in the workout menu, exercise-level ones in the exercise
+  menu. Rejected: a Swap chip under the name and a tappable name (an affordance
+  per feature, learnt only by accident); Swap inside the workout ⋯ (one menu
+  acting on two scopes). Split stays where it is for now; it may move into this
+  menu later
+- **Picker: the Add Exercise screen, shared** — same back arrow, search, Muscle /
+  Equipment / Type filters, Recent, version step; exercises in today's workout
+  marked "In workout". Rejected: other versions pinned on top
+- **After a swap the logger shows nothing extra.** The way back is a "Back to
+  plan: <planned exercise>" row at the top of the picker, above search, whenever
+  the slot is swapped. Rejected: a "Swapped for today" line, an Undo toast, a
+  "Swapped today" chip
+- **History lives in the existing pill.** Loading: "LAST TIME" with three dots;
+  inputs show "kg" / "reps" placeholders, never dashes. Failed: the pill reads
+  "HISTORY" with a no-signal mark; tapping it opens the history sheet, which says
+  "Couldn't load history. Network issue…" with Reload. Never done: "HISTORY", as
+  the pill already reads with no value — never "First time". Rejected: a banner in
+  the card, and the pill itself as the Reload button
+
+**Open when it is built:**
+- Whether a planned exercise's failed history fetch gets the same pill and sheet
+  (the logger has no Reload today)
+
+**Design:** exploration canvas https://claude.ai/artifact/M9TtULG3eQWuW8u4zD67rS
+(row "Final · Stage 2" is the design to build). The set card is as
+TICKET-058 leaves it: no split column, steppers and Repeat as today. The chosen boards go to the Workout
+Flow canvas and `design/workout-flow/` before code. `SwitchBefore.dc.html` and
+`SwitchAfter.dc.html` are superseded.
+
+**Dependencies:** TICKET-058 (the exercise menu). TICKET-043 (picker), TICKET-050
+(start page): done.
+
+---
+
+### TICKET-056: Add an Exercise Mid-Workout
+
+**Priority:** Medium | **Effort:** Small-Med | **Status: OPEN** — raised 2026-10-30,
+after TICKET-047
+
+**Description:**
+The plan is done and there is energy left (a finisher: abs, forearms, calves), the
+plan felt short, or something a friend suggested. Today it cannot be logged at all,
+so it is missing from history with nothing to say so.
+
+**Decided (user, 2026-10-30):**
+- **Allowed, for this workout only.** The plan does not change and nothing asks
+  to change it
+- **Appended at the end** of today's list; "1 of 6" becomes "1 of 7". The count is
+  today's workout, not the plan
+- **Same picker as TICKET-047**, today's exercises disabled (same collision reason)
+- **Its own history**, with 047's Reload state when the fetch fails
+- **One at a time.** No multi-add
+- **No remove action.** An added exercise never logged leaves nothing: 0-set
+  exercises are dropped at save (`buildSessionDocs`). A logged one's sets are
+  deleted the normal way, as for a planned exercise
+- **Not marked as added**, in the pager or in storage
+
+**Why its own ticket, not part of 047:** a different entry point (the workout, not
+one exercise) with its own boards and device test, and a smaller PR. Built
+straight after 047, reusing its picker mode and history fetch; designed with it.
+
+**Open:** where "+ Add exercise" sits. TICKET-047's scope rule points at the workout ⋯
+menu (workout-level actions there, exercise-level ones in the exercise ⋯); confirm on
+the canvas.
+
+**Dependencies:** TICKET-047.
+
+---
+
+### TICKET-057: Free-Flow Workout (name not final)
+
+**Priority:** Low | **Effort:** Medium | **Status: DEFERRED** — raised 2026-10-30
+
+**Description:**
+Start a workout with no plan and add exercises as you go. For a day the planned
+equipment is mostly unavailable, or with no plan in mind. The user's own
+preference is a set plan (no deciding mid-workout), so this is the fallback, not
+the default path.
+
+**Mostly TICKET-056:** an empty session plus "+ Add exercise". What it needs beyond:
+- starting with no plan (today `planDraft` refuses a plan with no exercises)
+- a session name and `workoutId`, since sessions and "last performed" are per plan
+- probably "save this as a plan" at Finish
+
+**Dependencies:** TICKET-056.
+
+---
+
+### TICKET-058: Exercise Menu, With Split Moved Into It
+
+**Priority:** High | **Effort:** Small-Med | **Status: OPEN** — next (user, 2026-10-30),
+before TICKET-047
+
+**Description:**
+The set card carries a "split" button in a third column beside the inputs
+(TICKET-033), on every set, though most sets are never split. This ticket adds an
+exercise ⋯ menu to the logger and moves starting a split into it. It goes first so
+the menu is built and tested with a feature that already works; TICKET-047 then
+only adds "Swap exercise" to it.
+
+**Why (user, 2026-10-30):** a rare action does not belong on the screen used every
+set. Splitting happens at logging time, after the set, so one extra tap costs
+nothing; the one-row card gets its inputs' full width back. Pre-launch, so no habit
+to unlearn. Cost accepted: split is less discoverable; the tour pass (TICKET-053)
+can point at the ⋯ once.
 
 **Decided:**
-- **For this workout only.** The plan keeps its version, so next week starts on the
-  planned one again. The plan changes in Manage Workout, never from the logger (the
-  same rule as TICKET-041 C1). Hevy and Strong default to this too; their "update
-  the routine?" question at Finish is the part left out
-- Covers grip too: it is a version. Every axis is switchable alike, none singled out
-- Revisit with it: logging against the new combination's own history, and its
-  "first time" state when it was never done (proposal boards P3, P4)
-- Reached from the version in the logger header (a small caret), only where the
-  movement has more than one version. The sheet is A3's, labelled "For this workout
-  only. Your plan keeps Machine."
-- **Before set 1:** the exercise is swapped for today. Targets and the Last time pill
-  come from the new version's history
-- **After sets:** the logged sets stay on the old version (they were done on it).
-  The new version is added beside it in this workout, starting at set 1, so each
-  version's history stays its own
+- **The menu:** a ⋯ beside "Exercise N of M" (exercise level; the header ⋯ stays
+  workout level). A sheet titled with the exercise name, its items, and Close.
+  Always shown: Split is always in it, so it is never empty
+- **"Split set N · Change the weight partway through this set"** calls the
+  existing `onAddSplit` (`ExerciseLogger.tsx`), which already handles a new set
+  and an edited one. N is the set on the card
+- **The one-row card has no third column.** Weight and reps take the full width;
+  the first split starts from the menu
+- **Once split, the last row's slot is back to the pre-PR #30 rule** (user,
+  2026-10-30): × while the last row is missing a field, **split** once it is
+  filled. Earlier rows keep ×. "+ split" under the rows is removed. The menu also
+  offers "Split set N again · Add another row to this set", disabled with "Fill
+  the last row first" by the same `canAddSplit` gate; the user picks either
+- **Accepted cost — reverses PR #30 finding 1:** a filled last row that Repeat
+  built and the user did not do shows split, not ×, so dropping it is two steps
+  (clear a field, then ×). Chosen over the menu-only design because adding a row
+  stays one tap on the card. Rejected: × on every row with the menu as the only
+  add (one tap to drop, two to add); "+ split" under the rows (an extra
+  full-width button on every split set)
+- **While editing a logged set:** the item reads "Split set N" for the set being
+  edited
+- **During rest:** the item shows, for the next set; the rest timer keeps running
+- **Tests:** the two `ExerciseLogger.test.tsx` cases that press "Add a split" open
+  the menu first. `splitSlot` goes back to per-row (`git show 2f4621b^:src/utils/splits.ts`
+  has the old version); the "+ split" control and its cases go; `canAddSplit`
+  drives the menu item's disabled state. 033-3's test that × drops a filled
+  repeated last row changes to clear-then-×
 
-**Design:** TICKET-041 boards B2, `design/workout-flow/project/Switch*.dc.html`.
+**Open when it is built:**
+- During rest the card is hidden behind the rest panel
+  (`resting && !editedSet`), so a split added then is not visible until the rest
+  ends. Check on a device whether that reads as broken; if it does, the item is
+  disabled during rest instead
+- The inputs narrow when a split starts (the third column appears). Check the jump on a
+  device
 
-**Open when it is picked up:** the workout then holds an exercise its plan lacks
-("Exercise 1 of 6" becomes 7); whether a later idea, replacing with a different
-movement altogether, uses the same sheet.
+**Design:** exploration canvas https://claude.ai/artifact/M9TtULG3eQWuW8u4zD67rS,
+row "Final · Stage 1": F1 logger, F2 menu, F3 split set (split on the filled last row),
+F4 the menu also adds a row, F5 last row empty: × on the card, Split disabled.
 
-**Dependencies:** TICKET-042 (versions), TICKET-043 (the sheet).
-
+**Dependencies:** TICKET-033 (done).
 
 ---
 
@@ -5896,6 +6066,16 @@ it) once 046's content exists. Phase 3B; research is in
 7. TICKET-052  (New plan, first plan)     — Done (PR #26, 2026-10-28); device plan
                                              pending on a phone
 8. TICKET-053  (Guided tour pass)         — Next
+```
+
+**Now (user, 2026-10-30):** the exercise menu, then swapping and adding an exercise
+mid-workout, ahead of 032 and 029 below.
+
+```
+1. TICKET-058  (Exercise menu + split)    — Next. Builds the menu with a working feature
+2. TICKET-047  (Swap an exercise)         — Adds Swap to 058's menu
+3. TICKET-056  (Add an exercise)          — Workout ⋯ menu; boards not drawn yet
+   TICKET-057  (Free-flow workout)        — Deferred; an empty session plus 056
 ```
 
 **Then the next three, decided.** They are what makes logging an exercise match what
