@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { RemovedSet, useWorkoutStore } from "../stores/useWorkoutStore";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { RemovedSet, SWAP_LOCKED_REASON, useWorkoutStore } from "../stores/useWorkoutStore";
 import { useRestPreferenceStore } from "../stores/restPreferenceStore";
+import { useExerciseHistoryStore } from "../stores/useExerciseHistoryStore";
+import { useAuthStore } from "../stores/authStore";
 import { SPACING } from "../constants/styles";
 import { LoggedExercise } from "../types/zustandWorkoutType";
 import { Effort } from "../types/workoutSession";
@@ -178,16 +180,32 @@ const PILL_HIT_SLOP = { top: (HIT - PILL_HEIGHT) / 2, bottom: (HIT - PILL_HEIGHT
  *   editing, otherwise the next set, during rest too. A split added during
  *   rest goes on the next set's rows, behind the rest panel; the rest keeps
  *   running. `onAddSplit` is unchanged: only its entry point moved.
+ *
+ * Decisions (TICKET-047, boards SwapLoading, SwapFailed, SwapSheet):
+ * - The pill carries history's state, for every exercise, swapped or planned
+ *   (user, 2026-10-30: one path; it reads `history.status`, not the slot):
+ *   loading reads "LAST TIME" with three dots; failed reads "HISTORY" with a
+ *   no-signal mark; fetched and never done reads "HISTORY", as before. Never
+ *   "First time" for a failed fetch, a plausible wrong answer. The notice
+ *   lines that said loading and failed are gone (`ghostNotice`).
+ * - Reload lives in the sheet, not on the pill (rejected on the canvas: the
+ *   pill as the Reload button). It refetches this exercise only, without
+ *   `force`: `error` is always retried, and a fetch in flight is joined.
+ *   Stale stats from an earlier fetch stay `ready` (with `error` set) and
+ *   render as numbers, so they get no failed state.
  */
 export default function ExerciseLogger({
   exercise,
   menuOpen,
   onCloseMenu,
+  onSwap,
 }: {
   exercise: LoggedExercise;
   /** The exercise ⋯ menu, opened from the screen's nav header. */
   menuOpen: boolean;
   onCloseMenu: () => void;
+  /** Open the swap picker for this exercise (TICKET-047); the screen owns it. */
+  onSwap: () => void;
 }) {
   const { styles, t } = useThemeStyles(createStyles);
   const {
@@ -322,6 +340,19 @@ export default function ExerciseLogger({
           onPress: onAddSplit,
         };
 
+  // TICKET-047 (boards SwapMenu, SwapLocked): under Split, disabled with its
+  // reason once a set is logged rather than hidden, so the menu keeps its shape.
+  // The live count: deleting every set enables it again. The store refuses the
+  // same case; this is what explains it.
+  const swapItem: ExerciseMenuItem = {
+    key: "swap",
+    renderIcon: (color) => <Ionicons name="swap-horizontal" size={20} color={color} />,
+    title: "Swap exercise",
+    detail: "For this workout only. Your plan keeps it.",
+    disabledReason: exercise.sets.length > 0 ? SWAP_LOCKED_REASON : null,
+    onPress: onSwap,
+  };
+
   // Shown on a one-row card only (hidden once split), so there are no split
   // rows to replace: the chain is added after row 1.
   const onRepeat = () => {
@@ -391,6 +422,14 @@ export default function ExerciseLogger({
   };
 
   const resting = rest !== null && rest.exerciseId === exercise.id;
+  const pillState = pillText !== null ? "value" : history.status === "loading" ? "loading" : history.status === "error" ? "failed" : "empty";
+
+  const reloadHistory = () => {
+    useExerciseHistoryStore
+      .getState()
+      .prefetchExerciseHistory(useAuthStore.getState().user?.uid, [exercise.id])
+      .catch(() => {});
+  };
 
   return (
     <View style={styles.container}>
@@ -433,11 +472,25 @@ export default function ExerciseLogger({
                   ? `Last time ${pillText.replace("×", "by")}${
                       split !== null && split.count > 0 ? `, then ${splitCountText(split.count)}` : ""
                     }${effortSpeech(lastEffort?.effort)}. Show history`
-                  : "Show history"
+                  : pillState === "loading"
+                    ? "Loading history. Show history"
+                    : pillState === "failed"
+                      ? "History not loaded. Show history"
+                      : "Show history"
               }
             >
-              <TextBase style={styles.pillLabel}>{pillText !== null ? "LAST TIME" : "HISTORY"}</TextBase>
+              <TextBase style={styles.pillLabel}>{pillState === "value" || pillState === "loading" ? "LAST TIME" : "HISTORY"}</TextBase>
               {pillText !== null && <NumericText style={styles.pillValue}>{pillText}</NumericText>}
+              {pillState === "loading" && (
+                <View style={styles.pillDots} testID="pill-loading">
+                  <View style={[styles.pillDot, { opacity: 1 }]} />
+                  <View style={[styles.pillDot, { opacity: 0.6 }]} />
+                  <View style={[styles.pillDot, { opacity: 0.3 }]} />
+                </View>
+              )}
+              {pillState === "failed" && (
+                <MaterialCommunityIcons name="wifi-off" size={14} color={t.colors.role.signal} testID="pill-failed" />
+              )}
               {split !== null && split.count > 0 && (
                 <View style={styles.pillSplit} testID="pill-split">
                   <SplitIcon size={11} color={t.colors.role.textPrimary} />
@@ -562,7 +615,7 @@ export default function ExerciseLogger({
         </View>
       </MaybeTourStep>
 
-      <ExerciseMenu visible={menuOpen} title={name.title} items={[splitItem]} onClose={onCloseMenu} />
+      <ExerciseMenu visible={menuOpen} title={name.title} items={[splitItem, swapItem]} onClose={onCloseMenu} />
 
       <ExerciseHistorySheet
         visible={historyOpen}
@@ -570,6 +623,7 @@ export default function ExerciseLogger({
         exercise={exercise}
         history={history}
         setNumber={setNumber}
+        onReload={reloadHistory}
       />
     </View>
   );
@@ -644,6 +698,9 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     letterSpacing: 1,
     color: t.colors.role.textSecondary,
   },
+  // Board SwapLoading: three dots fading out, in place of the numbers. Static.
+  pillDots: { flexDirection: "row", gap: 4 },
+  pillDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: t.colors.role.textSecondary },
   pillValue: {
     fontSize: 13,
     color: t.colors.role.textPrimary,

@@ -187,6 +187,10 @@ function RowSlot({
 
 // Styles come from the parent, built once per render of the card rather than
 // once per input: `useThemeStyles` does not memoise.
+/** A field's placeholder when there is no ghost: its unit, or "reps". None for a unitless `other`. */
+const emptyPlaceholder = (field: ExerciseField): string | undefined =>
+  field.role === "reps" ? "reps" : field.unit;
+
 function RowInput({
   field,
   value,
@@ -212,7 +216,9 @@ function RowInput({
       style={[inputStyle, focused && focusedStyle]}
       value={value}
       onChangeText={onChange}
-      placeholder={ghost === null ? undefined : formatStepValue(ghost)}
+      // No ghost (loading, failed, first time, a split row): what goes in,
+      // "kg" or "reps" (TICKET-047, board SwapLoading), never a dash or blank.
+      placeholder={ghost === null ? emptyPlaceholder(field) : formatStepValue(ghost)}
       placeholderTextColor={ghostColor}
       keyboardType={keyboardFor(field)}
       onFocus={() => setFocused(true)}

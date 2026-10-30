@@ -24,6 +24,7 @@ import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeCont
 import { useThemeStyles } from '../../utils/useThemeStyles';
 import { MaybeTourStep } from "../../components/guide_tour/MaybeTourStep";
 import { ACTIVE_WORKOUT_STEP_NAMES } from "../../tour_steps/activeWorkout";
+import SwapExercisePicker from "../../components/active_workout/SwapExercisePicker";
 
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.LogWorkout>;
 type layoutScreenNavigationProp = LayoutScreenNavigationProp<typeof LayoutRoutes.LogWorkout>;
@@ -40,6 +41,8 @@ export default function ActiveWorkoutScreen() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [exerciseMenuOpen, setExerciseMenuOpen] = useState(false);
+  /** The slot the swap picker is open for (TICKET-047), by id; null when closed. */
+  const [swappingId, setSwappingId] = useState<string | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [finishing, setFinishing] = useState(false);
 
@@ -50,6 +53,7 @@ export default function ActiveWorkoutScreen() {
   const currentExercise = currentIndex === null ? null : exercises[currentIndex];
   // Built from the catalog, never `exercise.name` (TICKET-042).
   const names = useExerciseNames(exercises);
+  const swapping = swappingId === null ? null : exercises.find((e) => e.id === swappingId) ?? null;
 
   // Cache-only read: this hook issues no network request (see its doc). Last
   // session's set count is the denominator for the current progress segment;
@@ -172,6 +176,7 @@ export default function ActiveWorkoutScreen() {
                   exercise={currentExercise}
                   menuOpen={exerciseMenuOpen}
                   onCloseMenu={() => setExerciseMenuOpen(false)}
+                  onSwap={() => setSwappingId(currentExercise.id)}
                 />
               </ScrollableScreen>
             </>
@@ -221,6 +226,12 @@ export default function ActiveWorkoutScreen() {
           </View>
         </Pressable>
       </Modal>
+
+      {/* Over the whole screen, footer included, as on Manage Workout. Closed
+          if its slot is gone (Finish or Discard while it was open). */}
+      {swapping && (
+        <SwapExercisePicker exercises={exercises} replacing={swapping} onClose={() => setSwappingId(null)} />
+      )}
 
       <DiscardWorkoutDialog
         visible={confirmDiscard}

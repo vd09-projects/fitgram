@@ -151,8 +151,9 @@ describe("ghostNotice and missingFieldsMessage", () => {
   it("tells apart the three ways history can be unavailable", () => {
     const notLoaded = { kind: "notLoaded" } as const;
     expect(ghostNotice(notLoaded, "idle")).toBe("Last session not loaded");
-    expect(ghostNotice(notLoaded, "loading")).toBe("Loading last session…");
-    expect(ghostNotice(notLoaded, "error")).toBe("Couldn't load last session");
+    // TICKET-047: the pill says loading and failed, not a line.
+    expect(ghostNotice(notLoaded, "loading")).toBeNull();
+    expect(ghostNotice(notLoaded, "error")).toBeNull();
     expect(ghostNotice({ kind: "setNotReached", lastSessionSetCount: 1 }, "ready")).toBe(
       "Last time stopped at 1 set"
     );

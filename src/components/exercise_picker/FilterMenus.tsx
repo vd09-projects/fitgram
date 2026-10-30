@@ -78,7 +78,7 @@ export function FilterSheet({ menu, filters, equipmentByUse, onChange, onClose }
   };
   const options = [{ value: undefined as string | undefined, label: "Any" }, ...menuOptions(menu, equipmentByUse)];
   return (
-    <View style={StyleSheet.absoluteFill}>
+    <View style={styles.overlay}>
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
       <View style={styles.sheet} testID="filter-sheet">
         <TextBase style={styles.sheetTitle}>{TITLES[menu]}</TextBase>
@@ -105,6 +105,10 @@ export function FilterSheet({ menu, filters, equipmentByUse, onChange, onClose }
 }
 
 const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
+  // Above the picker's search box: Paper's floating "Search" label carries
+  // its own zIndex and, once Android flattens the views between, drew over
+  // this sheet (device, 2026-10-31). Order in the tree alone does not win.
+  overlay: { ...StyleSheet.absoluteFillObject, zIndex: 10, elevation: 10 },
   filterRow: { flexDirection: "row", gap: SPACING.small, paddingTop: SPACING.small },
   menuButton: {
     flex: 1,
