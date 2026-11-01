@@ -1277,6 +1277,7 @@ export const CHEST_SHOULDERS_ARMS: Movement[] = [
     versions: [
       { id: "reverse_wrist_curl__barbell", equipment: "barbell", unilateral: false, measure: "weight_reps", fields: FIELDS.weight_reps, aliases: [] },
       { id: "reverse_wrist_curl__dumbbell", equipment: "dumbbell", unilateral: false, measure: "weight_reps", fields: FIELDS.weight_reps, aliases: ["dumbbell reverse wrist curl"] },
+      { id: "reverse_wrist_curl__cable", equipment: "cable", unilateral: false, measure: "weight_reps", fields: FIELDS.weight_reps, aliases: ["cable reverse wrist curl", "cable forearm reverse curl"] },
     ],
   },
   {

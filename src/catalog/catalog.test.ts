@@ -242,6 +242,7 @@ const SHIPPED_VERSION_IDS = [
   "behind_the_back_wrist_curl__barbell",
   "reverse_wrist_curl__barbell",
   "reverse_wrist_curl__dumbbell",
+  "reverse_wrist_curl__cable",
   "finger_curl__barbell",
   "radial_deviation__dumbbell__one_side",
   "pronation_supination__dumbbell__one_side",
