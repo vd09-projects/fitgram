@@ -6465,11 +6465,37 @@ reach it more often.
 **Follow-up (2026-11-01, user report):** tapping footer Workout from a logger page
 stayed on the logger. Cause: the revisit branch kept Workout's nested state on
 purpose, so Workout came back on Log Workout / Start Workout. The user wants Workout
-to always open Workout home. `openTab` now resets Workout's nested stack to
-`WorkoutHome` when moving it to the top; the route key and the visit-order history
-are unchanged. New test in `LayoutScreen.test.tsx` (seen red with the reset off).
-Not run on a device: Manage Workout's "Discard changes?" guard when Workout is
-tapped with unsaved edits (the reset removes that screen, so the guard should fire).
+to always open Workout home, and back to retrace the screens they were on
+(Workout → Start Workout → start a session → tap Workout → back: Log Workout,
+Start Workout, Feed).
+
+Built (PR #38): the same visit-order rule one level down. `openTab` moves Workout to
+the top of the Layout history, then moves Workout home to the top of the nested
+Workout stack. Nothing is removed, so back retraces the trail, and an unsaved
+Manage Workout stays beneath with its edits. `WorkoutNavigator` gives every screen a
+fixed `getId`, so `navigate` moves an existing copy to the top instead of pushing
+another: each Workout screen is in the stack at most once (at most 7, 5 without the
+debug screens; the Layout stack at most 5).
+
+Versions rejected on the way, all in PR #38:
+- Replacing the nested state inside the `reset`: removed the nested screens without
+  `beforeRemove`, so unsaved Manage Workout edits were dropped with no prompt
+  (review finding; probe: the guard callback never fired).
+- `popToTop` on the nested stack: ran the guard, but erased the trail, so back from
+  Workout home went straight to Feed (user report).
+- Moving Workout home without `getId`: kept the trail, but every Workout home →
+  Start → Log → Workout loop pushed two more screens, all mounted (measured: 3, 5,
+  7, 9 routes after 1–4 loops).
+
+Tests (`LayoutScreen.test.tsx`, now on the real `WorkoutNavigator` with stubbed
+screens): the user's scenario step by step; three loops leave the stack at 3; a
+blocked nested screen is kept with the same keys and its guard is not asked. Each
+was seen red with `getId` removed and with the move to Workout home removed.
+
+Known effects: a screen moved to the top keeps its state (e.g. Start Workout's
+search text when reopened). Back on a screen that has become the bottom of the
+Workout stack (e.g. Start Workout above) leaves the Workout tab for the previous
+one. Not run on a device.
 
 **Dependencies:** None. Pairs with TICKET-025.
 
@@ -6589,6 +6615,50 @@ Start row on the device.
   archiving the plan whose workout is in progress
 
 **Dependencies:** None.
+
+---
+
+### TICKET-062: Back Button on Every Screen
+
+**Priority:** Medium | **Effort:** Small | **Status: IN REVIEW** — raised and built
+2026-11-01, PR #38
+
+**Description:**
+Only the logger (Log Workout) had an on-screen back button. The user asked for one
+on every screen, like the logger's.
+
+**Decisions:**
+- One shared `BackButton` (`src/components/BackButton.tsx`), the logger's chevron
+  extracted from `WorkoutHeader`. With no `onPress` it calls `goBack`, the action
+  Android back dispatches, so the button and the hardware key always land in the
+  same place, and screens with a leave guard (Manage Workout) ask first.
+- Feed, Profile, Workout home: in the app header, left of the logo, shown when the
+  Layout history has something behind the current tab.
+- Start Workout, Manage Workout, Workout Logs: left of the centred title
+  (`BackTitle`).
+- Home has none. It is the bottom of the Layout history (TICKET-060), so back from
+  Home leaves the app; an on-screen button should not do that.
+- Debug screens (History Debug, Pending Uploads) have none: they are TEMPORARY.
+
+**Build:**
+- `LayoutScreen.test.tsx`: header back hidden on Home, then walks back tab by tab;
+  Back on a nested screen asks its leave guard. Each seen red with Back doing
+  nothing.
+- Not tested: the look on a device (the header logo shifts right when the chevron
+  shows; Workout Logs puts it beside the filter icon), and Manage Workout's real
+  dialog from Back. The screen test harness puts nothing behind the screen, so
+  Back there cannot fire `beforeRemove`; the guard path is tested on a stub
+  screen in `LayoutScreen.test.tsx` instead.
+
+**Known gaps, deferred:**
+- On Start Workout the button sits in the scrolling body and scrolls away; on
+  the other two it is in the fixed title bar. Moving the title into
+  `ScrollableScreen`'s `title` would add its border and padding, so it waits for
+  a device look.
+- After a back press the footer can highlight the tab you left (TICKET-025). The
+  header button makes this more frequent; the hardware key already does it.
+
+**Dependencies:** Pairs with TICKET-060 and TICKET-025.
 
 ---
 

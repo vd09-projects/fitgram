@@ -25,6 +25,17 @@ export type WorkoutStackParamList = {
 
 const Stack = createStackNavigator<WorkoutStackParamList>();
 
+// Every Workout screen is in this stack at most once. With a `getId`, the
+// router's `navigate` moves an existing copy of the screen to the top (same
+// key, still mounted, state kept) instead of pushing another copy; React
+// Navigation 7 pushes otherwise, so loops like Workout home → Start → Log →
+// Workout grew the stack by two screens per loop, every copy mounted. Moving
+// keeps the visit order, so back retraces where the user has been (the
+// same rule as the Layout tabs, LayoutScreen `openTab`).
+// Rejected: `navigate(name, { pop: true })` at each call site, which goes back
+// to the existing copy and drops everything above it from the history.
+const singleCopy = () => 'single';
+
 export default function WorkoutNavigator() {
   const t = useThemeTokens();
   return (
@@ -39,30 +50,35 @@ export default function WorkoutNavigator() {
     >
       <Stack.Screen
         name={WorkoutRoutes.WorkoutLogs}
+        getId={singleCopy}
         component={WorkoutLogsScreen}
         options={{ headerShown: false }}
       />
 
       <Stack.Screen
         name={WorkoutRoutes.WorkoutHome}
+        getId={singleCopy}
         component={WorkoutScreen}
         options={{ headerShown: false }}
       />
 
       <Stack.Screen
         name={WorkoutRoutes.StartWorkout}
+        getId={singleCopy}
         component={StartWorkoutScreen}
         options={{ headerShown: false }}
       />
 
       <Stack.Screen
         name={WorkoutRoutes.AddExercise}
+        getId={singleCopy}
         component={AddExerciseScreen}
         options={{ headerShown: false }}
       />
 
       <Stack.Screen
         name={WorkoutRoutes.LogWorkout}
+        getId={singleCopy}
         component={ActiveWorkoutScreen}
         options={{ headerShown: false }}
       />
@@ -74,6 +90,7 @@ export default function WorkoutNavigator() {
           {/* TEMPORARY — remove with ExerciseHistoryDebugScreen. */}
           <Stack.Screen
             name={WorkoutRoutes.HistoryDebug}
+            getId={singleCopy}
             component={ExerciseHistoryDebugScreen}
             options={{ headerShown: false }}
           />
@@ -81,6 +98,7 @@ export default function WorkoutNavigator() {
           {/* TEMPORARY — remove with PendingUploadsDebugScreen. */}
           <Stack.Screen
             name={WorkoutRoutes.PendingUploadsDebug}
+            getId={singleCopy}
             component={PendingUploadsDebugScreen}
             options={{ headerShown: false }}
           />
