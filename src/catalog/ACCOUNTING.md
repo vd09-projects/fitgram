@@ -1032,3 +1032,4 @@ as MVP extras); no obvious gym staple was missing, so none was added.**
 | Version id | Why |
 |---|---|
 | `dip__added_weight` | weighted triceps dip (stage 1 review): every bodyweight dip gets its weighted version; the research had only Weighted Chest Dip |
+| `reverse_wrist_curl__cable` | user's own logs (2026-11-01): cable standing wrist reverse curl, logged as "Cable forearm reverse curl"; the research had barbell and dumbbell only |
