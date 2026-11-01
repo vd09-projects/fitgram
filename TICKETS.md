@@ -45,6 +45,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 047 | Swap an exercise mid-workout | Medium | **In review**, PR #34 (branch TICKET-047, 2026-10-31); device re-run owed after the offline and layering fixes. Only at 0 sets, full picker, the new exercise's own history, this workout only |
 | 056 | Add an exercise mid-workout | Small-Med | After 047; reuses its picker mode. Appended, this workout only |
 | 057 | Free-flow workout (name not final) | Medium | Deferred 2026-10-30. An empty session plus 056 |
+| 061 | Archive plans | Small-Med | Design decided 2026-11-01 (boards in `design/workout-flow/`). **Save would silently unarchive** as written (`setDoc` with `merge: false`); the ticket says how to close it |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
 
 ### Not tickets — verification owed
@@ -6462,6 +6463,77 @@ screen), not silently. The behaviour is pre-existing; this change makes back
 reach it more often.
 
 **Dependencies:** None. Pairs with TICKET-025.
+
+---
+
+### TICKET-061: Archive Plans
+
+**Priority:** Medium | **Effort:** Small-Med | **Status: OPEN** — raised 2026-11-01,
+design decided the same day
+
+**Description:**
+Plans pile up. A small change to a routine often becomes a new plan, so after a few
+months Start Workout and Manage Workout list many plans that are never used again.
+Picking today's workout means reading past all of them. Archiving a plan hides it
+from those two lists without deleting anything.
+
+**Name:** Archive. Not "active": that already means the workout in progress
+(`activeWorkout`, `ActiveWorkoutScreen`). Plans that aren't archived get no name of
+their own; they are just your plans (not "current" either).
+
+**Decided (user, 2026-11-01).** Boards: "Archive plans" row at the bottom of the
+Workout Flow canvas, mirrored in `design/workout-flow/project/Archive*.dc.html`.
+The rounds that led there are on the Fitgram Design Drafts canvas.
+- **Start Workout.** Archived plans are hidden. "Show archived" / "Hide archived"
+  sits in the YOUR PLANS heading row, in that label's type (small caps). Shown,
+  they list under an ARCHIVED label below the others; the label has no control of
+  its own. The toggle starts hidden on every visit and only appears when at least
+  one plan is archived, so it never opens an empty list
+- **An archived plan starts like any other** and stays archived
+- **Search follows the toggle.** Hidden archived plans stay out of results. If
+  only an archived plan matches while they are hidden: "No plans match …" plus
+  "1 archived plan matches. Show archived to see it." No extra button
+- **Every plan archived:** "All your plans are archived" / "Use Show archived above
+  to start one." With no plans at all, the existing "No plans yet" stays
+- **Plans sort by last done**, most recent first. Today the list is unsorted:
+  Firestore document order
+- **Manage Workout, plan sheet:** the same toggle beside the "Plan" title
+- **Manage Workout, archiving:** "Archive" on the PLAN heading row, a quiet action
+  (12 px, sentence case, medium weight, icon). Archived, the field keeps only the
+  name, one line under it says "Archived · not listed when you start a workout",
+  and "Unarchive" takes Archive's spot
+- **Archive and Unarchive save at once,** not with Save changes: it's a switch on
+  the plan, not an edit to it. Unsaved edits to the plan stay pending. An archived
+  plan can still be edited and saved
+- **No confirm** on Archive: Unarchive is in the same spot
+
+**Data:** `WorkoutPlan.archivedAt?: number` (ms), absent = not archived. Pre-launch,
+so no backfill. No Firestore rules change: `users/{uid}/**` has no field list.
+
+**Load-bearing fact, checked:** Save writes the plan with
+`setDoc({ id, name, exercises }, { merge: false })` (`userDB.ts`
+`overrideWorkoutDetails`). As it stands, **the next Save after archiving would
+silently unarchive the plan.** Either Save carries `archivedAt` through
+`draftFromPlan` / `planFromDraft`, or it writes with `merge: true` (arrays are still
+replaced whole). Decide at build time; a test must cover archive → edit → Save.
+
+**Only Start and Manage filter.** Five places read `useWorkoutPlans`; the filter
+goes in those two screens, never in the hook or `getAllWorkoutPlans`:
+- History filter (`WorkoutHistoricalLogsFilter`) keeps every plan: history is out of
+  scope (user, 2026-11-01)
+- Swap picker (`SwapExercisePicker`) builds custom exercises from every plan
+  (`customExercisesFromPlans`). Filtering there would silently drop a custom
+  exercise that lives only in an archived plan
+- `ExerciseHistoryDebugScreen` is untouched
+
+**Out of scope:** history screens, the swap picker, tour steps, a "Duplicate plan"
+action, deleting plans.
+
+**Open:** an archived plan that has the workout in progress. Resume uses the
+workout's own copy, so it should keep working; check the resume banner and the
+Start row while building.
+
+**Dependencies:** None.
 
 ---
 
