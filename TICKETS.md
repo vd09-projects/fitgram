@@ -6506,9 +6506,10 @@ The rounds that led there are on the Fitgram Design Drafts canvas.
   after trying the first build). Until Save, the line reads "Archived when you save ·
   then not listed when you start a workout", and switching plan or leaving asks to
   discard, as for any edit. An archived plan can still be edited and saved.
-  Superseded: saving at once as a write of its own (my first design, never your
-  call). It raced Save (PR #37 review) and needed its own offline and refusal
-  handling
+  A pending Unarchive gets its own line, "Unarchived when you save · then listed when
+  you start a workout" (PR #37 review, pass 2). Superseded: saving at once as a
+  write of its own (the first build's design, not the user's). It raced Save
+  (PR #37 review) and needed its own offline and refusal handling
 - **No confirm** on Archive: Unarchive is in the same spot
 
 **Data (user, 2026-11-01):** `WorkoutPlan.archived?: boolean`. Save writes `true` for an
@@ -6547,6 +6548,9 @@ Start row on the device.
 
 **Build decisions (2026-11-01), each also commented where it lives:**
 - No Archive for a new plan before its first Save: nothing is stored to archive
+- Archive goes through Save's validation: a stored plan with an invalid row is
+  archived only once the row is fixed, and the refused Save names it. Accepted:
+  stored plans passed the same validation when saved
 - The plan sheet opens with archived shown when the open plan is archived, so the
   open plan always has its row. Otherwise it starts hidden, as on Start
 - The sheet lists plans in Start's order (`buildPlanRows`)

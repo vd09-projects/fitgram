@@ -357,7 +357,7 @@ describe("archive", () => {
     expect(saveButton()).toBeDisabled();
   });
 
-  it("Unarchive then Save writes the plan without the flag", async () => {
+  it("Unarchive says it waits for Save, which writes the plan without the flag", async () => {
     save.mockResolvedValue(undefined);
     renderManage([{ ...push(), archived: true }]);
     await openSheet();
@@ -366,8 +366,10 @@ describe("archive", () => {
     fireEvent.press(sheet.getByText("Push"));
     expect(screen.getByText(ARCHIVED)).toBeTruthy();
     fireEvent.press(screen.getByRole("button", { name: "Unarchive" }));
+    expect(screen.getByText("Unarchived when you save · then listed when you start a workout")).toBeTruthy();
     await act(async () => fireEvent.press(saveButton()));
     expect(save).toHaveBeenCalledWith(TEST_USER_ID, expect.not.objectContaining({ archived: expect.anything() }));
+    expect(screen.queryByText(/when you start a workout/)).toBeNull();
   });
 
   it("switching plan with an unsaved Archive asks to discard it", async () => {

@@ -134,6 +134,21 @@ export default function AddExerciseScreen() {
     () => orderedPlans.map((plan) => (plan.id === savedId ? withArchived(plan, savedArchived) : plan)),
     [orderedPlans, savedId, savedArchived]
   );
+  // The line under the plan field. Both unsaved changes say what Save will do
+  // (PR #37 review, pass 2): without the Unarchive line, an enabled Save was the
+  // only sign that one was pending.
+  const archiveLine: { icon: 'archive-outline' | 'arrow-undo-outline'; text: string } | null = !draft
+    ? null
+    : isArchived(draft)
+      ? {
+          icon: 'archive-outline',
+          text: savedArchived
+            ? 'Archived · not listed when you start a workout'
+            : 'Archived when you save · then not listed when you start a workout',
+        }
+      : savedArchived
+        ? { icon: 'arrow-undo-outline', text: 'Unarchived when you save · then listed when you start a workout' }
+        : null;
   // A new plan exists only on this phone until its first Save, so there is
   // nothing stored to archive: no Archive action for it.
   const stored = draft !== null && workoutPlans.some((plan) => plan.id === draft.id);
@@ -395,14 +410,10 @@ export default function AddExerciseScreen() {
                 <Ionicons name="chevron-down" size={18} color={t.colors.role.textSecondary} />
               </TouchableOpacityBase>
               {/* The field holds only the name; the state is one line under it. */}
-              {draft && isArchived(draft) && (
+              {archiveLine && (
                 <View style={styles.archivedLine} accessibilityRole="text">
-                  <Ionicons name="archive-outline" size={16} color={t.colors.role.textSecondary} />
-                  <TextBase style={styles.archivedLineText}>
-                    {saved && isArchived(saved)
-                      ? 'Archived · not listed when you start a workout'
-                      : 'Archived when you save · then not listed when you start a workout'}
-                  </TextBase>
+                  <Ionicons name={archiveLine.icon} size={16} color={t.colors.role.textSecondary} />
+                  <TextBase style={styles.archivedLineText}>{archiveLine.text}</TextBase>
                 </View>
               )}
             </View>
