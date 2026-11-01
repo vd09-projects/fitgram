@@ -6462,6 +6462,15 @@ through `popTo`, which is untested here, and it fails loudly (a visible empty
 screen), not silently. The behaviour is pre-existing; this change makes back
 reach it more often.
 
+**Follow-up (2026-11-01, user report):** tapping footer Workout from a logger page
+stayed on the logger. Cause: the revisit branch kept Workout's nested state on
+purpose, so Workout came back on Log Workout / Start Workout. The user wants Workout
+to always open Workout home. `openTab` now resets Workout's nested stack to
+`WorkoutHome` when moving it to the top; the route key and the visit-order history
+are unchanged. New test in `LayoutScreen.test.tsx` (seen red with the reset off).
+Not run on a device: Manage Workout's "Discard changes?" guard when Workout is
+tapped with unsaved edits (the reset removes that screen, so the guard should fire).
+
 **Dependencies:** None. Pairs with TICKET-025.
 
 ---

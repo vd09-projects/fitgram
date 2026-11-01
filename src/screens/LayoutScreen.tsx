@@ -5,7 +5,7 @@ import { CommonActions, StackActions, useNavigation } from '@react-navigation/na
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import LayoutNavigator, { LayoutScreenNavigationProp } from '../navigation/LayoutNavigator';
-import { LayoutRoutes } from '../constants/routes';
+import { LayoutRoutes, WorkoutRoutes } from '../constants/routes';
 import { SPACING } from '../constants/styles';
 import AnimatedScreen from '../components/AnimatedText';
 import { ReturnTypeUseThemeTokens } from '../components/app_manager/ThemeContext';
@@ -25,8 +25,11 @@ export default function LayoutScreen() {
   // back returns to wherever the user just was (TICKET-060):
   // - A tab not in the history is pushed on top.
   // - A tab already in the history is moved to the top, keeping its route
-  //   object (same key, same nested state). Its screens stay mounted, so the
-  //   Workout tab comes back on the screen it was left on, e.g. Log Workout.
+  //   object (same key), so back still walks the visit order.
+  // - Workout always opens on Workout home: its nested stack is reset to
+  //   WorkoutHome on every tap, including a tap on Workout while inside it.
+  //   Rejected: keeping the nested state (TICKET-060's first version), which
+  //   left the user on Log Workout or Start Workout after tapping Workout.
   // - Home clears the history back to itself. It is the bottom card and the
   //   floor: moving it up would let back walk past it and exit from another tab.
   // Each tab is in the history at most once, so it never exceeds five routes.
@@ -47,7 +50,10 @@ export default function LayoutScreen() {
     } else if (tab === LayoutRoutes.Home) {
       navigation.dispatch(StackActions.popTo(tab));
     } else {
-      const routes = [...state.routes.filter((route) => route.key !== existing.key), existing];
+      const moved = tab === LayoutRoutes.Workout
+        ? { ...existing, state: { routes: [{ name: WorkoutRoutes.WorkoutHome }] } }
+        : existing;
+      const routes = [...state.routes.filter((route) => route.key !== existing.key), moved];
       navigation.dispatch(CommonActions.reset({ ...state, routes, index: routes.length - 1 }));
     }
   };

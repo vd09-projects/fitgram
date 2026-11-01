@@ -16,7 +16,23 @@ import LayoutScreen from "./LayoutScreen";
 jest.mock("./HomeScreen", () => () => require("react").createElement(require("react-native").Text, null, "screen:Home"));
 jest.mock("./FeedScreen", () => () => require("react").createElement(require("react-native").Text, null, "screen:Feed"));
 jest.mock("./ProfileScreen", () => () => require("react").createElement(require("react-native").Text, null, "screen:Profile"));
-jest.mock("../navigation/WorkoutNavigator", () => () => require("react").createElement(require("react-native").Text, null, "screen:Workout"));
+// A real two-screen stack, so a test can leave Workout on a nested screen.
+jest.mock("../navigation/WorkoutNavigator", () => {
+  const React = require("react");
+  const { Text } = require("react-native");
+  const { createStackNavigator } = require("@react-navigation/stack");
+  const Stack = createStackNavigator();
+  const WorkoutHome = ({ navigation }: any) =>
+    React.createElement(Text, { onPress: () => navigation.navigate("LogWorkout") }, "screen:Workout");
+  const NestedLog = () => React.createElement(Text, null, "screen:NestedLog");
+  return () =>
+    React.createElement(
+      Stack.Navigator,
+      { screenOptions: { headerShown: false } },
+      React.createElement(Stack.Screen, { name: "WorkoutHome", component: WorkoutHome }),
+      React.createElement(Stack.Screen, { name: "LogWorkout", component: NestedLog })
+    );
+});
 jest.mock("./workout_management/ActiveWorkoutScreen", () => () => require("react").createElement(require("react-native").Text, null, "screen:LogWorkout"));
 
 const navigationRef = createNavigationContainerRef();
@@ -85,6 +101,24 @@ it("keeps the moved tab's route, so its nested screens survive the move", () => 
   // Same key: the same card moved, not a fresh Workout pushed in its place.
   expect(routes[routes.length - 1].key).toBe(workoutKey);
   expect(routes.filter((route) => route.name === "Workout")).toHaveLength(1);
+});
+
+it("Workout opens on Workout home, even when it was left on a nested screen", () => {
+  renderLayout();
+  fireEvent.press(screen.getByText("Workout"));
+  fireEvent.press(screen.getByText("screen:Workout"));
+  expect(screen.getByText("screen:NestedLog")).toBeOnTheScreen();
+
+  // Away and back: Workout home, not the nested Log Workout.
+  fireEvent.press(screen.getByText("Feed"));
+  fireEvent.press(screen.getByText("Workout"));
+  expect(screen.queryByText("screen:NestedLog")).toBeNull();
+
+  // Tapping Workout while inside it also returns to Workout home.
+  fireEvent.press(screen.getByText("screen:Workout"));
+  fireEvent.press(screen.getByText("Workout"));
+  expect(screen.queryByText("screen:NestedLog")).toBeNull();
+  expect(history()).toEqual(["Home", "Feed", "Workout"]);
 });
 
 it("header Home clears the history back to Home", () => {
