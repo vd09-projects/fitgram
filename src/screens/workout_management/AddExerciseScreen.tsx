@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { BORDER_RADIUS, SPACING } from '../../constants/styles';
 import ScrollableScreen from '../../components/ScrollableScreen';
+import { BackTitle } from '../../components/BackButton';
 import useWorkoutPlans from '../../hooks/useWorkoutPlans';
 import show from '../../utils/toastUtils';
 import { newPlanId, overrideWorkoutDetails } from '../../services/db/userDB';
@@ -335,7 +336,8 @@ export default function AddExerciseScreen() {
   return (
     <View style={styles.root}>
       <ScrollableScreen
-        title={<TextBase style={styles.heading}>Manage Workout</TextBase>}
+        // Back goes through the "Discard changes?" guard below (usePreventRemove).
+        title={<BackTitle><TextBase style={styles.heading}>Manage Workout</TextBase></BackTitle>}
         // EXPERIMENT: the footer floats over the list, so the list ends with
         // room for it; otherwise the last row could never scroll clear.
         innerContainerStyle={draft ? { paddingBottom: footerHeight } : undefined}>

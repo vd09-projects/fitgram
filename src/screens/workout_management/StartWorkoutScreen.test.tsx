@@ -189,7 +189,7 @@ describe("StartWorkoutScreen", () => {
     const fields = CATALOG_ROW.versions[0].fields;
     const plan: WorkoutPlan = {
       id: "back",
-      name: "Back",
+      name: "Pull",
       exercises: [
         { id: "row__barbell", name: "", nameSnapshot: "Barbell Row (old name)", fields },
         { id: "bench_press__pause", name: "", nameSnapshot: "Pause Bench Press", fields },
@@ -210,7 +210,7 @@ describe("StartWorkoutScreen", () => {
       })
     );
 
-    fireEvent.press(await screen.findByRole("button", { name: "Back" }));
+    fireEvent.press(await screen.findByRole("button", { name: "Pull" }));
 
     expect(screen.getByText("Row")).toBeOnTheScreen();
     expect(screen.getByText("Pause Bench Press")).toBeOnTheScreen();

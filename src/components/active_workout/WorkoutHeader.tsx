@@ -8,6 +8,7 @@ import { useThemeStyles } from "../../utils/useThemeStyles";
 import { formatElapsed } from "../../utils/workoutProgress";
 import { MaybeTourStep } from "../guide_tour/MaybeTourStep";
 import { ACTIVE_WORKOUT_STEP_NAMES } from "../../tour_steps/activeWorkout";
+import BackButton from "../BackButton";
 
 const HIT = 44;
 
@@ -49,14 +50,7 @@ export default function WorkoutHeader({ workoutName, startTime, onBack, onOpenMe
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        style={styles.iconButton}
-        onPress={onBack}
-        accessibilityRole="button"
-        accessibilityLabel="Back"
-      >
-        <Ionicons name="chevron-back" size={22} color={t.colors.role.textSecondary} />
-      </TouchableOpacity>
+      <BackButton onPress={onBack} />
 
       <View style={styles.titleBlock}>
         <TextBase style={styles.workoutName} numberOfLines={1}>{workoutName}</TextBase>

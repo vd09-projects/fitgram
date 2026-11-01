@@ -6,6 +6,7 @@ import { useAuthUser } from "../../hooks/useAuthUser";
 import { useRecentSessions } from "../../hooks/useRecentSessions";
 import { SPACING } from "../../constants/styles";
 import ScrollableScreen from "../../components/ScrollableScreen";
+import { BackTitle } from "../../components/BackButton";
 import SearchBox from "../../components/SearchBox";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
 import { useExerciseHistoryStore } from "../../stores/useExerciseHistoryStore";
@@ -166,7 +167,9 @@ export default function StartWorkoutScreen() {
         style={styles.scroll}
         innerContainerStyle={styles.inner}
       >
-        <TextBase style={styles.title}>Start workout</TextBase>
+        <BackTitle>
+          <TextBase style={styles.title}>Start workout</TextBase>
+        </BackTitle>
 
         {/* Unfinished-work banners. Only the resume banner is built here;
             TICKET-029's pending-uploads count belongs beside it in this stack,
