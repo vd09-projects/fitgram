@@ -29,7 +29,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 013 | Human-readable auth error messages | Small | `describeAuthError` exists but has one call site; sign-in, sign-up and logout still pass raw Firebase messages |
 | 014 | Reset email branding — Phase 1 | Small | Console-only; the template itself is locked by Firebase |
 | 023 | Guided tour: press-to-continue steps | Medium | Shelved patch in `docs/patches/` |
-| 025 | Footer highlight follows the current screen | Small | |
+| 025 | Footer highlight follows the current screen | Small | **More visible since 060:** Android back now walks the Layout history, and the highlight stays on the last tab tapped. Also left from 060: Active Workout's `openWorkoutScreen` still `navigate`s, which pushes a duplicate Workout route |
 | 026 | Clear account-scoped state on sign-out | Small | **Privacy:** the next user sees the previous one's cached history and upload queue |
 | 029 | Pending uploads view | Small-Med | A `TEMPORARY` debug screen is currently the only way to see the queue |
 | 030 | Drop unit suffixes from catalogue field names | Small | **Silent data loss:** renaming a field nulls every past value for it, and the session stays `comparable` so nothing flags it |
@@ -6316,6 +6316,152 @@ a mark that failed to store is not shown; tap-again clears on the Today strip to
   sessions. Today the user reads it from the sheet.
 
 **Dependencies:** Phase 3 complete. TICKET-020 (history sheet) is where older marks show.
+
+---
+
+### ~~TICKET-060: Android Back Button Closes the App~~ ✅ DONE
+
+**Priority:** High | **Effort:** Small | **Status: COMPLETED** — raised and built 2026-11-01
+
+**Description:**
+On Android 16 (user's phone, One UI 8.5) the system back button closes the app
+from every screen, including screens deep inside the Workout stack. On Android 12
+back works as expected (user, 2026-11-01). Android is the main platform, so this
+breaks basic navigation for most users.
+
+There are two separate causes. Part A explains the Android 16 symptom. Part B is a
+JS bug that stays once Part A is fixed.
+
+**Part A — Android 16 never delivers back to JS (native).**
+- `0210068` (2026-10-03, "target Android 16 (API 36)") set `targetSdkVersion = 36`
+  (`android/build.gradle:8`).
+- When an app targets API 36 and runs on Android 16+, predictive back is on by
+  default: the OS stops calling `Activity.onBackPressed()` and stops sending
+  `KEYCODE_BACK`.
+- RN 0.77.1 forwards back to JS only through an `onBackPressed()` override
+  (`node_modules/react-native/ReactAndroid/.../ReactActivity.java:98`). It does not
+  register an `OnBackPressedCallback`. So `hardwareBackPress` never fires: React
+  Navigation never sees the press and Android finishes the activity.
+- Collateral, all dead on Android 16 today: the `BackHandler` handlers in
+  `PlanSheet.tsx:37` and `ExercisePicker.tsx:180`, and Manage Workout's
+  "Discard changes?" guard (`usePreventRemove`, `AddExerciseScreen.tsx:141`). Back
+  on Manage with an unsaved plan drops the draft without asking.
+- Android 12 is unaffected: the opt-in only applies on Android 16+, which matches
+  the user's report.
+
+Fix: opt out of predictive back in `android/app/src/main/AndroidManifest.xml`:
+```xml
+<application ... android:enableOnBackInvokedCallback="false">
+```
+This is a stopgap. Android still honours the flag at API 36, but it is expected to
+go away in a later API level. The permanent fix is an RN/Expo upgrade whose
+`ReactActivity` uses `OnBackPressedDispatcher`, after which the flag can be removed.
+`android/` is checked in, so edit the manifest directly. If the project ever moves
+to `expo prebuild`, the flag needs a config plugin or it will be lost. Needs a
+native rebuild; a Metro reload does not pick it up.
+
+External confirmation: react-native-screens discussion #2540; theengs/app PR #153
+(same flag, verified on an Android 16 Pixel, gesture and 3-button).
+
+**Part B — footer tabs wipe the Layout back stack (JS).**
+`LayoutScreen.tsx:50`: every footer tap runs
+`navigation.reset({ index: 0, routes: [{ name: tab }] })`, leaving one route in the
+Layout stack, so back from a tab root has nowhere to go:
+- Home → footer Workout → back: the app exits instead of returning to Home.
+- Footer Log Workout → back: exits. The screen's on-screen back arrow
+  (`ActiveWorkoutScreen.tsx` `handleBack`) instead falls back to Workout home, so
+  the two back controls disagree on the same screen.
+- Header Home/Profile use `navigate` and keep history, so back works after those.
+
+**Decision (user, 2026-11-01): back returns to wherever the user just was, and
+Home is the floor.** Header and footer taps share `openTab` (`LayoutScreen.tsx`):
+- A tab not in the Layout history is `push`ed on top.
+- A tab already in the history is moved to the top with `reset`, keeping the same
+  route object (same key, same nested state). Its screens stay mounted, so
+  Workout comes back on the screen it was left on.
+- Header Home clears the history back to Home (`popTo`). Home is the bottom card;
+  moving it up would let back walk past it and exit from another tab.
+- Each tab appears at most once, so the history stays at five routes at most.
+- Example (scenario 1): Feed → Workout → Start Workout → Log Workout → footer Feed
+  → back → Log Workout → back → Start Workout → back → Workout home → back → Home
+  → back → exits.
+- Header Home and Profile were added to the scope during the build. They used
+  `navigate`, which pushes a duplicate on every tap under React Navigation 7.
+
+Rejected:
+- `popTo` for a revisit (built first, then replaced). It drops everything above
+  the tab, so in scenario 1 Feed → back skipped the Log Workout the user had just
+  come from. On its own, `popTo` also *replaces* the current route when the target
+  is not in the stack (`StackRouter.tsx`, POP_TO). Its doc comment says "added".
+- `reset` to `[Home, tab]`: back always lands on Home, not the previous tab.
+- `navigate(tab)`: under React Navigation 7 it pushes a new copy on every tap
+  (`@react-navigation/routers` 7.2.0, `StackRouter.tsx:341`). The history grows
+  without limit and every copy stays mounted, including several Active Workout
+  screens at once.
+- Bottom-tab navigator with `backBehavior: 'history'`: the right long-term
+  structure (it also derives the highlight, closing TICKET-025), but a Medium
+  refactor touching the header, the conditional Log Workout tab, Active Workout's
+  double registration and the footer tour anchors. Revisit if tabs grow.
+
+A revisited tab comes back where it was left (e.g. still on Log Workout). Before
+this change, every tap opened it fresh. The user accepted this in the device run.
+
+Knock-on effect: when Log Workout is reached by a footer tap, `canGoBack()` is now
+true, so the on-screen back arrow (`handleBack`) also returns to the previous tab.
+It matches hardware back. This is intended.
+
+**Overlap with TICKET-025:** `activeTab` is local state set only on taps, so after
+any back press the footer highlights the wrong tab. Part B makes back presses at the
+Layout level common, so 025's bug becomes visible much more often. Do 025 in the
+same change or straight after (it is Small).
+
+**Acceptance Criteria:**
+- [ ] Android 16, gesture and 3-button: back inside the Workout stack (e.g. Start
+      Workout → back) returns to the previous screen
+- [ ] Android 16: back closes an open PlanSheet and ExercisePicker, not the screen
+- [ ] Android 16: back on Manage with unsaved changes shows "Discard changes?"
+- [ ] Back from a footer tab returns to the previous tab; each tab appears in the
+      Layout history at most once; back from Home exits
+- [ ] Hardware back and the on-screen back arrow on Log Workout agree
+- [ ] Android 12: no regression, same checks
+
+**Unverified at filing:** the diagnosis comes from the RN 0.77 source, the user's
+Android 16 / Android 12 comparison and external reports. The manifest fix has not
+been built or run on this app.
+
+**Build (2026-11-01, branch `TICKET-060`):**
+- Part A: `AndroidManifest.xml` sets `enableOnBackInvokedCallback="false"`, with a
+  comment explaining why.
+- Part B: `LayoutScreen.tsx` `openTab`, shared by the header and the footer.
+- `LayoutScreen.test.tsx`: 4 tests:
+  - back walks the tabs and stops at Home
+  - a revisited tab moves to the top (scenario 1)
+  - the moved tab keeps its route key
+  - header Home clears to Home
+
+  Each one was seen to fail against the old `reset`, plain `navigate`, `popTo` for
+  revisits, or a fresh `push`.
+- `tsc` is clean; the full suite passes.
+- Device run (2026-11-01, Android 16 emulator, API 36, debug build): scenario 1
+  checked step by step with the hardware back key and screenshots. Every step
+  matched. The user confirmed it works.
+- The bug report came from an install dated 2026-10-03: its manifest had no flag.
+  A Metro reload does not deliver Part A. Each phone needs a new native build.
+- Not run on a device: scenario 2, 3-button vs gesture navigation, the
+  PlanSheet / ExercisePicker sheets, the "Discard changes?" guard, Android 12.
+- TICKET-025 is not included: the footer highlight is still wrong after a back
+  press (seen in the device run: Feed stayed highlighted on Log Workout).
+
+**Known gap, deferred:** Active Workout's "go to Workout" links
+(`ActiveWorkoutScreen.tsx` `openWorkoutScreen`) still use `navigate`, which pushes
+a second Workout route if one is already in the history. Reproduce: Workout →
+footer Log Workout → finish → the empty state's Start link → back lands on the
+emptied Log Workout screen. Deferred because it needs nested-screen params passed
+through `popTo`, which is untested here, and it fails loudly (a visible empty
+screen), not silently. The behaviour is pre-existing; this change makes back
+reach it more often.
+
+**Dependencies:** None. Pairs with TICKET-025.
 
 ---
 
