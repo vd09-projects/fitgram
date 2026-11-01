@@ -133,8 +133,14 @@ export function buildPlanRows(
  * Known limit: "no date" mixes never-done with done-long-ago, because only the
  * window is read. Rejected: reading every session to date old plans, a full
  * history read on each Start open for an order nobody can see past the top few.
+ *
+ * Known limit: until the sessions query returns, no plan has a date, so the list
+ * is A–Z and then reorders; a tap in that moment can select another row.
+ * Accepted (PR #37 review): Start names the plan on its button before starting.
+ * Rejected: holding the list until sessions load, because `null` also means the
+ * query failed, and the list would then never show.
  */
-export function comparePlanRows(a: PlanRow, b: PlanRow): number {
+function comparePlanRows(a: PlanRow, b: PlanRow): number {
   if (a.lastDoneAt !== b.lastDoneAt) {
     if (a.lastDoneAt === null) return 1;
     if (b.lastDoneAt === null) return -1;

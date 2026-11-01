@@ -167,29 +167,3 @@ export const overrideWorkoutDetails = async (
     { merge: false }
   ); // `merge: false` ensures complete overwrite
 };
-
-/**
- * TICKET-061: archive or unarchive a stored plan. Its own write, not part of
- * Save: archiving is a switch on the plan, not an edit to it, so it lands at
- * once and leaves unsaved edits pending. Unarchive writes `false`.
- *
- * Throws on missing ids, like `overrideWorkoutDetails`, so the caller never
- * reports a write that did not happen. `updateDoc` also rejects for a plan that
- * was never stored; the screen offers no Archive for one. Offline it neither
- * resolves nor rejects (memory cache): the caller bounds the wait.
- */
-export const setPlanArchived = async (
-  userId: string,
-  planId: string,
-  archived: boolean
-): Promise<void> => {
-  if (!userId || !planId) throw new Error("Missing user or plan id");
-  const workoutRef = doc(
-    db,
-    tables.users.collection,
-    userId,
-    tables.users.fields.workouts.collection,
-    planId
-  );
-  await updateDoc(workoutRef, { archived });
-};

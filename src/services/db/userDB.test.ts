@@ -1,8 +1,8 @@
 // TICKET-051 D4: Save shows "saved" only when this resolves, so a write it
 // skips must reject instead of logging and returning.
 
-import { getDocs, setDoc, updateDoc } from "firebase/firestore";
-import { getAllWorkoutPlans, overrideWorkoutDetails, setPlanArchived } from "./userDB";
+import { getDocs, setDoc } from "firebase/firestore";
+import { getAllWorkoutPlans, overrideWorkoutDetails } from "./userDB";
 
 jest.mock("../firebase/firebase", () => ({ db: {} }));
 jest.mock("firebase/firestore", () => ({
@@ -11,7 +11,6 @@ jest.mock("firebase/firestore", () => ({
   doc: jest.fn(() => "ref"),
   getDocs: jest.fn(),
   setDoc: jest.fn(async () => {}),
-  updateDoc: jest.fn(async () => {}),
 }));
 
 const snapshot = (fromCache: boolean, docs: { id: string; data: () => object }[]) => ({
@@ -43,8 +42,8 @@ describe("getAllWorkoutPlans", () => {
   });
 });
 
-// TICKET-061: Save is a complete overwrite, so it must write the archive state
-// it was given; archiving is its own small write.
+// TICKET-061: Archive and Unarchive are stored by Save, a complete overwrite,
+// so it must write the archive state it was given.
 describe("archive state", () => {
   const bench = { id: "bench", name: "", fields: [{ name: "Reps", role: "reps" as const }] };
 
@@ -53,10 +52,8 @@ describe("archive state", () => {
     expect((setDoc as jest.Mock).mock.calls.at(-1)?.[1]).toMatchObject({ archived: true });
   });
 
-  it("archives with true and unarchives with false", async () => {
-    await setPlanArchived("uid", "push", true);
-    expect((updateDoc as jest.Mock).mock.calls.at(-1)?.[1]).toEqual({ archived: true });
-    await setPlanArchived("uid", "push", false);
-    expect((updateDoc as jest.Mock).mock.calls.at(-1)?.[1]).toEqual({ archived: false });
+  it("Save of an unarchived plan writes no flag, which reads as not archived", async () => {
+    await overrideWorkoutDetails("uid", { id: "push", name: "Push", exercises: [bench] });
+    expect("archived" in (setDoc as jest.Mock).mock.calls.at(-1)?.[1]).toBe(false);
   });
 });

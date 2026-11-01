@@ -34,10 +34,9 @@ export type PlanDraft = {
   name: string;
   exercises: DraftExercise[];
   /**
-   * TICKET-061: carried, never edited here. Archive writes on its own, at once,
-   * and the screen copies the result in (`withArchived`). It rides through so
-   * Save, which overwrites the whole document, keeps it. Not part of the dirty
-   * check: archiving is not an unsaved edit.
+   * TICKET-061: Archive / Unarchive edit it (`withArchived`), and Save writes it
+   * with the rest of the plan (user, 2026-11-01). Part of the dirty check: an
+   * unsaved Archive is an unsaved edit.
    */
   archived?: boolean;
 };
@@ -90,18 +89,19 @@ export function planFromDraft(draft: PlanDraft): WorkoutPlan {
       ...(exercise.nameSnapshot ? { nameSnapshot: exercise.nameSnapshot } : {}),
       fields: fieldsToStore(exercise),
     })),
-    // TICKET-061: Save overwrites the document (`merge: false`), so a plan
-    // archived while it was open would come back unarchived without this.
-    // Rejected: Save with `merge: true`, which would also keep any stale field
-    // an old document carries; this way Save still writes exactly the screen's plan.
+    // TICKET-061: Save overwrites the document (`merge: false`), so the archive
+    // state is written here or lost. Unarchived writes no field: absent means
+    // not archived. Rejected: Save with `merge: true`, which would also keep any
+    // stale field an old document carries; this way Save writes exactly the screen's plan.
     ...(isArchived(draft) ? { archived: true } : {}),
   };
 }
 
-/** Order-sensitive: reordering exercises or fields is a change. Archive state is not part of it. */
+/** Order-sensitive: reordering exercises or fields is a change. So is archiving. */
 function canonical(plan: WorkoutPlan): string {
   return JSON.stringify({
     name: plan.name,
+    archived: isArchived(plan),
     exercises: plan.exercises.map((exercise) => ({
       id: exercise.id,
       name: exercise.name,

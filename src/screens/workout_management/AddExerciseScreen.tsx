@@ -11,7 +11,7 @@ import { BORDER_RADIUS, SPACING } from '../../constants/styles';
 import ScrollableScreen from '../../components/ScrollableScreen';
 import useWorkoutPlans from '../../hooks/useWorkoutPlans';
 import show from '../../utils/toastUtils';
-import { newPlanId, overrideWorkoutDetails, setPlanArchived } from '../../services/db/userDB';
+import { newPlanId, overrideWorkoutDetails } from '../../services/db/userDB';
 import { useAuthUser } from '../../hooks/useAuthUser';
 import { WorkoutScreenNavigationProp } from '../../navigation/WorkoutNavigator';
 import PlanExerciseList from '../../components/PlanExerciseList';
@@ -79,7 +79,6 @@ export default function AddExerciseScreen() {
   // Row errors appear after a refused Save, not while the user is typing.
   const [showErrors, setShowErrors] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [archiving, setArchiving] = useState(false);
   const [pendingDiscard, setPendingDiscard] = useState<PendingDiscard | null>(null);
   // A ref, not state: nothing renders from it, and a late landing must see the
   // current value, not the one from the render that queued it.
@@ -120,10 +119,21 @@ export default function AddExerciseScreen() {
   const myPendingCount = pendingUploads.filter((entry) => entry.uid === uid).length;
   const sessions = useRecentSessions(uid, myPendingCount);
   // TICKET-061: the plan sheet lists plans in Start's order, last done first.
-  const sheetPlans = useMemo(() => {
+  // Rejected: a lighter sort of Manage's own (PR #37 review): last done needs
+  // the same sessions-plus-pending-uploads merge, and two copies would drift.
+  const orderedPlans = useMemo(() => {
     const byId = new Map(workoutPlans.map((plan) => [plan.id, plan]));
     return buildPlanRows(workoutPlans, sessions, pendingUploads, uid, '').flatMap((row) => byId.get(row.id) ?? []);
   }, [workoutPlans, sessions, pendingUploads, uid]);
+  // The open plan's archive state is its saved copy's: `workoutPlans` catches
+  // up only when the reload after Save lands. Not the draft's: an unsaved
+  // Archive is not stored, and the sheet lists plans as stored.
+  const savedArchived = saved !== null && isArchived(saved);
+  const savedId = saved?.id;
+  const sheetPlans = useMemo(
+    () => orderedPlans.map((plan) => (plan.id === savedId ? withArchived(plan, savedArchived) : plan)),
+    [orderedPlans, savedId, savedArchived]
+  );
   // A new plan exists only on this phone until its first Save, so there is
   // nothing stored to archive: no Archive action for it.
   const stored = draft !== null && workoutPlans.some((plan) => plan.id === draft.id);
@@ -214,6 +224,8 @@ export default function AddExerciseScreen() {
    * a write that lands late (offline rule) must not overwrite another plan's
    * baseline. The draft is refreshed (new saved names, D2) only if it was not
    * edited since; if it was, it stays dirty against the new baseline.
+   * Archive is such an edit (TICKET-061), so one tapped while this write is in
+   * flight or queued stays in the draft.
    */
   const onSaved = (plan: WorkoutPlan) => {
     // D5's running-workout note is the banner, before editing; a longer toast
@@ -279,37 +291,15 @@ export default function AddExerciseScreen() {
   };
 
   /**
-   * TICKET-061: Archive / Unarchive the open plan. Its own write, at once, not
-   * with Save changes (user, 2026-11-01): a switch on the plan, not an edit, so
-   * unsaved edits stay pending and `dirty` is untouched. Shown at once, in both
-   * `saved` and `draft`, so the next Save carries it. A refused write puts it
-   * back, whenever it is refused: within Save's grace or after, offline.
-   * No confirm: Unarchive sits in the same spot.
+   * TICKET-061: Archive / Unarchive the open plan. An edit like any other
+   * (user, 2026-11-01): it changes the draft, Save changes writes it with the
+   * rest of the plan, and leaving first asks to discard it. Rejected: a write
+   * of its own at once, one tap shorter, but it raced Save (PR #37 review) and
+   * needed its own offline and refusal handling.
+   * No confirm: Unarchive sits in the same spot, and nothing is stored until Save.
    */
-  const handleArchive = async (archived: boolean) => {
-    if (!draft || !uid || archiving) return;
-    const planId = draft.id;
-    const apply = (value: boolean) => {
-      setSaved((prev) => (prev?.id === planId ? withArchived(prev, value) : prev));
-      setDraft((prev) => (prev?.id === planId ? withArchived(prev, value) : prev));
-    };
-    apply(archived);
-    setArchiving(true);
-    const write = setPlanArchived(uid, planId, archived);
-    write.then(handleReload, (error) => {
-      console.error('Could not change archive state:', error);
-      apply(!archived);
-      show.alert(archived ? 'Could not archive plan' : 'Could not unarchive plan', 'Please try again.');
-    });
-    try {
-      const result = await raceSave(write);
-      if (result === 'pending')
-        show.warn('Not saved yet', "Check your connection. It will finish when you're back online.");
-    } catch {
-      // Reported, and put back, by the handler above.
-    } finally {
-      setArchiving(false);
-    }
+  const handleArchive = (archived: boolean) => {
+    if (draft) setDraft(withArchived(draft, archived));
   };
 
   const handlePick = (exercise: Exercise) => {
@@ -380,9 +370,7 @@ export default function AddExerciseScreen() {
                   <TouchableOpacityBase
                     style={styles.archiveAction}
                     onPress={() => handleArchive(!isArchived(draft))}
-                    disabled={archiving}
                     accessibilityRole="button"
-                    accessibilityState={{ disabled: archiving }}
                   >
                     <Ionicons
                       name={isArchived(draft) ? 'arrow-undo-outline' : 'archive-outline'}
@@ -410,7 +398,11 @@ export default function AddExerciseScreen() {
               {draft && isArchived(draft) && (
                 <View style={styles.archivedLine} accessibilityRole="text">
                   <Ionicons name="archive-outline" size={16} color={t.colors.role.textSecondary} />
-                  <TextBase style={styles.archivedLineText}>Archived · not listed when you start a workout</TextBase>
+                  <TextBase style={styles.archivedLineText}>
+                    {saved && isArchived(saved)
+                      ? 'Archived · not listed when you start a workout'
+                      : 'Archived when you save · then not listed when you start a workout'}
+                  </TextBase>
                 </View>
               )}
             </View>

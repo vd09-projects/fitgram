@@ -68,8 +68,9 @@ export type WorkoutPlan = {
    * TICKET-061. Archived plans are hidden on Start and in Manage's plan sheet
    * until "Show archived"; every other reader (history filter, swap picker)
    * still sees them. Plans saved before 061 have no field, and are never
-   * backfilled (user, 2026-11-01): absent means not archived, and so does
-   * `false`, which Unarchive writes. Read it through `isArchived`.
+   * backfilled (user, 2026-11-01): absent means not archived. Save writes `true`
+   * or no field (Unarchive); a stored `false` also reads as not archived. Read it
+   * through `isArchived`.
    *
    * A flag, not an `archivedAt` time: nothing shows or sorts by the archive
    * date (user, 2026-11-01). Consequence of no backfill: Firestore cannot query

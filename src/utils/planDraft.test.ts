@@ -212,26 +212,23 @@ describe("newPlan (TICKET-052 D1, D2)", () => {
   });
 });
 
-// TICKET-061: Save overwrites the whole plan document, so the archive state
-// has to ride through the draft or the next Save unarchives the plan.
+// TICKET-061: Archive is an edit to the draft, and Save writes it with the plan.
 describe("archive state through a draft", () => {
-  it("survives an edit and Save, and archiving alone is not an unsaved edit", () => {
-    const saved = withArchived(plan(), true);
-    const draft = draftFromPlan(saved);
-    expect(isDraftDirty(saved, draft)).toBe(false);
+  it("is an unsaved edit until Save, and survives other edits", () => {
+    const saved = plan();
+    const archived = withArchived(draftFromPlan(saved), true);
+    expect(isDraftDirty(saved, archived)).toBe(true);
+    expect(planFromDraft(archived).archived).toBe(true);
 
-    const edited = addExercise(draft, pecDeck, "Pec Deck (Machine Fly)");
+    const edited = addExercise(archived, pecDeck, "Pec Deck (Machine Fly)");
     expect(planFromDraft(edited).archived).toBe(true);
-
-    // Archived while the screen held unsaved edits: the screen copies the
-    // result into both copies; the edits stay, and stay dirty.
-    const unsavedThenArchived = withArchived(addExercise(draftFromPlan(plan()), pecDeck, "Pec Deck"), true);
-    expect(planFromDraft(unsavedThenArchived).archived).toBe(true);
-    expect(isDraftDirty(withArchived(plan(), true), unsavedThenArchived)).toBe(true);
+    // Saved archived and reopened: nothing to save.
+    expect(isDraftDirty(withArchived(saved, true), draftFromPlan(withArchived(saved, true)))).toBe(false);
   });
 
   it("drops the key when unarchived, so Save never writes undefined", () => {
     const draft = withArchived(draftFromPlan(withArchived(plan(), true)), false);
     expect("archived" in planFromDraft(draft)).toBe(false);
+    expect(isDraftDirty(withArchived(plan(), true), draft)).toBe(true);
   });
 });
