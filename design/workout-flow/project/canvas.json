@@ -760,6 +760,14 @@
       "w": 390,
       "x": 4230,
       "y": 30900
+    },
+    "ArchiveManageUnarchivePending.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "8b \u00b7 Unarchive tapped: Archive back in its spot, the line says it waits for Save changes",
+      "w": 390,
+      "x": 5170,
+      "y": 30900
     }
   },
   "createdOnFiles": {
@@ -1028,7 +1036,7 @@
     },
     "archive": {
       "kind": "title1",
-      "maxW": 5090,
+      "maxW": 5560,
       "text": "Archive plans: hide old plans, keep them one tap away",
       "x": 0,
       "y": 30600
@@ -1036,9 +1044,9 @@
     "archivewhy": {
       "fill": "orange",
       "w": 300,
-      "x": 5170,
+      "x": 5640,
       "y": 30940,
-      "text": "DECIDED (user, 2026-11-01).\n\nArchived plans are hidden on Start and in the plan sheet. Show archived / Hide archived sits in the heading row; it starts hidden on every visit and only appears when something is archived.\n\nAn archived plan starts like any other and stays archived.\n\nSearch follows the toggle: archived plans appear in results only while shown (3, 3b). If only an archived plan matches while they are hidden, the message says so and points at the toggle (3c).\n\nNo name for plans that aren't archived: they are just your plans. Not \"current\", not \"active\" (clashes with an active workout).\n\nPlans sort by last done, most recent first.\n\nArchive / Unarchive are edits, stored by Save changes with the rest of the plan (user, after the first build). Until Save, the line says so (7b), and leaving asks to discard.\n\nArchived plans can still be edited."
+      "text": "DECIDED (user, 2026-11-01).\n\nArchived plans are hidden on Start and in the plan sheet. Show archived / Hide archived sits in the heading row; it starts hidden on every visit and only appears when something is archived.\n\nAn archived plan starts like any other and stays archived.\n\nSearch follows the toggle: archived plans appear in results only while shown (3, 3b). If only an archived plan matches while they are hidden, the message says so and points at the toggle (3c).\n\nNo name for plans that aren't archived: they are just your plans. Not \"current\", not \"active\" (clashes with an active workout).\n\nPlans sort by last done, most recent first.\n\nArchive / Unarchive are edits, stored by Save changes with the rest of the plan (user, after the first build). Until Save, the line says so (7b, 8b), and leaving asks to discard.\n\nArchived plans can still be edited."
     },
     "archivestates": {
       "fill": "teal",
@@ -1142,6 +1150,7 @@
     "ArchiveManageArchive.dc.html",
     "ArchiveManagePending.dc.html",
     "ArchiveManageArchived.dc.html",
+    "ArchiveManageUnarchivePending.dc.html",
     "ArchiveStartSearchShown.dc.html",
     "ArchiveStartSearchArchivedOnly.dc.html"
   ],
