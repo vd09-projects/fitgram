@@ -45,6 +45,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 047 | Swap an exercise mid-workout | Medium | **In review**, PR #34 (branch TICKET-047, 2026-10-31); device re-run owed after the offline and layering fixes. Only at 0 sets, full picker, the new exercise's own history, this workout only |
 | 056 | Add an exercise mid-workout | Small-Med | After 047; reuses its picker mode. Appended, this workout only |
 | 057 | Free-flow workout (name not final) | Medium | Deferred 2026-10-30. An empty session plus 056 |
+| 061 | Archive plans | Small-Med | Design decided 2026-11-01 (boards in `design/workout-flow/`). Built on PR #37 (data, Start, Manage); review pass 1 addressed. `archived` flag, no backfill. **Device run owed** |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
 
 ### Not tickets — verification owed
@@ -6462,6 +6463,123 @@ screen), not silently. The behaviour is pre-existing; this change makes back
 reach it more often.
 
 **Dependencies:** None. Pairs with TICKET-025.
+
+---
+
+### TICKET-061: Archive Plans
+
+**Priority:** Medium | **Effort:** Small-Med | **Status: OPEN** — raised 2026-11-01,
+design decided the same day
+
+**Description:**
+Plans pile up. A small change to a routine often becomes a new plan, so after a few
+months Start Workout and Manage Workout list many plans that are never used again.
+Picking today's workout means reading past all of them. Archiving a plan hides it
+from those two lists without deleting anything.
+
+**Name:** Archive. Not "active": that already means the workout in progress
+(`activeWorkout`, `ActiveWorkoutScreen`). Plans that aren't archived get no name of
+their own; they are just your plans (not "current" either).
+
+**Decided (user, 2026-11-01).** Boards: "Archive plans" row at the bottom of the
+Workout Flow canvas, mirrored in `design/workout-flow/project/Archive*.dc.html`.
+The rounds that led there are on the Fitgram Design Drafts canvas.
+- **Start Workout.** Archived plans are hidden. "Show archived" / "Hide archived"
+  sits in the YOUR PLANS heading row, in that label's type (small caps). Shown,
+  they list under an ARCHIVED label below the others; the label has no control of
+  its own. The toggle starts hidden on every visit and only appears when at least
+  one plan is archived, so it never opens an empty list
+- **An archived plan starts like any other** and stays archived
+- **Search follows the toggle.** Hidden archived plans stay out of results. If
+  only an archived plan matches while they are hidden: "No plans match …" plus
+  "1 archived plan matches. Show archived to see it." No extra button
+- **Every plan archived:** "All your plans are archived" / "Use Show archived above
+  to start one." With no plans at all, the existing "No plans yet" stays
+- **Plans sort by last done**, most recent first. Today the list is unsorted:
+  Firestore document order
+- **Manage Workout, plan sheet:** the same toggle beside the "Plan" title
+- **Manage Workout, archiving:** "Archive" on the PLAN heading row, a quiet action
+  (12 px, sentence case, medium weight, icon). Archived, the field keeps only the
+  name, one line under it says "Archived · not listed when you start a workout",
+  and "Unarchive" takes Archive's spot
+- **Archive and Unarchive are edits, stored by Save changes** (user, 2026-11-01,
+  after trying the first build). Until Save, the line reads "Archived when you save ·
+  then not listed when you start a workout", and switching plan or leaving asks to
+  discard, as for any edit. An archived plan can still be edited and saved.
+  A pending Unarchive gets its own line, "Unarchived when you save · then listed when
+  you start a workout" (PR #37 review, pass 2). Superseded: saving at once as a
+  write of its own (the first build's design, not the user's). It raced Save
+  (PR #37 review) and needed its own offline and refusal handling
+- **No confirm** on Archive: Unarchive is in the same spot
+
+**Data (user, 2026-11-01):** `WorkoutPlan.archived?: boolean`. Save writes `true` for an
+archived plan and no field otherwise; a missing field (or `false`) means not archived. **No backfill**:
+existing plans are never touched. No Firestore rules change: `users/{uid}/**` has no
+field list.
+- A flag, not an `archivedAt` time (first proposal): nothing shows or sorts by the
+  archive date
+- Consequence of no backfill: Firestore cannot query "not archived", since a missing
+  field matches no filter (`!= true` skips it too). Plans are loaded whole and
+  filtered on the phone, as they already were. A server-side filter would need the
+  backfill first
+
+**Load-bearing fact, checked:** Save writes the plan with
+`setDoc({ id, name, exercises }, { merge: false })` (`userDB.ts`
+`overrideWorkoutDetails`). As it stood, **the next Save after archiving would
+silently unarchive the plan.** Chosen: Save carries `archived` through
+`draftFromPlan` / `planFromDraft`. Rejected: `merge: true`, which would also keep any
+stale field an old document carries. Tested: archive → edit → Save keeps the flag.
+
+**Only Start and Manage filter.** Five places read `useWorkoutPlans`; the filter
+goes in those two screens, never in the hook or `getAllWorkoutPlans`:
+- History filter (`WorkoutHistoricalLogsFilter`) keeps every plan: history is out of
+  scope (user, 2026-11-01)
+- Swap picker (`SwapExercisePicker`) builds custom exercises from every plan
+  (`customExercisesFromPlans`). Filtering there would silently drop a custom
+  exercise that lives only in an archived plan
+- `ExerciseHistoryDebugScreen` is untouched
+
+**Out of scope:** history screens, the swap picker, tour steps, a "Duplicate plan"
+action, deleting plans.
+
+**Open:** an archived plan that has the workout in progress. Resume uses the
+workout's own copy, so it should keep working; check the resume banner and the
+Start row on the device.
+
+**Build decisions (2026-11-01), each also commented where it lives:**
+- No Archive for a new plan before its first Save: nothing is stored to archive
+- Archive goes through Save's validation: a stored plan with an invalid row is
+  archived only once the row is fixed, and the refused Save names it. Accepted:
+  stored plans passed the same validation when saved
+- The plan sheet opens with archived shown when the open plan is archived, so the
+  open plan always has its row. Otherwise it starts hidden, as on Start
+- The sheet lists plans in Start's order (`buildPlanRows`)
+- On Start, the plan count now sits right after YOUR PLANS (the board's place),
+  not at the far right, also when nothing is archived
+- Archived names use `textSecondary`, not the board's #B9C3C1, which is not a token
+- Start's order shifts once the recent-sessions query lands (A–Z until then), so a
+  tap in that moment can select another row. Accepted: Start names the plan on its
+  button. Rejected: holding the list until sessions load, since `null` also means
+  the query failed and the list would never show
+- **Save in flight, then Archive (PR #37 review):** with Archive as its own write, a
+  Save landing after it rebased the screen on the pre-archive copy, and the next Save
+  unarchived the plan. Gone with Archive as an edit: the draft is dirty against the
+  landing Save, so it is kept. A test covers it
+- The sheet takes the open plan's archive state from its saved copy, so it groups
+  correctly before the reload after Save lands. Not the draft's: an unsaved Archive
+  is not stored
+- Rejected: a lighter sort for the sheet than `buildPlanRows`. Last done needs the
+  same sessions-plus-pending-uploads merge; two copies would drift
+
+**Verification:**
+- `tsc` clean; 543 tests pass. New: 6 logic, 5 Start screen, 7 Manage screen. Each
+  was seen to fail against the line it covers
+- Not tested: real Firestore writes (Save storing `archived: true`, and no field
+  after Unarchive), the
+  toggle resetting on revisit (needs a real focus change), the look on a device, and
+  archiving the plan whose workout is in progress
+
+**Dependencies:** None.
 
 ---
 

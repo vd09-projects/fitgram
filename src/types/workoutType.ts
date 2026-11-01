@@ -64,7 +64,24 @@ export type WorkoutPlan = {
   id: string;
   name: string;
   exercises: Exercise[];
+  /**
+   * TICKET-061. Archived plans are hidden on Start and in Manage's plan sheet
+   * until "Show archived"; every other reader (history filter, swap picker)
+   * still sees them. Plans saved before 061 have no field, and are never
+   * backfilled (user, 2026-11-01): absent means not archived. Save writes `true`
+   * or no field (Unarchive); a stored `false` also reads as not archived. Read it
+   * through `isArchived`.
+   *
+   * A flag, not an `archivedAt` time: nothing shows or sorts by the archive
+   * date (user, 2026-11-01). Consequence of no backfill: Firestore cannot query
+   * "not archived" (a missing field matches no filter), so plans are loaded
+   * whole and filtered on the phone, as they already were.
+   */
+  archived?: boolean;
 };
+
+/** TICKET-061: only a stored `true` archives a plan; absent or anything else does not. */
+export const isArchived = (plan: Pick<WorkoutPlan, "archived">): boolean => plan.archived === true;
 
 export type WorkoutPlanDB = {
   id?: string;

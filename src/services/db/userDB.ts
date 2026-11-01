@@ -2,7 +2,7 @@
 // `src/services/db/workoutSessions.ts`, which stores it exercise-first; the old
 // workout_logs tree could only answer "what did I do last time in THIS workout".
 import { tables } from "../../constants/tables";
-import { Exercise, WorkoutPlan, WorkoutPlanDB } from "../../types/workoutType";
+import { Exercise, WorkoutPlan, WorkoutPlanDB, isArchived } from "../../types/workoutType";
 import { normalizeExerciseFields } from "../../utils/exerciseFields";
 import { db } from "../firebase/firebase";
 import {
@@ -160,6 +160,9 @@ export const overrideWorkoutDetails = async (
       id: workout.id,
       name: workout.name,
       exercises: workout.exercises,
+      // TICKET-061: a complete overwrite, so the archive state must be written
+      // too or Save would unarchive the plan. `planFromDraft` carries it.
+      ...(isArchived(workout) ? { archived: true } : {}),
     },
     { merge: false }
   ); // `merge: false` ensures complete overwrite

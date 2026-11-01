@@ -15,6 +15,7 @@ import {
   setExerciseFields,
   setPendingField,
   validateDraft,
+  withArchived,
 } from "./planDraft";
 import { patchField } from "./exerciseFields";
 import { validateCustomFields } from "./exerciseValidations";
@@ -208,5 +209,26 @@ describe("newPlan (TICKET-052 D1, D2)", () => {
     expect(newPlan("Push · Chest & Triceps / A", [], makeId)).toMatchObject({ ok: true });
     expect(newPlan("x".repeat(40), [], makeId)).toMatchObject({ ok: true });
     expect(newPlan("x".repeat(41), [], makeId)).toEqual({ ok: false, error: "A plan name can be at most 40 characters." });
+  });
+});
+
+// TICKET-061: Archive is an edit to the draft, and Save writes it with the plan.
+describe("archive state through a draft", () => {
+  it("is an unsaved edit until Save, and survives other edits", () => {
+    const saved = plan();
+    const archived = withArchived(draftFromPlan(saved), true);
+    expect(isDraftDirty(saved, archived)).toBe(true);
+    expect(planFromDraft(archived).archived).toBe(true);
+
+    const edited = addExercise(archived, pecDeck, "Pec Deck (Machine Fly)");
+    expect(planFromDraft(edited).archived).toBe(true);
+    // Saved archived and reopened: nothing to save.
+    expect(isDraftDirty(withArchived(saved, true), draftFromPlan(withArchived(saved, true)))).toBe(false);
+  });
+
+  it("drops the key when unarchived, so Save never writes undefined", () => {
+    const draft = withArchived(draftFromPlan(withArchived(plan(), true)), false);
+    expect("archived" in planFromDraft(draft)).toBe(false);
+    expect(isDraftDirty(withArchived(plan(), true), draft)).toBe(true);
   });
 });

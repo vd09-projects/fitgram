@@ -16,7 +16,8 @@ import { useAuthUser } from '../../hooks/useAuthUser';
 import { WorkoutScreenNavigationProp } from '../../navigation/WorkoutNavigator';
 import PlanExerciseList from '../../components/PlanExerciseList';
 import { DiscardWorkoutDialog } from '../../components/active_workout/DiscardWorkoutDialog';
-import { Exercise, WorkoutPlan } from '../../types/workoutType';
+import { Exercise, WorkoutPlan, isArchived } from '../../types/workoutType';
+import { buildPlanRows } from '../../utils/startWorkout';
 import { TextBase } from '../../components/TextBase';
 import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
@@ -37,6 +38,7 @@ import {
   setExerciseFields,
   setPendingField,
   validateDraft,
+  withArchived,
 } from '../../utils/planDraft';
 import { customExercisesFromPlans } from '../../utils/exerciseSearch';
 import { exerciseDisplayName } from '../../utils/catalog';
@@ -116,6 +118,40 @@ export default function AddExerciseScreen() {
   const pendingUploads = useWorkoutStore((s) => s.pendingUploads);
   const myPendingCount = pendingUploads.filter((entry) => entry.uid === uid).length;
   const sessions = useRecentSessions(uid, myPendingCount);
+  // TICKET-061: the plan sheet lists plans in Start's order, last done first.
+  // Rejected: a lighter sort of Manage's own (PR #37 review): last done needs
+  // the same sessions-plus-pending-uploads merge, and two copies would drift.
+  const orderedPlans = useMemo(() => {
+    const byId = new Map(workoutPlans.map((plan) => [plan.id, plan]));
+    return buildPlanRows(workoutPlans, sessions, pendingUploads, uid, '').flatMap((row) => byId.get(row.id) ?? []);
+  }, [workoutPlans, sessions, pendingUploads, uid]);
+  // The open plan's archive state is its saved copy's: `workoutPlans` catches
+  // up only when the reload after Save lands. Not the draft's: an unsaved
+  // Archive is not stored, and the sheet lists plans as stored.
+  const savedArchived = saved !== null && isArchived(saved);
+  const savedId = saved?.id;
+  const sheetPlans = useMemo(
+    () => orderedPlans.map((plan) => (plan.id === savedId ? withArchived(plan, savedArchived) : plan)),
+    [orderedPlans, savedId, savedArchived]
+  );
+  // The line under the plan field. Both unsaved changes say what Save will do
+  // (PR #37 review, pass 2): without the Unarchive line, an enabled Save was the
+  // only sign that one was pending.
+  const archiveLine: { icon: 'archive-outline' | 'arrow-undo-outline'; text: string } | null = !draft
+    ? null
+    : isArchived(draft)
+      ? {
+          icon: 'archive-outline',
+          text: savedArchived
+            ? 'Archived · not listed when you start a workout'
+            : 'Archived when you save · then not listed when you start a workout',
+        }
+      : savedArchived
+        ? { icon: 'arrow-undo-outline', text: 'Unarchived when you save · then listed when you start a workout' }
+        : null;
+  // A new plan exists only on this phone until its first Save, so there is
+  // nothing stored to archive: no Archive action for it.
+  const stored = draft !== null && workoutPlans.some((plan) => plan.id === draft.id);
   const recentHistory = useMemo(
     () => (catalog ? buildRecentHistory(sessions, pendingUploads, uid, catalog.index, customExercises) : null),
     [catalog, sessions, pendingUploads, uid, customExercises]
@@ -203,6 +239,8 @@ export default function AddExerciseScreen() {
    * a write that lands late (offline rule) must not overwrite another plan's
    * baseline. The draft is refreshed (new saved names, D2) only if it was not
    * edited since; if it was, it stays dirty against the new baseline.
+   * Archive is such an edit (TICKET-061), so one tapped while this write is in
+   * flight or queued stays in the draft.
    */
   const onSaved = (plan: WorkoutPlan) => {
     // D5's running-workout note is the banner, before editing; a longer toast
@@ -267,6 +305,18 @@ export default function AddExerciseScreen() {
     }
   };
 
+  /**
+   * TICKET-061: Archive / Unarchive the open plan. An edit like any other
+   * (user, 2026-11-01): it changes the draft, Save changes writes it with the
+   * rest of the plan, and leaving first asks to discard it. Rejected: a write
+   * of its own at once, one tap shorter, but it raced Save (PR #37 review) and
+   * needed its own offline and refusal handling.
+   * No confirm: Unarchive sits in the same spot, and nothing is stored until Save.
+   */
+  const handleArchive = (archived: boolean) => {
+    if (draft) setDraft(withArchived(draft, archived));
+  };
+
   const handlePick = (exercise: Exercise) => {
     setPickerOpen(false);
     if (!draft) return;
@@ -327,7 +377,27 @@ export default function AddExerciseScreen() {
             stepId={makeStepId(SEARCHABLE_INPUT_STEP_NAMES.DROPDOWN_BUTTON, MANAGE_WOURKOUT_STEP_NAMES.WORKOUT_SEARCHABLE)}
           >
             <View>
-              <TextBase style={styles.planLabel}>Plan</TextBase>
+              {/* TICKET-061: Archive is an action beside the heading, quieter
+                  than it: small, sentence case, with an icon. */}
+              <View style={[styles.planLabelRow, draft && stored && styles.planLabelRowWithAction]}>
+                <TextBase style={[styles.planLabel, styles.planLabelInRow]}>Plan</TextBase>
+                {draft && stored && (
+                  <TouchableOpacityBase
+                    style={styles.archiveAction}
+                    onPress={() => handleArchive(!isArchived(draft))}
+                    accessibilityRole="button"
+                  >
+                    <Ionicons
+                      name={isArchived(draft) ? 'arrow-undo-outline' : 'archive-outline'}
+                      size={14}
+                      color={t.colors.role.textPrimary}
+                    />
+                    <TextBase style={styles.archiveActionText}>
+                      {isArchived(draft) ? 'Unarchive' : 'Archive'}
+                    </TextBase>
+                  </TouchableOpacityBase>
+                )}
+              </View>
               <TouchableOpacityBase
                 style={styles.planField}
                 onPress={() => setSheetOpen(true)}
@@ -339,6 +409,13 @@ export default function AddExerciseScreen() {
                 </TextBase>
                 <Ionicons name="chevron-down" size={18} color={t.colors.role.textSecondary} />
               </TouchableOpacityBase>
+              {/* The field holds only the name; the state is one line under it. */}
+              {archiveLine && (
+                <View style={styles.archivedLine} accessibilityRole="text">
+                  <Ionicons name={archiveLine.icon} size={16} color={t.colors.role.textSecondary} />
+                  <TextBase style={styles.archivedLineText}>{archiveLine.text}</TextBase>
+                </View>
+              )}
             </View>
           </MaybeTourStep>
         )}
@@ -415,7 +492,7 @@ export default function AddExerciseScreen() {
 
       {sheetOpen && (
         <PlanSheet
-          plans={workoutPlans}
+          plans={sheetPlans}
           selectedId={draft?.id ?? null}
           onSelect={handleSelectWorkout}
           onCreate={handleCreatePlan}
@@ -503,6 +580,34 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   // The plan is the heading the exercise rows sit under (option A, user
   // 2026-10-28): one step above their `medium` titles, and "Exercises · N"
   // below is a section label, not a peer.
+  planLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: SPACING.medium,
+    marginBottom: SPACING.small,
+  },
+  // With Archive in it the row is the action's 44 px tall; trimmed margins keep
+  // the label from moving down more than a few px.
+  planLabelRowWithAction: { minHeight: 44, marginTop: SPACING.xSmall, marginBottom: 0 },
+  // The row carries the label's spacing, so the label gives up its own.
+  planLabelInRow: { marginTop: 0, marginBottom: 0 },
+  archiveAction: {
+    minHeight: 44,
+    paddingLeft: SPACING.medium,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  archiveActionText: { fontSize: t.fonts.small, fontWeight: '600', color: t.colors.role.textPrimary },
+  archivedLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.small,
+    marginTop: SPACING.small,
+    paddingHorizontal: 2,
+  },
+  archivedLineText: { flex: 1, fontSize: t.fonts.xMedium, color: t.colors.role.textSecondary },
   planName: { flex: 1, fontSize: t.fonts.large, fontWeight: 'bold', color: t.colors.role.textPrimary },
   planPlaceholder: { color: t.colors.role.textSecondary, fontWeight: 'normal' },
   fieldTitle: {

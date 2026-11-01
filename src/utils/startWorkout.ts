@@ -6,7 +6,7 @@
 
 import { ExerciseHistory, ExerciseHistorySession } from "../types/exerciseHistory";
 import { SessionTotalVolume, WorkoutSessionDoc } from "../types/workoutSession";
-import { ExerciseField, FieldRole, WorkoutPlan } from "../types/workoutType";
+import { ExerciseField, FieldRole, WorkoutPlan, isArchived } from "../types/workoutType";
 import { PendingUpload } from "../types/zustandWorkoutType";
 import { parseNumericValue, unitLabel } from "./exerciseFields";
 import { buildSessionDocs, computeSessionTotalVolume } from "./exerciseStats";
@@ -29,6 +29,8 @@ export type PlanRow = {
    * session or it predates the stored field.
    */
   volume: SessionTotalVolume | null;
+  /** TICKET-061: hidden on Start until "Show archived". */
+  archived: boolean;
 };
 
 type Candidate = {
@@ -116,8 +118,61 @@ export function buildPlanRows(
         lastDoneAt: candidate?.startedAt ?? null,
         lastDoneSource: candidate?.source ?? null,
         volume: candidate?.volume ?? null,
+        archived: isArchived(plan),
       };
-    });
+    })
+    .sort(comparePlanRows);
+}
+
+/**
+ * TICKET-061's list order: **last done first**, newest at the top. A plan with
+ * no known date (never done, or not within `RECENT_SESSIONS_WINDOW`) comes
+ * after every dated one; those, and ties, go A–Z so the order never depends on
+ * Firestore's document order, which is what the list showed before.
+ *
+ * Known limit: "no date" mixes never-done with done-long-ago, because only the
+ * window is read. Rejected: reading every session to date old plans, a full
+ * history read on each Start open for an order nobody can see past the top few.
+ *
+ * Known limit: until the sessions query returns, no plan has a date, so the list
+ * is A–Z and then reorders; a tap in that moment can select another row.
+ * Accepted (PR #37 review): Start names the plan on its button before starting.
+ * Rejected: holding the list until sessions load, because `null` also means the
+ * query failed, and the list would then never show.
+ */
+function comparePlanRows(a: PlanRow, b: PlanRow): number {
+  if (a.lastDoneAt !== b.lastDoneAt) {
+    if (a.lastDoneAt === null) return 1;
+    if (b.lastDoneAt === null) return -1;
+    return b.lastDoneAt - a.lastDoneAt;
+  }
+  return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+}
+
+export type PlanGroups = {
+  /** Plans that are not archived, in list order. */
+  plans: PlanRow[];
+  /** Archived plans to show: empty while they are hidden. */
+  archived: PlanRow[];
+  /**
+   * Archived rows that matched but are hidden. Start uses it only when `plans`
+   * is empty, to say "1 archived plan matches" rather than a bare "No plans
+   * match" when the user is searching for one they archived.
+   */
+  hiddenArchived: number;
+};
+
+/**
+ * Split already-filtered rows (`buildPlanRows`) into the two groups. Search
+ * follows the toggle (user, 2026-11-01): hidden archived plans stay out of
+ * results, they are only counted.
+ */
+export function groupPlanRows(rows: PlanRow[], showArchived: boolean): PlanGroups {
+  const plans = rows.filter((row) => !row.archived);
+  const archived = rows.filter((row) => row.archived);
+  return showArchived
+    ? { plans, archived, hiddenArchived: 0 }
+    : { plans, archived: [], hiddenArchived: archived.length };
 }
 
 export type TopSet =

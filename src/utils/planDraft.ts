@@ -6,7 +6,7 @@
 // switch (D1). Everything here is pure, so the edits, the dirty check, the
 // validation and the plan that gets written are tested without a screen.
 
-import { Exercise, ExerciseField, WorkoutPlan } from "../types/workoutType";
+import { Exercise, ExerciseField, WorkoutPlan, isArchived } from "../types/workoutType";
 import { validateCustomFields } from "./exerciseValidations";
 import { planExerciseFromPick } from "./catalog";
 
@@ -33,6 +33,12 @@ export type PlanDraft = {
   id: string;
   name: string;
   exercises: DraftExercise[];
+  /**
+   * TICKET-061: Archive / Unarchive edit it (`withArchived`), and Save writes it
+   * with the rest of the plan (user, 2026-11-01). Part of the dirty check: an
+   * unsaved Archive is an unsaved edit.
+   */
+  archived?: boolean;
 };
 
 export function draftFromPlan(plan: WorkoutPlan): PlanDraft {
@@ -44,7 +50,14 @@ export function draftFromPlan(plan: WorkoutPlan): PlanDraft {
       fields: exercise.fields.map((field) => ({ ...field, savedName: field.name })),
       pendingField: "",
     })),
+    ...(isArchived(plan) ? { archived: true } : {}),
   };
+}
+
+/** The plan or draft with its archive state replaced. Unarchived drops the key: absent means not archived. */
+export function withArchived<T extends { archived?: boolean }>(value: T, archived: boolean): T {
+  const { archived: _previous, ...rest } = value;
+  return (archived ? { ...rest, archived: true } : rest) as T;
 }
 
 /**
@@ -76,13 +89,19 @@ export function planFromDraft(draft: PlanDraft): WorkoutPlan {
       ...(exercise.nameSnapshot ? { nameSnapshot: exercise.nameSnapshot } : {}),
       fields: fieldsToStore(exercise),
     })),
+    // TICKET-061: Save overwrites the document (`merge: false`), so the archive
+    // state is written here or lost. Unarchived writes no field: absent means
+    // not archived. Rejected: Save with `merge: true`, which would also keep any
+    // stale field an old document carries; this way Save writes exactly the screen's plan.
+    ...(isArchived(draft) ? { archived: true } : {}),
   };
 }
 
-/** Order-sensitive: reordering exercises or fields is a change. */
+/** Order-sensitive: reordering exercises or fields is a change. So is archiving. */
 function canonical(plan: WorkoutPlan): string {
   return JSON.stringify({
     name: plan.name,
+    archived: isArchived(plan),
     exercises: plan.exercises.map((exercise) => ({
       id: exercise.id,
       name: exercise.name,
