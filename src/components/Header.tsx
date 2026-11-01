@@ -13,6 +13,7 @@ import { ReturnTypeUseThemeTokens } from './app_manager/ThemeContext';
 import { MaybeTourStep } from './guide_tour/MaybeTourStep';
 import { HOME_STEP_NAMES, PROFILE_STEP_NAMES } from '../tour_steps/profile';
 import { TouchableOpacityBase } from './TouchableOpacityBase';
+import BackButton from './BackButton';
 
 interface HeaderProps {
   onPressTab: (tab: keyof typeof LayoutRoutes) => void;
@@ -36,6 +37,11 @@ export default function Header({ onPressTab }: HeaderProps) {
     return nestedWorkoutRoute?.name === 'WorkoutHome';
   })();
 
+  // Home is the bottom of the Layout history (LayoutScreen `openTab`), so any
+  // other tab has something behind it. Home gets no button: back from Home
+  // leaves the app, which an on-screen button should not do.
+  const canGoBack = (navigationState?.index ?? 0) > 0;
+
   if (!shouldShowHeader) {
     return null;
   }
@@ -45,11 +51,14 @@ export default function Header({ onPressTab }: HeaderProps) {
   return (
     <>
       <View style={styles.container}>
-        <MaybeTourStep stepId={HOME_STEP_NAMES.HOME_BUTTON} >
-          <TouchableOpacityBase style={[styles.tabButton]} onPress={() => onPressTab(LayoutRoutes.Home)}>
-            <TextBase style={styles.companyName} isDefaultFontFamilyRequired>Fitgram</TextBase>
-          </TouchableOpacityBase>
-        </MaybeTourStep>
+        <View style={styles.leftControls}>
+          {canGoBack && <BackButton />}
+          <MaybeTourStep stepId={HOME_STEP_NAMES.HOME_BUTTON} >
+            <TouchableOpacityBase style={[styles.tabButton]} onPress={() => onPressTab(LayoutRoutes.Home)}>
+              <TextBase style={styles.companyName} isDefaultFontFamilyRequired>Fitgram</TextBase>
+            </TouchableOpacityBase>
+          </MaybeTourStep>
+        </View>
 
         {/* <TourStep id="step2" nextStepId="step3" title="Welcome" description="This is your first step11!"> */}
         <MaybeTourStep stepId={PROFILE_STEP_NAMES.PROFILE_BUTTON} >
@@ -95,6 +104,10 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     fontWeight: "bold",
     letterSpacing: 1.4,
     ...t.shadows.shadowSmall,
+  },
+  leftControls: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   tabButton: {
     padding: SPACING.small,

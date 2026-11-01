@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from "react-native";
 import ScrollableScreen from "../../components/ScrollableScreen";
+import { BackTitle } from "../../components/BackButton";
 import SearchableInputDropdown, { DropdownSelection } from "../../components/SearchableInputDropdown";
 import { BORDER_RADIUS, BUTTON_SIZES, SPACING } from "../../constants/styles";
 import { WorkoutLog } from "../../types/workoutLogs";
@@ -59,12 +60,12 @@ export default function WorkoutLogsScreen() {
 
   return (
     <ScrollableScreen
-      title={<View style={styles.titleContainer}>
+      title={<BackTitle><View style={styles.titleContainer}>
         <TextBase style={styles.title}>Workout Logs</TextBase>
         {workoutLogs && workoutLogs.length > 0 && <TouchableOpacity style={styles.filterIcon} onPress={toggleFilterTab}>
           <Ionicons name="filter" size={BUTTON_SIZES.medium} color={isFilterTabEnabled ? t.colors.textSecondary : t.colors.textPrimary} />
         </TouchableOpacity>}
-      </View>}
+      </View></BackTitle>}
     >
 
       <WorkoutHistoricalLogsFilter isVisible={isFilterTabEnabled} setDisplayLog={setDisplayLog} />

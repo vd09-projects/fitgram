@@ -121,6 +121,20 @@ it("Workout opens on Workout home, even when it was left on a nested screen", ()
   expect(history()).toEqual(["Home", "Feed", "Workout"]);
 });
 
+it("header back is hidden on Home and returns to the previous tab elsewhere", () => {
+  renderLayout();
+  expect(screen.queryByLabelText("Back")).toBeNull();
+
+  fireEvent.press(screen.getByText("Feed"));
+  fireEvent.press(screen.getByText("Workout"));
+  fireEvent.press(screen.getByLabelText("Back"));
+  expect(history()).toEqual(["Home", "Feed"]);
+
+  fireEvent.press(screen.getByLabelText("Back"));
+  expect(history()).toEqual(["Home"]);
+  expect(screen.queryByLabelText("Back")).toBeNull();
+});
+
 it("header Home clears the history back to Home", () => {
   renderLayout();
   fireEvent.press(screen.getByText("Workout"));
