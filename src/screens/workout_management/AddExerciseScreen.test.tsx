@@ -9,7 +9,7 @@ import AddExerciseScreen from "./AddExerciseScreen";
 import { renderScreen, RenderScreenOptions, TEST_USER_ID } from "../../test/renderScreen";
 import { buildWorkout } from "../../test/fixtures";
 import { CATALOG } from "../../catalog";
-import { getAllWorkoutPlans, overrideWorkoutDetails } from "../../services/db/userDB";
+import { getAllWorkoutPlans, overrideWorkoutDetails, setPlanArchived } from "../../services/db/userDB";
 import { useCatalogStore } from "../../stores/useCatalogStore";
 import { loadCatalog } from "../../utils/catalog";
 import { getWorkoutSessions } from "../../services/db/workoutSessions";
@@ -22,6 +22,7 @@ jest.mock("../../services/db/userDB", () => ({
   ...jest.requireActual("../../services/db/userDB"),
   getAllWorkoutPlans: jest.fn(),
   overrideWorkoutDetails: jest.fn(),
+  setPlanArchived: jest.fn(),
   newPlanId: jest.fn(() => "generated_id"),
 }));
 jest.mock("../../services/db/workoutSessions", () => ({
@@ -335,4 +336,70 @@ it("a failed plan load says so with Retry, never the first-plan form (D5)", asyn
   expect(screen.queryByText("Your first plan")).toBeNull();
   fireEvent.press(screen.getByRole("button", { name: "Retry" }));
   expect(await screen.findByLabelText("Choose a plan")).toBeTruthy();
+});
+
+// TICKET-061: Archive is its own write beside the PLAN heading, at once, and
+// the next Save must not undo it.
+describe("archive", () => {
+  const archive = setPlanArchived as jest.Mock;
+  beforeEach(() => archive.mockReset());
+
+  it("archives at once: the line shows, Unarchive takes its spot, nothing to save", async () => {
+    archive.mockResolvedValue(undefined);
+    await openPlan([push(), pull()], "Push");
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Archive" })));
+
+    expect(archive).toHaveBeenCalledWith(TEST_USER_ID, "push", true);
+    expect(screen.getByText("Archived · not listed when you start a workout")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Unarchive" })).toBeTruthy();
+    expect(saveButton()).toBeDisabled();
+  });
+
+  it("keeps unsaved edits pending, and the next Save keeps the plan archived", async () => {
+    archive.mockResolvedValue(undefined);
+    save.mockResolvedValue(undefined);
+    await openPlan([push()], "Push");
+    fireEvent.press(screen.getByLabelText(/edit fields$/));
+    fireEvent.press(screen.getByLabelText("Set Weight unit to plates"));
+
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Archive" })));
+    expect(saveButton()).toBeEnabled();
+    await act(async () => fireEvent.press(saveButton()));
+    expect(save).toHaveBeenCalledWith(TEST_USER_ID, expect.objectContaining({ id: "push", archived: true }));
+  });
+
+  it("puts the plan back when the write is refused", async () => {
+    archive.mockRejectedValue(new Error("denied"));
+    await openPlan([push()], "Push");
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Archive" })));
+
+    expect(show.alert).toHaveBeenCalledWith("Could not archive plan", "Please try again.");
+    expect(screen.queryByText("Archived · not listed when you start a workout")).toBeNull();
+    expect(screen.getByRole("button", { name: "Archive" })).toBeTruthy();
+  });
+
+  it("offers no Archive for a new plan that was never saved", async () => {
+    renderManage([push()]);
+    await openSheet();
+    fireEvent.press(screen.getByRole("button", { name: "New plan" }));
+    fireEvent.changeText(screen.getByLabelText("New plan"), "Legs");
+    fireEvent.press(screen.getByRole("button", { name: "Create" }));
+    expect(screen.getByLabelText("Plan: Legs")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Archive" })).toBeNull();
+  });
+
+  it("the plan sheet hides archived plans until shown, unless the open one is archived", async () => {
+    const old: WorkoutPlan = { ...pull(), id: "old", name: "Push v1", archived: true };
+    renderManage([push(), old]);
+    await openSheet();
+    const sheet = () => within(screen.getByTestId("plan-sheet"));
+    expect(sheet().queryByText("Push v1")).toBeNull();
+    fireEvent.press(sheet().getByRole("button", { name: "Show archived" }));
+    fireEvent.press(sheet().getByText("Push v1"));
+
+    // Reopened on the archived plan: shown, so the open plan has its row.
+    await openSheet();
+    expect(sheet().getByText("Push v1")).toBeTruthy();
+    expect(sheet().getByRole("button", { name: "Hide archived" })).toBeTruthy();
+  });
 });

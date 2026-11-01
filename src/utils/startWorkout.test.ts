@@ -9,6 +9,7 @@ import {
   formatSince,
   formatTopSet,
   formatVolume,
+  groupPlanRows,
   lastTopSet,
   partsToString,
 } from "./startWorkout";
@@ -174,7 +175,22 @@ describe("buildPlanRows", () => {
 
   it("filters by name, case- and whitespace-insensitively", () => {
     const rows = buildPlanRows([push, pull, legs], [], [], "me", "  PU ");
-    expect(rows.map((r) => r.id)).toEqual(["push", "pull"]);
+    expect(rows.map((r) => r.id)).toEqual(["pull", "push"]);
+  });
+
+  // TICKET-061: last done first; undated plans after, A–Z, never document order.
+  it("sorts by last done, newest first, then undated plans A–Z", () => {
+    const abs = plan("abs", "abs");
+    const rows = buildPlanRows([legs, push, abs, pull], [session("pull", 100), session("legs", 300)], [], "me", "");
+    expect(rows.map((r) => r.id)).toEqual(["legs", "pull", "abs", "push"]);
+  });
+
+  it("hides archived plans from results until shown, counting the matches", () => {
+    const old = { ...plan("old", "Push v1"), archived: true };
+    const rows = buildPlanRows([push, old, pull], [], [], "me", "push");
+    expect(groupPlanRows(rows, false)).toMatchObject({ archived: [], hiddenArchived: 1 });
+    expect(groupPlanRows(rows, false).plans.map((r) => r.id)).toEqual(["push"]);
+    expect(groupPlanRows(rows, true).archived.map((r) => r.id)).toEqual(["old"]);
   });
 });
 

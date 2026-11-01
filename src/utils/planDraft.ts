@@ -6,7 +6,7 @@
 // switch (D1). Everything here is pure, so the edits, the dirty check, the
 // validation and the plan that gets written are tested without a screen.
 
-import { Exercise, ExerciseField, WorkoutPlan } from "../types/workoutType";
+import { Exercise, ExerciseField, WorkoutPlan, isArchived } from "../types/workoutType";
 import { validateCustomFields } from "./exerciseValidations";
 import { planExerciseFromPick } from "./catalog";
 
@@ -33,6 +33,13 @@ export type PlanDraft = {
   id: string;
   name: string;
   exercises: DraftExercise[];
+  /**
+   * TICKET-061: carried, never edited here. Archive writes on its own, at once,
+   * and the screen copies the result in (`withArchived`). It rides through so
+   * Save, which overwrites the whole document, keeps it. Not part of the dirty
+   * check: archiving is not an unsaved edit.
+   */
+  archived?: boolean;
 };
 
 export function draftFromPlan(plan: WorkoutPlan): PlanDraft {
@@ -44,7 +51,14 @@ export function draftFromPlan(plan: WorkoutPlan): PlanDraft {
       fields: exercise.fields.map((field) => ({ ...field, savedName: field.name })),
       pendingField: "",
     })),
+    ...(isArchived(plan) ? { archived: true } : {}),
   };
+}
+
+/** The plan or draft with its archive state replaced. Unarchived drops the key: absent means not archived. */
+export function withArchived<T extends { archived?: boolean }>(value: T, archived: boolean): T {
+  const { archived: _previous, ...rest } = value;
+  return (archived ? { ...rest, archived: true } : rest) as T;
 }
 
 /**
@@ -76,10 +90,15 @@ export function planFromDraft(draft: PlanDraft): WorkoutPlan {
       ...(exercise.nameSnapshot ? { nameSnapshot: exercise.nameSnapshot } : {}),
       fields: fieldsToStore(exercise),
     })),
+    // TICKET-061: Save overwrites the document (`merge: false`), so a plan
+    // archived while it was open would come back unarchived without this.
+    // Rejected: Save with `merge: true`, which would also keep any stale field
+    // an old document carries; this way Save still writes exactly the screen's plan.
+    ...(isArchived(draft) ? { archived: true } : {}),
   };
 }
 
-/** Order-sensitive: reordering exercises or fields is a change. */
+/** Order-sensitive: reordering exercises or fields is a change. Archive state is not part of it. */
 function canonical(plan: WorkoutPlan): string {
   return JSON.stringify({
     name: plan.name,

@@ -64,7 +64,7 @@ export function PlanRow({
   const { styles, t } = useThemeStyles(createStyles);
 
   return (
-    <View style={[styles.card, expanded && styles.cardExpanded]}>
+    <View style={[styles.card, row.archived && !expanded && styles.cardArchived, expanded && styles.cardExpanded]}>
       <TouchableOpacity
         style={styles.header}
         onPress={onPress}
@@ -73,7 +73,7 @@ export function PlanRow({
         accessibilityLabel={row.name}
       >
         <View style={styles.headerText}>
-          <TextBase style={styles.name}>{row.name}</TextBase>
+          <TextBase style={[styles.name, row.archived && !expanded && styles.nameArchived]}>{row.name}</TextBase>
           <PartsText parts={summaryParts(row, now)} style={styles.summary} testID={`plan-summary-${row.id}`} />
         </View>
         {expanded ? (
@@ -143,6 +143,15 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
     },
     cardExpanded: {
       borderColor: t.colors.role.accent,
+    },
+    // TICKET-061: archived cards drop their fill and mute the name, so they
+    // recede without a tag (the ARCHIVED label above already says it).
+    // Selected, an archived plan looks like any other: it is about to start.
+    cardArchived: {
+      backgroundColor: "transparent",
+    },
+    nameArchived: {
+      color: t.colors.role.textSecondary,
     },
     header: {
       minHeight: HIT,

@@ -45,7 +45,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 047 | Swap an exercise mid-workout | Medium | **In review**, PR #34 (branch TICKET-047, 2026-10-31); device re-run owed after the offline and layering fixes. Only at 0 sets, full picker, the new exercise's own history, this workout only |
 | 056 | Add an exercise mid-workout | Small-Med | After 047; reuses its picker mode. Appended, this workout only |
 | 057 | Free-flow workout (name not final) | Medium | Deferred 2026-10-30. An empty session plus 056 |
-| 061 | Archive plans | Small-Med | Design decided 2026-11-01 (boards in `design/workout-flow/`). **Save would silently unarchive** as written (`setDoc` with `merge: false`); the ticket says how to close it |
+| 061 | Archive plans | Small-Med | Design decided 2026-11-01 (boards in `design/workout-flow/`). Built on branch TICKET-061 (PR #37), uncommitted for review: data, Start, Manage. `archived` flag, no backfill. **Device run owed** |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
 
 ### Not tickets — verification owed
@@ -6507,15 +6507,23 @@ The rounds that led there are on the Fitgram Design Drafts canvas.
   plan can still be edited and saved
 - **No confirm** on Archive: Unarchive is in the same spot
 
-**Data:** `WorkoutPlan.archivedAt?: number` (ms), absent = not archived. Pre-launch,
-so no backfill. No Firestore rules change: `users/{uid}/**` has no field list.
+**Data (user, 2026-11-01):** `WorkoutPlan.archived?: boolean`. Archive writes `true`,
+Unarchive writes `false`, and a missing field means not archived. **No backfill**:
+existing plans are never touched. No Firestore rules change: `users/{uid}/**` has no
+field list.
+- A flag, not an `archivedAt` time (first proposal): nothing shows or sorts by the
+  archive date
+- Consequence of no backfill: Firestore cannot query "not archived", since a missing
+  field matches no filter (`!= true` skips it too). Plans are loaded whole and
+  filtered on the phone, as they already were. A server-side filter would need the
+  backfill first
 
 **Load-bearing fact, checked:** Save writes the plan with
 `setDoc({ id, name, exercises }, { merge: false })` (`userDB.ts`
-`overrideWorkoutDetails`). As it stands, **the next Save after archiving would
-silently unarchive the plan.** Either Save carries `archivedAt` through
-`draftFromPlan` / `planFromDraft`, or it writes with `merge: true` (arrays are still
-replaced whole). Decide at build time; a test must cover archive → edit → Save.
+`overrideWorkoutDetails`). As it stood, **the next Save after archiving would
+silently unarchive the plan.** Chosen: Save carries `archived` through
+`draftFromPlan` / `planFromDraft`. Rejected: `merge: true`, which would also keep any
+stale field an old document carries. Tested: archive → edit → Save keeps the flag.
 
 **Only Start and Manage filter.** Five places read `useWorkoutPlans`; the filter
 goes in those two screens, never in the hook or `getAllWorkoutPlans`:
@@ -6531,7 +6539,27 @@ action, deleting plans.
 
 **Open:** an archived plan that has the workout in progress. Resume uses the
 workout's own copy, so it should keep working; check the resume banner and the
-Start row while building.
+Start row on the device.
+
+**Build decisions (2026-11-01), each also commented where it lives:**
+- Archive writes at once with Save's bounded wait (`raceSave`): "Not saved yet"
+  offline. A refused write puts the plan back and alerts, whether it is refused
+  within the wait or after it
+- No Archive for a new plan before its first Save: nothing is stored to archive
+- The plan sheet opens with archived shown when the open plan is archived, so the
+  open plan always has its row. Otherwise it starts hidden, as on Start
+- The sheet lists plans in Start's order (`buildPlanRows`)
+- On Start, the plan count now sits right after YOUR PLANS (the board's place),
+  not at the far right, also when nothing is archived
+- Archived names use `textSecondary`, not the board's #B9C3C1, which is not a token
+- Start's order can shift once the recent-sessions query lands
+
+**Verification:**
+- `tsc` clean; 541 tests pass. New: 6 logic, 5 Start screen, 5 Manage screen. Each
+  was seen to fail against the line it covers
+- Not tested: real Firestore writes (`archived` true/false, Save carrying it), the
+  toggle resetting on revisit (needs a real focus change), the look on a device, and
+  archiving the plan whose workout is in progress
 
 **Dependencies:** None.
 

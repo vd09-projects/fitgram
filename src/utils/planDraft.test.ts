@@ -15,6 +15,7 @@ import {
   setExerciseFields,
   setPendingField,
   validateDraft,
+  withArchived,
 } from "./planDraft";
 import { patchField } from "./exerciseFields";
 import { validateCustomFields } from "./exerciseValidations";
@@ -208,5 +209,29 @@ describe("newPlan (TICKET-052 D1, D2)", () => {
     expect(newPlan("Push · Chest & Triceps / A", [], makeId)).toMatchObject({ ok: true });
     expect(newPlan("x".repeat(40), [], makeId)).toMatchObject({ ok: true });
     expect(newPlan("x".repeat(41), [], makeId)).toEqual({ ok: false, error: "A plan name can be at most 40 characters." });
+  });
+});
+
+// TICKET-061: Save overwrites the whole plan document, so the archive state
+// has to ride through the draft or the next Save unarchives the plan.
+describe("archive state through a draft", () => {
+  it("survives an edit and Save, and archiving alone is not an unsaved edit", () => {
+    const saved = withArchived(plan(), true);
+    const draft = draftFromPlan(saved);
+    expect(isDraftDirty(saved, draft)).toBe(false);
+
+    const edited = addExercise(draft, pecDeck, "Pec Deck (Machine Fly)");
+    expect(planFromDraft(edited).archived).toBe(true);
+
+    // Archived while the screen held unsaved edits: the screen copies the
+    // result into both copies; the edits stay, and stay dirty.
+    const unsavedThenArchived = withArchived(addExercise(draftFromPlan(plan()), pecDeck, "Pec Deck"), true);
+    expect(planFromDraft(unsavedThenArchived).archived).toBe(true);
+    expect(isDraftDirty(withArchived(plan(), true), unsavedThenArchived)).toBe(true);
+  });
+
+  it("drops the key when unarchived, so Save never writes undefined", () => {
+    const draft = withArchived(draftFromPlan(withArchived(plan(), true)), false);
+    expect("archived" in planFromDraft(draft)).toBe(false);
   });
 });

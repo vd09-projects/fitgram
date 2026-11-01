@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import useWorkoutPlans from "../../hooks/useWorkoutPlans";
 import { useAuthUser } from "../../hooks/useAuthUser";
 import { useRecentSessions } from "../../hooks/useRecentSessions";
@@ -21,7 +21,9 @@ import { START_WOURKOUT_STEP_NAMES } from "../../tour_steps/startWorkout";
 import { MaybeTourStep } from "../../components/guide_tour/MaybeTourStep";
 import { ResumeBanner } from "../../components/start_workout/ResumeBanner";
 import { PlanRow } from "../../components/start_workout/PlanRow";
-import { buildPlanRows } from "../../utils/startWorkout";
+import { buildPlanRows, groupPlanRows, PlanRow as PlanRowModel } from "../../utils/startWorkout";
+import { isArchived } from "../../types/workoutType";
+import { ShowArchivedToggle } from "../../components/ShowArchivedToggle";
 
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<
   typeof WorkoutRoutes.StartWorkout
@@ -43,6 +45,10 @@ export default function StartWorkoutScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [starting, setStarting] = useState(false);
+  // TICKET-061: archived plans start hidden on every visit, so they cannot
+  // creep back into the list on their own.
+  const [showArchived, setShowArchived] = useState(false);
+  useFocusEffect(useCallback(() => setShowArchived(false), []));
 
   const myPendingCount = pendingUploads.filter(
     (entry) => entry.uid === uid,
@@ -54,6 +60,10 @@ export default function StartWorkoutScreen() {
       buildPlanRows(workoutPlans, sessions, pendingUploads, uid, searchQuery),
     [workoutPlans, sessions, pendingUploads, uid, searchQuery],
   );
+  const groups = useMemo(() => groupPlanRows(rows, showArchived), [rows, showArchived]);
+  const archivedCount = useMemo(() => workoutPlans.filter(isArchived).length, [workoutPlans]);
+  const allArchived = workoutPlans.length > 0 && archivedCount === workoutPlans.length;
+  const query = searchQuery.trim();
   const plansById = useMemo(
     () => new Map(workoutPlans.map((plan) => [plan.id, plan])),
     [workoutPlans],
@@ -64,8 +74,10 @@ export default function StartWorkoutScreen() {
   // simply not selected, so the bottom bar can never name a plan the user cannot
   // see. Rejected: clearing `selectedId` in an effect when the plan leaves the
   // list — one more lifecycle rule to keep right, for the same visible result.
+  // Hiding archived plans hides their selection the same way (TICKET-061).
+  const visible = [...groups.plans, ...groups.archived];
   const selectedPlan =
-    selectedId !== null && rows.some((row) => row.id === selectedId)
+    selectedId !== null && visible.some((row) => row.id === selectedId)
       ? (plansById.get(selectedId) ?? null)
       : null;
 
@@ -127,6 +139,20 @@ export default function StartWorkoutScreen() {
     navigation.navigate(WorkoutRoutes.LogWorkout);
   };
 
+  const renderRow = (row: PlanRowModel) => (
+    <PlanRow
+      key={row.id}
+      row={row}
+      exercises={plansById.get(row.id)?.exercises ?? []}
+      expanded={row.id === selectedPlan?.id}
+      now={now}
+      onPress={() => toggleSelection(row.id)}
+      exerciseListTourStepId={
+        START_WOURKOUT_STEP_NAMES.SELECTED_WORKOUT_EXERCISE_LIST
+      }
+    />
+  );
+
   const setsLogged =
     activeWorkout?.exercises.reduce(
       (sum, exercise) => sum + exercise.sets.length,
@@ -178,8 +204,16 @@ export default function StartWorkoutScreen() {
                 <TextBase style={styles.sectionLabel}>YOUR PLANS</TextBase>
                 {!loadingWorkoutPlans && (
                   <TextBase numeric style={styles.count}>
-                    {rows.length}
+                    {groups.plans.length}
                   </TextBase>
+                )}
+                <View style={styles.headerSpacer} />
+                {!loadingWorkoutPlans && archivedCount > 0 && (
+                  <ShowArchivedToggle
+                    shown={showArchived}
+                    onPress={() => setShowArchived((shown) => !shown)}
+                    size="xSmall"
+                  />
                 )}
               </View>
 
@@ -213,24 +247,44 @@ export default function StartWorkoutScreen() {
                     </TextBase>
                   </TouchableOpacity>
                 </View>
-              ) : rows.length === 0 ? (
-                <TextBase style={styles.emptyBody}>
-                  No plans match “{searchQuery.trim()}”
-                </TextBase>
+              ) : allArchived && !showArchived && query === "" ? (
+                // Not "No plans yet", which would be false (TICKET-061).
+                <View style={styles.empty}>
+                  <TextBase style={styles.emptyTitle}>
+                    All your plans are archived
+                  </TextBase>
+                  <TextBase style={styles.emptyBody}>
+                    Use Show archived above to start one.
+                  </TextBase>
+                </View>
+              ) : visible.length === 0 ? (
+                <View style={styles.noMatch}>
+                  <TextBase style={styles.noMatchText}>
+                    No plans match “{query}”
+                  </TextBase>
+                  {/* Search follows the toggle, but never dead-ends on a plan
+                      the user archived: say it is there, point at the toggle. */}
+                  {groups.hiddenArchived > 0 && (
+                    <TextBase style={styles.emptyBody}>
+                      {groups.hiddenArchived === 1
+                        ? "1 archived plan matches. Show archived to see it."
+                        : `${groups.hiddenArchived} archived plans match. Show archived to see them.`}
+                    </TextBase>
+                  )}
+                </View>
               ) : (
-                rows.map((row) => (
-                  <PlanRow
-                    key={row.id}
-                    row={row}
-                    exercises={plansById.get(row.id)?.exercises ?? []}
-                    expanded={row.id === selectedPlan?.id}
-                    now={now}
-                    onPress={() => toggleSelection(row.id)}
-                    exerciseListTourStepId={
-                      START_WOURKOUT_STEP_NAMES.SELECTED_WORKOUT_EXERCISE_LIST
-                    }
-                  />
-                ))
+                <>
+                  {groups.plans.map(renderRow)}
+                  {groups.archived.length > 0 && (
+                    <View style={styles.archivedHeader}>
+                      <TextBase style={styles.sectionLabel}>ARCHIVED</TextBase>
+                      <TextBase numeric style={styles.count}>
+                        {groups.archived.length}
+                      </TextBase>
+                    </View>
+                  )}
+                  {groups.archived.map(renderRow)}
+                </>
               )}
             </View>
           </View>
@@ -317,10 +371,29 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
     plans: {
       gap: SPACING.medium,
     },
+    // Holds the 44 px Show archived toggle, so it centres rather than
+    // baseline-aligns; the label and count keep their own gap.
     plansHeader: {
       flexDirection: "row",
-      alignItems: "baseline",
-      justifyContent: "space-between",
+      alignItems: "center",
+      gap: SPACING.small,
+      minHeight: 18,
+    },
+    headerSpacer: {
+      flex: 1,
+    },
+    archivedHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: SPACING.small,
+      marginTop: SPACING.small,
+    },
+    noMatch: {
+      gap: SPACING.xSmall,
+    },
+    noMatchText: {
+      fontSize: t.fonts.xMedium,
+      color: t.colors.role.textPrimary,
     },
     sectionLabel: {
       fontSize: t.fonts.xSmall,

@@ -11,12 +11,13 @@ import { BORDER_RADIUS, SPACING } from '../../constants/styles';
 import ScrollableScreen from '../../components/ScrollableScreen';
 import useWorkoutPlans from '../../hooks/useWorkoutPlans';
 import show from '../../utils/toastUtils';
-import { newPlanId, overrideWorkoutDetails } from '../../services/db/userDB';
+import { newPlanId, overrideWorkoutDetails, setPlanArchived } from '../../services/db/userDB';
 import { useAuthUser } from '../../hooks/useAuthUser';
 import { WorkoutScreenNavigationProp } from '../../navigation/WorkoutNavigator';
 import PlanExerciseList from '../../components/PlanExerciseList';
 import { DiscardWorkoutDialog } from '../../components/active_workout/DiscardWorkoutDialog';
-import { Exercise, WorkoutPlan } from '../../types/workoutType';
+import { Exercise, WorkoutPlan, isArchived } from '../../types/workoutType';
+import { buildPlanRows } from '../../utils/startWorkout';
 import { TextBase } from '../../components/TextBase';
 import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
@@ -37,6 +38,7 @@ import {
   setExerciseFields,
   setPendingField,
   validateDraft,
+  withArchived,
 } from '../../utils/planDraft';
 import { customExercisesFromPlans } from '../../utils/exerciseSearch';
 import { exerciseDisplayName } from '../../utils/catalog';
@@ -77,6 +79,7 @@ export default function AddExerciseScreen() {
   // Row errors appear after a refused Save, not while the user is typing.
   const [showErrors, setShowErrors] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [pendingDiscard, setPendingDiscard] = useState<PendingDiscard | null>(null);
   // A ref, not state: nothing renders from it, and a late landing must see the
   // current value, not the one from the render that queued it.
@@ -116,6 +119,14 @@ export default function AddExerciseScreen() {
   const pendingUploads = useWorkoutStore((s) => s.pendingUploads);
   const myPendingCount = pendingUploads.filter((entry) => entry.uid === uid).length;
   const sessions = useRecentSessions(uid, myPendingCount);
+  // TICKET-061: the plan sheet lists plans in Start's order, last done first.
+  const sheetPlans = useMemo(() => {
+    const byId = new Map(workoutPlans.map((plan) => [plan.id, plan]));
+    return buildPlanRows(workoutPlans, sessions, pendingUploads, uid, '').flatMap((row) => byId.get(row.id) ?? []);
+  }, [workoutPlans, sessions, pendingUploads, uid]);
+  // A new plan exists only on this phone until its first Save, so there is
+  // nothing stored to archive: no Archive action for it.
+  const stored = draft !== null && workoutPlans.some((plan) => plan.id === draft.id);
   const recentHistory = useMemo(
     () => (catalog ? buildRecentHistory(sessions, pendingUploads, uid, catalog.index, customExercises) : null),
     [catalog, sessions, pendingUploads, uid, customExercises]
@@ -267,6 +278,40 @@ export default function AddExerciseScreen() {
     }
   };
 
+  /**
+   * TICKET-061: Archive / Unarchive the open plan. Its own write, at once, not
+   * with Save changes (user, 2026-11-01): a switch on the plan, not an edit, so
+   * unsaved edits stay pending and `dirty` is untouched. Shown at once, in both
+   * `saved` and `draft`, so the next Save carries it. A refused write puts it
+   * back, whenever it is refused: within Save's grace or after, offline.
+   * No confirm: Unarchive sits in the same spot.
+   */
+  const handleArchive = async (archived: boolean) => {
+    if (!draft || !uid || archiving) return;
+    const planId = draft.id;
+    const apply = (value: boolean) => {
+      setSaved((prev) => (prev?.id === planId ? withArchived(prev, value) : prev));
+      setDraft((prev) => (prev?.id === planId ? withArchived(prev, value) : prev));
+    };
+    apply(archived);
+    setArchiving(true);
+    const write = setPlanArchived(uid, planId, archived);
+    write.then(handleReload, (error) => {
+      console.error('Could not change archive state:', error);
+      apply(!archived);
+      show.alert(archived ? 'Could not archive plan' : 'Could not unarchive plan', 'Please try again.');
+    });
+    try {
+      const result = await raceSave(write);
+      if (result === 'pending')
+        show.warn('Not saved yet', "Check your connection. It will finish when you're back online.");
+    } catch {
+      // Reported, and put back, by the handler above.
+    } finally {
+      setArchiving(false);
+    }
+  };
+
   const handlePick = (exercise: Exercise) => {
     setPickerOpen(false);
     if (!draft) return;
@@ -327,7 +372,29 @@ export default function AddExerciseScreen() {
             stepId={makeStepId(SEARCHABLE_INPUT_STEP_NAMES.DROPDOWN_BUTTON, MANAGE_WOURKOUT_STEP_NAMES.WORKOUT_SEARCHABLE)}
           >
             <View>
-              <TextBase style={styles.planLabel}>Plan</TextBase>
+              {/* TICKET-061: Archive is an action beside the heading, quieter
+                  than it: small, sentence case, with an icon. */}
+              <View style={[styles.planLabelRow, draft && stored && styles.planLabelRowWithAction]}>
+                <TextBase style={[styles.planLabel, styles.planLabelInRow]}>Plan</TextBase>
+                {draft && stored && (
+                  <TouchableOpacityBase
+                    style={styles.archiveAction}
+                    onPress={() => handleArchive(!isArchived(draft))}
+                    disabled={archiving}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: archiving }}
+                  >
+                    <Ionicons
+                      name={isArchived(draft) ? 'arrow-undo-outline' : 'archive-outline'}
+                      size={14}
+                      color={t.colors.role.textPrimary}
+                    />
+                    <TextBase style={styles.archiveActionText}>
+                      {isArchived(draft) ? 'Unarchive' : 'Archive'}
+                    </TextBase>
+                  </TouchableOpacityBase>
+                )}
+              </View>
               <TouchableOpacityBase
                 style={styles.planField}
                 onPress={() => setSheetOpen(true)}
@@ -339,6 +406,13 @@ export default function AddExerciseScreen() {
                 </TextBase>
                 <Ionicons name="chevron-down" size={18} color={t.colors.role.textSecondary} />
               </TouchableOpacityBase>
+              {/* The field holds only the name; the state is one line under it. */}
+              {draft && isArchived(draft) && (
+                <View style={styles.archivedLine} accessibilityRole="text">
+                  <Ionicons name="archive-outline" size={16} color={t.colors.role.textSecondary} />
+                  <TextBase style={styles.archivedLineText}>Archived · not listed when you start a workout</TextBase>
+                </View>
+              )}
             </View>
           </MaybeTourStep>
         )}
@@ -415,7 +489,7 @@ export default function AddExerciseScreen() {
 
       {sheetOpen && (
         <PlanSheet
-          plans={workoutPlans}
+          plans={sheetPlans}
           selectedId={draft?.id ?? null}
           onSelect={handleSelectWorkout}
           onCreate={handleCreatePlan}
@@ -503,6 +577,34 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   // The plan is the heading the exercise rows sit under (option A, user
   // 2026-10-28): one step above their `medium` titles, and "Exercises · N"
   // below is a section label, not a peer.
+  planLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: SPACING.medium,
+    marginBottom: SPACING.small,
+  },
+  // With Archive in it the row is the action's 44 px tall; trimmed margins keep
+  // the label from moving down more than a few px.
+  planLabelRowWithAction: { minHeight: 44, marginTop: SPACING.xSmall, marginBottom: 0 },
+  // The row carries the label's spacing, so the label gives up its own.
+  planLabelInRow: { marginTop: 0, marginBottom: 0 },
+  archiveAction: {
+    minHeight: 44,
+    paddingLeft: SPACING.medium,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  archiveActionText: { fontSize: t.fonts.small, fontWeight: '600', color: t.colors.role.textPrimary },
+  archivedLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.small,
+    marginTop: SPACING.small,
+    paddingHorizontal: 2,
+  },
+  archivedLineText: { flex: 1, fontSize: t.fonts.xMedium, color: t.colors.role.textSecondary },
   planName: { flex: 1, fontSize: t.fonts.large, fontWeight: 'bold', color: t.colors.role.textPrimary },
   planPlaceholder: { color: t.colors.role.textSecondary, fontWeight: 'normal' },
   fieldTitle: {

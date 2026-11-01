@@ -219,3 +219,63 @@ describe("StartWorkoutScreen", () => {
     expect(checkUnknownId).toHaveBeenCalledTimes(1);
   });
 });
+
+// TICKET-061: archived plans are hidden until Show archived, and search follows it.
+describe("StartWorkoutScreen, archived plans", () => {
+  const OLD_PUSH: WorkoutPlan = { ...plan("old_push", "Push v1", ["Bench Press"]), archived: true };
+
+  async function renderWith(plans: WorkoutPlan[], options: Parameters<typeof renderScreen>[1] = {}) {
+    mockStats.mockResolvedValue({});
+    mockPlans.mockResolvedValue(plans);
+    mockSessions.mockResolvedValue({ sessions: [], lastDoc: null });
+    renderScreen(StartWorkoutScreen, { route: LayoutRoutes.Home, ...options });
+    await waitFor(() => expect(mockSessions).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByText("YOUR PLANS")).toBeOnTheScreen());
+  }
+
+  it("hides archived plans until shown, then starts one like any other", async () => {
+    const startWorkout = jest.fn().mockResolvedValue({ status: "started" });
+    await renderWith([PUSH, OLD_PUSH], { workoutActions: { startWorkout } });
+    await screen.findByText("Push");
+    expect(screen.queryByText("Push v1")).toBeNull();
+
+    fireEvent.press(screen.getByRole("button", { name: "Show archived" }));
+    expect(screen.getByText("ARCHIVED")).toBeOnTheScreen();
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Push v1" })));
+    await act(async () => fireEvent.press(primaryButton()));
+    expect(startWorkout).toHaveBeenCalledWith(OLD_PUSH);
+  });
+
+  it("deselects an archived plan when archived plans are hidden again", async () => {
+    await renderWith([PUSH, OLD_PUSH]);
+    fireEvent.press(await screen.findByRole("button", { name: "Show archived" }));
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Push v1" })));
+    expect(primaryButton()).toHaveTextContent("Start Push v1");
+
+    fireEvent.press(screen.getByRole("button", { name: "Hide archived" }));
+    expect(screen.queryByText("Push v1")).toBeNull();
+    expect(screen.queryByRole("button", { name: /^(Start|Resume) / })).toBeNull();
+  });
+
+  it("keeps hidden archived plans out of search, and says when one matches", async () => {
+    await renderWith([PUSH, PULL, OLD_PUSH]);
+    await screen.findByText("Push");
+    fireEvent.changeText(screen.UNSAFE_getByType(TextInput), "v1");
+
+    expect(screen.queryByText("Push v1")).toBeNull();
+    expect(screen.getByText("No plans match “v1”")).toBeOnTheScreen();
+    expect(screen.getByText("1 archived plan matches. Show archived to see it.")).toBeOnTheScreen();
+  });
+
+  it("says every plan is archived instead of No plans yet", async () => {
+    await renderWith([OLD_PUSH]);
+    expect(await screen.findByText("All your plans are archived")).toBeOnTheScreen();
+    expect(screen.queryByText("No plans yet")).toBeNull();
+  });
+
+  it("offers no toggle when nothing is archived", async () => {
+    await renderWith([PUSH, PULL]);
+    await screen.findByText("Push");
+    expect(screen.queryByRole("button", { name: "Show archived" })).toBeNull();
+  });
+});
