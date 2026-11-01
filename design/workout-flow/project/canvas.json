@@ -672,6 +672,86 @@
       "w": 390,
       "x": 2350,
       "y": 29300
+    },
+    "ArchiveStartHidden.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "1 \u00b7 Start: archived hidden",
+      "w": 390,
+      "x": 0,
+      "y": 30900
+    },
+    "ArchiveStartShown.dc.html": {
+      "h": 1180,
+      "radius": 28,
+      "title": "2 \u00b7 Start: Show archived, then Start any of them",
+      "w": 390,
+      "x": 470,
+      "y": 30900
+    },
+    "ArchiveStartSearch.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "3 \u00b7 Search, archived hidden: only plans that aren't archived",
+      "w": 390,
+      "x": 940,
+      "y": 30900
+    },
+    "ArchiveStartAll.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "4 \u00b7 Every plan archived: say so, point at the toggle",
+      "w": 390,
+      "x": 2350,
+      "y": 30900
+    },
+    "ArchiveSheetHidden.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "5 \u00b7 Manage, plan sheet: archived hidden",
+      "w": 390,
+      "x": 2820,
+      "y": 30900
+    },
+    "ArchiveSheetShown.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "6 \u00b7 Plan sheet: archived shown",
+      "w": 390,
+      "x": 3290,
+      "y": 30900
+    },
+    "ArchiveManageArchive.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "7 \u00b7 Manage: Archive beside the PLAN heading",
+      "w": 390,
+      "x": 3760,
+      "y": 30900
+    },
+    "ArchiveManageArchived.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "8 \u00b7 Archived: one line under the field, Unarchive in Archive's spot",
+      "w": 390,
+      "x": 4230,
+      "y": 30900
+    },
+    "ArchiveStartSearchShown.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "3b \u00b7 Search, archived shown: both groups filter",
+      "w": 390,
+      "x": 1410,
+      "y": 30900
+    },
+    "ArchiveStartSearchArchivedOnly.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "3c \u00b7 Only an archived plan matches: say so, point at the toggle",
+      "w": 390,
+      "x": 1880,
+      "y": 30900
     }
   },
   "createdOnFiles": {
@@ -937,6 +1017,27 @@
       "w": 300,
       "x": 2820,
       "y": 29820
+    },
+    "archive": {
+      "kind": "title1",
+      "maxW": 4620,
+      "text": "Archive plans: hide old plans, keep them one tap away",
+      "x": 0,
+      "y": 30600
+    },
+    "archivewhy": {
+      "fill": "orange",
+      "w": 300,
+      "x": 4700,
+      "y": 30940,
+      "text": "DECIDED (user, 2026-11-01).\n\nArchived plans are hidden on Start and in the plan sheet. Show archived / Hide archived sits in the heading row; it starts hidden on every visit and only appears when something is archived.\n\nAn archived plan starts like any other and stays archived.\n\nSearch follows the toggle: archived plans appear in results only while shown (3, 3b). If only an archived plan matches while they are hidden, the message says so and points at the toggle (3c).\n\nNo name for plans that aren't archived: they are just your plans. Not \"current\", not \"active\" (clashes with an active workout).\n\nPlans sort by last done, most recent first.\n\nArchive / Unarchive save at once, not with Save changes; unsaved plan edits stay.\n\nArchived plans can still be edited."
+    },
+    "archivestates": {
+      "fill": "teal",
+      "w": 300,
+      "x": 2350,
+      "y": 31804,
+      "text": "Why Show archived is never empty (screen 4).\n\nThe toggle only appears when at least one plan is archived.\n\nNo plans at all: \"No plans yet\" + Create a plan (already shipped). No toggle.\nPlans, none archived: the list. No toggle.\nPlans, all archived: screen 4. The toggle always has something to show.\n\nSame rule in the Manage plan sheet."
     }
   },
   "order": [
@@ -1023,7 +1124,17 @@
     "TodayOpenSplit.dc.html",
     "TodayOpenDown.dc.html",
     "TodayOpenMatched.dc.html",
-    "TodayOpenEven.dc.html"
+    "TodayOpenEven.dc.html",
+    "ArchiveStartHidden.dc.html",
+    "ArchiveStartShown.dc.html",
+    "ArchiveStartSearch.dc.html",
+    "ArchiveStartAll.dc.html",
+    "ArchiveSheetHidden.dc.html",
+    "ArchiveSheetShown.dc.html",
+    "ArchiveManageArchive.dc.html",
+    "ArchiveManageArchived.dc.html",
+    "ArchiveStartSearchShown.dc.html",
+    "ArchiveStartSearchArchivedOnly.dc.html"
   ],
   "pages": [],
   "title": "Fitgram Workout Flow Redesign"
