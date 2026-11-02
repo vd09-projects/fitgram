@@ -157,7 +157,52 @@ function comparePlanRows(a: PlanRow, b: PlanRow): number {
     if (b.lastDoneAt === null) return -1;
     return b.lastDoneAt - a.lastDoneAt;
   }
-  return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  return compareNames(a, b);
+}
+
+const compareNames = (a: PlanRow, b: PlanRow) =>
+  a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+
+/** Most tiles the Workout hub shows (TICKET-066). The rest are under All plans. */
+export const HUB_TILE_LIMIT = 6;
+
+/**
+ * The Workout hub's tiles (TICKET-066), from `buildPlanRows(…, "")`.
+ *
+ * - **Recent** = a non-archived plan with a known last-done date, i.e. a session
+ *   in the last `RECENT_SESSIONS_WINDOW` sessions or one of this user's pending
+ *   uploads (both via `buildPlanRows`). These come first, **longest since done
+ *   first** (oldest `lastDoneAt` at the top), the reverse of All plans' order:
+ *   the hub suggests what is due, All plans finds what was just done.
+ * - **Fill**: fewer than `HUB_TILE_LIMIT` recent plans → the other non-archived
+ *   plans, A–Z. Archived plans never get a tile, recent or not; All plans is the
+ *   only way to them.
+ * - **Ties** (same `lastDoneAt` to the millisecond, or two undated plans) break
+ *   A–Z by name, case-insensitively, then by id, so the order never depends on
+ *   Firestore's document order, even for two plans with the same name.
+ * - **Still loading** (`sessions === null`): `buildPlanRows` gives no plan a
+ *   date, so every tile is fill, A–Z, and reorders once sessions land. Same
+ *   accepted limit as `comparePlanRows`.
+ *
+ * Deviation from the ticket's "fill with the other plans in plan order": plans
+ * have no order. They load in Firestore document-id order, and plan ids are
+ * auto-ids, so that order is random to the user and changes with every new
+ * plan. A–Z is the order All plans already gives undated plans.
+ * Rejected: longest since done over all plans, which with 34 plans shows the six
+ * you abandoned (user, 2026-11-02).
+ *
+ * A Freestyle session (TICKET-067) matches no plan id in `buildPlanRows`, so it
+ * never becomes a tile; it still uses one of the window's 20 places.
+ */
+export function chooseHubTiles(rows: PlanRow[]): PlanRow[] {
+  const active = rows.filter((row) => !row.archived);
+  const byNameThenId = (a: PlanRow, b: PlanRow) =>
+    compareNames(a, b) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  const recent = active
+    .filter((row) => row.lastDoneAt !== null)
+    .sort((a, b) => a.lastDoneAt! - b.lastDoneAt! || byNameThenId(a, b));
+  const fill = active.filter((row) => row.lastDoneAt === null).sort(byNameThenId);
+  return [...recent, ...fill].slice(0, HUB_TILE_LIMIT);
 }
 
 export type PlanGroups = {

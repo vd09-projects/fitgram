@@ -6983,11 +6983,20 @@ plans as tiles, longest since done first, each opening TICKET-065's card.
 - **"Pick today's workout"**, the line "Longest since you did it first.", and
   **All plans N →**, always shown: it is the only way to archived plans. All plans
   is today's Start Workout screen renamed, back button kept (TICKET-062)
+  - **N counts every plan, archived included** (user, 2026-11-03), unlike the
+    count in Start's own header, which counts the non-archived list it shows: the
+    link is the only way to archived plans, so its number covers them too
 - **Which plans get a tile, at most 6:** non-archived plans that appear in the last
   20 sessions (`RECENT_SESSIONS_WINDOW`, the query Start already makes, pending
   uploads included as in `buildPlanRows`), longest since done first. Fewer than 6:
   fill with the other plans in plan order. Rejected: longest-since over all plans,
   which with 34 plans shows the six you abandoned. A pure, unit-tested function
+  (`chooseHubTiles`, `src/utils/startWorkout.ts`)
+  - **Deviation (2026-11-03, stage 1): fill and loading order is A–Z, not "plan
+    order".** Plans have no order in code: `getAllWorkoutPlans` returns Firestore
+    document-id order, and plan ids are auto-ids, so that order is random to the
+    user and shifts with each new plan. A–Z is what All plans already uses for
+    plans with no date. Ties on the same start time also break A–Z, then by id
 - **Tile number:** "9d", "today". A plan with no session in the window shows a dash
   and "not in recent workouts". **Deviation from the canvas** (which shows "new"):
   the window cannot tell "never done" from "done long ago", so "new" would be a
