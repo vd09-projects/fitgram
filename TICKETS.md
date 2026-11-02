@@ -5494,8 +5494,8 @@ would fail the first time it is needed.
 
 ### TICKET-064: Workout Store — One Save Path for the Active Workout
 
-**Priority:** Low | **Effort:** Small | **Status: OPEN** — raised 2026-11-02 in
-TICKET-056's duplication review (PR #40)
+**Priority:** Low | **Effort:** Small | **Status: DONE** — raised 2026-11-02 in
+TICKET-056's duplication review (PR #40); built on branch TICKET-064
 
 **Description:**
 Every action in `useWorkoutStore` that changes the active workout ends with the
@@ -5526,6 +5526,32 @@ the workout on an app kill with nothing failing in tests that read memory only.
 every action. First list which actions have no stored-copy check, add one where
 the refactor could break it, then break the helper's write (or the key) once and
 confirm they go red.
+
+**Build notes (2026-11-02):**
+- `saveActiveWorkout(workout, extra?)` plus `ACTIVE_WORKOUT_KEY`. The helper
+  comment records the choice and what was rejected: `persist` middleware,
+  per-action "next workout" reducers, and the key constant alone
+- Paging keeps its own two lines (memory first) with a comment, not an order
+  flag. The removals use the key only. A fourth literal, in
+  `clearLocalDataFromOlderBuilds`'s `multiRemove`, now uses the key too
+- No shared helper for "workout with a new exercise list": add, swap and a
+  future remove share only the spread. They differ in their index and rest
+  rules, so remove extracts the rest-ending expression when it is written
+- No stored-copy check before this: start (success), add set, effort (only
+  checked indirectly, through `removeSet`'s rewrite), paging, Discard. Two tests
+  added. Tests keep the literal `"activeWorkout"` to pin the stored name
+- Seen red: helper write removed (10 fail), key typo (9), paging write (1),
+  Discard remove (1), add set and effort each memory-only (1 each). 556 pass,
+  typecheck clean
+- Device run (Claude, Android emulator, Metro on this tree, 2026-11-02). The
+  stored copy was read from the app's RKStorage after each step: start (8
+  slots, index 0); log set; Hard mark and paging (both left `lastUpdated`
+  alone); force-quit resumed on exercise 2 with the set and mark; remove, undo
+  and edit each stored. Swap after a set was logged then deleted, so a rest was
+  running at 0 sets: stored with `planned`, and the rest panel ended. Add
+  stored as slot 9, `added`, index 8; force-quit resumed on 9 of 9. Discard
+  emptied the storage and a relaunch had no active workout. Finish was not run:
+  it uploads to the real Firestore, and nothing in its path changed except the key
 
 ---
 

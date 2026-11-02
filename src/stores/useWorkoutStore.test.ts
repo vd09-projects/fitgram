@@ -436,6 +436,33 @@ describe("rest timer", () => {
   });
 });
 
+// TICKET-064. Every action writes through `saveActiveWorkout` or the key; these
+// are the writes no other test reads back. The key is the literal on purpose:
+// renaming it would strand a workout stored by an older build.
+describe("stored copy", () => {
+  const stored = async () => JSON.parse((await AsyncStorage.getItem("activeWorkout")) ?? "null");
+
+  it("start, log a set, mark it and page each reach the phone", async () => {
+    await store().startWorkout({ id: "push", name: "Push", exercises: [buildExercise("Bench Press"), buildExercise("Squat")] });
+    expect(await stored()).toEqual(store().activeWorkout);
+
+    await store().addSetToExercise("bench-press", { id: 1, segments: [{ Weight: 60, Reps: 8 }] });
+    expect((await stored()).exercises[0].sets).toEqual([{ id: 1, segments: [{ Weight: 60, Reps: 8 }] }]);
+
+    await store().setSetEffort("bench-press", 1, Effort.Hard);
+    expect((await stored()).exercises[0].sets[0].effort).toBe(Effort.Hard);
+
+    await store().setCurrentExerciseIndex(1);
+    expect((await stored()).currentExerciseIndex).toBe(1);
+  });
+
+  it("Discard removes it", async () => {
+    await store().startWorkout({ id: "push", name: "Push", exercises: [buildExercise("Bench Press")] });
+    await store().cancelWorkout();
+    expect(await AsyncStorage.getItem("activeWorkout")).toBeNull();
+  });
+});
+
 // TICKET-047. The slot keeps its place, the plan's exercise is kept for "Back
 // to plan", and the two refusals live here, not only in the menu and picker.
 describe("swapExercise", () => {

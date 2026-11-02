@@ -28,6 +28,9 @@ import { exerciseDisplayName, type CatalogIndex } from "../utils/catalog";
  */
 const savesInFlight = new Map<string, Promise<boolean>>();
 
+/** AsyncStorage key of the workout in progress. Tests use the literal, to pin it. */
+const ACTIVE_WORKOUT_KEY = "activeWorkout";
+
 /** AsyncStorage key of the upload queue, separate from `activeWorkout`. */
 const PENDING_UPLOADS_KEY = "pendingUploads";
 
@@ -49,7 +52,7 @@ export const LOCAL_DATA_VERSION_KEY = "localDataVersion";
 /** Remove `activeWorkout` and the upload queue if they predate LOCAL_DATA_VERSION. */
 async function clearLocalDataFromOlderBuilds(): Promise<void> {
   if ((await AsyncStorage.getItem(LOCAL_DATA_VERSION_KEY)) === LOCAL_DATA_VERSION) return;
-  await AsyncStorage.multiRemove(["activeWorkout", PENDING_UPLOADS_KEY]);
+  await AsyncStorage.multiRemove([ACTIVE_WORKOUT_KEY, PENDING_UPLOADS_KEY]);
   await AsyncStorage.setItem(LOCAL_DATA_VERSION_KEY, LOCAL_DATA_VERSION);
   console.log(`Local workout data from an older build cleared (data version ${LOCAL_DATA_VERSION}).`);
 }
@@ -139,6 +142,30 @@ const prefetchHistory = (exerciseIds: string[]) => {
     .catch(() => {});
 };
 
+/**
+ * Save the active workout (TICKET-064): phone first, then memory. If the write
+ * fails the promise rejects and the screen never shows a change an app kill
+ * would lose. `extra` is state that changes in the same step: swap ends a rest
+ * on its slot.
+ *
+ * Every action that changes the workout ends here, except paging
+ * (`setCurrentExerciseIndex`), which writes memory first and keeps its own two
+ * lines rather than an order flag only it would pass. `lastUpdated` and
+ * `currentExerciseIndex` stay with each action, which decides them on purpose.
+ * Removals use the key alone: their error handling and memory steps differ.
+ *
+ * Rejected: zustand `persist` (writes memory first without waiting, and one key
+ * for the whole store, while the upload queue has its own key and writer and
+ * load must clear older builds and drop a queued workout before reading);
+ * a pure "next workout" function per action (the actions already compute then
+ * commit; this is the commit); the key constant alone (leaves eight copies of
+ * the order, with its reason written at one).
+ */
+async function saveActiveWorkout(workout: ActiveWorkout, extra?: Partial<Pick<WorkoutStoreState, "rest">>) {
+  await AsyncStorage.setItem(ACTIVE_WORKOUT_KEY, JSON.stringify(workout));
+  useWorkoutStore.setState({ activeWorkout: workout, ...extra });
+}
+
 // Zustand Store Type
 interface WorkoutStoreState {
   activeWorkout: ActiveWorkout | null;
@@ -222,8 +249,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       currentExerciseIndex: workout.exercises.length > 0 ? 0 : null,
     };
 
-    await AsyncStorage.setItem("activeWorkout", JSON.stringify(newWorkout));
-    set({ activeWorkout: newWorkout });
+    await saveActiveWorkout(newWorkout);
     return { status: "started" };
   },
 
@@ -252,8 +278,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       currentExerciseIndex: exerciseIndex !== -1 ? exerciseIndex : null,
     };
 
-    await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
-    set({ activeWorkout: updatedWorkout });
+    await saveActiveWorkout(updatedWorkout);
   },
 
   /**
@@ -303,8 +328,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       lastUpdated: Date.now(),
     };
 
-    await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
-    set({ activeWorkout: updatedWorkout });
+    await saveActiveWorkout(updatedWorkout);
   },
 
   /**
@@ -347,8 +371,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       lastUpdated: Date.now(),
     };
 
-    await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
-    set({ activeWorkout: updatedWorkout });
+    await saveActiveWorkout(updatedWorkout);
     return removed;
   },
 
@@ -381,8 +404,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       lastUpdated: Date.now(),
     };
 
-    await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
-    set({ activeWorkout: updatedWorkout });
+    await saveActiveWorkout(updatedWorkout);
   },
 
   /**
@@ -420,8 +442,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     // Storage first, as for every set change: if the write fails, the screen
     // must not show a mark an app kill would lose.
     const updatedWorkout: ActiveWorkout = { ...activeWorkout, exercises: updatedExercises };
-    await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
-    set({ activeWorkout: updatedWorkout });
+    await saveActiveWorkout(updatedWorkout);
   },
 
   /**
@@ -446,9 +467,11 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     // `lastUpdated` is left alone: it tracks logged data, and paging is not data.
     const updatedWorkout: ActiveWorkout = { ...activeWorkout, currentExerciseIndex: clamped };
 
-    // Update memory first so the screen moves on the tap, not after the disk write.
+    // Memory first so the screen moves on the tap, not after the disk write: the
+    // one action that does not use `saveActiveWorkout`. Losing a page change to
+    // an app kill costs nothing logged.
     set({ activeWorkout: updatedWorkout });
-    await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
+    await AsyncStorage.setItem(ACTIVE_WORKOUT_KEY, JSON.stringify(updatedWorkout));
   },
 
   /**
@@ -512,8 +535,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       lastUpdated: Date.now(),
     };
 
-    await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
-    set({ activeWorkout: updatedWorkout, ...(rest?.exerciseId === exerciseId ? { rest: null } : {}) });
+    await saveActiveWorkout(updatedWorkout, rest?.exerciseId === exerciseId ? { rest: null } : {});
 
     prefetchHistory([exercise.id]);
     return { status: "swapped" };
@@ -552,8 +574,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       lastUpdated: Date.now(),
     };
 
-    await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
-    set({ activeWorkout: updatedWorkout });
+    await saveActiveWorkout(updatedWorkout);
 
     prefetchHistory([exercise.id]);
     return { status: "added" };
@@ -624,7 +645,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     }
     // Queue first, then clear the slot. A crash between the two leaves the
     // workout in both; `loadWorkoutFromStorage` drops the active copy.
-    await AsyncStorage.removeItem("activeWorkout").catch((error) =>
+    await AsyncStorage.removeItem(ACTIVE_WORKOUT_KEY).catch((error) =>
       console.log("Failed to clear active workout:", error)
     );
 
@@ -666,7 +687,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
    */
   cancelWorkout: async () => {
     try {
-      await AsyncStorage.removeItem("activeWorkout"); // Remove stored workout
+      await AsyncStorage.removeItem(ACTIVE_WORKOUT_KEY); // Remove stored workout
       set({ activeWorkout: null, rest: null });
       console.log("Workout cancelled successfully.");
     } catch (error) {
@@ -698,14 +719,14 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     watchSignInForUploads();
     drainPendingUploads();
 
-    const storedWorkout = await AsyncStorage.getItem("activeWorkout");
+    const storedWorkout = await AsyncStorage.getItem(ACTIVE_WORKOUT_KEY);
     if (!storedWorkout) return;
 
     const parsed = JSON.parse(storedWorkout) as ActiveWorkout;
     const sessionId = buildSessionId(parsed.id, parsed.startTime);
     if (get().pendingUploads.some((e) => e.sessionId === sessionId)) {
       // Finished, and the app died before the slot was cleared. The queue has it.
-      await AsyncStorage.removeItem("activeWorkout");
+      await AsyncStorage.removeItem(ACTIVE_WORKOUT_KEY);
       return;
     }
     const exercises = (parsed.exercises ?? []).map((exercise) => ({
