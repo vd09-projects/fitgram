@@ -5144,8 +5144,8 @@ has no `planned` key, seen red with an exercise spread in `buildSessionDocs`.
 
 ### TICKET-056: Add an Exercise Mid-Workout
 
-**Priority:** Medium | **Effort:** Small-Med | **Status: OPEN** — raised 2026-10-30,
-after TICKET-047
+**Priority:** Medium | **Effort:** Small-Med | **Status: DESIGN DECIDED** — raised
+2026-10-30, after TICKET-047; design decided 2026-11-02
 
 **Description:**
 The plan is done and there is energy left (a finisher: abs, forearms, calves), the
@@ -5169,9 +5169,38 @@ so it is missing from history with nothing to say so.
 one exercise) with its own boards and device test, and a smaller PR. Built
 straight after 047, reusing its picker mode and history fetch; designed with it.
 
-**Open:** where "+ Add exercise" sits. TICKET-047's scope rule points at the workout ⋯
-menu (workout-level actions there, exercise-level ones in the exercise ⋯); confirm on
-the canvas.
+**Design decided (user, 2026-11-02):** Workout Flow canvas, row "TICKET-056 — add
+an exercise, this workout only" (`design/workout-flow/project/Add*.dc.html`).
+Exploration canvas, with the rejected end-page option:
+https://claude.ai/artifact/NvgcdetMQMT3FnxwRtdVtv
+- **Two entry points.** The workout ⋯ menu, always: "Add exercise · Goes at the end of
+  today's list. Your plan stays as it is." (AddMenu). And on the last exercise the
+  disabled › becomes + in the same 44 px box, so the name never shifts (AddLast). This
+  is the pager's version of the list apps' "+ Add exercise" at the bottom of the
+  session (Hevy, Strong, Fitbod, Trainingym). Rejected: StrongLifts' Edit → Add (users
+  call it buried); a large add button near Log set (Freeletics users complain it sits
+  where the thumb lands after a set)
+- **The workout ⋯ becomes a bottom sheet** like the exercise ⋯ (TICKET-058), titled with
+  the workout's name; Discard sits in its own group, in `danger`. Scope growth: today
+  it is a small card with Discard only
+- **Picker in add mode** (AddPicker, AddVersion): heading "Add exercise", subtitle
+  "Goes after <last exercise>. Your plan stays as it is."; today's exercises taken,
+  "In workout"; version step "Goes after <last>, for this workout only.", button
+  "Add <name>"
+- **Lands on the added exercise** (AddLanded): appended, then shown, from any
+  exercise (the pairing case adds from exercise 2 and lands on 7 of 7). A rest running
+  on another exercise keeps counting there, as paging already works (TICKET-021)
+- **An added slot has no Back to plan** (AddSwapAdded). Found in design:
+  `swapExercise` records `slot.planned ?? slot` as the planned exercise, so swapping an
+  added slot would offer "Back to plan" to an exercise the plan never had. The live
+  slot needs an added mark (AsyncStorage only, like 047's `planned`; never in session
+  docs) and swap skips `planned` for it. The edge of "not marked as added in storage"
+  (CLAUDE.md 2.6): that rules out Firestore and the screen, not live state
+- **Swiping left on the last exercise does nothing**, as today. Rejected: swipe opens
+  the picker, which a stray fling would trigger
+- **Rejected: an end page after the last exercise** ("End of plan", the day's list,
+  + Add exercise). A page that is not an exercise breaks "N of M", the swipe, the
+  progress bar and resume. Its summary half became TICKET-063
 
 **Dependencies:** TICKET-047.
 
@@ -6662,6 +6691,29 @@ on every screen, like the logger's.
 
 ---
 
+### TICKET-063: Finish Summary
+
+**Priority:** Low | **Effort:** Small-Med | **Status: OPEN** — raised 2026-11-02, from
+TICKET-056's design review
+
+**Description:**
+Tapping Finish workout saves at once, with no look at what is being saved. Show the
+day's exercises and how many sets each has before saving: a last check, and a
+confirmation, since Finish has none today.
+
+**From the user (2026-11-02):** the rejected end page of TICKET-056, moved to Finish.
+Exercises and set counts only; no Add exercise on it.
+
+**To decide in design:**
+- Exercises with 0 sets: today they are dropped at save silently (`buildSessionDocs`).
+  TICKET-056 makes this more common (an exercise added and never done). The summary
+  can say "no sets, not saved" on those rows, an explicit absence (CLAUDE.md 2.4)
+- A sheet over the logger or its own screen; buttons "Save workout" and "Keep logging"
+
+**Dependencies:** none. Reads better after TICKET-056.
+
+---
+
 ## Recommended Execution Order
 
 Finished tickets have been removed — they are not blockers for anything.
@@ -6694,7 +6746,9 @@ mid-workout, ahead of 032 and 029 below.
 1. TICKET-058  (Exercise menu + split)    — Done (PR #32, 2026-10-30); device run passed
    TICKET-059  (Today list arrows)        — Done (PR #33, 2026-10-30); device run passed
 2. TICKET-047  (Swap an exercise)         — Built (2026-10-31), in review. Adds Swap to 058's menu
-3. TICKET-056  (Add an exercise)          — Workout ⋯ menu; boards not drawn yet
+3. TICKET-056  (Add an exercise)          — Design decided (2026-11-02): ⋯ menu + on the
+                                             last exercise. Next to build
+   TICKET-063  (Finish summary)           — Open, low; from 056's review
    TICKET-057  (Free-flow workout)        — Deferred; an empty session plus 056
 ```
 

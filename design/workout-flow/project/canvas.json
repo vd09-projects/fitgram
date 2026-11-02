@@ -768,7 +768,13 @@
       "w": 390,
       "x": 5170,
       "y": 30900
-    }
+    },
+    "AddMenu.dc.html": {"h": 844, "radius": 28, "title": "1 · Workout ⋯ menu: Add exercise, Discard kept apart", "w": 390, "x": 0, "y": 32800},
+    "AddLast.dc.html": {"h": 844, "radius": 28, "title": "2 · Last exercise: the dead › becomes +", "w": 390, "x": 470, "y": 32800},
+    "AddPicker.dc.html": {"h": 844, "radius": 28, "title": "3 · Picker in add mode", "w": 390, "x": 940, "y": 32800},
+    "AddVersion.dc.html": {"h": 844, "radius": 28, "title": "4 · Version step: Add, not Swap", "w": 390, "x": 1410, "y": 32800},
+    "AddLanded.dc.html": {"h": 844, "radius": 28, "title": "5 · Lands on 7 of 7, its own history", "w": 390, "x": 1880, "y": 32800},
+    "AddSwapAdded.dc.html": {"h": 844, "radius": 28, "title": "6 · Swap an added exercise: no Back to plan", "w": 390, "x": 2350, "y": 32800}
   },
   "createdOnFiles": {
     "at": "2026-10-03T12:00:00Z",
@@ -779,6 +785,8 @@
     "view": "canvas"
   },
   "notes": {
+    "addex": {"kind": "title1", "maxW": 2740, "text": "TICKET-056 — add an exercise, this workout only", "x": 0, "y": 32500},
+    "addexwhy": {"fill": "orange", "w": 320, "x": 2820, "y": 32800, "text": "DECIDED (user, 2026-11-02).\n\nTwo ways in: the workout ⋯ menu (1), always, and on the last exercise the disabled › becomes + (2). Same box, so the name never shifts.\n\nThe header ⋯ becomes the same bottom sheet as the exercise ⋯; Discard sits apart, in red.\n\nThe shared picker in add mode (3, 4): says where it goes; today's exercises are \"In workout\".\n\nAdded at the end; you land on it (5). From any exercise, not only the last. Not marked as added on screen or in Firestore.\n\nAn added exercise has no plan to go back to, so its swap picker has no Back to plan (6).\n\nNo remove: 0 sets is dropped at Finish; a wrong pick is fixed by Swap.\n\nRejected: an end page after the last exercise. A summary at Finish is its own ticket."},
     "alt": {
       "kind": "title1",
       "maxW": 1270,
@@ -1152,7 +1160,13 @@
     "ArchiveManageArchived.dc.html",
     "ArchiveManageUnarchivePending.dc.html",
     "ArchiveStartSearchShown.dc.html",
-    "ArchiveStartSearchArchivedOnly.dc.html"
+    "ArchiveStartSearchArchivedOnly.dc.html",
+    "AddMenu.dc.html",
+    "AddLast.dc.html",
+    "AddPicker.dc.html",
+    "AddVersion.dc.html",
+    "AddLanded.dc.html",
+    "AddSwapAdded.dc.html"
   ],
   "pages": [],
   "title": "Fitgram Workout Flow Redesign"
