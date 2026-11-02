@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>All plans (today's Start list</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body { margin: 0; }
+a { color: #5FA8B8; } a:hover { color: #8CC6D2; }
+input { font: inherit; color: inherit; background: none; border: none; outline: none; }
+input::placeholder { color: #8A9593; }
+button { font: inherit; color: inherit; background: none; border: none; padding: 0; cursor: pointer; text-align: left; }
+.num { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #121414; color: #E8EDEC; font-family: 'Archivo', 'Helvetica Neue', system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden; position: relative">
+  <header style="padding: 14px 8px 0; display: flex; align-items: center; gap: 4px">
+    <a href="HubStart.dc.html" aria-label="Back" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#E8EDEC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg></a>
+    <h1 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">All plans</h1>
+  </header>
+  <div style="padding: 16px 16px 0">
+    <div style="display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 14px; border-radius: 13px; background: #222628; border: 1px solid #6A7474">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A9593" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4.3-4.3"></path></svg>
+      <label for="plan-search" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%)">Search plans</label>
+      <input id="plan-search" type="search" placeholder="Search 34 plans" style="flex-grow: 1; font-size: 16px" />
+    </div>
+  </div>
+  <main style="flex-grow: 1; min-height: 0; padding: 20px 16px 0; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; gap: 8px; min-height: 44px">
+      <h2 style="margin: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: #8A9593">A to Z</h2>
+      <span class="num" style="font-size: 12px; color: #8A9593">34</span>
+      <span style="flex-grow: 1"></span>
+      <button type="button" aria-expanded="false" style="min-height: 44px; padding: 0 2px 0 10px; display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: #E8EDEC"><span style="display: flex"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg></span>Show archived</button>
+    </div>
+    <button type="button" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: #1A1D1F; border: 1px solid #2A2F31">
+      <span style="flex-grow: 1; min-width: 0">
+        <span style="display: block; font-size: 16px; font-weight: 700; color: #E8EDEC">Arms &amp; Abs</span>
+        <span style="display: block; margin-top: 3px; font-size: 12px; color: #8A9593"><span class="num">5</span> exercises · last done <span class="num">5 days</span> ago</span>
+      </span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A9593" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+    </button>
+    <button type="button" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: #1A1D1F; border: 1px solid #2A2F31">
+      <span style="flex-grow: 1; min-width: 0">
+        <span style="display: block; font-size: 16px; font-weight: 700; color: #E8EDEC">Back Width</span>
+        <span style="display: block; margin-top: 3px; font-size: 12px; color: #8A9593"><span class="num">6</span> exercises · last done <span class="num">3 weeks</span> ago</span>
+      </span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A9593" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+    </button>
+    <button type="button" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: #1A1D1F; border: 1px solid #2A2F31">
+      <span style="flex-grow: 1; min-width: 0">
+        <span style="display: block; font-size: 16px; font-weight: 700; color: #E8EDEC">Chest Pump</span>
+        <span style="display: block; margin-top: 3px; font-size: 12px; color: #8A9593"><span class="num">6</span> exercises · last done <span class="num">2 weeks</span> ago</span>
+      </span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A9593" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+    </button>
+    <button type="button" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: #1A1D1F; border: 1px solid #2A2F31">
+      <span style="flex-grow: 1; min-width: 0">
+        <span style="display: block; font-size: 16px; font-weight: 700; color: #E8EDEC">Conditioning</span>
+        <span style="display: block; margin-top: 3px; font-size: 12px; color: #8A9593"><span class="num">4</span> exercises · last done <span class="num">2 days</span> ago</span>
+      </span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A9593" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+    </button>
+    <button type="button" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: #1A1D1F; border: 1px solid #2A2F31">
+      <span style="flex-grow: 1; min-width: 0">
+        <span style="display: block; font-size: 16px; font-weight: 700; color: #E8EDEC">Core Circuit</span>
+        <span style="display: block; margin-top: 3px; font-size: 12px; color: #8A9593"><span class="num">5</span> exercises · never done</span>
+      </span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A9593" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+    </button>
+    <button type="button" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: #1A1D1F; border: 1px solid #2A2F31">
+      <span style="flex-grow: 1; min-width: 0">
+        <span style="display: block; font-size: 16px; font-weight: 700; color: #E8EDEC">Deload Full Body</span>
+        <span style="display: block; margin-top: 3px; font-size: 12px; color: #8A9593"><span class="num">7</span> exercises · last done <span class="num">5 weeks</span> ago</span>
+      </span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A9593" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+    </button>
+    <button type="button" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: #1A1D1F; border: 1px solid #2A2F31">
+      <span style="flex-grow: 1; min-width: 0">
+        <span style="display: block; font-size: 16px; font-weight: 700; color: #E8EDEC">Glutes &amp; Hamstrings</span>
+        <span style="display: block; margin-top: 3px; font-size: 12px; color: #8A9593"><span class="num">6</span> exercises · last done <span class="num">16 days</span> ago</span>
+      </span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A9593" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+    </button>
+  </main>
+  <div aria-hidden="true" style="position: absolute; inset: 0; background: rgba(6,8,8,0.72)"></div>
+  <section role="dialog" aria-label="Back Width" style="position: absolute; left: 10px; right: 10px; bottom: 10px; height: 600px; box-sizing: border-box; padding: 10px 20px 16px; border-radius: 26px; background: #1A1D1F; border: 1px solid #3A4245; display: flex; flex-direction: column">
+    <span aria-hidden="true" style="align-self: center; width: 36px; height: 4px; border-radius: 2px; background: #3A4245"></span>
+    <div style="display: flex; align-items: flex-start; margin-top: 10px">
+      <div style="flex-grow: 1; display: flex; align-items: baseline; gap: 6px"><span class="num" style="font-size: 40px; font-weight: 600; letter-spacing: -0.03em; line-height: 1">3</span><span style="font-size: 14px; color: #8A9593">weeks since last</span></div>
+      <button type="button" aria-label="Close" style="width: 40px; height: 40px; margin: -4px -8px 0 0; border-radius: 20px; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A9593" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+    </div>
+    <p style="margin: 10px 0 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15">Back Width</p>
+    <p style="margin: 6px 0 0; font-size: 12px; color: #8A9593"><span class="num">6</span> exercises · about <span class="num">50</span> min last time</p>
+    <div style="margin-top: 14px; display: flex; font-size: 10px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: #8A9593"><span style="flex-grow: 1">Exercise</span><span>Last time</span></div>
+    <div style="flex-grow: 1; min-height: 0; overflow: hidden; position: relative; margin-top: 6px">
+      <ol style="margin: 0; padding: 0; list-style: none"><li style="display: flex; align-items: baseline; gap: 10px; padding: 10px 0; border-top: 1px solid #2A2F31"><span style="flex-grow: 1; min-width: 0; font-size: 15px">Overhead Press</span><span class="num" style="font-size: 12px; color: #8A9593; white-space: nowrap">3 sets · top 40 kg × 8</span></li><li style="display: flex; align-items: baseline; gap: 10px; padding: 10px 0; border-top: 1px solid #2A2F31"><span style="flex-grow: 1; min-width: 0; font-size: 15px">Lateral Raise</span><span class="num" style="font-size: 12px; color: #8A9593; white-space: nowrap">3 sets · top 10 kg × 15</span></li><li style="display: flex; align-items: baseline; gap: 10px; padding: 10px 0; border-top: 1px solid #2A2F31"><span style="flex-grow: 1; min-width: 0; font-size: 15px">Rear Delt Fly</span><span class="num" style="font-size: 12px; color: #8A9593; white-space: nowrap">2 sets · top 8 kg × 15</span></li><li style="display: flex; align-items: baseline; gap: 10px; padding: 10px 0; border-top: 1px solid #2A2F31"><span style="flex-grow: 1; min-width: 0; font-size: 15px">Face Pull</span><span class="num" style="font-size: 12px; color: #8A9593; white-space: nowrap">3 sets · top 25 kg × 12</span></li><li style="display: flex; align-items: baseline; gap: 10px; padding: 10px 0; border-top: 1px solid #2A2F31"><span style="flex-grow: 1; min-width: 0; font-size: 15px">Hanging Leg Raise</span><span class="num" style="font-size: 12px; color: #8A9593; white-space: nowrap">3 sets · best 12 reps</span></li><li style="display: flex; align-items: baseline; gap: 10px; padding: 10px 0; border-top: 1px solid #2A2F31"><span style="flex-grow: 1; min-width: 0; font-size: 15px">Plank</span><span class="num" style="font-size: 12px; color: {{accent}}; white-space: nowrap">new</span></li></ol>
+    </div>
+    <button type="button" style="margin-top: 12px; height: 56px; flex-shrink: 0; border-radius: 16px; background: {{accent}}; color: #121414; font-size: 17px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"></path></svg>Start</button>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5FA8B8","options":["#5FA8B8","#B5A3CF","#D8A13B","#8FB573"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#5FA8B8' };
+  }
+}
+</script>
+</body>
+</html>

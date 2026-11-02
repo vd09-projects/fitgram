@@ -774,7 +774,21 @@
     "AddPicker.dc.html": {"h": 844, "radius": 28, "title": "3 · Picker in add mode", "w": 390, "x": 940, "y": 32800},
     "AddVersion.dc.html": {"h": 844, "radius": 28, "title": "4 · Version step: Add, not Swap", "w": 390, "x": 1410, "y": 32800},
     "AddLanded.dc.html": {"h": 844, "radius": 28, "title": "5 · Lands on 7 of 7, its own history", "w": 390, "x": 1880, "y": 32800},
-    "AddSwapAdded.dc.html": {"h": 844, "radius": 28, "title": "6 · Swap an added exercise: no Back to plan", "w": 390, "x": 2350, "y": 32800}
+    "AddSwapAdded.dc.html": {"h": 844, "radius": 28, "title": "6 · Swap an added exercise: no Back to plan", "w": 390, "x": 2350, "y": 32800},
+    "HubAfterFinish.dc.html": {"h": 844, "radius": 28, "title": "Hub 6 \u00b7 After Finish: back on the hub, Saved toast, tile says today and moves last", "w": 390, "x": 2350, "y": 34300},
+    "HubAllPlans.dc.html": {"h": 844, "radius": 28, "title": "Hub 7 \u00b7 All plans (today's Start list: search, archived) opens the same card", "w": 390, "x": 2820, "y": 34300},
+    "HubCard.dc.html": {"h": 844, "radius": 28, "title": "Hub 2 \u00b7 Tap a tile: card rises over the dimmed page; last time per exercise; Start", "w": 390, "x": 470, "y": 34300},
+    "HubCard20.dc.html": {"h": 844, "radius": 28, "title": "Hub 4 \u00b7 20 exercises: numbered rows, fade says there's more", "w": 390, "x": 1410, "y": 34300},
+    "HubCard20Scrolled.dc.html": {"h": 844, "radius": 28, "title": "Hub 5 \u00b7 Scrolled: header shrinks to one line", "w": 390, "x": 1880, "y": 34300},
+    "HubCardLong.dc.html": {"h": 844, "radius": 28, "title": "Hub 3 \u00b7 Long plan: card stops at 75%, list scrolls, Start pinned", "w": 390, "x": 940, "y": 34300},
+    "HubFirstRun.dc.html": {"h": 844, "radius": 28, "title": "Hub 9 \u00b7 First run: Start Freestyle or Create a plan", "w": 390, "x": 3760, "y": 34300},
+    "HubFreestyleBlocked.dc.html": {"h": 844, "radius": 28, "title": "Busy 3 \u00b7 Freestyle tapped while Legs runs: short card, Back to Legs", "w": 390, "x": 940, "y": 35444},
+    "HubFreestylePlanBlocked.dc.html": {"h": 844, "radius": 28, "title": "Busy 5 \u00b7 Freestyle running, a plan tapped: Back to Freestyle", "w": 390, "x": 1880, "y": 35444},
+    "HubFreestyleRunning.dc.html": {"h": 844, "radius": 28, "title": "Busy 4 \u00b7 Freestyle is the running one: its row is live", "w": 390, "x": 1410, "y": 35444},
+    "HubMany.dc.html": {"h": 844, "radius": 28, "title": "Hub 8 \u00b7 34 plans: six tiles from your last 20 workouts", "w": 390, "x": 3290, "y": 34300},
+    "HubRunning.dc.html": {"h": 844, "radius": 28, "title": "Busy 1 \u00b7 Workout running: Resume on top, its tile is live", "w": 390, "x": 0, "y": 35444},
+    "HubRunningBlocked.dc.html": {"h": 844, "radius": 28, "title": "Busy 2 \u00b7 Another tile tapped: look, can't start, Back to Legs", "w": 390, "x": 470, "y": 35444},
+    "HubStart.dc.html": {"h": 844, "radius": 28, "title": "Hub 1 \u00b7 Workout tab: up to 6 plan tiles, longest since done first; Freestyle; All plans", "w": 390, "x": 0, "y": 34300}
   },
   "createdOnFiles": {
     "at": "2026-10-03T12:00:00Z",
@@ -1062,7 +1076,12 @@
       "x": 2350,
       "y": 31804,
       "text": "Why Show archived is never empty (screen 4).\n\nThe toggle only appears when at least one plan is archived.\n\nNo plans at all: \"No plans yet\" + Create a plan (already shipped). No toggle.\nPlans, none archived: the list. No toggle.\nPlans, all archived: screen 4. The toggle always has something to show.\n\nSame rule in the Manage plan sheet."
-    }
+    },
+    "hubbusy": {"fill": "teal", "text": "ONE RULE: you can always look, you can't start a second workout, and the way back to the running one is one tap. Freestyle is never greyed out; tapping it explains.", "w": 360, "x": 2350, "y": 35484},
+    "hubbusytitle": {"kind": "title1", "maxW": 2270, "text": "Hub: one workout at a time", "x": 0, "y": 35144},
+    "hubcode": {"fill": "purple", "text": "FOR THE TICKETS\n\n1. Set-summary util first, own ticket: one folder under src/utils owns '3 sets \u00b7 top \u2026'; reconcile with personalBest, setDeltas, comparisonSegment, withUnit.\n2. Hub replaces WorkoutScreen. StartWorkoutScreen becomes All plans (tap opens the card).\n3. Store: start a workout with no plan (Freestyle).\n4. History filter: Freestyle entry.\n5. Debug tiles (History Debug, Pending Uploads) need a spot: small row at the end of the hub, debug builds only.", "w": 380, "x": 4230, "y": 34900},
+    "hubrules": {"fill": "orange", "text": "FINAL (user, 2026-11-02). Designed on the 'Fitgram Workout Hub' canvas.\n\nTILES (max 6): plans in your last 20 workouts, longest since done first; fewer than 6 \u2192 filled with other plans in plan order. Big number: 9d / today / new (never done) / dash while loading, never 0.\nAll plans: today's Start list (search, Show archived), always linked.\nFreestyle: no plan created, saved as Freestyle, one entry in History. Tap starts it at once (no card).\n\nCARD: pop-up over the same page, no swipe. Max 75% height, list scrolls, Start pinned, header shrinks on scroll. Close: tap outside, X, drag down from the header, Android back.\nLast time per exercise: '3 sets \u00b7 top 40 kg \u00d7 8' (heaviest; tie \u2192 more reps), 'best 12 reps', 'best 45 s', 'new', or just '3 sets' if unreadable.\n\nLOGGER: unchanged (Main board). Only change: after Finish/Discard go to the hub, not 'No active workout'.", "w": 380, "x": 4230, "y": 34340},
+    "hubtitle": {"kind": "title1", "maxW": 4150, "text": "Workout hub: pick today's workout", "x": 0, "y": 34000}
   },
   "order": [
     "Main.dc.html",
@@ -1166,7 +1185,21 @@
     "AddPicker.dc.html",
     "AddVersion.dc.html",
     "AddLanded.dc.html",
-    "AddSwapAdded.dc.html"
+    "AddSwapAdded.dc.html",
+    "HubStart.dc.html",
+    "HubCard.dc.html",
+    "HubCardLong.dc.html",
+    "HubCard20.dc.html",
+    "HubCard20Scrolled.dc.html",
+    "HubAfterFinish.dc.html",
+    "HubAllPlans.dc.html",
+    "HubMany.dc.html",
+    "HubFirstRun.dc.html",
+    "HubRunning.dc.html",
+    "HubRunningBlocked.dc.html",
+    "HubFreestyleBlocked.dc.html",
+    "HubFreestyleRunning.dc.html",
+    "HubFreestylePlanBlocked.dc.html"
   ],
   "pages": [],
   "title": "Fitgram Workout Flow Redesign"
