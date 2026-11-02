@@ -6879,8 +6879,8 @@ screen formats sets itself.
 - Exercise rows: numbered, name on the left, stage 1's summary on the right
 - Height follows the plan up to **75% of the screen**; past that the list scrolls,
   Start stays pinned, and the header shrinks to one line while scrolled
-- Close: tap the dim area, the X, drag down from the handle/header (or when the list
-  is at its top), Android back. Closing never loses anything
+- Close: tap the dim area, the X, Android back. Closing never loses anything. Drag
+  down to close moved to TICKET-068 (user, 2026-11-03)
 - **This plan is running:** the big number is the live timer with a dot, a progress
   bar, **Resume**
 - **Another workout is running:** no Start. "Legs is in progress. Finish or discard
@@ -6891,13 +6891,55 @@ screen formats sets itself.
 - Replaces the expanded row and the bottom Start bar on Start Workout. Search, Show
   archived and the resume banner stay as they are
 
+**Stage 2 as built (2026-11-03):** `src/components/start_workout/PlanCard.tsx`, with
+its header numbers in `src/utils/planCard.ts` (`planCardHeader`, tested). The card
+reads `activeWorkout` and navigates on its own, so 066 and 067 pass only a plan, its
+row and whether sessions loaded. `PlanRow` is now the collapsed row only. Notes and
+deviations:
+- **Drag to close is out of this ticket** (user, 2026-11-03): TICKET-068 checks it on
+  a real phone across every sheet. The card keeps the drag already built, from the
+  handle and header only, not from the list at its top.
+  RN `Modal` + core `PanResponder`, as `ExerciseHistorySheet` (no bottom-sheet
+  library, no native rebuild); sharing one gesture between the list and the drag needs
+  one. X, dim area, Android back and the header drag cover every close.
+  Device fix (2026-11-03): the drag first did nothing on Android. Inside the Modal,
+  moves never asked the header to take the touch, so it now claims it on touch start
+  and keeps it. Checked on the emulator with real swipes: a long drag closes, a 49 dp
+  drag springs back, and X still closes
+- **Stale plans on Start (found in testing, not caused by this ticket):** Start Workout
+  read plans once, on mount (since 2025). Since `710cf1f` (2026-11-02) the Workout tab
+  keeps the screen mounted underneath, so a plan edited in Manage Workout kept its old
+  exercise count there until the app restarted. Start now re-reads plans each time it
+  comes back into view, keeping the list on screen while it does. Fixed in Start only,
+  not in `useWorkoutPlans`, which four other places use. Checked on the emulator: save
+  Test WK at 2, footer → Start Workout shows 2 (before the fix it still showed 3).
+  No automated test: the test harness cannot leave a screen and return to it
+- **Big number past two weeks** steps to weeks, then months, as the list's "last done"
+  (`formatSince`), so the card and the row it opened from agree: "3 weeks since last"
+  (the All plans board shows this). "today" reads "today · last done"
+- **No session:** "—" with "no recent session" once sessions are read; "last session
+  unknown" while they load or if the read failed. "no recent session" would be a claim
+- **Minutes:** dropped when `endedAt − startedAt` is not positive; under a minute
+  reads "under 1 min", never "about 0 min"
+- **Running this plan:** no board exists. Built from the ticket: dot + live timer +
+  "in progress" as the big number, the logger's own progress bar
+  (`buildProgressSegments`), Resume. The rows still list the plan, not today's swaps
+- **Type sizes:** board 40 → `xLarge`; the plan name (board 26) is `large`, the System
+  board's "sheet title · the open plan" use, so the number stays above it; Start
+  (board 17) is `medium`, the button use. Row numbers use `textSecondary`, since
+  `textGhost` is for large numerals only
+- **Removed with the expanded row:** the screen tests for "a plan hidden by search is
+  no longer the one to start" and "hiding archived deselects". Search and the toggle
+  cannot be reached while the card is open; the derived selection is kept
+
 **Acceptance Criteria:**
 - [ ] `src/utils/setSummary/` exists, `startWorkout.ts` no longer holds top-set code,
       and nothing else formats a past set
 - [ ] Tapping a plan opens the card; Start starts it and opens the logger
 - [ ] Long plan: scrolls inside a 75% card, Start always visible
 - [ ] Running this plan: Resume. Running another: the reason, Back to it, no Start
-- [ ] Every close path works and leaves nothing started
+- [ ] X, dim area and Android back close the card and leave nothing started (drag:
+      TICKET-068)
 - [ ] Unit tests: the summary for a weighted, bodyweight, timed, never-logged,
       unreadable and unit-changed exercise; varied weights across sets; a tie
 - [ ] **Device test (done when it passes):** Start Workout → open a short plan, a long
@@ -7022,6 +7064,45 @@ Hub 1 / Hub 9 for the row and the first-run button.
 
 ---
 
+### TICKET-068: Drag to Close — Check Every Sheet on a Real Phone
+
+**Priority:** Low | **Effort:** Small | **Status: OPEN** — raised 2026-11-03, from
+TICKET-065's device run
+
+**Description:**
+TICKET-065's plan card can be dragged down from its handle and header to close. On the
+emulator it first did nothing (moves inside an RN `Modal` never reached the header),
+was fixed by claiming the touch on start, and then passed with `adb` swipes. It has not
+been tried on a real phone, and the other sheets with a handle do not drag at all, so
+the handle promises a gesture that only one sheet has.
+
+**From the user (2026-11-03):** not part of 065, and not blocking anything: the other
+close paths work. Check drag on a real phone across every sheet, every way in.
+
+**Sheets in scope** (bottom sheets in an RN `Modal`):
+- `PlanCard` (Start Workout; TICKET-066's hub and 067 open it too): drag built
+- `PlanSheet` (Manage Workout, the plan chooser): shows a handle, no drag
+- `ExerciseHistorySheet` (logger, history pill): handle, no drag by decision
+  (TICKET-020: "no drag-to-dismiss")
+- `MenuSheet` (logger ⋯ menu), `VersionSheet` (exercise picker): check
+
+**To decide:**
+- Drag on every sheet with a handle, or none and drop the handles. One rule, so a
+  handle always means the same thing
+- Drag from the list when it is scrolled to the top: needs the list and the drag to
+  share a gesture (`react-native-gesture-handler` is installed; reanimated is not)
+
+**Acceptance Criteria:**
+- [ ] Each sheet above checked on a real Android phone: long drag closes, short drag
+      springs back, taps on its controls still work, the list still scrolls
+- [ ] The handle rule above decided and applied
+- [ ] **Device test (done when it passes):** every sheet, reached from every screen
+      that opens it
+
+**Dependencies:** none. Reads better after TICKET-066 (more ways into the card).
+
+---
+
 ## Recommended Execution Order
 
 Finished tickets have been removed — they are not blockers for anything.
@@ -7054,6 +7135,7 @@ its own and the next one does not reopen it.
 1. TICKET-065  (Plan card + set summary)  — Next. Built on today's Start screen
 2. TICKET-066  (Workout hub)              — Replaces the Workout tab; opens 065's card
 3. TICKET-067  (Freestyle)                — Adds the no-plan workout to 066's hub
+   TICKET-068  (Drag to close sheets)     — Open, low; real-phone check, from 065
 ```
 
 **Before that (user, 2026-10-30):** the exercise menu, then swapping and adding an exercise

@@ -1,5 +1,5 @@
-import { TextInput } from "react-native";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
+import { Modal, TextInput } from "react-native";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react-native";
 import StartWorkoutScreen from "./StartWorkoutScreen";
 import { renderScreen, TEST_USER_ID } from "../../test/renderScreen";
 import { buildExercise, buildStats, buildWorkout } from "../../test/fixtures";
@@ -69,6 +69,7 @@ async function renderStart(
 
 const summary = (planId: string) => screen.getByTestId(`plan-summary-${planId}`);
 const primaryButton = () => screen.getByRole("button", { name: /^(Start|Resume) / });
+const card = () => screen.queryByTestId("plan-card");
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -101,40 +102,6 @@ describe("StartWorkoutScreen", () => {
     expect(mockStats).not.toHaveBeenCalled();
   });
 
-  it("expands a selected plan: names at once, top sets after one batched read", async () => {
-    let resolveStats!: (value: unknown) => void;
-    mockStats.mockReturnValue(new Promise((resolve) => (resolveStats = resolve)));
-    await renderStart();
-
-    fireEvent.press(screen.getByRole("button", { name: "Push" }));
-
-    expect(screen.getByText("Bench Press")).toBeOnTheScreen();
-    expect(screen.getByTestId("top-set-bench-press")).toHaveTextContent("…");
-    expect(mockStats).toHaveBeenCalledTimes(1);
-    expect(mockStats).toHaveBeenCalledWith(TEST_USER_ID, ["bench-press", "squat"]);
-
-    const bench = buildStats("Bench Press", [{ sets: [{ Weight: "65", Reps: "8" }, { Weight: "60", Reps: "10" }] }]);
-    await act(async () => resolveStats({ "bench-press": bench, squat: null }));
-
-    expect(screen.getByTestId("top-set-bench-press")).toHaveTextContent("2 sets · top 65 kg × 8");
-    expect(screen.getByTestId("top-set-squat")).toHaveTextContent("new");
-  });
-
-  it("filters plans by search, and a plan hidden by the search is no longer the one to start", async () => {
-    mockStats.mockResolvedValue({});
-    await renderStart();
-    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Pull" })));
-    expect(primaryButton()).toHaveTextContent("Start Pull");
-
-    // Paper's TextInput shows its placeholder only when focused, so find the
-    // native input itself; the screen has exactly one.
-    fireEvent.changeText(screen.UNSAFE_getByType(TextInput), "pus");
-
-    expect(screen.getByText("Push")).toBeOnTheScreen();
-    expect(screen.queryByText("Pull")).toBeNull();
-    expect(screen.queryByRole("button", { name: /^(Start|Resume) / })).toBeNull();
-  });
-
   it("shows the in-progress workout as a banner, not a modal, and Discard confirms first", async () => {
     const cancelWorkout = jest.fn().mockResolvedValue(undefined);
     const workout = buildWorkout(["Bench Press"], { id: "push", name: "Push", startTime: Date.now() - 90_000 });
@@ -155,32 +122,6 @@ describe("StartWorkoutScreen", () => {
     const discards = screen.getAllByText("Discard");
     await act(async () => fireEvent.press(discards[discards.length - 1]));
     expect(cancelWorkout).toHaveBeenCalledTimes(1);
-  });
-
-  it("starts the selected plan from the bottom bar, and refuses while another workout is running", async () => {
-    mockStats.mockResolvedValue({});
-    const startWorkout = jest.fn().mockResolvedValue({ status: "started" });
-    const first = await renderStart({ workoutActions: { startWorkout } });
-
-    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Push" })));
-    expect(primaryButton()).toHaveTextContent("Start Push");
-    await act(async () => fireEvent.press(primaryButton()));
-
-    expect(startWorkout).toHaveBeenCalledWith(PUSH);
-    expect(await screen.findByText("route:LogWorkout")).toBeOnTheScreen();
-
-    // Another workout in progress: the button says why it will not start one.
-    startWorkout.mockClear();
-    first.unmount();
-    await renderStart({
-      workout: buildWorkout(["Row"], { id: "pull", name: "Pull" }),
-      workoutActions: { startWorkout },
-    });
-    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Push" })));
-    expect(screen.getByText(/Pull is still in progress/)).toBeOnTheScreen();
-    expect(primaryButton()).toBeDisabled();
-    fireEvent.press(primaryButton());
-    expect(startWorkout).not.toHaveBeenCalled();
   });
 
   // TICKET-042 stage 2: a plan row names catalog exercises from the catalog, and
@@ -246,17 +187,6 @@ describe("StartWorkoutScreen, archived plans", () => {
     expect(startWorkout).toHaveBeenCalledWith(OLD_PUSH);
   });
 
-  it("deselects an archived plan when archived plans are hidden again", async () => {
-    await renderWith([PUSH, OLD_PUSH]);
-    fireEvent.press(await screen.findByRole("button", { name: "Show archived" }));
-    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Push v1" })));
-    expect(primaryButton()).toHaveTextContent("Start Push v1");
-
-    fireEvent.press(screen.getByRole("button", { name: "Hide archived" }));
-    expect(screen.queryByText("Push v1")).toBeNull();
-    expect(screen.queryByRole("button", { name: /^(Start|Resume) / })).toBeNull();
-  });
-
   it("keeps hidden archived plans out of search, and says when one matches", async () => {
     await renderWith([PUSH, PULL, OLD_PUSH]);
     await screen.findByText("Push");
@@ -277,5 +207,112 @@ describe("StartWorkoutScreen, archived plans", () => {
     await renderWith([PUSH, PULL]);
     await screen.findByText("Push");
     expect(screen.queryByRole("button", { name: "Show archived" })).toBeNull();
+  });
+});
+
+// TICKET-065: tapping a plan opens its card over the list.
+describe("StartWorkoutScreen, plan card", () => {
+  /** The card's Modal, for Android back (`onRequestClose`). */
+  const cardModal = () =>
+    screen.UNSAFE_getAllByType(Modal).find((modal) => modal.props.visible && within(modal).queryByTestId("plan-card"))!;
+
+  it("opens with the days since, the minutes and each exercise's last time, then starts the plan", async () => {
+    let resolveStats!: (value: unknown) => void;
+    mockStats.mockReturnValue(new Promise((resolve) => (resolveStats = resolve)));
+    const startWorkout = jest.fn().mockResolvedValue({ status: "started" });
+    const started = Date.now() - 9 * DAY;
+    await renderStart({ workoutActions: { startWorkout } }, [
+      { ...session("push", started, 4980), endedAt: started + 50 * 60_000 },
+    ]);
+    await waitFor(() => expect(summary("push")).toHaveTextContent(/last done 9 days ago/));
+
+    fireEvent.press(screen.getByRole("button", { name: "Push" }));
+
+    expect(screen.getByTestId("plan-card-since")).toHaveTextContent("9days since last");
+    expect(screen.getByTestId("plan-card-meta")).toHaveTextContent("2 exercises · about 50 min last time");
+    expect(screen.getByTestId("last-time-bench-press")).toHaveTextContent("…");
+    expect(mockStats).toHaveBeenCalledWith(TEST_USER_ID, ["bench-press", "squat"]);
+
+    const bench = buildStats("Bench Press", [{ sets: [{ Weight: "65", Reps: "8" }, { Weight: "60", Reps: "10" }] }]);
+    await act(async () => resolveStats({ "bench-press": bench, squat: null }));
+    expect(screen.getByTestId("last-time-bench-press")).toHaveTextContent("2 sets · top 65 kg × 8");
+    expect(screen.getByTestId("last-time-squat")).toHaveTextContent("new");
+
+    await act(async () => fireEvent.press(primaryButton()));
+    expect(startWorkout).toHaveBeenCalledWith(PUSH);
+    expect(await screen.findByText("route:LogWorkout")).toBeOnTheScreen();
+  });
+
+  it("closes from the X, the dim area and Android back without starting anything", async () => {
+    mockStats.mockResolvedValue({});
+    const startWorkout = jest.fn();
+    await renderStart({ workoutActions: { startWorkout } });
+
+    fireEvent.press(screen.getByRole("button", { name: "Push" }));
+    // The drag area must claim the touch on start: on Android, moves inside the
+    // Modal never asked it, so a drag did nothing (device, 2026-11-03). The
+    // gesture itself is device-only.
+    expect(screen.getByTestId("plan-card-drag").props.onStartShouldSetResponder({})).toBe(true);
+    fireEvent.press(screen.getByRole("button", { name: "Close" }));
+    expect(card()).toBeNull();
+
+    fireEvent.press(screen.getByRole("button", { name: "Push" }));
+    // Not an accessibility element (the X is the labelled way out), so hidden to default queries.
+    fireEvent.press(screen.getByTestId("plan-card-backdrop", { includeHiddenElements: true }));
+    expect(card()).toBeNull();
+
+    fireEvent.press(screen.getByRole("button", { name: "Pull" }));
+    act(() => cardModal().props.onRequestClose());
+    expect(card()).toBeNull();
+
+    expect(startWorkout).not.toHaveBeenCalled();
+    expect(screen.getByText("Push")).toBeOnTheScreen();
+  });
+
+  it("collapses the header to one line while the list is scrolled, keeping Start", async () => {
+    mockStats.mockResolvedValue({});
+    await renderStart({}, [session("push", Date.now() - 9 * DAY, 100)]);
+    await waitFor(() => expect(summary("push")).toHaveTextContent(/last done 9 days ago/));
+    fireEvent.press(screen.getByRole("button", { name: "Push" }));
+
+    fireEvent.scroll(screen.getByTestId("plan-card-list"), { nativeEvent: { contentOffset: { y: 120 } } });
+
+    expect(screen.queryByTestId("plan-card-since")).toBeNull();
+    expect(screen.getByText("9 days since last · 2 exercises")).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Start Push" })).toBeOnTheScreen();
+  });
+
+  it("offers Resume, with the live timer, for the plan that is running", async () => {
+    mockStats.mockResolvedValue({});
+    const startWorkout = jest.fn();
+    const workout = buildWorkout(["Bench Press"], { id: "push", name: "Push", startTime: Date.now() - 90_000 });
+    await renderStart({ workout, workoutActions: { startWorkout } });
+
+    fireEvent.press(screen.getByRole("button", { name: "Push" }));
+
+    expect(screen.getByTestId("plan-card-since")).toHaveTextContent(/^1:3\din progress$/);
+    expect(screen.queryByRole("button", { name: "Start Push" })).toBeNull();
+    fireEvent.press(screen.getByRole("button", { name: "Resume Push" }));
+    expect(await screen.findByText("route:LogWorkout")).toBeOnTheScreen();
+    expect(startWorkout).not.toHaveBeenCalled();
+  });
+
+  // The running workout is no plan on this screen: its name and timer must come
+  // from activeWorkout itself, as a Freestyle will in TICKET-067.
+  it("blocks Start while another workout runs, naming it from the active workout", async () => {
+    mockStats.mockResolvedValue({});
+    const startWorkout = jest.fn();
+    const workout = buildWorkout(["Row"], { id: "not-a-plan", name: "Legs", startTime: Date.now() - 90_000 });
+    await renderStart({ workout, workoutActions: { startWorkout } });
+
+    fireEvent.press(screen.getByRole("button", { name: "Push" }));
+
+    expect(screen.getByText("Legs is in progress. Finish or discard it to start this one.")).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: /^(Start|Resume) / })).toBeNull();
+    const back = screen.getByRole("button", { name: "Back to Legs" });
+    expect(back).toHaveTextContent(/^Back to Legs · 1:3\d$/);
+    fireEvent.press(back);
+    expect(await screen.findByText("route:LogWorkout")).toBeOnTheScreen();
+    expect(startWorkout).not.toHaveBeenCalled();
   });
 });

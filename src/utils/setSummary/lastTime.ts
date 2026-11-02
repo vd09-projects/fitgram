@@ -52,3 +52,8 @@ export function lastTimeSummary(
       return top.reason === "unit_changed" ? [...sets, txt(" · unit changed")] : sets;
   }
 }
+
+/** True when `lastTimeSummary` says "new": loaded, and never logged. The card colours it. */
+export function neverLogged(history: Pick<ExerciseHistory, "status" | "lastSession">): boolean {
+  return history.status === "ready" && history.lastSession === null;
+}

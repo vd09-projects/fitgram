@@ -23,6 +23,11 @@ export type PlanRow = {
   exerciseCount: number;
   /** `startedAt` of the plan's latest session, or null when none is known. */
   lastDoneAt: number | null;
+  /**
+   * `endedAt` of that same session, for the plan card's "about 50 min last
+   * time" (TICKET-065). null with `lastDoneAt`.
+   */
+  lastEndedAt: number | null;
   /** "pending" when the latest session is finished but not uploaded yet. */
   lastDoneSource: "uploaded" | "pending" | null;
   /**
@@ -37,6 +42,7 @@ export type PlanRow = {
 
 type Candidate = {
   startedAt: number;
+  endedAt: number;
   source: "uploaded" | "pending";
   volume: SessionTotalVolume | null;
 };
@@ -91,6 +97,7 @@ export function buildPlanRows(
     for (const session of sessions) {
       consider(session.workoutId, {
         startedAt: session.startedAt,
+        endedAt: session.endedAt,
         source: "uploaded",
         volume: session.volume ?? null,
       });
@@ -102,6 +109,7 @@ export function buildPlanRows(
       const { exerciseSessions } = buildSessionDocs(entry.workout, entry.endedAt);
       consider(entry.workout.id, {
         startedAt: entry.workout.startTime,
+        endedAt: entry.endedAt,
         source: "pending",
         volume: computeSessionTotalVolume(exerciseSessions),
       });
@@ -118,6 +126,7 @@ export function buildPlanRows(
         name: plan.name,
         exerciseCount: plan.exercises.length,
         lastDoneAt: candidate?.startedAt ?? null,
+        lastEndedAt: candidate?.endedAt ?? null,
         lastDoneSource: candidate?.source ?? null,
         volume: candidate?.volume ?? null,
         archived: isArchived(plan),
@@ -198,18 +207,21 @@ const startOfLocalDay = (time: number) => {
 };
 
 /**
+ * Whole local calendar days from `time` to `now`, not 24-hour blocks: a workout
+ * at 23:00 read at 08:00 is 1, which is how the user remembers it. A time in the
+ * future (device clock moved back) is 0. Shared by the list's "last done" and
+ * the plan card's big number, so the two never disagree.
+ */
+export function daysSince(time: number, now: number): number {
+  return Math.max(0, Math.round((startOfLocalDay(now) - startOfLocalDay(time)) / DAY_MS));
+}
+
+/**
  * "today", "yesterday", "N days ago" under two weeks, "N weeks ago" under 60
- * days, then "N months ago" (30-day months).
- *
- * Counted in local calendar days, not 24-hour blocks: a workout at 23:00 read at
- * 08:00 is "yesterday", which is how the user remembers it. A time in the future
- * (device clock moved back) reads "today".
+ * days, then "N months ago" (30-day months). Days per `daysSince`.
  */
 export function formatSince(time: number, now: number): TextPart[] {
-  const days = Math.max(
-    0,
-    Math.round((startOfLocalDay(now) - startOfLocalDay(time)) / DAY_MS)
-  );
+  const days = daysSince(time, now);
   if (days === 0) return [txt("today")];
   if (days === 1) return [txt("yesterday")];
   if (days < 14) return [num(String(days)), txt(" days ago")];

@@ -154,7 +154,7 @@ describe("buildPlanRows", () => {
       "me",
       ""
     );
-    expect(rows[0]).toMatchObject({ lastDoneAt: 500, lastDoneSource: "pending" });
+    expect(rows[0]).toMatchObject({ lastDoneAt: 500, lastEndedAt: 500 + 3600_000, lastDoneSource: "pending" });
     expect(rows[0].volume?.totals).toEqual([{ unit: "kg", value: 50 * 10 }]);
     expect(rows[1]).toMatchObject({ lastDoneAt: 100, lastDoneSource: "uploaded" });
   });
