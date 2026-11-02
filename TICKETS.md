@@ -5143,10 +5143,11 @@ has no `planned` key, seen red with an exercise spread in `buildSessionDocs`.
 
 ---
 
-### TICKET-056: Add an Exercise Mid-Workout
+### ~~TICKET-056: Add an Exercise Mid-Workout~~ ✅ DONE
 
-**Priority:** Medium | **Effort:** Small-Med | **Status: DESIGN DECIDED** — raised
-2026-10-30, after TICKET-047; design decided 2026-11-02
+**Priority:** Medium | **Effort:** Small-Med | **Status: COMPLETED** — raised
+2026-10-30, after TICKET-047; design decided 2026-11-02 (PR #39); built and merged
+2026-11-02 (PR #40); device run passed 2026-11-02
 
 **Description:**
 The plan is done and there is energy left (a finisher: abs, forearms, calves), the
@@ -5202,6 +5203,41 @@ https://claude.ai/artifact/NvgcdetMQMT3FnxwRtdVtv
 - **Rejected: an end page after the last exercise** ("End of plan", the day's list,
   + Add exercise). A page that is not an exercise breaks "N of M", the swipe, the
   progress bar and resume. Its summary half became TICKET-063
+
+**Build (2026-11-02, PR #40, branch `TICKET-056`):**
+- Store: `addExercise` appends, refuses an id already in today's workout
+  (`ALREADY_IN_WORKOUT_REASON`, shared with swap), moves the index to the new slot,
+  writes AsyncStorage, prefetches history (not awaited). `LoggedExercise.added?: true`,
+  live only; swap keeps it and never records `planned` for an added slot
+- Picker: `PickerMode` gains `add`; `SwapExercisePicker` became
+  `WorkoutExercisePicker`, taking swap or add. Swap of an added slot reads "For this
+  workout only." with no Back to plan
+- `ExerciseNavHeader`: + replaces the disabled › on the last exercise
+- `ExerciseMenu` became the generic `MenuSheet` (`src/components/MenuSheet.tsx`):
+  `groups: MenuItem[][]`, `tone: "danger"`, optional `detail`. Both ⋯ menus pass
+  rows; no Discard-specific prop. Rejected: separate ExerciseMenu and WorkoutMenu
+  files, two copies of one sheet differing by one row (user, 2026-11-02)
+- Duplication review (user, 2026-11-02): `freshSlot(exercise, catalogIndex)` builds
+  every slot (start, swap, add), `prefetchHistory` shared, one `picker` state on the
+  screen. The store-wide save repetition became TICKET-064
+- Tour: the Workout Options step now mentions Add exercise
+- Tests: store ×3 (add appends/jumps/persists and the session doc has no `added`;
+  duplicate refused, nothing changed; swap on added keeps `added`, no `planned`),
+  screen ×2 (add from exercise 1 lands on 3 of 3 with its own last time; swap on an
+  added slot has no Back to plan), one changed (last exercise shows Add). Each seen
+  red with its line broken. 554 tests pass
+- Device run (user, 2026-11-02): all 24 steps passed — menu sheet, both entry
+  points, picker copy, swap of added, exercise ⋯ unchanged, rest timer across add,
+  resume after force-quit, Finish drops a 0-set added exercise, plan unchanged
+- Review (PR #40, multi-perspective): no blocking findings; tour copy and
+  `workoutMenuOpen` fixed
+
+**Known gaps, deferred:**
+- Not tested: the version step's add-mode subtitle (seen on device), and
+  `MenuSheet`'s danger/single-line styling (visual only)
+- iOS: Discard's confirm opens while the sheet slides out, as the old menu did. RN
+  can drop a `Modal` presented during another's dismissal. Discard passed in the
+  device run (platform not recorded); check once on an iPhone before shipping there
 
 **Dependencies:** TICKET-047.
 
@@ -6783,10 +6819,10 @@ mid-workout, ahead of 032 and 029 below.
 ```
 1. TICKET-058  (Exercise menu + split)    — Done (PR #32, 2026-10-30); device run passed
    TICKET-059  (Today list arrows)        — Done (PR #33, 2026-10-30); device run passed
-2. TICKET-047  (Swap an exercise)         — Built (2026-10-31), in review. Adds Swap to 058's menu
-3. TICKET-056  (Add an exercise)          — Design decided (2026-11-02): ⋯ menu + on the
-                                             last exercise. Next to build
+2. TICKET-047  (Swap an exercise)         — Done (PR #34, 2026-10-31). Adds Swap to 058's menu
+3. TICKET-056  (Add an exercise)          — Done (PR #40, 2026-11-02); device run passed
    TICKET-063  (Finish summary)           — Open, low; from 056's review
+   TICKET-064  (Store save path)          — Open, low; from 056's duplication review
    TICKET-057  (Free-flow workout)        — Deferred; an empty session plus 056
 ```
 
