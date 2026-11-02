@@ -269,6 +269,27 @@ describe("StartWorkoutScreen, plan card", () => {
     expect(screen.getByText("Push")).toBeOnTheScreen();
   });
 
+  // PR #44 review: the card stays mounted with the screen, so its clock must be
+  // read on each open, not once at mount, or a later open counts from the past.
+  it("counts days since from the moment it opens, not from when the screen mounted", async () => {
+    mockStats.mockResolvedValue({});
+    const mounted = Date.now();
+    const clock = jest.spyOn(Date, "now").mockReturnValue(mounted);
+    try {
+      await renderStart({}, [session("push", mounted - DAY, 100)]);
+      await waitFor(() => expect(summary("push")).toHaveTextContent(/last done yesterday/));
+      fireEvent.press(screen.getByRole("button", { name: "Push" }));
+      expect(screen.getByTestId("plan-card-since")).toHaveTextContent("1day since last");
+      fireEvent.press(screen.getByRole("button", { name: "Close" }));
+
+      clock.mockReturnValue(mounted + DAY);
+      fireEvent.press(screen.getByRole("button", { name: "Push" }));
+      expect(screen.getByTestId("plan-card-since")).toHaveTextContent("2days since last");
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it("collapses the header to one line while the list is scrolled, keeping Start", async () => {
     mockStats.mockResolvedValue({});
     await renderStart({}, [session("push", Date.now() - 9 * DAY, 100)]);

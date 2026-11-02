@@ -9,7 +9,6 @@ import ScrollableScreen from "../../components/ScrollableScreen";
 import { BackTitle } from "../../components/BackButton";
 import SearchBox from "../../components/SearchBox";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
-import { useExerciseHistoryStore } from "../../stores/useExerciseHistoryStore";
 import { WorkoutRoutes } from "../../constants/routes";
 import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
 import { TextBase } from "../../components/TextBase";
@@ -94,21 +93,8 @@ export default function StartWorkoutScreen() {
   const selectedRow = visible.find((row) => row.id === selectedId) ?? null;
   const selectedPlan = selectedRow ? (plansById.get(selectedRow.id) ?? null) : null;
 
-  const openCard = (planId: string) => {
-    setSelectedId(planId);
-    // The one history read for this plan: a batched query, one doc per
-    // exercise. The same prefetch `startWorkout` makes, so a plan started after
-    // selecting it begins with its ghost targets already warm. Never on mount —
-    // warming every plan is a large read for a screen the user may pass through.
-    const plan = plansById.get(planId);
-    useExerciseHistoryStore
-      .getState()
-      .prefetchExerciseHistory(
-        uid,
-        plan?.exercises.map((exercise) => exercise.id),
-      )
-      .catch(() => {});
-  };
+  // The card prefetches its own exercise history on open (PlanCard).
+  const openCard = (planId: string) => setSelectedId(planId);
 
   const renderRow = (row: PlanRowModel) => (
     <PlanRow key={row.id} row={row} now={now} onPress={() => openCard(row.id)} />

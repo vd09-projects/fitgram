@@ -24,6 +24,8 @@ import { WorkoutRoutes } from "../../constants/routes";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
+import { useExerciseHistoryStore } from "../../stores/useExerciseHistoryStore";
+import { useAuthUser } from "../../hooks/useAuthUser";
 import { useExerciseHistory } from "../../hooks/useExerciseHistory";
 import { useExerciseName } from "../../hooks/useExerciseNames";
 import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
@@ -99,14 +101,37 @@ export function PlanCard({ plan, row, sessionsKnown, onClose }: Props) {
   const [now, setNow] = useState(() => Date.now());
   const visible = plan !== null;
 
-  // Elapsed is re-derived from `startTime` on each tick (`formatElapsed`), so
-  // the timer is right however long the card was closed.
+  // The clock is read on every open, before the running-workout guard: the
+  // card stays mounted as long as its screen, which the Workout tab keeps
+  // alive, so a clock read once at mount would count days from the past
+  // (PR #44 review). While a workout runs it ticks each second; elapsed is
+  // re-derived from `startTime` on each tick (`formatElapsed`), so the timer is
+  // right however long the card was closed.
   useEffect(() => {
-    if (!visible || !activeWorkout) return;
+    if (!visible) return;
     setNow(Date.now());
+    if (!activeWorkout) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, [visible, activeWorkout]);
+
+  // The one history read for this plan, made by the card itself so every
+  // opener (Start today, the hub in TICKET-066) gets filled rows without
+  // having to remember it (PR #44 review): a batched query, one doc per
+  // exercise. The same prefetch `startWorkout` makes, so a plan started from
+  // the card begins with its ghost targets warm. Never for a closed card:
+  // warming every plan is a large read for a screen the user may pass through.
+  // Keyed on the exercise ids, so a plan edited in Manage reads its new ones.
+  const { user } = useAuthUser();
+  const uid = user?.uid;
+  const exerciseIds = plan?.exercises.map((exercise) => exercise.id).join(",") ?? "";
+  useEffect(() => {
+    if (!exerciseIds) return;
+    useExerciseHistoryStore
+      .getState()
+      .prefetchExerciseHistory(uid, exerciseIds.split(","))
+      .catch(() => {});
+  }, [uid, exerciseIds]);
 
   // Each opening starts from the top, with the full header.
   useEffect(() => {
@@ -338,7 +363,7 @@ function RunningProgress({ workout }: { workout: ActiveWorkout }) {
 
 /**
  * One exercise: its position, name, and last time (`lastTimeSummary`). The
- * history is cache-only here; the screen's prefetch on open fills it.
+ * history is cache-only here; the card's prefetch on open fills it.
  */
 function ExerciseRow({ exercise, position }: { exercise: Exercise; position: number }) {
   const { styles } = useThemeStyles(createStyles);

@@ -4223,6 +4223,15 @@ final screens instead of each intermediate one.
 `VERSION_SHEET`); unverified. The device runs of 043–052 note anything broken for
 this ticket.
 
+**Timing (user, 2026-11-03):** the tour is rewritten at the end, after the screen
+changes settle, not adjusted ticket by ticket. Cards and screens built before then
+keep whatever step ids they have, unverified.
+
+**Input from TICKET-065:** the plan card holds two Start Workout steps,
+`SELECTED_WORKOUT_EXERCISE_LIST` and `START_SELECTED_WORKOUT_BUTTON`, now inside an RN
+`Modal`; the tooltip library opens its own modal, so they may draw behind or in the
+wrong place. Never run on a device.
+
 **Dependencies:** TICKET-043, TICKET-050, TICKET-051, TICKET-052, and TICKET-066, which
 replaces the Workout tab the Start and Manage tours begin from (it moves their two
 step ids to All plans and the Plans pill; the rest is this pass).
@@ -6914,6 +6923,11 @@ deviations:
   not in `useWorkoutPlans`, which four other places use. Checked on the emulator: save
   Test WK at 2, footer → Start Workout shows 2 (before the fix it still showed 3).
   No automated test: the test harness cannot leave a screen and return to it
+- **PR #44 review fixes:** the card reads its clock on every open, not once at mount
+  (it stays mounted with the screen, so a later open counted days from the past; a
+  test moves the clock a day between opens). The exercise-history prefetch moved from
+  Start's `openCard` into the card, so any opener gets filled rows; 066 passes only
+  the plan, its row and whether sessions loaded
 - **Big number past two weeks** steps to weeks, then months, as the list's "last done"
   (`formatSince`), so the card and the row it opened from agree: "3 weeks since last"
   (the All plans board shows this). "today" reads "today · last done"
