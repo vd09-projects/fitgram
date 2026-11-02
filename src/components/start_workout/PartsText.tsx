@@ -12,13 +12,15 @@ export function PartsText({
   parts,
   style,
   testID,
+  numberOfLines,
 }: {
   parts: TextPart[];
   style?: StyleProp<TextStyle>;
   testID?: string;
+  numberOfLines?: number;
 }) {
   return (
-    <TextBase style={style} testID={testID}>
+    <TextBase style={style} testID={testID} numberOfLines={numberOfLines}>
       {parts.map((part, index) =>
         part.numeric ? (
           <TextBase key={index} numeric style={style}>

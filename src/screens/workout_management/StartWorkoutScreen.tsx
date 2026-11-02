@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import useWorkoutPlans from "../../hooks/useWorkoutPlans";
@@ -9,8 +9,6 @@ import ScrollableScreen from "../../components/ScrollableScreen";
 import { BackTitle } from "../../components/BackButton";
 import SearchBox from "../../components/SearchBox";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
-import { useExerciseHistoryStore } from "../../stores/useExerciseHistoryStore";
-import show from "../../utils/toastUtils";
 import { WorkoutRoutes } from "../../constants/routes";
 import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
 import { TextBase } from "../../components/TextBase";
@@ -22,6 +20,7 @@ import { START_WOURKOUT_STEP_NAMES } from "../../tour_steps/startWorkout";
 import { MaybeTourStep } from "../../components/guide_tour/MaybeTourStep";
 import { ResumeBanner } from "../../components/start_workout/ResumeBanner";
 import { PlanRow } from "../../components/start_workout/PlanRow";
+import { PlanCard } from "../../components/start_workout/PlanCard";
 import { buildPlanRows, groupPlanRows, PlanRow as PlanRowModel } from "../../utils/startWorkout";
 import { isArchived } from "../../types/workoutType";
 import { ShowArchivedToggle } from "../../components/ShowArchivedToggle";
@@ -38,14 +37,30 @@ export default function StartWorkoutScreen() {
   const { user } = useAuthUser();
   const uid = user?.uid;
 
-  const { startWorkout, cancelWorkout, activeWorkout, pendingUploads } =
-    useWorkoutStore();
-  const { workoutPlans, loadingWorkoutPlans } = useWorkoutPlans(true);
+  const { cancelWorkout, activeWorkout, pendingUploads } = useWorkoutStore();
+  // Plans are re-read each time the screen comes back into view, not only on
+  // mount: the Workout tab keeps this screen mounted underneath (WorkoutNavigator
+  // `singleCopy`), so a plan edited in Manage Workout showed its old exercises
+  // until the app restarted (device, 2026-11-03). Flipping the hook's refetch
+  // flag reuses its one read; the first focus is the mount, which already reads.
+  // Rejected: a focus refetch inside `useWorkoutPlans`, which four other screens
+  // and components use, some outside a navigator in their tests.
+  const [plansRefetch, setPlansRefetch] = useState(true);
+  const focusedBefore = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (focusedBefore.current) setPlansRefetch((flag) => !flag);
+      focusedBefore.current = true;
+    }, [])
+  );
+  const { workoutPlans, loadingWorkoutPlans: plansLoading } = useWorkoutPlans(plansRefetch);
+  // A refetch keeps the list on screen; only a first load, with nothing to
+  // show yet, shows the loading state.
+  const loadingWorkoutPlans = plansLoading && workoutPlans.length === 0;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
-  const [starting, setStarting] = useState(false);
   // TICKET-061: archived plans start hidden on every visit, so they cannot
   // creep back into the list on their own.
   const [showArchived, setShowArchived] = useState(false);
@@ -70,88 +85,19 @@ export default function StartWorkoutScreen() {
     [workoutPlans],
   );
 
-  // Selection is derived on every render, never cleared by a remount or an
-  // effect (TICKET-019's review): a plan hidden by the search, or deleted, is
-  // simply not selected, so the bottom bar can never name a plan the user cannot
-  // see. Rejected: clearing `selectedId` in an effect when the plan leaves the
-  // list — one more lifecycle rule to keep right, for the same visible result.
-  // Hiding archived plans hides their selection the same way (TICKET-061).
+  // The open card is derived on every render, never cleared by an effect
+  // (TICKET-019's review): a plan hidden by the search or Show archived, or
+  // deleted, simply has no card. Rejected: clearing `selectedId` in an effect
+  // when the plan leaves the list, one more lifecycle rule for the same result.
   const visible = [...groups.plans, ...groups.archived];
-  const selectedPlan =
-    selectedId !== null && visible.some((row) => row.id === selectedId)
-      ? (plansById.get(selectedId) ?? null)
-      : null;
+  const selectedRow = visible.find((row) => row.id === selectedId) ?? null;
+  const selectedPlan = selectedRow ? (plansById.get(selectedRow.id) ?? null) : null;
 
-  const toggleSelection = (planId: string) => {
-    if (selectedId === planId) {
-      setSelectedId(null);
-      return;
-    }
-    setSelectedId(planId);
-    // The one history read for this plan: a batched query, one doc per
-    // exercise. The same prefetch `startWorkout` makes, so a plan started after
-    // selecting it begins with its ghost targets already warm. Never on mount —
-    // warming every plan is a large read for a screen the user may pass through.
-    const plan = plansById.get(planId);
-    useExerciseHistoryStore
-      .getState()
-      .prefetchExerciseHistory(
-        uid,
-        plan?.exercises.map((exercise) => exercise.id),
-      )
-      .catch(() => {});
-  };
-
-  const isResume =
-    !!activeWorkout && !!selectedPlan && activeWorkout.id === selectedPlan.id;
-  const blockedBy =
-    !!activeWorkout && !!selectedPlan && !isResume ? activeWorkout : null;
-
-  const handlePrimary = async () => {
-    if (!selectedPlan) return;
-    if (isResume) {
-      navigation.navigate(WorkoutRoutes.LogWorkout);
-      return;
-    }
-    // The button is disabled while blocked, and the store refuses regardless.
-    // `starting` reads the last render, so it cannot stop a same-frame double
-    // press. Not protection: two starts of the same plan in one frame both pass
-    // the store's check (it sets the workout after a storage write) and converge
-    // on one empty workout, which loses nothing.
-    if (blockedBy || starting) return;
-    setStarting(true);
-    try {
-      const result = await startWorkout(selectedPlan);
-      if (result.status === "refused") {
-        show.alert("Could not start workout", result.reason);
-        return;
-      }
-    } catch (error) {
-      console.error("Could not start workout:", error);
-      show.alert("Could not start workout", "Please try again.");
-      return;
-    } finally {
-      setStarting(false);
-    }
-    // Cleared explicitly: coming back to this screen should not show a stale
-    // "Start" for the plan that is now the active workout.
-    setSelectedId(null);
-    show.info("Starting workout", selectedPlan.name);
-    navigation.navigate(WorkoutRoutes.LogWorkout);
-  };
+  // The card prefetches its own exercise history on open (PlanCard).
+  const openCard = (planId: string) => setSelectedId(planId);
 
   const renderRow = (row: PlanRowModel) => (
-    <PlanRow
-      key={row.id}
-      row={row}
-      exercises={plansById.get(row.id)?.exercises ?? []}
-      expanded={row.id === selectedPlan?.id}
-      now={now}
-      onPress={() => toggleSelection(row.id)}
-      exerciseListTourStepId={
-        START_WOURKOUT_STEP_NAMES.SELECTED_WORKOUT_EXERCISE_LIST
-      }
-    />
+    <PlanRow key={row.id} row={row} now={now} onPress={() => openCard(row.id)} />
   );
 
   const setsLogged =
@@ -294,47 +240,12 @@ export default function StartWorkoutScreen() {
         </MaybeTourStep>
       </ScrollableScreen>
 
-      {selectedPlan && (
-        <View style={styles.footer}>
-          {blockedBy && (
-            <TextBase style={styles.blockedReason}>
-              {blockedBy.name} is still in progress. Resume or discard it before
-              starting another.
-            </TextBase>
-          )}
-          <MaybeTourStep
-            stepId={START_WOURKOUT_STEP_NAMES.START_SELECTED_WORKOUT_BUTTON}
-            positionType="above"
-          >
-            {/* Plain View: MultiTourSteps splits its child's style (see ActiveWorkoutScreen). */}
-            <View>
-              <TouchableOpacity
-                style={[
-                  styles.primary,
-                  (blockedBy || starting) && styles.primaryDisabled,
-                ]}
-                onPress={handlePrimary}
-                disabled={!!blockedBy || starting}
-                accessibilityRole="button"
-                accessibilityState={{
-                  disabled: !!blockedBy || starting,
-                  busy: starting,
-                }}
-              >
-                <TextBase
-                  style={[
-                    styles.primaryText,
-                    (blockedBy || starting) && styles.primaryTextDisabled,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {isResume ? "Resume" : "Start"} {selectedPlan.name}
-                </TextBase>
-              </TouchableOpacity>
-            </View>
-          </MaybeTourStep>
-        </View>
-      )}
+      <PlanCard
+        plan={selectedPlan}
+        row={selectedRow}
+        sessionsKnown={sessions !== null}
+        onClose={() => setSelectedId(null)}
+      />
 
       <DiscardWorkoutDialog
         visible={confirmDiscard}
@@ -442,40 +353,5 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
       fontSize: t.fonts.xMedium,
       fontWeight: "bold",
       color: t.colors.role.textPrimary,
-    },
-    footer: {
-      gap: SPACING.small,
-      paddingTop: SPACING.medium,
-      paddingHorizontal: SPACING.large,
-      paddingBottom: SPACING.xxLarge,
-      backgroundColor: t.colors.role.surface,
-      borderTopWidth: 1,
-      borderTopColor: t.colors.role.hairline,
-    },
-    blockedReason: {
-      fontSize: t.fonts.small,
-      color: t.colors.role.textSecondary,
-      textAlign: "center",
-    },
-    primary: {
-      height: 56,
-      borderRadius: 15,
-      paddingHorizontal: SPACING.large,
-      backgroundColor: t.colors.role.accent,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    // Not just dimmed accent: a disabled control should not read as the primary
-    // action, and the reason above says why it is off.
-    primaryDisabled: {
-      backgroundColor: t.colors.role.raised,
-    },
-    primaryText: {
-      fontSize: t.fonts.medium,
-      fontWeight: "bold",
-      color: t.colors.role.ground,
-    },
-    primaryTextDisabled: {
-      color: t.colors.role.textSecondary,
     },
   });

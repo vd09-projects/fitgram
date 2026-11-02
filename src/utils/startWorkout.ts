@@ -3,14 +3,16 @@
 // View models for the Start Workout screen (TICKET-022). Pure: the screen issues
 // one recent-sessions query and one batched history prefetch on selection, and
 // everything it shows is derived here from those results plus local state.
+//
+// What an exercise did last time ("3 sets · top 40 kg × 8") is not here: it
+// lives in `src/utils/setSummary/` (TICKET-065), the one place that summarises
+// a past exercise.
 
-import { ExerciseHistory, ExerciseHistorySession } from "../types/exerciseHistory";
 import { SessionTotalVolume, WorkoutSessionDoc } from "../types/workoutSession";
-import { ExerciseField, FieldRole, WorkoutPlan, isArchived } from "../types/workoutType";
+import { WorkoutPlan, isArchived } from "../types/workoutType";
 import { PendingUpload } from "../types/zustandWorkoutType";
-import { parseNumericValue, unitLabel } from "./exerciseFields";
+import { unitLabel } from "./exerciseFields";
 import { buildSessionDocs, computeSessionTotalVolume } from "./exerciseStats";
-import { comparisonSegment } from "./storedSets";
 
 /** Recent sessions read on open. Plans not done within this window show no date. */
 export const RECENT_SESSIONS_WINDOW = 20;
@@ -21,6 +23,11 @@ export type PlanRow = {
   exerciseCount: number;
   /** `startedAt` of the plan's latest session, or null when none is known. */
   lastDoneAt: number | null;
+  /**
+   * `endedAt` of that same session, for the plan card's "about 50 min last
+   * time" (TICKET-065). null with `lastDoneAt`.
+   */
+  lastEndedAt: number | null;
   /** "pending" when the latest session is finished but not uploaded yet. */
   lastDoneSource: "uploaded" | "pending" | null;
   /**
@@ -35,6 +42,7 @@ export type PlanRow = {
 
 type Candidate = {
   startedAt: number;
+  endedAt: number;
   source: "uploaded" | "pending";
   volume: SessionTotalVolume | null;
 };
@@ -89,6 +97,7 @@ export function buildPlanRows(
     for (const session of sessions) {
       consider(session.workoutId, {
         startedAt: session.startedAt,
+        endedAt: session.endedAt,
         source: "uploaded",
         volume: session.volume ?? null,
       });
@@ -100,6 +109,7 @@ export function buildPlanRows(
       const { exerciseSessions } = buildSessionDocs(entry.workout, entry.endedAt);
       consider(entry.workout.id, {
         startedAt: entry.workout.startTime,
+        endedAt: entry.endedAt,
         source: "pending",
         volume: computeSessionTotalVolume(exerciseSessions),
       });
@@ -116,6 +126,7 @@ export function buildPlanRows(
         name: plan.name,
         exerciseCount: plan.exercises.length,
         lastDoneAt: candidate?.startedAt ?? null,
+        lastEndedAt: candidate?.endedAt ?? null,
         lastDoneSource: candidate?.source ?? null,
         volume: candidate?.volume ?? null,
         archived: isArchived(plan),
@@ -175,90 +186,6 @@ export function groupPlanRows(rows: PlanRow[], showArchived: boolean): PlanGroup
     : { plans, archived: [], hiddenArchived: archived.length };
 }
 
-export type TopSet =
-  | { kind: "set"; weight: number; reps: number; unit: string | null; setNumber: number }
-  /** An exercise without a weight+reps pair: its best on one measured field. */
-  | { kind: "best"; value: number; role: FieldRole; unit: string | null; setNumber: number }
-  | {
-      kind: "none";
-      reason: "no_history" | "no_numeric_pair" | "unit_changed" | "no_parseable_set";
-    };
-
-const MEASURED_ROLES: FieldRole[] = ["weight", "reps", "time", "distance"];
-
-/**
- * **last top set** = the heaviest set of the most recent session, by weight;
- * ties go to more reps, then to the earlier set. A set needs both weight and
- * reps to parse. Not an estimated 1RM and not the all-time best — "what did I
- * lift last time", which is what judging a plan before starting it asks.
- *
- * **Without a weight+reps pair** (a plank logged in minutes, burpees as reps
- * only), the top set is the highest value of the exercise's *first measured
- * field* in its definition order — the field the user put first. Rejected: a
- * fixed role priority (time over distance over reps), which would pick for the
- * user on exercises with several measured fields. Known limit: "highest" assumes
- * more is better, which is wrong for a timed run over a fixed distance; no
- * catalog exercise is defined that way today.
- *
- * A last session logged in another unit than today's definition reports
- * `unit_changed`: its values are not comparable and are not converted.
- */
-export function lastTopSet(
-  history: Pick<ExerciseHistory, "lastSession" | "numericFields" | "fields">
-): TopSet {
-  const { lastSession, numericFields } = history;
-  if (!lastSession) return { kind: "none", reason: "no_history" };
-  if (!numericFields) return bestOnFirstMeasuredField(history.fields, lastSession);
-  if (!lastSession.comparable) return { kind: "none", reason: "unit_changed" };
-
-  let top: Extract<TopSet, { kind: "set" }> | null = null;
-  for (const set of lastSession.sets) {
-    if (set.weight === null || set.reps === null) continue;
-    if (
-      !top ||
-      set.weight > top.weight ||
-      (set.weight === top.weight && set.reps > top.reps)
-    ) {
-      top = {
-        kind: "set",
-        weight: set.weight,
-        reps: set.reps,
-        unit: numericFields.weight.unit ?? null,
-        setNumber: set.setNumber,
-      };
-    }
-  }
-  return top ?? { kind: "none", reason: "no_parseable_set" };
-}
-
-function bestOnFirstMeasuredField(
-  currentFields: ExerciseField[],
-  lastSession: ExerciseHistorySession
-): TopSet {
-  const field = currentFields.find((f) => MEASURED_ROLES.includes(f.role));
-  if (!field) return { kind: "none", reason: "no_numeric_pair" };
-
-  // Values are stored under the field's name, so the session's own definition
-  // of that name is what says which unit they were logged in.
-  const logged = lastSession.fields.find((f) => f.name === field.name);
-  if (!logged || logged.role !== field.role) {
-    return { kind: "none", reason: "no_parseable_set" };
-  }
-  if ((logged.unit ?? null) !== (field.unit ?? null)) {
-    return { kind: "none", reason: "unit_changed" };
-  }
-
-  let best: Extract<TopSet, { kind: "best" }> | null = null;
-  for (const set of lastSession.sets) {
-    const value = parseNumericValue(comparisonSegment(set)[field.name]);
-    if (value === null) continue;
-    if (!best || value > best.value) {
-      best = { kind: "best", value, role: field.role, unit: field.unit ?? null, setNumber: set.setNumber };
-    }
-  }
-  return best ?? { kind: "none", reason: "no_parseable_set" };
-}
-
 /**
  * A run of display text. `numeric` runs render in the mono face, which is the
  * only face numbers may use; everything else in the display face.
@@ -280,18 +207,21 @@ const startOfLocalDay = (time: number) => {
 };
 
 /**
+ * Whole local calendar days from `time` to `now`, not 24-hour blocks: a workout
+ * at 23:00 read at 08:00 is 1, which is how the user remembers it. A time in the
+ * future (device clock moved back) is 0. Shared by the list's "last done" and
+ * the plan card's big number, so the two never disagree.
+ */
+export function daysSince(time: number, now: number): number {
+  return Math.max(0, Math.round((startOfLocalDay(now) - startOfLocalDay(time)) / DAY_MS));
+}
+
+/**
  * "today", "yesterday", "N days ago" under two weeks, "N weeks ago" under 60
- * days, then "N months ago" (30-day months).
- *
- * Counted in local calendar days, not 24-hour blocks: a workout at 23:00 read at
- * 08:00 is "yesterday", which is how the user remembers it. A time in the future
- * (device clock moved back) reads "today".
+ * days, then "N months ago" (30-day months). Days per `daysSince`.
  */
 export function formatSince(time: number, now: number): TextPart[] {
-  const days = Math.max(
-    0,
-    Math.round((startOfLocalDay(now) - startOfLocalDay(time)) / DAY_MS)
-  );
+  const days = daysSince(time, now);
   if (days === 0) return [txt("today")];
   if (days === 1) return [txt("yesterday")];
   if (days < 14) return [num(String(days)), txt(" days ago")];
@@ -356,31 +286,4 @@ export function formatVolume(
   });
   if (excluded > 0) parts.push(txt(" · "), num(String(excluded)), txt(" not weighted"));
   return parts;
-}
-
-/** "24 kg × 10", "1 plate × 12", "1.5 min", "20 reps", or why there is no number. */
-export function formatTopSet(top: TopSet): TextPart[] {
-  if (top.kind === "best") {
-    const value = formatNumber(top.value);
-    const suffix = top.unit ? ` ${unitLabel(value, top.unit)}` : top.role === "reps" ? " reps" : "";
-    return [num(value), ...(suffix ? [txt(suffix)] : [])];
-  }
-  if (top.kind === "set") {
-    const weight = formatNumber(top.weight);
-    return [
-      num(weight),
-      ...(top.unit ? [txt(` ${unitLabel(weight, top.unit)}`)] : []),
-      txt(" × "),
-      num(String(top.reps)),
-    ];
-  }
-  switch (top.reason) {
-    case "no_history":
-      return [txt("not done yet")];
-    case "unit_changed":
-      return [txt("unit changed")];
-    case "no_numeric_pair":
-    case "no_parseable_set":
-      return [txt("—")];
-  }
 }

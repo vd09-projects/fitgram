@@ -42,7 +42,7 @@ const START_WOURKOUT_TOUR_STEPS = {
   [START_WOURKOUT_STEP_NAMES.SELECTED_WORKOUT_EXERCISE_LIST]: {
     title: "Exercises in This Plan",
     description:
-      "Every exercise in the plan, with the heaviest set from the last time you did it.",
+      "Every exercise in the plan, with what you did last time: how many sets and the heaviest one.",
     screen: SCREEN_NAMES.START_WORKOUT_SCREEN,
   },
   [START_WOURKOUT_STEP_NAMES.START_SELECTED_WORKOUT_BUTTON]: {
