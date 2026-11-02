@@ -24,7 +24,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 006 | Break down large components | Medium | **Needs re-scoping:** its named targets are gone; the biggest files now are Phase 3's own (`StartWorkoutScreen` 405, `ExerciseLogger` 371) |
 | 007 | Strengthen the TypeScript config | Small | |
 | 008 | Barrel exports | Small | |
-| 011 | Cross-screen active-workout indicator | Medium | **021 and 029 both defer their surface decision to this** |
+| 011 | Cross-screen active-workout indicator | Medium | **021 and 029 both defer their surface decision to this.** The Workout tab is covered by 066 |
 | 012 | Account linking — Phase 2 | Small-Med | Phase 1 shipped; Phase 2 makes linking reachable |
 | 013 | Human-readable auth error messages | Small | `describeAuthError` exists but has one call site; sign-in, sign-up and logout still pass raw Firebase messages |
 | 014 | Reset email branding — Phase 1 | Small | Console-only; the template itself is locked by Firebase |
@@ -44,7 +44,10 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap. Storage: per-plan copies today, library undecided |
 | 047 | Swap an exercise mid-workout | Medium | **In review**, PR #34 (branch TICKET-047, 2026-10-31); device re-run owed after the offline and layering fixes. Only at 0 sets, full picker, the new exercise's own history, this workout only |
 | 056 | Add an exercise mid-workout | Small-Med | After 047; reuses its picker mode. Appended, this workout only |
-| 057 | Free-flow workout (name not final) | Medium | Deferred 2026-10-30. An empty session plus 056 |
+| 065 | Plan card + set-summary util | Medium | **Next.** Hub redesign 1 of 3; design final 2026-11-02 (`design/workout-flow/`, Hub boards) |
+| 066 | Workout hub | Medium-Large | Hub redesign 2 of 3, after 065 |
+| 067 | Freestyle: a workout with no plan | Medium | Hub redesign 3 of 3, after 066. Takes over 057's core |
+| 057 | Save a Freestyle as a plan | Small-Med | Deferred; trimmed 2026-11-02, the rest is 067 |
 | 061 | Archive plans | Small-Med | Design decided 2026-11-01 (boards in `design/workout-flow/`). Built on PR #37 (data, Start, Manage); review pass 1 addressed. `archived` flag, no backfill. **Device run owed** |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
 
@@ -300,7 +303,7 @@ Allow users who signed up with email/password to reset their password via a "For
 When a user has an active workout in progress, show a visible animated indicator so they can easily return to it from any screen. Currently, if a user navigates away, there's no visual cue that a workout is still running.
 
 **Acceptance Criteria:**
-- [ ] Add a floating animated indicator (e.g., pulsing bar, floating button, or banner) visible on all screens when `activeWorkout` is not null in `useWorkoutStore`
+- [ ] Add a floating animated indicator (e.g., pulsing bar, floating button, or banner) visible when `activeWorkout` is not null in `useWorkoutStore`, on every screen except the Workout tab: TICKET-066's Resume bar and live tile cover that one (2026-11-02)
 - [ ] Tapping the indicator navigates to the active workout (`LogWorkout` screen)
 - [ ] The indicator should show basic info: workout name and elapsed time
 - [ ] Add a subtle animation (pulse, glow, or breathing effect) using `react-native-reanimated` or `Animated` API
@@ -1169,7 +1172,8 @@ for today's model, but 8 catalogue exercises measure time or distance (6 timed, 
 weighted carries), and for them the workout flow shows nothing about last time.
 
 TICKET-022 needed a last top set for a plank and added a one-off:
-`bestOnFirstMeasuredField` in `src/utils/startWorkout.ts` takes the highest value of
+`bestOnFirstMeasuredField` in `src/utils/startWorkout.ts` (moves to
+`src/utils/setSummary/` in TICKET-065) takes the highest value of
 the first time / distance / reps field and checks its unit by name match. It is
 correct for the catalogue today, but it duplicates `areFieldsComparable` for one
 field, and a second consumer must not copy it. This ticket replaces it with a shared
@@ -4219,7 +4223,9 @@ final screens instead of each intermediate one.
 `VERSION_SHEET`); unverified. The device runs of 043–052 note anything broken for
 this ticket.
 
-**Dependencies:** TICKET-043, TICKET-050, TICKET-051, TICKET-052.
+**Dependencies:** TICKET-043, TICKET-050, TICKET-051, TICKET-052, and TICKET-066, which
+replaces the Workout tab the Start and Manage tours begin from (it moves their two
+step ids to All plans and the Plans pill; the rest is this pass).
 
 ---
 
@@ -5243,23 +5249,19 @@ https://claude.ai/artifact/NvgcdetMQMT3FnxwRtdVtv
 
 ---
 
-### TICKET-057: Free-Flow Workout (name not final)
+### TICKET-057: Save a Freestyle Workout as a Plan
 
-**Priority:** Low | **Effort:** Medium | **Status: DEFERRED** — raised 2026-10-30
+**Priority:** Low | **Effort:** Small-Med | **Status: DEFERRED** — raised 2026-10-30 as
+"Free-Flow Workout"; trimmed 2026-11-02
 
 **Description:**
-Start a workout with no plan and add exercises as you go. For a day the planned
-equipment is mostly unavailable, or with no plan in mind. The user's own
-preference is a set plan (no deciding mid-workout), so this is the fallback, not
-the default path.
+Starting a workout with no plan moved to TICKET-067 (Freestyle). What is left: after a
+Freestyle you liked, keep it as a plan you can repeat, from Finish or from History.
 
-**Mostly TICKET-056:** an empty session plus "+ Add exercise". What it needs beyond:
-- starting with no plan (today `planDraft` refuses a plan with no exercises)
-- a session name and `workoutId`, since sessions and "last performed" are per plan
-- probably "save this as a plan" at Finish
+**To decide:** where the button lives (Finish, History, both); the plan's name; whether
+the plan copies the exercises only or also their order as done.
 
-**Dependencies:** TICKET-056.
-
+**Dependencies:** TICKET-067.
 ---
 
 ### ~~TICKET-058: Exercise Menu, With Split Moved Into It~~ ✅ DONE
@@ -6814,6 +6816,193 @@ Exercises and set counts only; no Add exercise on it.
 
 ---
 
+### TICKET-065: Plan Card — Look at a Plan Before Starting It
+
+**Priority:** High | **Effort:** Medium | **Status: OPEN** — raised 2026-11-02. Workout
+hub redesign, stage 1 of 3 (065 → 066 → 067)
+
+**Description:**
+Tapping a plan on Start Workout expands its row in place. Replace that with a card
+that rises over the same screen: how long since the plan was last done, every
+exercise with what you did last time, and Start. Built on today's Start Workout
+screen, which TICKET-066 renames to All plans without touching the card. The hub
+(066) and Freestyle (067) open this same card unchanged.
+
+**Design:** Workout Flow canvas, row "Workout hub: pick today's workout", boards
+Hub 2–5 and Hub 7; row "Hub: one workout at a time", Busy 2 and Busy 5
+(`design/workout-flow/project/Hub*.dc.html`). Explorations: canvas "Fitgram Workout Hub".
+
+**Stage 1 — the set-summary util, its own commit (user, 2026-11-02):**
+One folder, `src/utils/setSummary/`, owns how a past exercise is summarised. No
+screen formats sets itself.
+- Move `TopSet`, `lastTopSet`, `formatTopSet` and `bestOnFirstMeasuredField` out of
+  `src/utils/startWorkout.ts`, behaviour unchanged; their tests move with them.
+  `PlanRow` is the only caller today
+- Add the set count: **"3 sets · top 40 kg × 8"**. Top set keeps TICKET-022's rule
+  (heaviest weight, tie → more reps, read from `comparisonSegment`). No weight pair:
+  **"3 sets · best 12 reps"**, **"2 sets · best 45 s"** (the existing first-measured-field
+  rule). Numbers unreadable: **"3 sets"** alone, never a guessed figure (CLAUDE.md 2.4).
+  Never logged: **"new"**. Unit changed: keep today's "unit changed"
+- Rejected (user, 2026-11-02): every set (too long when weights vary), total volume
+  (abstract at the gym, can't add kg and plates, empty for bodyweight), minutes (not
+  recorded per exercise), last set only (usually the tired one)
+- `personalBest.ts` answers a different question (all-time best, for the PR banner)
+  and stays where it is; say so in a comment on both, so "top" and "best" each have
+  one meaning
+
+**Stage 2 — the card:**
+- Rises from the bottom with a gap on every side; the screen dims behind it. No swipe
+  between plans (user, 2026-11-02): the tiles are the comparison
+- Header: the days-since number large ("9 days since last", "today"), the plan name,
+  then "6 exercises · about 50 min last time". Minutes come from the latest
+  session's `startedAt`/`endedAt`; no session in the window → the line drops the
+  minutes and the number shows a dash with "no recent session", never "new" or 0
+- Exercise rows: numbered, name on the left, stage 1's summary on the right
+- Height follows the plan up to **75% of the screen**; past that the list scrolls,
+  Start stays pinned, and the header shrinks to one line while scrolled
+- Close: tap the dim area, the X, drag down from the handle/header (or when the list
+  is at its top), Android back. Closing never loses anything
+- **This plan is running:** the big number is the live timer with a dot, a progress
+  bar, **Resume**
+- **Another workout is running:** no Start. "Legs is in progress. Finish or discard
+  it to start this one." and **Back to Legs · 23:14**. The name and timer come from
+  `activeWorkout` itself, never from looking up a plan by id, so a Freestyle in
+  TICKET-067 needs no change here
+- An archived plan (Show archived) opens and starts the same way
+- Replaces the expanded row and the bottom Start bar on Start Workout. Search, Show
+  archived and the resume banner stay as they are
+
+**Acceptance Criteria:**
+- [ ] `src/utils/setSummary/` exists, `startWorkout.ts` no longer holds top-set code,
+      and nothing else formats a past set
+- [ ] Tapping a plan opens the card; Start starts it and opens the logger
+- [ ] Long plan: scrolls inside a 75% card, Start always visible
+- [ ] Running this plan: Resume. Running another: the reason, Back to it, no Start
+- [ ] Every close path works and leaves nothing started
+- [ ] Unit tests: the summary for a weighted, bodyweight, timed, never-logged,
+      unreadable and unit-changed exercise; varied weights across sets; a tie
+- [ ] **Device test (done when it passes):** Start Workout → open a short plan, a long
+      one, an archived one; start one; come back and open it (Resume) and another one
+      (blocked)
+
+**Dependencies:** none.
+
+---
+
+### TICKET-066: Workout Hub — Pick Today's Workout on the Workout Tab
+
+**Priority:** High | **Effort:** Medium-Large | **Status: OPEN** — raised 2026-11-02.
+Workout hub redesign, stage 2 of 3. After TICKET-065
+
+**Description:**
+The Workout tab is four identical grey tiles, and "Log Active Workout" opens a dead
+"No active workout" screen when nothing is running. Replace it with the hub: your
+plans as tiles, longest since done first, each opening TICKET-065's card.
+
+**Design:** Workout Flow canvas, rows "Workout hub: pick today's workout" (Hub 1, 6,
+7, 8, 9) and "Hub: one workout at a time" (Busy 1, 2).
+
+**Decided (user, 2026-11-02):**
+- **Header:** "Workout", with **Plans** (→ Manage Workout) and **History** (→ Workout
+  Logs) pills
+- **"Pick today's workout"**, the line "Longest since you did it first.", and
+  **All plans N →**, always shown: it is the only way to archived plans. All plans
+  is today's Start Workout screen renamed, back button kept (TICKET-062)
+- **Which plans get a tile, at most 6:** non-archived plans that appear in the last
+  20 sessions (`RECENT_SESSIONS_WINDOW`, the query Start already makes, pending
+  uploads included as in `buildPlanRows`), longest since done first. Fewer than 6:
+  fill with the other plans in plan order. Rejected: longest-since over all plans,
+  which with 34 plans shows the six you abandoned. A pure, unit-tested function
+- **Tile number:** "9d", "today". A plan with no session in the window shows a dash
+  and "not in recent workouts". **Deviation from the canvas** (which shows "new"):
+  the window cannot tell "never done" from "done long ago", so "new" would be a
+  guess (CLAUDE.md 2.4). Sessions still loading: dashes, plan order
+- **Tap a tile:** TICKET-065's card, unchanged
+- **While a workout runs:** a Resume bar on top (name, timer, sets logged) → the
+  logger; the running plan's tile shows the live timer; other tiles open the card's
+  blocked state
+- **No plans:** one card, "Ready when you are", **Create a plan**. TICKET-067 adds
+  Start Freestyle to it
+- **After Finish or Discard → the hub**, with "Saved · Shoulders & Core · 52 min"
+  (offline: the existing upload-later message). Today the logger falls through to
+  "No active workout"; that screen now redirects to the hub. The logger page itself
+  is not changed (user, 2026-11-02)
+- **Removed:** the four tiles, including Log Active Workout. The footer is unchanged:
+  its Log Workout tab already shows only while a workout runs
+- **Debug tiles** (History Debug, Pending Uploads): a small row at the end of the
+  hub, only when `showDebugScreens`
+- **Tour:** today's tiles carry `START_WORKOUT_BUTTON` and `NEW_AND_UPDATE_BUTTON`.
+  Move them to All plans and the Plans pill so no step points at a missing control;
+  the full tour pass stays in TICKET-053
+
+**Acceptance Criteria:**
+- [ ] The Workout tab is the hub; the old tiles are gone
+- [ ] Tile choice and order match the rule; unit tests for: no sessions, under 6,
+      over 6, archived excluded, pending upload counted, a tie, still loading
+- [ ] All plans opens the renamed Start screen; Plans and History pills navigate
+- [ ] Running state: Resume bar, live tile, blocked card on the others
+- [ ] Finish and Discard land on the hub; nothing reaches "No active workout"
+- [ ] Debug tiles reachable in a debug build only
+- [ ] **Device test (done when it passes):** a plan day end to end from the hub; leave
+      mid-workout and come back; a fresh account with no plans; an account with more
+      than 6 plans
+
+**Dependencies:** TICKET-065.
+
+---
+
+### TICKET-067: Freestyle — Start a Workout With No Plan
+
+**Priority:** High | **Effort:** Medium | **Status: OPEN** — raised 2026-11-02.
+Workout hub redesign, stage 3 of 3. After TICKET-066. Takes over TICKET-057's core
+
+**Description:**
+For a day with no plan in mind: start an empty workout and add exercises as you go.
+Named **Freestyle** everywhere: the hub row, the logger title, History.
+
+**Design:** Workout Flow canvas, row "Hub: one workout at a time" (Busy 3, 4, 5), and
+Hub 1 / Hub 9 for the row and the first-run button.
+
+**Decided (user, 2026-11-02):**
+- **No plan is created.** The session is saved with `workoutId` `"freestyle"` and
+  `workoutName` `"Freestyle"`, so History can list every Freestyle as one entry.
+  Plan ids are 20-character Firestore auto-ids, so the constant cannot collide.
+  Rejected: an archived "Today's Workout" plan, which would mix every Freestyle day
+  into one plan's "last done" and volume, and turn into a template if unarchived
+- **Store:** `startWorkout` already accepts a plan with no exercises
+  (`currentExerciseIndex: null`); Freestyle passes a constant one. Check that
+  nothing on the way (prefetch, `isResume`) assumes a plan doc exists
+- **Logger unchanged** (user, 2026-11-02): it opens with today's "This workout has no
+  exercises"; the first exercise comes from ⋯ → Add exercise (TICKET-056). Finish
+  with no sets and Discard behave as today
+- **Hub:** a Freestyle row under the tiles, "No plan. Pick exercises as you go."
+  Tapping it starts at once, no card. Never greyed out:
+  - another workout running → a short card, "Legs is in progress. Finish or discard
+    it to start a Freestyle." and Back to Legs
+  - Freestyle running → the Resume bar names it, its row shows the live timer, tapping
+    resumes; plan tiles open TICKET-065's card, which already names Freestyle
+- **First run:** Start Freestyle on the "Ready when you are" card
+- **History:** the workout filter lists Freestyle once any Freestyle session exists
+  (today it lists plans only and matches `session.workoutId === plan.id`, so
+  Freestyle sessions would be unreachable)
+- **Tiles:** Freestyle sessions are not a plan and never become a tile; the join in
+  `buildPlanRows` is on plan ids, so they drop out. Add a test that says so
+
+**Acceptance Criteria:**
+- [ ] Freestyle starts from the hub and from the first-run card
+- [ ] Its session is saved as Freestyle and shows under a Freestyle entry in History
+- [ ] Blocked and running states as above; the card from 065 is not modified
+- [ ] A Freestyle session never changes tile order or numbers
+- [ ] **Device test (done when it passes):** a whole Freestyle day: start, add, log,
+      add, finish, find it in History; start one while a plan runs; start a plan
+      while a Freestyle runs
+
+**Deferred:** saving a Freestyle as a plan, TICKET-057.
+
+**Dependencies:** TICKET-066, TICKET-056 (done).
+
+---
+
 ## Recommended Execution Order
 
 Finished tickets have been removed — they are not blockers for anything.
@@ -6839,7 +7028,16 @@ it) once 046's content exists. Phase 3B; research is in
 8. TICKET-053  (Guided tour pass)         — Next
 ```
 
-**Now (user, 2026-10-30):** the exercise menu, then swapping and adding an exercise
+**Now (user, 2026-11-02): the workout hub, in three stages.** Each is usable on
+its own and the next one does not reopen it.
+
+```
+1. TICKET-065  (Plan card + set summary)  — Next. Built on today's Start screen
+2. TICKET-066  (Workout hub)              — Replaces the Workout tab; opens 065's card
+3. TICKET-067  (Freestyle)                — Adds the no-plan workout to 066's hub
+```
+
+**Before that (user, 2026-10-30):** the exercise menu, then swapping and adding an exercise
 mid-workout, ahead of 032 and 029 below.
 
 ```
@@ -6849,7 +7047,7 @@ mid-workout, ahead of 032 and 029 below.
 3. TICKET-056  (Add an exercise)          — Done (PR #40, 2026-11-02); device run passed
    TICKET-063  (Finish summary)           — Open, low; from 056's review
    TICKET-064  (Store save path)          — Open, low; from 056's duplication review
-   TICKET-057  (Free-flow workout)        — Deferred; an empty session plus 056
+   TICKET-057  (Save Freestyle as plan)   — Deferred; after 067
 ```
 
 **Then the next three, decided.** They are what makes logging an exercise match what
