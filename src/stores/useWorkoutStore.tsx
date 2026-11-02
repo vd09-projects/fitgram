@@ -13,7 +13,7 @@ import { buildSessionDocs, buildSessionId } from "../utils/exerciseStats";
 import { useAuthStore } from "./authStore";
 import { useExerciseHistoryStore } from "./useExerciseHistoryStore";
 import { useCatalogStore } from "./useCatalogStore";
-import { exerciseDisplayName } from "../utils/catalog";
+import { exerciseDisplayName, type CatalogIndex } from "../utils/catalog";
 
 /**
  * In-flight uploads per session (`buildSessionId`), outside the store for the
@@ -105,19 +105,38 @@ const renumberSets = (sets: ExerciseSet[]): ExerciseSet[] =>
   sets.map((set, index) => (set.id === index + 1 ? set : { ...set, id: index + 1 }));
 
 /**
- * A slot for an exercise picked mid-workout (swap, add): its own id, name and
- * fields, no sets. The name snapshot is refreshed from the catalog as
- * `startWorkout` does, so the session doc keeps the name as it read when logged.
+ * A slot with no sets for one exercise: its own id, name and fields. Every slot
+ * is built here, at start, swap and add, so they agree on the name snapshot:
+ * refreshed from the catalog as it reads now, so the session doc keeps the name
+ * as it read when logged (its `exerciseName`).
  */
-const freshSlot = (exercise: Exercise): LoggedExercise => {
-  const catalogIndex = useCatalogStore.getState().catalog?.index ?? null;
-  return {
-    id: exercise.id,
-    name: exercise.name,
-    ...(exercise.nameSnapshot ? { nameSnapshot: exerciseDisplayName(exercise, catalogIndex).title } : {}),
-    fields: exercise.fields,
-    sets: [],
-  };
+const freshSlot = (exercise: Exercise, catalogIndex: CatalogIndex | null): LoggedExercise => ({
+  id: exercise.id,
+  name: exercise.name,
+  ...(exercise.nameSnapshot ? { nameSnapshot: exerciseDisplayName(exercise, catalogIndex).title } : {}),
+  fields: exercise.fields,
+  sets: [],
+});
+
+const catalogIndexNow = () => useCatalogStore.getState().catalog?.index ?? null;
+
+/**
+ * Refused by swap and add alike: an `exercise_sessions` doc id is
+ * `{sessionId}__{exerciseId}`, so the same id twice in a session would
+ * overwrite one at upload, silently.
+ */
+const ALREADY_IN_WORKOUT_REASON = "That exercise is already in today's workout.";
+
+/**
+ * Fetch history for exercises entering the workout (start, swap, add). Not
+ * awaited and never rejects: history is an enhancement, so a slow or failed
+ * fetch must not delay or block the action that triggered it.
+ */
+const prefetchHistory = (exerciseIds: string[]) => {
+  useExerciseHistoryStore
+    .getState()
+    .prefetchExerciseHistory(useAuthStore.getState().user?.uid, exerciseIds)
+    .catch(() => {});
 };
 
 // Zustand Store Type
@@ -189,33 +208,17 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
 
     // Prefetch history for every exercise in the plan, first, so it overlaps the
     // local writes below and the first set is logged against a warm cache. One
-    // batched query, one document per exercise. Deliberately not awaited and
-    // never allowed to reject: history is an enhancement, so a slow or failed
-    // fetch must not delay or block starting the workout.
-    useExerciseHistoryStore
-      .getState()
-      .prefetchExerciseHistory(
-        useAuthStore.getState().user?.uid,
-        workout.exercises.map((exercise) => exercise.id)
-      )
-      .catch(() => {});
+    // batched query, one document per exercise.
+    prefetchHistory(workout.exercises.map((exercise) => exercise.id));
 
     const startTime = Date.now();
-    // The snapshot is refreshed from the catalog as it reads now, so the
-    // session doc keeps the name as it read when logged (its `exerciseName`).
-    const catalogIndex = useCatalogStore.getState().catalog?.index ?? null;
+    const catalogIndex = catalogIndexNow();
     const newWorkout: ActiveWorkout = {
       id: workout.id,
       name: workout.name,
       startTime,
       lastUpdated: startTime,
-      exercises: workout.exercises.map((ex) => ({
-        id: ex.id,
-        name: ex.name,
-        ...(ex.nameSnapshot ? { nameSnapshot: exerciseDisplayName(ex, catalogIndex).title } : {}),
-        fields: ex.fields,
-        sets: [], // Empty sets initially
-      })),
+      exercises: workout.exercises.map((ex) => freshSlot(ex, catalogIndex)),
       currentExerciseIndex: workout.exercises.length > 0 ? 0 : null,
     };
 
@@ -460,9 +463,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
    * Refused, here and not only in the UI, when:
    * - the slot has sets. The rule reads the live count, so deleting every set
    *   makes swap available again. Swap after sets is out of scope;
-   * - `exercise.id` is already in today's workout. Load-bearing: an
-   *   `exercise_sessions` doc id is `{sessionId}__{exerciseId}`, so the same id
-   *   twice would overwrite one at upload, silently.
+   * - `exercise.id` is already in today's workout (`ALREADY_IN_WORKOUT_REASON`).
    *
    * The plan's exercise is kept in `planned` (set on the first swap, kept on a
    * second). Swapping to the planned id is swapping back: the slot is the plan's
@@ -474,7 +475,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
    * id would hide behind the new exercise and come back on a swap back.
    *
    * History for the new id is fetched here, a session moment like start and
-   * resume, never by a screen. Not awaited, never rejects: the swap is local.
+   * resume, never by a screen (`prefetchHistory`).
    */
   swapExercise: async (exerciseId, exercise) => {
     const { activeWorkout, rest } = get();
@@ -486,7 +487,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     if (slot.sets.length > 0) return { status: "refused", reason: SWAP_LOCKED_REASON };
     if (exercise.id === slot.id) return { status: "refused", reason: "That is the exercise already here." };
     if (activeWorkout.exercises.some((ex) => ex.id === exercise.id)) {
-      return { status: "refused", reason: "That exercise is already in today's workout." };
+      return { status: "refused", reason: ALREADY_IN_WORKOUT_REASON };
     }
 
     // An added slot (TICKET-056) has no plan's exercise: it stays added and
@@ -500,7 +501,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
           fields: slot.fields,
         };
     const swapped: LoggedExercise = {
-      ...freshSlot(exercise),
+      ...freshSlot(exercise, catalogIndexNow()),
       ...(planned && exercise.id !== planned.id ? { planned } : {}),
       ...(slot.added ? { added: true as const } : {}),
     };
@@ -514,10 +515,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
     set({ activeWorkout: updatedWorkout, ...(rest?.exerciseId === exerciseId ? { rest: null } : {}) });
 
-    useExerciseHistoryStore
-      .getState()
-      .prefetchExerciseHistory(useAuthStore.getState().user?.uid, [exercise.id])
-      .catch(() => {});
+    prefetchHistory([exercise.id]);
     return { status: "swapped" };
   },
 
@@ -531,24 +529,22 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
    * as when paging. The plan is never written.
    *
    * Marked `added` in live state only (see `LoggedExercise.added`). Refused,
-   * here and not only in the picker, for an id already in today's workout: an
-   * `exercise_sessions` doc id is `{sessionId}__{exerciseId}`, so the same id
-   * twice would overwrite one at upload, silently.
+   * here and not only in the picker, for an id already in today's workout
+   * (`ALREADY_IN_WORKOUT_REASON`).
    *
    * No remove: an added exercise never logged leaves nothing, since
    * `buildSessionDocs` drops 0-set exercises, and a wrong pick is fixed by Swap.
    *
-   * History for the new id is fetched here, as for a swap. Not awaited, never
-   * rejects: the add is local.
+   * History for the new id is fetched here, as for a swap.
    */
   addExercise: async (exercise) => {
     const { activeWorkout } = get();
     if (!activeWorkout) return { status: "refused", reason: "No active workout." };
     if (activeWorkout.exercises.some((ex) => ex.id === exercise.id)) {
-      return { status: "refused", reason: "That exercise is already in today's workout." };
+      return { status: "refused", reason: ALREADY_IN_WORKOUT_REASON };
     }
 
-    const exercises = [...activeWorkout.exercises, { ...freshSlot(exercise), added: true as const }];
+    const exercises = [...activeWorkout.exercises, { ...freshSlot(exercise, catalogIndexNow()), added: true as const }];
     const updatedWorkout: ActiveWorkout = {
       ...activeWorkout,
       exercises,
@@ -559,10 +555,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
     set({ activeWorkout: updatedWorkout });
 
-    useExerciseHistoryStore
-      .getState()
-      .prefetchExerciseHistory(useAuthStore.getState().user?.uid, [exercise.id])
-      .catch(() => {});
+    prefetchHistory([exercise.id]);
     return { status: "added" };
   },
 

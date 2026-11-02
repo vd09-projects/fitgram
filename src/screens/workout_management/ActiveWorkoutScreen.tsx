@@ -42,10 +42,11 @@ export default function ActiveWorkoutScreen() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [exerciseMenuOpen, setExerciseMenuOpen] = useState(false);
-  /** The slot the swap picker is open for (TICKET-047), by id; null when closed. */
-  const [swappingId, setSwappingId] = useState<string | null>(null);
-  /** The add picker is open (TICKET-056). Apart from `swappingId`: only one opens at a time. */
-  const [adding, setAdding] = useState(false);
+  /**
+   * The exercise picker, open to swap a slot (TICKET-047, by id) or to add one
+   * (TICKET-056); null when closed. One state, so only one can be open.
+   */
+  const [picker, setPicker] = useState<{ kind: "swap"; id: string } | { kind: "add" } | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [finishing, setFinishing] = useState(false);
 
@@ -56,10 +57,11 @@ export default function ActiveWorkoutScreen() {
   const currentExercise = currentIndex === null ? null : exercises[currentIndex];
   // Built from the catalog, never `exercise.name` (TICKET-042).
   const names = useExerciseNames(exercises);
-  const swapping = swappingId === null ? null : exercises.find((e) => e.id === swappingId) ?? null;
+  // A swap picker resolves its slot each render, so it closes if the slot is gone.
+  const swapping = picker?.kind === "swap" ? exercises.find((e) => e.id === picker.id) ?? null : null;
   const pickerPurpose: WorkoutPickerPurpose | null = swapping
     ? { kind: "swap", replacing: swapping }
-    : adding
+    : picker?.kind === "add"
       ? { kind: "add" }
       : null;
 
@@ -144,7 +146,7 @@ export default function ActiveWorkoutScreen() {
     renderIcon: (color) => <Ionicons name="add" size={20} color={color} />,
     title: "Add exercise",
     detail: "Goes at the end of today's list. Your plan stays as it is.",
-    onPress: () => setAdding(true),
+    onPress: () => setPicker({ kind: "add" }),
   };
   const discardItem: MenuItem = {
     key: "discard",
@@ -179,7 +181,7 @@ export default function ActiveWorkoutScreen() {
                     onPrevious={goPrevious}
                     onNext={goNext}
                     onOpenMenu={() => setExerciseMenuOpen(true)}
-                    onAdd={() => setAdding(true)}
+                    onAdd={() => setPicker({ kind: "add" })}
                   />
                 </MaybeTourStep>
                 <View style={styles.progress}>
@@ -199,7 +201,7 @@ export default function ActiveWorkoutScreen() {
                   exercise={currentExercise}
                   menuOpen={exerciseMenuOpen}
                   onCloseMenu={() => setExerciseMenuOpen(false)}
-                  onSwap={() => setSwappingId(currentExercise.id)}
+                  onSwap={() => setPicker({ kind: "swap", id: currentExercise.id })}
                 />
               </ScrollableScreen>
             </>
@@ -246,10 +248,7 @@ export default function ActiveWorkoutScreen() {
         <WorkoutExercisePicker
           exercises={exercises}
           purpose={pickerPurpose}
-          onClose={() => {
-            setSwappingId(null);
-            setAdding(false);
-          }}
+          onClose={() => setPicker(null)}
         />
       )}
 
