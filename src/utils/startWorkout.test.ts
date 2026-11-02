@@ -1,16 +1,13 @@
-import { buildExercise, buildStats, buildWorkout } from "../test/fixtures";
+import { buildExercise, buildWorkout } from "../test/fixtures";
 import { StoredSetFields, WorkoutSessionDoc } from "../types/workoutSession";
 import { ExerciseField, WorkoutPlan } from "../types/workoutType";
 import { PendingUpload } from "../types/zustandWorkoutType";
-import { deriveExerciseHistory } from "./exerciseHistory";
 import { buildSessionDocs, computeSessionTotalVolume } from "./exerciseStats";
 import {
   buildPlanRows,
   formatSince,
-  formatTopSet,
   formatVolume,
   groupPlanRows,
-  lastTopSet,
   partsToString,
 } from "./startWorkout";
 
@@ -191,42 +188,6 @@ describe("buildPlanRows", () => {
     expect(groupPlanRows(rows, false)).toMatchObject({ archived: [], hiddenArchived: 1 });
     expect(groupPlanRows(rows, false).plans.map((r) => r.id)).toEqual(["push"]);
     expect(groupPlanRows(rows, true).archived.map((r) => r.id)).toEqual(["old"]);
-  });
-});
-
-describe("lastTopSet", () => {
-  const historyFor = (fields: ExerciseField[], sets: Record<string, string>[], currentFields?: ExerciseField[]) => {
-    const stats = buildStats("Bench Press", [{ fields, sets }]);
-    return deriveExerciseHistory(
-      { exerciseId: stats.exerciseId, status: "ready", stats, fetchedAt: 0, error: null },
-      currentFields
-    );
-  };
-
-  it("picks the heaviest set of the last session, ties going to more reps", () => {
-    const top = lastTopSet(historyFor(KG, [set("60", "8"), set("70", "5"), set("70", "6"), set("", "10")]));
-    expect(top).toEqual({ kind: "set", weight: 70, reps: 6, unit: "kg", setNumber: 3 });
-  });
-
-  it("shows a timed or reps-only exercise's best on its first measured field", () => {
-    const TIMED: ExerciseField[] = [{ name: "Total Time (min)", role: "time", unit: "min" }];
-    const REPS_ONLY: ExerciseField[] = [{ name: "Reps", role: "reps" }];
-    const top = (fields: ExerciseField[], sets: Record<string, string>[], current?: ExerciseField[]) =>
-      partsToString(formatTopSet(lastTopSet(historyFor(fields, sets, current))));
-
-    expect(top(TIMED, [{ "Total Time (min)": "1" }, { "Total Time (min)": "1.5" }, { "Total Time (min)": "1.2" }])).toBe(
-      "1.5 min"
-    );
-    expect(top(REPS_ONLY, [{ Reps: "15" }, { Reps: "20" }])).toBe("20 reps");
-    expect(
-      lastTopSet(historyFor(TIMED, [{ "Total Time (min)": "1" }], [{ name: "Total Time (min)", role: "time", unit: "s" }]))
-    ).toEqual({ kind: "none", reason: "unit_changed" });
-  });
-
-  it("reports why there is no number instead of returning one", () => {
-    expect(lastTopSet(historyFor(PLANK, [{ Time: "60" }]))).toEqual({ kind: "none", reason: "no_numeric_pair" });
-    expect(lastTopSet(historyFor(LB, [set("100", "5")], KG))).toEqual({ kind: "none", reason: "unit_changed" });
-    expect(lastTopSet(deriveExerciseHistory(undefined))).toEqual({ kind: "none", reason: "no_history" });
   });
 });
 

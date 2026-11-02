@@ -12,7 +12,7 @@ import { resolveNumericFields } from "./exerciseFields";
 import { personalBest } from "./personalBest";
 import { compareSets, setDelta, setValuesText, todaySummary } from "./setDeltas";
 import { ghostNotice, resolveGhostTarget, stepFieldValue } from "./setLogger";
-import { lastTopSet } from "./startWorkout";
+import { lastTopSet } from "./setSummary";
 
 const REPS: ExerciseField = { name: "Reps", role: "reps" };
 const KG: ExerciseField[] = [{ name: "Weight", role: "weight", unit: "kg" }, REPS];

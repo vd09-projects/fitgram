@@ -116,8 +116,8 @@ describe("StartWorkoutScreen", () => {
     const bench = buildStats("Bench Press", [{ sets: [{ Weight: "65", Reps: "8" }, { Weight: "60", Reps: "10" }] }]);
     await act(async () => resolveStats({ "bench-press": bench, squat: null }));
 
-    expect(screen.getByTestId("top-set-bench-press")).toHaveTextContent("65 kg × 8");
-    expect(screen.getByTestId("top-set-squat")).toHaveTextContent("not done yet");
+    expect(screen.getByTestId("top-set-bench-press")).toHaveTextContent("2 sets · top 65 kg × 8");
+    expect(screen.getByTestId("top-set-squat")).toHaveTextContent("new");
   });
 
   it("filters plans by search, and a plan hidden by the search is no longer the one to start", async () => {

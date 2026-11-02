@@ -3,6 +3,10 @@
 // Whether a set just logged is a personal best, and what it beat (TICKET-021).
 // Kept pure so the rule is tested directly rather than judged off a banner.
 // Tests: personalBest.test.ts, next to this file.
+//
+// "Best" here is all-time, at exact reps. What one past session did ("3 sets ·
+// top 40 kg × 8", the plan card) is a different question and lives in
+// src/utils/setSummary/ (TICKET-065): "top" there is always one session.
 
 import { BestSet, ExerciseHistory } from "../types/exerciseHistory";
 import { StoredSetFields } from "../types/workoutSession";

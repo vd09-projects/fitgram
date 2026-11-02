@@ -9,14 +9,8 @@ import { useThemeStyles } from "../../utils/useThemeStyles";
 import { useExerciseHistory } from "../../hooks/useExerciseHistory";
 import { useExerciseName } from "../../hooks/useExerciseNames";
 import { Exercise } from "../../types/workoutType";
-import {
-  PlanRow as PlanRowModel,
-  TextPart,
-  formatSince,
-  formatTopSet,
-  formatVolume,
-  lastTopSet,
-} from "../../utils/startWorkout";
+import { PlanRow as PlanRowModel, TextPart, formatSince, formatVolume } from "../../utils/startWorkout";
+import { lastTimeSummary } from "../../utils/setSummary";
 import { MaybeTourStep } from "../guide_tour/MaybeTourStep";
 
 const HIT = 44;
@@ -40,7 +34,7 @@ function summaryParts(row: PlanRowModel, now: number): TextPart[] {
 
 /**
  * One plan. Collapsed: name and summary. Expanded (selected): each exercise
- * with its last top set.
+ * with what it did last time.
  *
  * Exercise names render from the plan immediately; top sets fill in from the
  * history cache once the selection's prefetch lands. Nothing here fetches —
@@ -90,7 +84,7 @@ export function PlanRow({
           <View style={styles.list}>
             <View style={styles.listHeader}>
               <TextBase style={styles.columnLabel}>EXERCISE</TextBase>
-              <TextBase style={styles.columnLabel}>LAST TOP SET</TextBase>
+              <TextBase style={styles.columnLabel}>LAST TIME</TextBase>
             </View>
             {exercises.length === 0 ? (
               <TextBase style={styles.empty}>No exercises in this plan yet</TextBase>
@@ -109,14 +103,7 @@ function ExerciseLine({ exercise }: { exercise: Exercise }) {
   const history = useExerciseHistory(exercise.id, { fields: exercise.fields });
   const name = useExerciseName(exercise);
 
-  // Idle (not prefetched yet) and loading both mean "not known yet", which is
-  // not the same as "never done" — so neither says "not done yet".
-  const value: TextPart[] =
-    history.status === "idle" || history.status === "loading"
-      ? [{ text: "…" }]
-      : history.status === "error"
-        ? [{ text: "unavailable" }]
-        : formatTopSet(lastTopSet(history));
+  const value = lastTimeSummary(history);
 
   return (
     <View style={styles.exercise}>

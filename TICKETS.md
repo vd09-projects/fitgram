@@ -6850,6 +6850,25 @@ screen formats sets itself.
   and stays where it is; say so in a comment on both, so "top" and "best" each have
   one meaning
 
+**Stage 1 as built (2026-11-02):** `src/utils/setSummary/` holds `topSet.ts`
+(`lastTopSet`, `formatTopSet`, `TopSet`, moved unchanged) and `lastTime.ts`
+(`lastTimeSummary`, the line itself). Notes and deviations:
+- **"Nothing else formats a past set" stops at the exercise summary.** One set's own
+  values ("60 kg × 12") are `setValuesText` in `setDeltas.ts`, used for today's and
+  past rows in the logger, Today list and history sheet. It is a row, not a summary,
+  and moving it would reopen the logger this hub work leaves alone. It stays; the
+  folder's `index.ts` points at it
+- **Weight without reps (Farmer Carry):** the canvas shows "1 set · 32 kg × 40 m".
+  The rule above gives "1 set · best 32 kg": weight is its first measured field.
+  The rule wins; a weight × distance figure is TICKET-035's shared model, not a
+  special case here (CLAUDE.md 2.5)
+- **Unit changed keeps the count:** "3 sets · unit changed". The count does not
+  depend on the unit, and it matches "3 sets" for the unreadable case
+- **Loading / failed history** read "…" and "unavailable" (from `PlanRow`), now in
+  `lastTimeSummary` too, so the card has nothing to decide. "new" only once `ready`
+- **`PlanRow` reads the new line in stage 1** (column "LAST TIME"), so the stage can
+  be checked on a device before the card exists. Stage 2 deletes the expanded row
+
 **Stage 2 — the card:**
 - Rises from the bottom with a gap on every side; the screen dims behind it. No swipe
   between plans (user, 2026-11-02): the tiles are the comparison
