@@ -4916,10 +4916,11 @@ recorded.
 
 ---
 
-### TICKET-047: Swap an Exercise Mid-Workout
+### ~~TICKET-047: Swap an Exercise Mid-Workout~~ ✅ DONE
 
-**Priority:** High | **Effort:** Medium | **Status: BUILT, IN REVIEW** — PR #34 (branch TICKET-047,
-2026-10-31); device re-run owed after the offline and layering fixes.
+**Priority:** High | **Effort:** Medium | **Status: DONE** — PR #34 merged (1187343, branch
+TICKET-047, 2026-10-31). Swap re-checked on device 2026-11-02 in TICKET-056's run (swap a
+planned exercise, Back to plan, Swap locked after a set); the offline re-run is not recorded.
 Was "Switch an exercise's version", deferred 2026-10-24; widened 2026-10-30 to any
 exercise, not only another version of the same movement
 

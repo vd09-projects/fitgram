@@ -49,7 +49,7 @@ const ACTIVE_WORKOUT_TOUR_STEPS = {
   [ACTIVE_WORKOUT_STEP_NAMES.CANCEL_CURRENT_WORKOUT_LOGER]: {
     title: "Workout Options",
     description:
-      "Discard workout lives in this menu. It asks before deleting anything.",
+      "Add an exercise for today, or discard the workout. Discard asks before deleting anything.",
     screen: SCREEN_NAMES.ACTIVE_WORKOUT,
   },
   [ACTIVE_WORKOUT_STEP_NAMES.SAVE_CURRENT_WORKOUT_LOGER]: {

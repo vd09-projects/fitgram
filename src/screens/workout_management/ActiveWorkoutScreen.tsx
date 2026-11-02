@@ -40,7 +40,7 @@ export default function ActiveWorkoutScreen() {
   const { user } = useAuthUser();
   const { activeWorkout, endWorkout, cancelWorkout, setCurrentExerciseIndex } = useWorkoutStore();
 
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [workoutMenuOpen, setWorkoutMenuOpen] = useState(false);
   const [exerciseMenuOpen, setExerciseMenuOpen] = useState(false);
   /**
    * The exercise picker, open to swap a slot (TICKET-047, by id) or to add one
@@ -162,7 +162,7 @@ export default function ActiveWorkoutScreen() {
         workoutName={activeWorkout.name}
         startTime={activeWorkout.startTime}
         onBack={handleBack}
-        onOpenMenu={() => setMenuOpen(true)}
+        onOpenMenu={() => setWorkoutMenuOpen(true)}
       />
 
       <GestureDetector gesture={swipe}>
@@ -235,10 +235,10 @@ export default function ActiveWorkoutScreen() {
       {/* Workout ⋯ (TICKET-056 board AddMenu). Discard is its own group, away
           from Add and from Finish, so a stray tap can never lose the session. */}
       <MenuSheet
-        visible={menuOpen}
+        visible={workoutMenuOpen}
         title={activeWorkout.name}
         groups={[[addItem], [discardItem]]}
-        onClose={() => setMenuOpen(false)}
+        onClose={() => setWorkoutMenuOpen(false)}
         testID="workout-menu"
       />
 
