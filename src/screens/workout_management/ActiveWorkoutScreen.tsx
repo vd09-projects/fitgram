@@ -25,7 +25,7 @@ import { useThemeStyles } from '../../utils/useThemeStyles';
 import { MaybeTourStep } from "../../components/guide_tour/MaybeTourStep";
 import { ACTIVE_WORKOUT_STEP_NAMES } from "../../tour_steps/activeWorkout";
 import WorkoutExercisePicker, { type WorkoutPickerPurpose } from "../../components/active_workout/WorkoutExercisePicker";
-import ExerciseMenu, { type ExerciseMenuItem } from "../../components/active_workout/ExerciseMenu";
+import MenuSheet, { type MenuItem } from "../../components/MenuSheet";
 
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.LogWorkout>;
 type layoutScreenNavigationProp = LayoutScreenNavigationProp<typeof LayoutRoutes.LogWorkout>;
@@ -139,13 +139,19 @@ export default function ActiveWorkoutScreen() {
   }
 
   const segments = buildProgressSegments(exercises, currentIndex, lastSessionSetCount);
-  const addItem: ExerciseMenuItem = {
+  const addItem: MenuItem = {
     key: "add",
     renderIcon: (color) => <Ionicons name="add" size={20} color={color} />,
     title: "Add exercise",
     detail: "Goes at the end of today's list. Your plan stays as it is.",
-    disabledReason: null,
     onPress: () => setAdding(true),
+  };
+  const discardItem: MenuItem = {
+    key: "discard",
+    renderIcon: (color) => <Ionicons name="trash-outline" size={20} color={color} />,
+    title: "Discard workout",
+    tone: "danger",
+    onPress: () => setConfirmDiscard(true),
   };
 
   return (
@@ -224,19 +230,12 @@ export default function ActiveWorkoutScreen() {
         </MaybeTourStep>
       </View>
 
-      {/* Workout ⋯ (TICKET-056 board AddMenu): the exercise menu's sheet with
-          workout-level items. Discard keeps its own group, away from Add and
-          from Finish, so a stray tap can never lose the session. */}
-      <ExerciseMenu
+      {/* Workout ⋯ (TICKET-056 board AddMenu). Discard is its own group, away
+          from Add and from Finish, so a stray tap can never lose the session. */}
+      <MenuSheet
         visible={menuOpen}
         title={activeWorkout.name}
-        items={[addItem]}
-        destructive={{
-          key: "discard",
-          renderIcon: (color) => <Ionicons name="trash-outline" size={20} color={color} />,
-          title: "Discard workout",
-          onPress: () => setConfirmDiscard(true),
-        }}
+        groups={[[addItem], [discardItem]]}
         onClose={() => setMenuOpen(false)}
         testID="workout-menu"
       />
