@@ -67,7 +67,10 @@ type Row =
  * - `swap`: the active workout replaces `replacing`, for this workout only.
  *   Taken ids are today's exercises: `replacing` reads "Now", the rest "In
  *   workout". `planned` is the plan's exercise while the slot is swapped, for
- *   the "Back to plan" row; null when the slot holds what the plan has.
+ *   the "Back to plan" row; null when the slot holds what the plan has, and
+ *   always for an `added` slot (TICKET-056), which the plan never had.
+ * - `add` (TICKET-056): the active workout appends an exercise after `after`,
+ *   the last one today (null in an empty workout). Taken ids read "In workout".
  * Titles come resolved from the caller, which holds the names (`useExerciseNames`).
  */
 export type PickerMode =
@@ -76,14 +79,28 @@ export type PickerMode =
       kind: "swap";
       replacing: { id: string; title: string };
       planned: { exercise: Exercise; title: string } | null;
-    };
+      added: boolean;
+    }
+  | { kind: "add"; after: string | null };
 
 const PLAN_MODE: PickerMode = { kind: "plan" };
 
 /** The badge on a row that cannot be picked because its id is taken. */
 export function takenLabel(mode: PickerMode, id: string): string {
   if (mode.kind === "plan") return "In plan";
-  return id === mode.replacing.id ? "Now" : "In workout";
+  return mode.kind === "swap" && id === mode.replacing.id ? "Now" : "In workout";
+}
+
+/**
+ * The line under the heading in a workout mode. An added slot's swap says
+ * nothing about the plan, which never had it (TICKET-056 board AddSwapAdded).
+ */
+function headingDetail(mode: Exclude<PickerMode, { kind: "plan" }>): string {
+  if (mode.kind === "add") {
+    return mode.after ? `Goes after ${mode.after}. Your plan stays as it is.` : "Your plan stays as it is.";
+  }
+  if (mode.added) return "For this workout only.";
+  return `For this workout only. Your plan keeps ${mode.planned ? mode.planned.title : "it"}.`;
 }
 
 type Props = {
@@ -307,11 +324,7 @@ export default function ExercisePicker({
           <TextBase style={styles.heading} numberOfLines={2}>
             {mode.kind === "swap" ? `Swap ${mode.replacing.title}` : "Add exercise"}
           </TextBase>
-          {mode.kind === "swap" && (
-            <TextBase style={styles.detail}>
-              {`For this workout only. Your plan keeps ${mode.planned ? mode.planned.title : "it"}.`}
-            </TextBase>
-          )}
+          {mode.kind !== "plan" && <TextBase style={styles.detail}>{headingDetail(mode)}</TextBase>}
         </View>
       </View>
       {/* Board SwapBack: the way back from a swap is here, not on the logger.

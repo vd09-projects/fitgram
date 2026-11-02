@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, TouchableOpacity, StyleSheet, Modal, Pressable } from "react-native";
+import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector, Directions } from "react-native-gesture-handler";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
@@ -24,7 +24,8 @@ import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeCont
 import { useThemeStyles } from '../../utils/useThemeStyles';
 import { MaybeTourStep } from "../../components/guide_tour/MaybeTourStep";
 import { ACTIVE_WORKOUT_STEP_NAMES } from "../../tour_steps/activeWorkout";
-import SwapExercisePicker from "../../components/active_workout/SwapExercisePicker";
+import WorkoutExercisePicker, { type WorkoutPickerPurpose } from "../../components/active_workout/WorkoutExercisePicker";
+import MenuSheet, { type MenuItem } from "../../components/MenuSheet";
 
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.LogWorkout>;
 type layoutScreenNavigationProp = LayoutScreenNavigationProp<typeof LayoutRoutes.LogWorkout>;
@@ -39,10 +40,13 @@ export default function ActiveWorkoutScreen() {
   const { user } = useAuthUser();
   const { activeWorkout, endWorkout, cancelWorkout, setCurrentExerciseIndex } = useWorkoutStore();
 
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [workoutMenuOpen, setWorkoutMenuOpen] = useState(false);
   const [exerciseMenuOpen, setExerciseMenuOpen] = useState(false);
-  /** The slot the swap picker is open for (TICKET-047), by id; null when closed. */
-  const [swappingId, setSwappingId] = useState<string | null>(null);
+  /**
+   * The exercise picker, open to swap a slot (TICKET-047, by id) or to add one
+   * (TICKET-056); null when closed. One state, so only one can be open.
+   */
+  const [picker, setPicker] = useState<{ kind: "swap"; id: string } | { kind: "add" } | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [finishing, setFinishing] = useState(false);
 
@@ -53,7 +57,13 @@ export default function ActiveWorkoutScreen() {
   const currentExercise = currentIndex === null ? null : exercises[currentIndex];
   // Built from the catalog, never `exercise.name` (TICKET-042).
   const names = useExerciseNames(exercises);
-  const swapping = swappingId === null ? null : exercises.find((e) => e.id === swappingId) ?? null;
+  // A swap picker resolves its slot each render, so it closes if the slot is gone.
+  const swapping = picker?.kind === "swap" ? exercises.find((e) => e.id === picker.id) ?? null : null;
+  const pickerPurpose: WorkoutPickerPurpose | null = swapping
+    ? { kind: "swap", replacing: swapping }
+    : picker?.kind === "add"
+      ? { kind: "add" }
+      : null;
 
   // Cache-only read: this hook issues no network request (see its doc). Last
   // session's set count is the denominator for the current progress segment;
@@ -131,6 +141,20 @@ export default function ActiveWorkoutScreen() {
   }
 
   const segments = buildProgressSegments(exercises, currentIndex, lastSessionSetCount);
+  const addItem: MenuItem = {
+    key: "add",
+    renderIcon: (color) => <Ionicons name="add" size={20} color={color} />,
+    title: "Add exercise",
+    detail: "Goes at the end of today's list. Your plan stays as it is.",
+    onPress: () => setPicker({ kind: "add" }),
+  };
+  const discardItem: MenuItem = {
+    key: "discard",
+    renderIcon: (color) => <Ionicons name="trash-outline" size={20} color={color} />,
+    title: "Discard workout",
+    tone: "danger",
+    onPress: () => setConfirmDiscard(true),
+  };
 
   return (
     <View style={styles.screen}>
@@ -138,7 +162,7 @@ export default function ActiveWorkoutScreen() {
         workoutName={activeWorkout.name}
         startTime={activeWorkout.startTime}
         onBack={handleBack}
-        onOpenMenu={() => setMenuOpen(true)}
+        onOpenMenu={() => setWorkoutMenuOpen(true)}
       />
 
       <GestureDetector gesture={swipe}>
@@ -157,6 +181,7 @@ export default function ActiveWorkoutScreen() {
                     onPrevious={goPrevious}
                     onNext={goNext}
                     onOpenMenu={() => setExerciseMenuOpen(true)}
+                    onAdd={() => setPicker({ kind: "add" })}
                   />
                 </MaybeTourStep>
                 <View style={styles.progress}>
@@ -176,7 +201,7 @@ export default function ActiveWorkoutScreen() {
                   exercise={currentExercise}
                   menuOpen={exerciseMenuOpen}
                   onCloseMenu={() => setExerciseMenuOpen(false)}
-                  onSwap={() => setSwappingId(currentExercise.id)}
+                  onSwap={() => setPicker({ kind: "swap", id: currentExercise.id })}
                 />
               </ScrollableScreen>
             </>
@@ -207,30 +232,24 @@ export default function ActiveWorkoutScreen() {
         </MaybeTourStep>
       </View>
 
-      {/* ··· menu. One item today; Discard lives here, away from Finish, so a
-          stray tap in the footer can never lose the session. */}
-      <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
-        <Pressable style={styles.menuOverlay} onPress={() => setMenuOpen(false)} accessibilityLabel="Close menu">
-          <View style={styles.menuCard}>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuOpen(false);
-                setConfirmDiscard(true);
-              }}
-              accessibilityRole="button"
-            >
-              <Ionicons name="trash-outline" size={18} color={t.colors.role.danger} />
-              <TextBase style={styles.menuItemDanger}>Discard workout</TextBase>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Modal>
+      {/* Workout ⋯ (TICKET-056 board AddMenu). Discard is its own group, away
+          from Add and from Finish, so a stray tap can never lose the session. */}
+      <MenuSheet
+        visible={workoutMenuOpen}
+        title={activeWorkout.name}
+        groups={[[addItem], [discardItem]]}
+        onClose={() => setWorkoutMenuOpen(false)}
+        testID="workout-menu"
+      />
 
-      {/* Over the whole screen, footer included, as on Manage Workout. Closed
-          if its slot is gone (Finish or Discard while it was open). */}
-      {swapping && (
-        <SwapExercisePicker exercises={exercises} replacing={swapping} onClose={() => setSwappingId(null)} />
+      {/* Over the whole screen, footer included, as on Manage Workout. A swap
+          picker closes if its slot is gone (Finish or Discard while open). */}
+      {pickerPurpose && (
+        <WorkoutExercisePicker
+          exercises={exercises}
+          purpose={pickerPurpose}
+          onClose={() => setPicker(null)}
+        />
       )}
 
       <DiscardWorkoutDialog
@@ -294,32 +313,6 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     fontSize: t.fonts.medium,
     fontWeight: "bold",
     color: t.colors.role.textPrimary,
-  },
-  menuOverlay: {
-    flex: 1,
-    alignItems: "flex-end",
-    paddingTop: 64,
-    paddingHorizontal: SPACING.medium,
-  },
-  menuCard: {
-    minWidth: 200,
-    borderRadius: 14,
-    paddingVertical: SPACING.xSmall,
-    backgroundColor: t.colors.role.raised,
-    borderWidth: 1,
-    borderColor: t.colors.role.hairlineStrong,
-  },
-  menuItem: {
-    minHeight: HIT,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING.small,
-    paddingHorizontal: SPACING.large,
-  },
-  menuItemDanger: {
-    fontSize: t.fonts.xMedium,
-    fontWeight: "bold",
-    color: t.colors.role.danger,
   },
   noWorkoutContainer: {
     flex: 1,

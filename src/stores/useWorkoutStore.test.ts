@@ -503,3 +503,51 @@ describe("swapExercise", () => {
     expect((await stored()).exercises[0].planned).toBeUndefined();
   });
 });
+
+// TICKET-056: add an exercise at the end, for this workout only.
+describe("addExercise", () => {
+  const curl = { id: "wrist-curl-cable", name: "", nameSnapshot: "Wrist Curl · Cable", fields: [{ name: "Reps", role: "reps" as const }] };
+  const seedAddable = () => {
+    const workout = { ...buildWorkout(["Lat Pulldown", "Seated Row"], { startTime: ++startTime }), currentExerciseIndex: 0 };
+    useWorkoutStore.setState({ activeWorkout: workout });
+    return workout;
+  };
+  const stored = async () => JSON.parse((await AsyncStorage.getItem("activeWorkout")) ?? "null");
+
+  it("appends the exercise marked added, moves to it from anywhere, and stores it; the session doc has no mark", async () => {
+    seedAddable();
+
+    expect(await store().addExercise(curl)).toEqual({ status: "added" });
+
+    const workout = store().activeWorkout!;
+    expect(workout.exercises.map((e) => e.id)).toEqual(["lat-pulldown", "seated-row", "wrist-curl-cable"]);
+    expect(workout.exercises[2]).toMatchObject({ fields: curl.fields, sets: [], added: true });
+    expect(workout.currentExerciseIndex).toBe(2);
+    expect(await stored()).toEqual(workout);
+
+    const logged = { ...workout, exercises: [{ ...workout.exercises[2], sets: [{ id: 1, segments: [{ Reps: 15 }] }] }] };
+    expect(buildSessionDocs(logged, Date.now()).exerciseSessions[0]).not.toHaveProperty("added");
+  });
+
+  it("is refused for an exercise already in today's workout (one session doc per id), and changes nothing", async () => {
+    const workout = seedAddable();
+    const row = workout.exercises[1];
+
+    const result = await store().addExercise({ id: row.id, name: row.name, fields: row.fields });
+
+    expect(result.status).toBe("refused");
+    expect(store().activeWorkout).toBe(workout);
+    expect(await stored()).toBeNull();
+  });
+
+  it("swapping an added slot keeps it added and records no planned exercise", async () => {
+    seedAddable();
+    await store().addExercise(curl);
+
+    await store().swapExercise("wrist-curl-cable", { id: "pull-up", name: "Pull-Up", fields: curl.fields });
+
+    const slot = store().activeWorkout!.exercises[2];
+    expect(slot).toMatchObject({ id: "pull-up", added: true });
+    expect(slot.planned).toBeUndefined();
+  });
+});

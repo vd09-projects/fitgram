@@ -45,7 +45,7 @@ import {
 } from "../utils/splits";
 import { plannedSegment, splitSegments } from "../utils/storedSets";
 import SetRows, { SplitIcon } from "./active_workout/SetRows";
-import ExerciseMenu, { ExerciseMenuItem } from "./active_workout/ExerciseMenu";
+import MenuSheet, { type MenuItem } from "./MenuSheet";
 import { useExerciseName } from "../hooks/useExerciseNames";
 
 const HIT = 44;
@@ -315,7 +315,7 @@ export default function ExerciseLogger({
 
   // Always in the menu, so the menu is never empty. Once split it reads
   // "again" and waits for the last row, the same gate as the card's slot.
-  const splitItem: ExerciseMenuItem =
+  const splitItem: MenuItem =
     cardRows.length === 1
       ? {
           key: "split",
@@ -344,7 +344,7 @@ export default function ExerciseLogger({
   // reason once a set is logged rather than hidden, so the menu keeps its shape.
   // The live count: deleting every set enables it again. The store refuses the
   // same case; this is what explains it.
-  const swapItem: ExerciseMenuItem = {
+  const swapItem: MenuItem = {
     key: "swap",
     renderIcon: (color) => <Ionicons name="swap-horizontal" size={20} color={color} />,
     title: "Swap exercise",
@@ -615,7 +615,13 @@ export default function ExerciseLogger({
         </View>
       </MaybeTourStep>
 
-      <ExerciseMenu visible={menuOpen} title={name.title} items={[splitItem, swapItem]} onClose={onCloseMenu} />
+      <MenuSheet
+        visible={menuOpen}
+        title={name.title}
+        groups={[[splitItem, swapItem]]}
+        onClose={onCloseMenu}
+        testID="exercise-menu"
+      />
 
       <ExerciseHistorySheet
         visible={historyOpen}

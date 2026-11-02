@@ -32,7 +32,7 @@ type Props = {
   /** The version logged last, or null. A preselection the query names wins over it (`initialSheet`). */
   lastUsed: LastUsed | null;
   inPlan: ReadonlySet<string>;
-  /** Swap (TICKET-047, board SwapVersion) words the sheet for replacing today's exercise. */
+  /** Swap (TICKET-047, board SwapVersion) and add (TICKET-056, AddVersion) word the sheet for today's workout. */
   mode: PickerMode;
   onAdd: (version: MovementVersion) => void;
   onClose: () => void;
@@ -54,6 +54,8 @@ export default function VersionSheet({ movement, subtitle, preselect, lastUsed, 
   // Rejected for now: board SwapVersion's "now" on the chip itself, which needs
   // a per-axis mark the sheet's rows do not carry.
   const swap = mode.kind === "swap" ? mode : null;
+  // Swap and add (TICKET-056) both act on today's workout, not a plan.
+  const inWorkout = mode.kind !== "plan";
   const label = (v: MovementVersion) => versionDetail(movement, v) ?? movement.name;
   const planned = movement.versions
     .filter((v) => inPlan.has(v.id))
@@ -62,14 +64,19 @@ export default function VersionSheet({ movement, subtitle, preselect, lastUsed, 
   // detail when it is one of this movement's, else the whole name (a pull-up
   // replacing a pulldown).
   const replaced = swap ? movement.versions.find((v) => v.id === swap.replacing.id) : undefined;
+  // Board AddVersion: "Goes after Hammer Curl, for this workout only."
   const sheetSubtitle = swap
     ? `Replaces ${replaced ? label(replaced) : swap.replacing.title} for this workout.`
-    : subtitle;
+    : mode.kind === "add"
+      ? mode.after
+        ? `Goes after ${mode.after}, for this workout only.`
+        : "For this workout only."
+      : subtitle;
   const addLabel = version
     ? `${swap ? "Swap to" : "Add"} ${buildVersionName(movement, version)}`
     : missing && !chosenAllInPlan(movement, state, inPlan)
       ? `Choose ${missing.title.toLowerCase()}`
-      : swap
+      : inWorkout
         ? "Already in this workout"
         : "Already in this plan";
 
@@ -117,7 +124,7 @@ export default function VersionSheet({ movement, subtitle, preselect, lastUsed, 
             ))}
           </ScrollView>
 
-          {planned.length > 0 && <TextBase style={styles.lastLine}>{`${swap ? "In this workout" : "In this plan"}: ${planned.join("; ")}`}</TextBase>}
+          {planned.length > 0 && <TextBase style={styles.lastLine}>{`${inWorkout ? "In this workout" : "In this plan"}: ${planned.join("; ")}`}</TextBase>}
           {lastUsed && (
             <TextBase style={styles.lastLine}>
               {`Last logged: ${versionDetail(movement, lastUsed.version) ?? movement.name}, ${recentDateLabel(lastUsed.performedAt, Date.now())}`}

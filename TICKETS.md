@@ -4916,10 +4916,11 @@ recorded.
 
 ---
 
-### TICKET-047: Swap an Exercise Mid-Workout
+### ~~TICKET-047: Swap an Exercise Mid-Workout~~ ✅ DONE
 
-**Priority:** High | **Effort:** Medium | **Status: BUILT, IN REVIEW** — PR #34 (branch TICKET-047,
-2026-10-31); device re-run owed after the offline and layering fixes.
+**Priority:** High | **Effort:** Medium | **Status: DONE** — PR #34 merged (1187343, branch
+TICKET-047, 2026-10-31). Swap re-checked on device 2026-11-02 in TICKET-056's run (swap a
+planned exercise, Back to plan, Swap locked after a set); the offline re-run is not recorded.
 Was "Switch an exercise's version", deferred 2026-10-24; widened 2026-10-30 to any
 exercise, not only another version of the same movement
 
@@ -5452,6 +5453,43 @@ would fail the first time it is needed.
 - Give each writing script `--dry-run`, as `uploadCatalog` and `wipeTestData` have
 - Then delete `src/scripts/firebase.ts` if nothing else uses it
 - Not in scope: what the scripts compute (`rebuildStatsFromSessions` stays)
+
+---
+
+### TICKET-064: Workout Store — One Save Path for the Active Workout
+
+**Priority:** Low | **Effort:** Small | **Status: OPEN** — raised 2026-11-02 in
+TICKET-056's duplication review (PR #40)
+
+**Description:**
+Every action in `useWorkoutStore` that changes the active workout ends with the
+same two steps, written out each time: `AsyncStorage.setItem("activeWorkout", …)`
+then `set({ activeWorkout })`. Nine copies (start, the five set actions, paging,
+swap, add), plus three `removeItem("activeWorkout")`, with the key a string
+literal at each. They predate swap and add; 056 only added two more. PR #40
+shared what swap and add had in common (`freshSlot`, `prefetchHistory`,
+`ALREADY_IN_WORKOUT_REASON`) and left this, since it touches every action.
+
+**Why it matters:** a new action is written by copying the nearest one, and the
+copy decides two things silently. A typo in the key, or a forgotten write, loses
+the workout on an app kill with nothing failing in tests that read memory only.
+
+**Scope:**
+- One helper, e.g. `saveActiveWorkout(workout, extra?)`, writing the phone copy
+  and the store; `extra` for state that changes with it (swap clears `rest`)
+- One constant for the `"activeWorkout"` key, used by save, load and clear
+- Keep the two orders that exist on purpose: paging (`setCurrentExerciseIndex`)
+  updates memory first so the screen moves on the tap; every other action
+  writes the phone first. The helper takes the order, or paging keeps its own
+  two lines with the reason
+- Not in scope: `lastUpdated`. Each action decides it on purpose (logged data
+  moves it; marks and paging do not), so it stays at the call site
+- Not in scope: the pending-uploads queue, which has its own key and writer
+
+**Tests:** some store tests read the stored copy (sets, effort, swap, add), not
+every action. First list which actions have no stored-copy check, add one where
+the refactor could break it, then break the helper's write (or the key) once and
+confirm they go red.
 
 ---
 
