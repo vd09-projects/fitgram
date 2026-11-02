@@ -41,14 +41,17 @@ describe("ActiveWorkoutScreen", () => {
     expect(storedIndex()).toBe(0);
   });
 
-  it("disables previous on the first exercise and next on the last", () => {
+  // TICKET-056: on the last exercise the next arrow's box holds Add exercise.
+  it("disables previous on the first exercise; on the last, next becomes Add exercise", () => {
     renderScreen(ActiveWorkoutScreen, { workout: buildWorkout(["Bench Press", "Squat"]) });
     expect(previousArrow()).toBeDisabled();
     expect(nextArrow()).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Add exercise" })).toBeNull();
 
     fireEvent.press(nextArrow());
     expect(previousArrow()).toBeEnabled();
-    expect(nextArrow()).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /^Next exercise/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Add exercise" })).toBeEnabled();
   });
 
   // TICKET-017: with nothing behind it (opened from the footer tab), back
@@ -216,5 +219,48 @@ describe("swap exercise", () => {
     expect(slot.id).toBe("plank");
     expect(slot.planned).toBeUndefined();
     expect(screen.getByLabelText(/^Time/)).toBeOnTheScreen();
+  });
+});
+
+// TICKET-056: add from the workout menu or the last exercise's +, through the shared picker.
+describe("add exercise", () => {
+  const seedCatalog = () => {
+    const load = loadCatalog([CATALOG_ROW]);
+    if (load.kind !== "ok") throw new Error("fixture catalog refused");
+    act(() => useCatalogStore.setState({ catalog: { version: "h1", movements: load.movements, index: load.index } }));
+  };
+
+  it("from the workout menu on exercise 1: the picker says where it goes, and the pick lands on it with its own last time", async () => {
+    const rowStats = buildStats("row__barbell", [{ sets: [{ Weight: 60, Reps: 8 }] }]);
+    renderScreen(ActiveWorkoutScreen, {
+      workout: buildWorkout(["Bench Press", "Squat"]),
+      history: { [rowStats.exerciseId]: rowStats },
+    });
+    seedCatalog();
+
+    fireEvent.press(screen.getByRole("button", { name: "Workout options" }));
+    fireEvent.press(screen.getByRole("button", { name: /^Add exercise, Goes at the end/ }));
+    expect(screen.getByText("Goes after Squat. Your plan stays as it is.")).toBeOnTheScreen();
+    await act(async () => {
+      fireEvent.press(screen.getByText("Row"));
+    });
+
+    expect(useWorkoutStore.getState().activeWorkout!.exercises.map((e) => e.id)).toEqual(["bench-press", "squat", "row__barbell"]);
+    expect(screen.getByLabelText("Exercise 3 of 3")).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: /^Last time 60 by 8/ })).toBeOnTheScreen();
+  });
+
+  it("swapping an added exercise offers no Back to plan and says nothing about the plan", async () => {
+    renderScreen(ActiveWorkoutScreen, { workout: buildWorkout(["Bench Press"]) });
+    seedCatalog();
+    await act(async () => {
+      await useWorkoutStore.getState().addExercise({ id: "row__barbell", name: "", nameSnapshot: "Row", fields: CATALOG_ROW.versions[0].fields });
+    });
+
+    fireEvent.press(screen.getByRole("button", { name: "Row options" }));
+    fireEvent.press(screen.getByRole("button", { name: /^Swap exercise/ }));
+
+    expect(screen.getByText("For this workout only.")).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: /^Back to plan/ })).toBeNull();
   });
 });

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, TouchableOpacity, StyleSheet, Modal, Pressable } from "react-native";
+import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector, Directions } from "react-native-gesture-handler";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
@@ -24,7 +24,8 @@ import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeCont
 import { useThemeStyles } from '../../utils/useThemeStyles';
 import { MaybeTourStep } from "../../components/guide_tour/MaybeTourStep";
 import { ACTIVE_WORKOUT_STEP_NAMES } from "../../tour_steps/activeWorkout";
-import SwapExercisePicker from "../../components/active_workout/SwapExercisePicker";
+import WorkoutExercisePicker, { type WorkoutPickerPurpose } from "../../components/active_workout/WorkoutExercisePicker";
+import ExerciseMenu, { type ExerciseMenuItem } from "../../components/active_workout/ExerciseMenu";
 
 type workoutScreenNavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.LogWorkout>;
 type layoutScreenNavigationProp = LayoutScreenNavigationProp<typeof LayoutRoutes.LogWorkout>;
@@ -43,6 +44,8 @@ export default function ActiveWorkoutScreen() {
   const [exerciseMenuOpen, setExerciseMenuOpen] = useState(false);
   /** The slot the swap picker is open for (TICKET-047), by id; null when closed. */
   const [swappingId, setSwappingId] = useState<string | null>(null);
+  /** The add picker is open (TICKET-056). Apart from `swappingId`: only one opens at a time. */
+  const [adding, setAdding] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [finishing, setFinishing] = useState(false);
 
@@ -54,6 +57,11 @@ export default function ActiveWorkoutScreen() {
   // Built from the catalog, never `exercise.name` (TICKET-042).
   const names = useExerciseNames(exercises);
   const swapping = swappingId === null ? null : exercises.find((e) => e.id === swappingId) ?? null;
+  const pickerPurpose: WorkoutPickerPurpose | null = swapping
+    ? { kind: "swap", replacing: swapping }
+    : adding
+      ? { kind: "add" }
+      : null;
 
   // Cache-only read: this hook issues no network request (see its doc). Last
   // session's set count is the denominator for the current progress segment;
@@ -131,6 +139,14 @@ export default function ActiveWorkoutScreen() {
   }
 
   const segments = buildProgressSegments(exercises, currentIndex, lastSessionSetCount);
+  const addItem: ExerciseMenuItem = {
+    key: "add",
+    renderIcon: (color) => <Ionicons name="add" size={20} color={color} />,
+    title: "Add exercise",
+    detail: "Goes at the end of today's list. Your plan stays as it is.",
+    disabledReason: null,
+    onPress: () => setAdding(true),
+  };
 
   return (
     <View style={styles.screen}>
@@ -157,6 +173,7 @@ export default function ActiveWorkoutScreen() {
                     onPrevious={goPrevious}
                     onNext={goNext}
                     onOpenMenu={() => setExerciseMenuOpen(true)}
+                    onAdd={() => setAdding(true)}
                   />
                 </MaybeTourStep>
                 <View style={styles.progress}>
@@ -207,30 +224,34 @@ export default function ActiveWorkoutScreen() {
         </MaybeTourStep>
       </View>
 
-      {/* ··· menu. One item today; Discard lives here, away from Finish, so a
-          stray tap in the footer can never lose the session. */}
-      <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
-        <Pressable style={styles.menuOverlay} onPress={() => setMenuOpen(false)} accessibilityLabel="Close menu">
-          <View style={styles.menuCard}>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuOpen(false);
-                setConfirmDiscard(true);
-              }}
-              accessibilityRole="button"
-            >
-              <Ionicons name="trash-outline" size={18} color={t.colors.role.danger} />
-              <TextBase style={styles.menuItemDanger}>Discard workout</TextBase>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Modal>
+      {/* Workout ⋯ (TICKET-056 board AddMenu): the exercise menu's sheet with
+          workout-level items. Discard keeps its own group, away from Add and
+          from Finish, so a stray tap can never lose the session. */}
+      <ExerciseMenu
+        visible={menuOpen}
+        title={activeWorkout.name}
+        items={[addItem]}
+        destructive={{
+          key: "discard",
+          renderIcon: (color) => <Ionicons name="trash-outline" size={20} color={color} />,
+          title: "Discard workout",
+          onPress: () => setConfirmDiscard(true),
+        }}
+        onClose={() => setMenuOpen(false)}
+        testID="workout-menu"
+      />
 
-      {/* Over the whole screen, footer included, as on Manage Workout. Closed
-          if its slot is gone (Finish or Discard while it was open). */}
-      {swapping && (
-        <SwapExercisePicker exercises={exercises} replacing={swapping} onClose={() => setSwappingId(null)} />
+      {/* Over the whole screen, footer included, as on Manage Workout. A swap
+          picker closes if its slot is gone (Finish or Discard while open). */}
+      {pickerPurpose && (
+        <WorkoutExercisePicker
+          exercises={exercises}
+          purpose={pickerPurpose}
+          onClose={() => {
+            setSwappingId(null);
+            setAdding(false);
+          }}
+        />
       )}
 
       <DiscardWorkoutDialog
@@ -294,32 +315,6 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     fontSize: t.fonts.medium,
     fontWeight: "bold",
     color: t.colors.role.textPrimary,
-  },
-  menuOverlay: {
-    flex: 1,
-    alignItems: "flex-end",
-    paddingTop: 64,
-    paddingHorizontal: SPACING.medium,
-  },
-  menuCard: {
-    minWidth: 200,
-    borderRadius: 14,
-    paddingVertical: SPACING.xSmall,
-    backgroundColor: t.colors.role.raised,
-    borderWidth: 1,
-    borderColor: t.colors.role.hairlineStrong,
-  },
-  menuItem: {
-    minHeight: HIT,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING.small,
-    paddingHorizontal: SPACING.large,
-  },
-  menuItemDanger: {
-    fontSize: t.fonts.xMedium,
-    fontWeight: "bold",
-    color: t.colors.role.danger,
   },
   noWorkoutContainer: {
     flex: 1,

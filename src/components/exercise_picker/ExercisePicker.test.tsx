@@ -169,6 +169,7 @@ describe("ExercisePicker", () => {
       kind: "swap",
       replacing: { id: "bench_press__dumbbell__flat", title: "Bench Press" },
       planned: { exercise: plank, title: "Plank" },
+      added: false,
     };
     const onPick = renderPicker(["bench_press__dumbbell__flat", plank.id], [], null, mode);
     const back = screen.getByRole("button", { name: "Back to plan: Plank" });

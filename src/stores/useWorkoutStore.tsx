@@ -81,6 +81,7 @@ const refused = (reason: string): EndWorkoutResult => ({ status: "refused", reas
 export type StartWorkoutResult = { status: "started" } | { status: "refused"; reason: string };
 
 export type SwapExerciseResult = { status: "swapped" } | { status: "refused"; reason: string };
+export type AddExerciseResult = { status: "added" } | { status: "refused"; reason: string };
 
 /** The menu item's reason too (board SwapLocked), so the two say the same thing. */
 export const SWAP_LOCKED_REASON = "Only before set 1. Delete the logged sets to swap.";
@@ -102,6 +103,22 @@ export type RemovedSet = { exerciseId: string; set: ExerciseSet; index: number }
  */
 const renumberSets = (sets: ExerciseSet[]): ExerciseSet[] =>
   sets.map((set, index) => (set.id === index + 1 ? set : { ...set, id: index + 1 }));
+
+/**
+ * A slot for an exercise picked mid-workout (swap, add): its own id, name and
+ * fields, no sets. The name snapshot is refreshed from the catalog as
+ * `startWorkout` does, so the session doc keeps the name as it read when logged.
+ */
+const freshSlot = (exercise: Exercise): LoggedExercise => {
+  const catalogIndex = useCatalogStore.getState().catalog?.index ?? null;
+  return {
+    id: exercise.id,
+    name: exercise.name,
+    ...(exercise.nameSnapshot ? { nameSnapshot: exerciseDisplayName(exercise, catalogIndex).title } : {}),
+    fields: exercise.fields,
+    sets: [],
+  };
+};
 
 // Zustand Store Type
 interface WorkoutStoreState {
@@ -132,6 +149,8 @@ interface WorkoutStoreState {
   setCurrentExerciseIndex: (index: number) => Promise<void>;
   /** Replace an unlogged exercise in its slot, for this workout only (TICKET-047). */
   swapExercise: (exerciseId: string, exercise: Exercise) => Promise<SwapExerciseResult>;
+  /** Append an exercise and show it, for this workout only (TICKET-056). */
+  addExercise: (exercise: Exercise) => Promise<AddExerciseResult>;
   endWorkout: (userId : string | undefined) => Promise<EndWorkoutResult>;
   cancelWorkout: () => Promise<void>;
   loadWorkoutFromStorage: () => Promise<void>;
@@ -470,22 +489,20 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       return { status: "refused", reason: "That exercise is already in today's workout." };
     }
 
-    const planned: Exercise = slot.planned ?? {
-      id: slot.id,
-      name: slot.name,
-      ...(slot.nameSnapshot ? { nameSnapshot: slot.nameSnapshot } : {}),
-      fields: slot.fields,
-    };
-    const catalogIndex = useCatalogStore.getState().catalog?.index ?? null;
+    // An added slot (TICKET-056) has no plan's exercise: it stays added and
+    // gets no `planned`, so the picker offers no Back to plan.
+    const planned: Exercise | null = slot.added
+      ? null
+      : slot.planned ?? {
+          id: slot.id,
+          name: slot.name,
+          ...(slot.nameSnapshot ? { nameSnapshot: slot.nameSnapshot } : {}),
+          fields: slot.fields,
+        };
     const swapped: LoggedExercise = {
-      id: exercise.id,
-      name: exercise.name,
-      // Refreshed from the catalog as `startWorkout` does, so the session doc
-      // keeps the name as it read when logged.
-      ...(exercise.nameSnapshot ? { nameSnapshot: exerciseDisplayName(exercise, catalogIndex).title } : {}),
-      fields: exercise.fields,
-      sets: [],
-      ...(exercise.id === planned.id ? {} : { planned }),
+      ...freshSlot(exercise),
+      ...(planned && exercise.id !== planned.id ? { planned } : {}),
+      ...(slot.added ? { added: true as const } : {}),
     };
 
     const updatedWorkout: ActiveWorkout = {
@@ -502,6 +519,51 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       .prefetchExerciseHistory(useAuthStore.getState().user?.uid, [exercise.id])
       .catch(() => {});
     return { status: "swapped" };
+  },
+
+  /**
+   * 🔹 Add an exercise at the end, for this workout only (TICKET-056).
+   *
+   * Appended, never inserted: "Exercise N of M" grows its M and no slot before
+   * it moves. The index moves to the new slot, from wherever the user was: they
+   * add an exercise to do it now (a finisher, or the one a training partner
+   * calls). A rest running elsewhere is left alone; it stays on its exercise,
+   * as when paging. The plan is never written.
+   *
+   * Marked `added` in live state only (see `LoggedExercise.added`). Refused,
+   * here and not only in the picker, for an id already in today's workout: an
+   * `exercise_sessions` doc id is `{sessionId}__{exerciseId}`, so the same id
+   * twice would overwrite one at upload, silently.
+   *
+   * No remove: an added exercise never logged leaves nothing, since
+   * `buildSessionDocs` drops 0-set exercises, and a wrong pick is fixed by Swap.
+   *
+   * History for the new id is fetched here, as for a swap. Not awaited, never
+   * rejects: the add is local.
+   */
+  addExercise: async (exercise) => {
+    const { activeWorkout } = get();
+    if (!activeWorkout) return { status: "refused", reason: "No active workout." };
+    if (activeWorkout.exercises.some((ex) => ex.id === exercise.id)) {
+      return { status: "refused", reason: "That exercise is already in today's workout." };
+    }
+
+    const exercises = [...activeWorkout.exercises, { ...freshSlot(exercise), added: true as const }];
+    const updatedWorkout: ActiveWorkout = {
+      ...activeWorkout,
+      exercises,
+      currentExerciseIndex: exercises.length - 1,
+      lastUpdated: Date.now(),
+    };
+
+    await AsyncStorage.setItem("activeWorkout", JSON.stringify(updatedWorkout));
+    set({ activeWorkout: updatedWorkout });
+
+    useExerciseHistoryStore
+      .getState()
+      .prefetchExerciseHistory(useAuthStore.getState().user?.uid, [exercise.id])
+      .catch(() => {});
+    return { status: "added" };
   },
 
   /**

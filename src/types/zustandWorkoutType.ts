@@ -72,6 +72,18 @@ export interface LoggedExercise {
    * before it loads unchanged (no `LOCAL_DATA_VERSION` bump).
    */
   planned?: Exercise;
+  /**
+   * The slot was added during the workout (TICKET-056), so the plan has no
+   * exercise here. Kept through swaps, and a swapped added slot never gets a
+   * `planned`: there is no plan's exercise to go back to.
+   *
+   * Live state only, like `planned`, and for the same reason. The ticket's "not
+   * marked as added" rules out the screen and Firestore, not this: without it,
+   * swapping an added slot would record the added exercise as the plan's and
+   * offer "Back to plan" to it. Rejected: `planned: null` for "added", one
+   * field instead of two, but a meaning hidden in null.
+   */
+  added?: true;
 }
 
 // Type for active workout

@@ -23,6 +23,11 @@ type Props = {
   onNext: () => void;
   /** The exercise ⋯ menu (TICKET-058). */
   onOpenMenu: () => void;
+  /**
+   * TICKET-056 (board AddLast): on the last exercise the next arrow's box holds
+   * + instead, opening Add exercise. Omitted: the arrow stays, disabled.
+   */
+  onAdd?: () => void;
 };
 
 /**
@@ -32,6 +37,12 @@ type Props = {
  * disappearing, so the name does not shift sideways and the user can see they
  * are at the end. Rejected: wrapping from the last exercise to the first, which
  * makes "next" on the final exercise silently go backwards.
+ *
+ * On the last exercise, with `onAdd`, the disabled next arrow becomes + in the
+ * same box (TICKET-056): the dead control the list apps' "+ Add exercise" at
+ * the end of the session maps to in a pager, and the name still does not
+ * shift. Rejected: a swipe past the last exercise opening the picker, which a
+ * stray fling would trigger.
  *
  * The exercise ⋯ sits beside "Exercise N of M" (TICKET-058, board MenuLogger):
  * exercise-level actions, apart from the header's workout ⋯. Always shown, as
@@ -47,6 +58,7 @@ export default function ExerciseNavHeader({
   onPrevious,
   onNext,
   onOpenMenu,
+  onAdd,
 }: Props) {
   const { styles, t } = useThemeStyles(createStyles);
   const canGoBack = previousName !== null;
@@ -87,16 +99,27 @@ export default function ExerciseNavHeader({
         </View>
       </View>
 
-      <TouchableOpacity
-        style={[styles.arrow, !canGoForward && styles.arrowDisabled]}
-        onPress={onNext}
-        disabled={!canGoForward}
-        accessibilityRole="button"
-        accessibilityLabel={canGoForward ? `Next exercise: ${nextName}` : "Next exercise"}
-        accessibilityState={{ disabled: !canGoForward }}
-      >
-        <Ionicons name="chevron-forward" size={20} color={t.colors.role.textSecondary} />
-      </TouchableOpacity>
+      {!canGoForward && onAdd ? (
+        <TouchableOpacity
+          style={[styles.arrow, styles.addButton]}
+          onPress={onAdd}
+          accessibilityRole="button"
+          accessibilityLabel="Add exercise"
+        >
+          <Ionicons name="add" size={22} color={t.colors.role.accent} />
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={[styles.arrow, !canGoForward && styles.arrowDisabled]}
+          onPress={onNext}
+          disabled={!canGoForward}
+          accessibilityRole="button"
+          accessibilityLabel={canGoForward ? `Next exercise: ${nextName}` : "Next exercise"}
+          accessibilityState={{ disabled: !canGoForward }}
+        >
+          <Ionicons name="chevron-forward" size={20} color={t.colors.role.textSecondary} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -120,6 +143,9 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   },
   arrowDisabled: {
     opacity: 0.35,
+  },
+  addButton: {
+    borderColor: t.colors.role.accent,
   },
   titleBlock: {
     flex: 1,
