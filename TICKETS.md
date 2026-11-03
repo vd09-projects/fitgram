@@ -4236,6 +4236,12 @@ wrong place. Never run on a device.
 replaces the Workout tab the Start and Manage tours begin from (it moves their two
 step ids to All plans and the Plans pill; the rest is this pass).
 
+**Input from TICKET-066:** `START_WORKOUT_BUTTON` is now on the hub's All plans
+link and `NEW_AND_UPDATE_BUTTON` on its Plans pill; both steps' copy still talks
+about the old tiles ("Tap this button to begin a new workout session"). The Start
+screen's title is now "All plans". Log Active Workout is gone, and its step was
+already commented out. Never run on a device.
+
 ---
 
 ### ~~TICKET-044: Logging Details — Plates as a Weight Unit~~ ✅ DONE
@@ -7018,6 +7024,35 @@ plans as tiles, longest since done first, each opening TICKET-065's card.
 - **Tour:** today's tiles carry `START_WORKOUT_BUTTON` and `NEW_AND_UPDATE_BUTTON`.
   Move them to All plans and the Plans pill so no step points at a missing control;
   the full tour pass stays in TICKET-053
+
+**Stage 2 notes (2026-11-03): decisions and deviations, written in the code too:**
+- **Tile number is always days** ("23d"), even past two weeks where the card
+  switches to weeks: "3 weeks" does not fit a half-width tile. Same `daysSince`
+  as the card, so the count agrees. "today" reads "done" under it
+- **No date:** "not in recent workouts" only once sessions have loaded; while
+  loading or after a failed read, "last session unknown", the card's own words
+  (user, 2026-11-03: the card's `sessionsKnown` rule)
+- **First-run card without Freestyle:** body reads "Build a plan you can
+  repeat. Your plans show up here as tiles." and **Create a plan is the primary
+  button**, since a card whose only action is grey reads as disabled. TICKET-067
+  restores the board's copy and demotes Create a plan when it adds Start
+  Freestyle
+- **Plans failed to load:** a "Your plans did not load" card, never the first-run
+  card (TICKET-052 D5). Leaving the tab and coming back reads again
+- **Every plan archived:** the section stays, with All plans N and "All your
+  plans are archived. Open All plans to start one."
+- **The running plan's tile opens the card** (which shows Resume), like every
+  tile, not the logger: the Resume bar is the one-tap way back
+- **Resume bar has no Discard**, as on the board. Discard stays in the logger
+  and on All plans' banner
+- **The app's top bar (Fitgram) stays above the hub**, as above the old tiles.
+  The boards leave it out; hiding it is a Header.tsx change the ticket did not ask
+  for
+- **Plans re-read on focus:** Start's focus refetch moved into
+  `useWorkoutPlansOnFocus`, shared by the hub and All plans
+- **Tests:** `renderScreen` gained a `workoutRoute` option, mounting the screen
+  inside the Workout stack so a tap on Plans, History or All plans lands on its
+  stub
 
 **Acceptance Criteria:**
 - [ ] The Workout tab is the hub; the old tiles are gone

@@ -3,7 +3,7 @@
 // TEMPORARY. Exists only so TICKET-028's upload queue can be checked on a device
 // before TICKET-029 builds the real pending view. Delete this file, its route in
 // constants/routes.tsx, its Stack.Screen in navigation/WorkoutNavigator.tsx and
-// its tile in screens/WorkoutScreen.tsx — nothing else references it.
+// its button in components/workout_hub/HubDebugRow.tsx — nothing else references it.
 //
 // What it is for:
 //  - Finish offline: the count goes up, on disk as well as in memory

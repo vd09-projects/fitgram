@@ -205,6 +205,48 @@ export function chooseHubTiles(rows: PlanRow[]): PlanRow[] {
   return [...recent, ...fill].slice(0, HUB_TILE_LIMIT);
 }
 
+export type HubTileFace = {
+  /** The large figure: "9d", "today", or "—" when there is no date. */
+  big: TextPart[];
+  /** Under it: "since last · 6 exercises", "not in recent workouts · 6 exercises". */
+  caption: TextPart[];
+};
+
+/**
+ * A hub tile's number and caption (TICKET-066), when its plan is not running.
+ *
+ * **Nd** = `daysSince`, the plan card's count, so a tile and the card it opens
+ * never disagree. Always in days, even past two weeks where the card switches
+ * to weeks: a tile is half a row wide, and "3 weeks" does not fit its big
+ * number. Rarely reached anyway: a tile is a plan within the last 20 sessions.
+ *
+ * No date is an explicit absence, never "new" or 0 (CLAUDE.md 2.4), with the
+ * card's `sessionsKnown` rule:
+ * - sessions read, plan not among them → "—" "not in recent workouts". Not
+ *   "never done": the window cannot tell never from long ago
+ * - sessions loading, or the read failed (`useRecentSessions` stays null) →
+ *   "—" "last session unknown", the card's own words
+ */
+export function hubTileFace(
+  row: Pick<PlanRow, "exerciseCount" | "lastDoneAt">,
+  sessionsKnown: boolean,
+  now: number
+): HubTileFace {
+  const count = [
+    txt(" · "),
+    num(String(row.exerciseCount)),
+    txt(row.exerciseCount === 1 ? " exercise" : " exercises"),
+  ];
+  if (row.lastDoneAt === null) {
+    const status = sessionsKnown ? "not in recent workouts" : "last session unknown";
+    return { big: [txt("—")], caption: [txt(status), ...count] };
+  }
+  const days = daysSince(row.lastDoneAt, now);
+  return days === 0
+    ? { big: [txt("today")], caption: [txt("done"), ...count] }
+    : { big: [num(`${days}d`)], caption: [txt("since last"), ...count] };
+}
+
 export type PlanGroups = {
   /** Plans that are not archived, in list order. */
   plans: PlanRow[];

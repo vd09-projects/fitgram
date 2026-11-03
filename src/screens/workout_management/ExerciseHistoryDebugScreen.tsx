@@ -3,7 +3,7 @@
 // TEMPORARY. Exists only so `useExerciseHistory` can be exercised by hand before
 // TICKET-018..022 build the real UI on top of it. Delete this file, its route in
 // constants/routes.tsx, its Stack.Screen in navigation/WorkoutNavigator.tsx and
-// its tile in screens/WorkoutScreen.tsx — nothing else references it.
+// its button in components/workout_hub/HubDebugRow.tsx — nothing else references it.
 //
 // What it is for:
 //  - prove the lookup is cross-workout: pick an exercise that appears in two
