@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { AppState, StyleSheet, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useAuthUser } from "../../hooks/useAuthUser";
 import { useRecentSessions } from "../../hooks/useRecentSessions";
@@ -65,16 +65,28 @@ export default function WorkoutHubScreen() {
   );
   const tiles = useMemo(() => chooseHubTiles(rows), [rows]);
 
-  // The open card is derived on every render, as on All plans: a plan deleted
-  // or archived while its card is open simply has no card.
+  // The open card is derived on every render, as on All plans. Looked up in
+  // every plan's row, not the tiles: the six reorder when sessions land or
+  // reload, and a card must not close because its plan left them (PR #45
+  // review). Only a deleted plan has no card; an archived one keeps it open,
+  // as All plans does.
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selectedRow = tiles.find((row) => row.id === selectedId) ?? null;
+  const selectedRow = rows.find((row) => row.id === selectedId) ?? null;
   const selectedPlan = selectedRow ? (workoutPlans.find((plan) => plan.id === selectedRow.id) ?? null) : null;
 
-  // Days since are counted from this, re-read on each focus: the screen stays
-  // mounted, possibly across midnight.
+  // Days since are counted from this. The screen stays mounted, often left
+  // open overnight as the tab's root, so it is re-read on each focus and each
+  // return to the foreground: focus events fire on navigation only, and a
+  // stale clock showed yesterday's plan as "today" while its card, which reads
+  // the clock on open, said "1 day" (PR #45 review).
   const [now, setNow] = useState(() => Date.now());
   useFocusEffect(useCallback(() => setNow(Date.now()), []));
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") setNow(Date.now());
+    });
+    return () => subscription.remove();
+  }, []);
 
   const setsLogged = activeWorkout?.exercises.reduce((sum, exercise) => sum + exercise.sets.length, 0) ?? 0;
 

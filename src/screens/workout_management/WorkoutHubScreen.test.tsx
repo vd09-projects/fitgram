@@ -1,4 +1,5 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react-native";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react-native";
+import { AppState } from "react-native";
 import WorkoutHubScreen from "./WorkoutHubScreen";
 import { renderScreen, TEST_USER_ID } from "../../test/renderScreen";
 import { buildExercise, buildWorkout } from "../../test/fixtures";
@@ -94,6 +95,45 @@ describe("WorkoutHubScreen", () => {
     expect(await screen.findByTestId("hub-tile-push")).toHaveTextContent("Push—last session unknown · 2 exercises");
     await waitFor(() => expect(mockSessions).toHaveBeenCalled());
     expect(tile("push")).toHaveTextContent("Push—last session unknown · 2 exercises");
+  });
+
+  // The hub is the tab's root and is often left open overnight: focus events
+  // fire on navigation only, so the clock must also be read on foregrounding.
+  it("re-reads the clock when the app comes back to the foreground", async () => {
+    const realNow = Date.now();
+    await renderHub([PUSH], [session("push", realNow)]);
+    await waitFor(() => expect(tile("push")).toHaveTextContent("Pushtodaydone · 2 exercises"));
+
+    const nowSpy = jest.spyOn(Date, "now").mockReturnValue(realNow + DAY);
+    try {
+      const handlers = (AppState.addEventListener as jest.Mock).mock.calls
+        .filter(([type]) => type === "change")
+        .map(([, handler]) => handler);
+      act(() => handlers.forEach((handler) => handler("active")));
+      expect(tile("push")).toHaveTextContent("Push1dsince last · 2 exercises");
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
+  // The six tiles reorder when sessions land; an open card must not close
+  // because its plan left the six.
+  it("keeps a card open when its plan drops out of the tiles as sessions land", async () => {
+    const plans = ["a", "b", "c", "d", "e", "f", "g"].map((id) => plan(id, `Plan ${id.toUpperCase()}`));
+    let resolveSessions: (value: { sessions: WorkoutSessionDoc[]; lastDoc: null }) => void = () => {};
+    mockPlans.mockResolvedValue(plans);
+    mockSessions.mockReturnValue(new Promise((resolve) => (resolveSessions = resolve)));
+    renderScreen(WorkoutHubScreen, { workoutRoute: WorkoutRoutes.WorkoutHome });
+
+    fireEvent.press(await screen.findByTestId("hub-tile-a"));
+    expect(within(screen.getByTestId("plan-card")).getByRole("header", { name: "Plan A" })).toBeOnTheScreen();
+
+    // Plan A is the most recent of seven, so it is the one left out of the six.
+    await act(async () =>
+      resolveSessions({ sessions: plans.map((p, i) => session(p.id, Date.now() - (i + 1) * DAY)), lastDoc: null })
+    );
+    await waitFor(() => expect(screen.queryByTestId("hub-tile-a")).toBeNull());
+    expect(within(screen.getByTestId("plan-card")).getByRole("header", { name: "Plan A" })).toBeOnTheScreen();
   });
 
   it.each([
