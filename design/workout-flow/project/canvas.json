@@ -784,6 +784,8 @@
     "HubFirstRun.dc.html": {"h": 844, "radius": 28, "title": "Hub 9 \u00b7 First run: Start Freestyle or Create a plan", "w": 390, "x": 3760, "y": 34300},
     "HubFreestyleBlocked.dc.html": {"h": 844, "radius": 28, "title": "Busy 3 \u00b7 Freestyle tapped while Legs runs: short card, Back to Legs", "w": 390, "x": 940, "y": 35444},
     "HubFreestylePlanBlocked.dc.html": {"h": 844, "radius": 28, "title": "Busy 5 \u00b7 Freestyle running, a plan tapped: Back to Freestyle", "w": 390, "x": 1880, "y": 35444},
+    "HubFreestyleEmpty.dc.html": {"h": 844, "title": "Busy 6 \u00b7 Freestyle just started: Add your first exercise, in the middle", "w": 390, "x": 2350, "y": 35444},
+    "HubFreestyleAdd.dc.html": {"h": 844, "title": "Busy 7 \u00b7 Add exercise in a Freestyle: no 'Your plan stays' line", "w": 390, "x": 2820, "y": 35444},
     "HubFreestyleRunning.dc.html": {"h": 844, "radius": 28, "title": "Busy 4 \u00b7 Freestyle is the running one: its row is live", "w": 390, "x": 1410, "y": 35444},
     "HubMany.dc.html": {"h": 844, "radius": 28, "title": "Hub 8 \u00b7 34 plans: six tiles from your last 20 workouts", "w": 390, "x": 3290, "y": 34300},
     "HubRunning.dc.html": {"h": 844, "radius": 28, "title": "Busy 1 \u00b7 Workout running: Resume on top, its tile is live", "w": 390, "x": 0, "y": 35444},
@@ -1077,10 +1079,10 @@
       "y": 31804,
       "text": "Why Show archived is never empty (screen 4).\n\nThe toggle only appears when at least one plan is archived.\n\nNo plans at all: \"No plans yet\" + Create a plan (already shipped). No toggle.\nPlans, none archived: the list. No toggle.\nPlans, all archived: screen 4. The toggle always has something to show.\n\nSame rule in the Manage plan sheet."
     },
-    "hubbusy": {"fill": "teal", "text": "ONE RULE: you can always look, you can't start a second workout, and the way back to the running one is one tap. Freestyle is never greyed out; tapping it explains.", "w": 360, "x": 2350, "y": 35484},
-    "hubbusytitle": {"kind": "title1", "maxW": 2270, "text": "Hub: one workout at a time", "x": 0, "y": 35144},
+    "hubbusy": {"fill": "teal", "text": "ONE RULE: you can always look, you can't start a second workout, and the way back to the running one is one tap. Freestyle is never greyed out; tapping it explains.", "w": 360, "x": 3290, "y": 35484},
+    "hubbusytitle": {"kind": "title1", "maxW": 3200, "text": "Hub: one workout at a time", "x": 0, "y": 35144},
     "hubcode": {"fill": "purple", "text": "FOR THE TICKETS\n\n1. Set-summary util first, own ticket: one folder under src/utils owns '3 sets \u00b7 top \u2026'; reconcile with personalBest, setDeltas, comparisonSegment, withUnit.\n2. Hub replaces WorkoutScreen. StartWorkoutScreen becomes All plans (tap opens the card).\n3. Store: start a workout with no plan (Freestyle).\n4. History filter: Freestyle entry.\n5. Debug tiles (History Debug, Pending Uploads) need a spot: small row at the end of the hub, debug builds only.", "w": 380, "x": 4230, "y": 34900},
-    "hubrules": {"fill": "orange", "text": "FINAL (user, 2026-11-02). Designed on the 'Fitgram Workout Hub' canvas.\n\nTILES (max 6): plans in your last 20 workouts, longest since done first; fewer than 6 \u2192 filled with other plans in plan order. Big number: 9d / today / new (never done) / dash while loading, never 0.\nAll plans: today's Start list (search, Show archived), always linked.\nFreestyle: no plan created, saved as Freestyle, one entry in History. Tap starts it at once (no card).\n\nCARD: pop-up over the same page, no swipe. Max 75% height, list scrolls, Start pinned, header shrinks on scroll. Close: tap outside, X, drag down from the header, Android back.\nLast time per exercise: '3 sets \u00b7 top 40 kg \u00d7 8' (heaviest; tie \u2192 more reps), 'best 12 reps', 'best 45 s', 'new', or just '3 sets' if unreadable.\n\nLOGGER: unchanged (Main board). Only change: after Finish/Discard go to the hub, not 'No active workout'.", "w": 380, "x": 4230, "y": 34340},
+    "hubrules": {"fill": "orange", "text": "FINAL (user, 2026-11-02). Designed on the 'Fitgram Workout Hub' canvas.\n\nTILES (max 6): plans in your last 20 workouts, longest since done first; fewer than 6 \u2192 filled with other plans in plan order. Big number: 9d / today / new (never done) / dash while loading, never 0.\nAll plans: today's Start list (search, Show archived), always linked.\nFreestyle: no plan created, saved as Freestyle, one entry in History. Tap starts it at once (no card).\n\nCARD: pop-up over the same page, no swipe. Max 75% height, list scrolls, Start pinned, header shrinks on scroll. Close: tap outside, X, drag down from the header, Android back.\nLast time per exercise: '3 sets \u00b7 top 40 kg \u00d7 8' (heaviest; tie \u2192 more reps), 'best 12 reps', 'best 45 s', 'new', or just '3 sets' if unreadable.\n\nLOGGER: unchanged (Main board), with two exceptions: after Finish/Discard go to the hub, not 'No active workout'; and an empty workout shows Add your first exercise with an Add exercise button (Busy 6, user 2026-11-04). In a Freestyle, Add exercise says nothing about a plan (Busy 7).", "w": 380, "x": 4230, "y": 34340},
     "hubtitle": {"kind": "title1", "maxW": 4150, "text": "Workout hub: pick today's workout", "x": 0, "y": 34000}
   },
   "order": [
@@ -1199,7 +1201,9 @@
     "HubRunningBlocked.dc.html",
     "HubFreestyleBlocked.dc.html",
     "HubFreestyleRunning.dc.html",
-    "HubFreestylePlanBlocked.dc.html"
+    "HubFreestylePlanBlocked.dc.html",
+    "HubFreestyleEmpty.dc.html",
+    "HubFreestyleAdd.dc.html"
   ],
   "pages": [],
   "title": "Fitgram Workout Flow Redesign"

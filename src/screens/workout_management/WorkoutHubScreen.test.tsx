@@ -8,6 +8,8 @@ import { getExerciseStats, getWorkoutSessions } from "../../services/db/workoutS
 import { WorkoutRoutes } from "../../constants/routes";
 import { WorkoutPlan } from "../../types/workoutType";
 import { WorkoutSessionDoc } from "../../types/workoutSession";
+import { useWorkoutStore } from "../../stores/useWorkoutStore";
+import { FREESTYLE_ID } from "../../constants/freestyle";
 
 jest.mock("../../services/db/userDB", () => ({
   ...jest.requireActual("../../services/db/userDB"),
@@ -168,6 +170,8 @@ describe("WorkoutHubScreen", () => {
     await renderHub([]);
     expect(await screen.findByText("Ready when you are")).toBeOnTheScreen();
     expect(screen.queryByText(/All plans/)).toBeNull();
+    // The card's Start Freestyle is the row; no second one under it.
+    expect(screen.queryByTestId("hub-freestyle")).toBeNull();
     fireEvent.press(screen.getByRole("button", { name: "Create a plan" }));
     expect(await screen.findByText("route:Workout/AddExercise")).toBeOnTheScreen();
 
@@ -178,9 +182,74 @@ describe("WorkoutHubScreen", () => {
     renderScreen(WorkoutHubScreen, { workoutRoute: WorkoutRoutes.WorkoutHome });
     expect(await screen.findByText("Your plans did not load")).toBeOnTheScreen();
     expect(screen.queryByText("Ready when you are")).toBeNull();
+    // A Freestyle needs no plan, so failed plans do not block it.
+    expect(screen.getByTestId("hub-freestyle")).toBeOnTheScreen();
 
     mockPlans.mockResolvedValue([plan("p1", "Push")]);
     fireEvent.press(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByTestId("hub-tile-p1")).toBeOnTheScreen();
+  });
+
+  describe("Freestyle (TICKET-067)", () => {
+    const active = () => useWorkoutStore.getState().activeWorkout;
+
+    it("the row starts an empty Freestyle at once, with no card and no history read", async () => {
+      await renderHub([PUSH]);
+      fireEvent.press(await screen.findByRole("button", { name: "Start Freestyle" }));
+
+      expect(await screen.findByText("route:Workout/LogWorkout")).toBeOnTheScreen();
+      expect(active()).toMatchObject({ id: FREESTYLE_ID, name: "Freestyle", exercises: [], currentExerciseIndex: null });
+      expect(screen.queryByTestId("plan-card")).toBeNull();
+      expect(mockStats).not.toHaveBeenCalled();
+    });
+
+    it("starts from the first-run card's Start Freestyle", async () => {
+      await renderHub([]);
+      fireEvent.press(await screen.findByRole("button", { name: "Start Freestyle" }));
+
+      expect(await screen.findByText("route:Workout/LogWorkout")).toBeOnTheScreen();
+      expect(active()?.id).toBe(FREESTYLE_ID);
+      // Back on the hub, the card's button resumes it, and says so.
+      const card = screen.getByTestId("hub-first-run", { includeHiddenElements: true });
+      expect(within(card).getByText("Resume Freestyle", { includeHiddenElements: true })).toBeTruthy();
+      expect(within(card).queryByText("Start Freestyle", { includeHiddenElements: true })).toBeNull();
+    });
+
+    it("while a plan runs: a blocked card naming it, Back to it, and the plan left running", async () => {
+      const workout = buildWorkout(["Squat"], { id: "legs", name: "Legs", startTime: Date.now() - 90_000 });
+      await renderHub([LEGS, PUSH], [], { workout });
+
+      fireEvent.press(await screen.findByRole("button", { name: "Start Freestyle" }));
+      const card = screen.getByTestId("freestyle-blocked");
+      expect(within(card).getByText("Legs is in progress. Finish or discard it to start a Freestyle.")).toBeOnTheScreen();
+      expect(within(card).getByRole("button", { name: "Back to Legs" })).toHaveTextContent(/^Back to Legs · 1:3\d$/);
+      expect(active()).toBe(workout);
+
+      fireEvent.press(within(card).getByRole("button", { name: "Back to Legs" }));
+      expect(await screen.findByText("route:Workout/LogWorkout")).toBeOnTheScreen();
+      expect(active()).toBe(workout);
+    });
+
+    it("while it runs: the Resume bar and row name it, the row resumes, and plan cards are blocked by it", async () => {
+      const workout = buildWorkout(["Bench Press", "Row"], {
+        id: FREESTYLE_ID,
+        name: "Freestyle",
+        startTime: Date.now() - 90_000,
+      });
+      await renderHub([PUSH], [session("push", Date.now() - 9 * DAY)], { workout });
+
+      expect(await screen.findByTestId("hub-resume-bar")).toHaveTextContent(/^Freestyle in progress/);
+      expect(await screen.findByTestId("hub-freestyle")).toHaveTextContent(/^Freestyle1:3\d · in progress · 2 exercises$/);
+      // No plan tile goes live for it.
+      await waitFor(() => expect(tile("push")).toHaveTextContent("Push9dsince last · 2 exercises"));
+
+      fireEvent.press(tile("push"));
+      expect(screen.getByText("Freestyle is in progress. Finish or discard it to start this one.")).toBeOnTheScreen();
+      fireEvent.press(screen.getByRole("button", { name: "Close" }));
+
+      fireEvent.press(screen.getByTestId("hub-freestyle"));
+      expect(await screen.findByText("route:Workout/LogWorkout")).toBeOnTheScreen();
+      expect(active()).toBe(workout);
+    });
   });
 });

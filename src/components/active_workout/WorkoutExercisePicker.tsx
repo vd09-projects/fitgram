@@ -20,6 +20,7 @@ import React, { useMemo } from "react";
 import ExercisePicker, { type PickerMode } from "../exercise_picker/ExercisePicker";
 import { useCatalogStore } from "../../stores/useCatalogStore";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
+import { isFreestyle } from "../../constants/freestyle";
 import { useAuthUser } from "../../hooks/useAuthUser";
 import useWorkoutPlans from "../../hooks/useWorkoutPlans";
 import { useRecentSessions } from "../../hooks/useRecentSessions";
@@ -48,6 +49,7 @@ export default function WorkoutExercisePicker({ exercises, purpose, onClose }: P
   const swapExercise = useWorkoutStore((s) => s.swapExercise);
   const addExercise = useWorkoutStore((s) => s.addExercise);
   const pendingUploads = useWorkoutStore((s) => s.pendingUploads);
+  const workoutId = useWorkoutStore((s) => s.activeWorkout?.id);
 
   const { workoutPlans } = useWorkoutPlans(false);
   const customExercises = useMemo(() => customExercisesFromPlans(workoutPlans), [workoutPlans]);
@@ -73,7 +75,7 @@ export default function WorkoutExercisePicker({ exercises, purpose, onClose }: P
     };
   } else {
     const last = exercises[exercises.length - 1];
-    mode = { kind: "add", after: last ? title(last) : null };
+    mode = { kind: "add", after: last ? title(last) : null, planless: isFreestyle(workoutId) };
   }
 
   const onPick = async (exercise: Exercise) => {

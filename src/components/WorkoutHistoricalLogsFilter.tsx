@@ -1,11 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from "react-native";
 import { useAuthUser } from "../hooks/useAuthUser";
 import useWorkoutPlans from "../hooks/useWorkoutPlans";
 import SearchableInputDropdown, { DropdownSelection } from "./SearchableInputDropdown";
 import { Exercise, WorkoutPlan } from "../types/workoutType";
 import show from "../utils/toastUtils";
-import { getExerciseSessions } from "../services/db/workoutSessions";
+import { getExerciseSessions, getWorkoutSessions } from "../services/db/workoutSessions";
 import { TextBase } from "./TextBase";
 import { BORDER_RADIUS, SPACING } from "../constants/styles";
 import { WorkoutLog } from "../types/workoutLogs";
@@ -16,6 +17,9 @@ import { useExerciseNames } from "../hooks/useExerciseNames";
 import { useCatalogStore } from "../stores/useCatalogStore";
 import { exerciseDisplayName, type CatalogIndex } from "../utils/catalog";
 import { decodeStoredSets, plannedSegment } from "../utils/storedSets";
+import { FREESTYLE_HISTORY_WINDOW, freestyleHistoryEntry } from "../utils/freestyleHistory";
+import { FREESTYLE_ID } from "../constants/freestyle";
+import { WorkoutSessionDoc } from "../types/workoutSession";
 
 /**
  * Adapt stored, exercise-first sessions into the table view model. `SetLog.id`
@@ -77,18 +81,64 @@ export default function WorkoutHistoricalLogsFilter({
 
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[] | null>(null);
 
+  // Freestyle (TICKET-067): its recent sessions, for the entry and its
+  // exercises (`freestyleHistoryEntry`). Read on every focus, not on mount:
+  // History is a single copy that stays mounted under the other tabs, so a
+  // mount-only read never saw a Freestyle finished after History was first
+  // opened, and the first one ever had no entry at all (PR #46 review). One
+  // read per visit. A failed read says so rather than leaving the entry out
+  // silently, which would read as "never done a Freestyle"; the next visit
+  // retries. The filter's plans still read on mount only (`useWorkoutPlans`,
+  // older than this ticket).
+  const uid = user?.uid;
+  const [freestyleSessions, setFreestyleSessions] = useState<WorkoutSessionDoc[]>([]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!uid) return;
+      let live = true;
+      getWorkoutSessions(uid, { workoutId: FREESTYLE_ID, pageSize: FREESTYLE_HISTORY_WINDOW })
+        .then(({ sessions }) => live && setFreestyleSessions(sessions))
+        .catch((error) => {
+          console.error("Error fetching Freestyle sessions:", error);
+          if (live) show.warn("Freestyle history did not load", "Plans are unaffected. Open History again to retry.");
+        });
+      return () => {
+        live = false;
+      };
+    }, [uid])
+  );
+  // Left out until the plans have loaded, for two reasons (PR #46 review):
+  // the entry is listed after the plans so the first plan stays the default
+  // selection, and a Freestyle read landing first would otherwise be the only
+  // entry and be selected; and a custom exercise takes its name from the plans.
+  const freestyleEntry = useMemo(
+    () => (loadingWorkoutPlans ? null : freestyleHistoryEntry(freestyleSessions, workoutPlans)),
+    [loadingWorkoutPlans, freestyleSessions, workoutPlans]
+  );
+
   const convertedWorkoutPlans = useMemo(() =>
-    workoutPlans.map((plan) => ({
+    [...workoutPlans, ...(freestyleEntry ? [freestyleEntry] : [])].map((plan) => ({
       label: plan.name,
       value: plan,
       isCustom: false,
     })),
-    [workoutPlans]
+    [workoutPlans, freestyleEntry]
   );
   const [selectedWorkout, setSelectedWorkout] = useState<DropdownSelection<WorkoutPlan> | undefined>(convertedWorkoutPlans[0]);
+  // The selection as currently listed, looked up by id. Each focus re-read
+  // builds a new Freestyle entry, and the dropdown matches its value by deep
+  // equality, so a selection holding the old entry showed "Choose Select
+  // Workout" and kept the old exercise list (device run, 2026-11-04). By id,
+  // the dropdown and the exercise list always read the fresh entry, and the
+  // chosen exercise is kept. Plans' ids are unique, and Freestyle's cannot
+  // collide with them (FREESTYLE_ID).
+  const currentWorkout = useMemo(
+    () => convertedWorkoutPlans.find((option) => option.value.id === selectedWorkout?.value?.id) ?? selectedWorkout,
+    [convertedWorkoutPlans, selectedWorkout]
+  );
 
   const catalogIndex = useCatalogStore((s) => s.catalog?.index ?? null);
-  const planExercises = useMemo(() => selectedWorkout?.value?.exercises ?? [], [selectedWorkout]);
+  const planExercises = useMemo(() => currentWorkout?.value?.exercises ?? [], [currentWorkout]);
   const exerciseNames = useExerciseNames(planExercises);
   const convertedExercises = useMemo(() => {
     return planExercises.map((exercise, index) => ({
@@ -166,7 +216,8 @@ export default function WorkoutHistoricalLogsFilter({
         );
         // The query is cross-workout now. Narrowing to the selected plan keeps
         // this screen's existing meaning; dropping that filter would show every
-        // workout this exercise was done in (TICKET-020's job).
+        // workout this exercise was done in (TICKET-020's job). Freestyle's
+        // entry carries FREESTYLE_ID, so the same match keeps Freestyle only.
         const logs = toWorkoutLogs(
           sessions.filter(
             (session) => session.workoutId === selectedWorkout.value!.id
@@ -241,7 +292,7 @@ export default function WorkoutHistoricalLogsFilter({
         <SearchableInputDropdown<WorkoutPlan>
           placeholder="Select Workout"
           data={convertedWorkoutPlans}
-          value={selectedWorkout}
+          value={currentWorkout}
           onChange={setSelectedWorkout}
           title="Workout Plan"
           allowCustomInput={false}

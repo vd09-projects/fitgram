@@ -23,6 +23,7 @@ import { TextBase } from "../../components/TextBase";
 import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
 import { MaybeTourStep } from "../../components/guide_tour/MaybeTourStep";
+import { isFreestyle } from "../../constants/freestyle";
 import { ACTIVE_WORKOUT_STEP_NAMES } from "../../tour_steps/activeWorkout";
 import WorkoutExercisePicker, { type WorkoutPickerPurpose } from "../../components/active_workout/WorkoutExercisePicker";
 import MenuSheet, { type MenuItem } from "../../components/MenuSheet";
@@ -166,7 +167,10 @@ export default function ActiveWorkoutScreen() {
     key: "add",
     renderIcon: (color) => <Ionicons name="add" size={20} color={color} />,
     title: "Add exercise",
-    detail: "Goes at the end of today's list. Your plan stays as it is.",
+    // A Freestyle has no plan to stay as it is (TICKET-067).
+    detail: isFreestyle(activeWorkout.id)
+      ? "Goes at the end of today's list."
+      : "Goes at the end of today's list. Your plan stays as it is.",
     onPress: () => setPicker({ kind: "add" }),
   };
   const discardItem: MenuItem = {
@@ -227,8 +231,26 @@ export default function ActiveWorkoutScreen() {
               </ScrollableScreen>
             </>
           ) : (
-            <View style={styles.emptyPlan}>
-              <TextBase style={styles.noWorkoutText}>This workout has no exercises</TextBase>
+            // Nothing to log yet: a Freestyle just started, or an empty plan
+            // (TICKET-067 board E1). The button is ⋯ → Add exercise, brought
+            // out, since the menu was the only way on and Finish refuses.
+            // Type sizes: title 18 → large, line 14 → xMedium, button 16 → medium.
+            <View style={styles.emptyPlan} testID="logger-empty">
+              <View style={styles.emptyBadge}>
+                <Ionicons name="add" size={26} color={t.colors.role.accent} />
+              </View>
+              <TextBase style={styles.emptyTitle}>Add your first exercise</TextBase>
+              <TextBase style={styles.emptyLine}>
+                Log its sets, then add the next. Each one shows your last time, from any plan.
+              </TextBase>
+              <TouchableOpacity
+                style={styles.emptyButton}
+                onPress={() => setPicker({ kind: "add" })}
+                accessibilityRole="button"
+              >
+                <Ionicons name="add" size={18} color={t.colors.role.ground} />
+                <TextBase style={styles.emptyButtonText}>Add exercise</TextBase>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -309,6 +331,43 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    gap: SPACING.xMedium,
+    paddingHorizontal: SPACING.xxxLarge,
+  },
+  emptyBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: t.colors.role.accentDeep,
+  },
+  emptyTitle: {
+    fontSize: t.fonts.large,
+    fontWeight: "bold",
+    color: t.colors.role.textPrimary,
+    textAlign: "center",
+  },
+  emptyLine: {
+    maxWidth: 280,
+    fontSize: t.fonts.xMedium,
+    color: t.colors.role.textSecondary,
+    textAlign: "center",
+  },
+  emptyButton: {
+    marginTop: SPACING.xSmall,
+    height: 52,
+    paddingHorizontal: 28,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.small,
+    borderRadius: 14,
+    backgroundColor: t.colors.role.accent,
+  },
+  emptyButtonText: {
+    fontSize: t.fonts.medium,
+    fontWeight: "bold",
+    color: t.colors.role.ground,
   },
   footer: {
     paddingTop: SPACING.medium,
@@ -334,11 +393,5 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     fontSize: t.fonts.medium,
     fontWeight: "bold",
     color: t.colors.role.textPrimary,
-  },
-  noWorkoutText: {
-    fontSize: t.fonts.large,
-    color: t.colors.role.textPrimary,
-    textAlign: "center",
-    fontWeight: "bold",
   },
 });

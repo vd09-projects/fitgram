@@ -2,6 +2,7 @@ import { buildExercise, buildWorkout } from "../test/fixtures";
 import { StoredSetFields, WorkoutSessionDoc } from "../types/workoutSession";
 import { ExerciseField, WorkoutPlan } from "../types/workoutType";
 import { PendingUpload } from "../types/zustandWorkoutType";
+import { FREESTYLE_ID } from "../constants/freestyle";
 import { buildSessionDocs, computeSessionTotalVolume } from "./exerciseStats";
 import {
   buildPlanRows,
@@ -239,6 +240,17 @@ describe("chooseHubTiles", () => {
 
   it("shows plans A–Z, pending ignored, while sessions are still loading", () => {
     expect(tiles([pull, push, legs], null, [pending("me", "push", 500)])).toEqual(["legs", "pull", "push"]);
+  });
+  // TICKET-067: a Freestyle is saved under FREESTYLE_ID, which no plan has.
+  // Newest, oldest, uploaded and pending: none may reorder a tile or change
+  // its date, volume or source.
+  it("ignores Freestyle sessions: same tiles, same order, same numbers", () => {
+    const sessions = [session("pull", 300), session("push", 100)];
+    const withFreestyle = [session(FREESTYLE_ID, 900), ...sessions, session(FREESTYLE_ID, 50)];
+    const rows = (s: WorkoutSessionDoc[], p: PendingUpload[]) =>
+      chooseHubTiles(buildPlanRows([push, pull, legs], s, p, "me", ""));
+
+    expect(rows(withFreestyle, [pending("me", FREESTYLE_ID, 1000)])).toEqual(rows(sessions, []));
   });
 });
 

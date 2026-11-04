@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from "@testing-library/react-native";
+import { act, fireEvent, screen, within } from "@testing-library/react-native";
 import ActiveWorkoutScreen from "./ActiveWorkoutScreen";
 import { renderScreen } from "../../test/renderScreen";
 import { buildExercise, buildStats, buildWorkout, CATALOG_ROW } from "../../test/fixtures";
@@ -8,6 +8,7 @@ import { useCatalogStore } from "../../stores/useCatalogStore";
 import { loadCatalog } from "../../utils/catalog";
 import show from "../../utils/toastUtils";
 import { WorkoutRoutes } from "../../constants/routes";
+import { FREESTYLE_ID } from "../../constants/freestyle";
 
 // Only the Finish tests reach the save, through the real `endWorkout`. The
 // reads are the swap picker's (TICKET-047), mounted only while it is open.
@@ -294,6 +295,26 @@ describe("add exercise", () => {
     expect(useWorkoutStore.getState().activeWorkout!.exercises.map((e) => e.id)).toEqual(["bench-press", "squat", "row__barbell"]);
     expect(screen.getByLabelText("Exercise 3 of 3")).toBeOnTheScreen();
     expect(screen.getByRole("button", { name: /^Last time 60 by 8/ })).toBeOnTheScreen();
+  });
+
+  // TICKET-067: an empty Freestyle offers Add exercise in the middle, and says
+  // nothing about a plan it does not have, in the picker or the menu.
+  it("an empty Freestyle: Add exercise in the middle opens the picker, which promises nothing about a plan", async () => {
+    renderScreen(ActiveWorkoutScreen, { workout: buildWorkout([], { id: FREESTYLE_ID, name: "Freestyle" }) });
+    seedCatalog();
+
+    expect(screen.getByText("Add your first exercise")).toBeOnTheScreen();
+    fireEvent.press(within(screen.getByTestId("logger-empty")).getByRole("button", { name: "Add exercise" }));
+    expect(screen.getByText("Your first exercise.")).toBeOnTheScreen();
+    await act(async () => {
+      fireEvent.press(screen.getByText("Row"));
+    });
+    expect(useWorkoutStore.getState().activeWorkout!.exercises.map((e) => e.id)).toEqual(["row__barbell"]);
+    expect(screen.queryByTestId("logger-empty")).toBeNull();
+
+    fireEvent.press(screen.getByRole("button", { name: "Workout options" }));
+    fireEvent.press(screen.getByRole("button", { name: "Add exercise, Goes at the end of today's list." }));
+    expect(screen.getByText("Goes after Row.")).toBeOnTheScreen();
   });
 
   it("swapping an added exercise offers no Back to plan and says nothing about the plan", async () => {

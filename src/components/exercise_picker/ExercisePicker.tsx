@@ -81,7 +81,12 @@ export type PickerMode =
       planned: { exercise: Exercise; title: string } | null;
       added: boolean;
     }
-  | { kind: "add"; after: string | null };
+  | {
+      kind: "add";
+      after: string | null;
+      /** A Freestyle (TICKET-067): there is no plan to promise anything about. */
+      planless: boolean;
+    };
 
 const PLAN_MODE: PickerMode = { kind: "plan" };
 
@@ -94,9 +99,12 @@ export function takenLabel(mode: PickerMode, id: string): string {
 /**
  * The line under the heading in a workout mode. An added slot's swap says
  * nothing about the plan, which never had it (TICKET-056 board AddSwapAdded).
+ * Nor does adding to a Freestyle, which has none (TICKET-067). A Freestyle's
+ * swaps need no case: every slot in one is added.
  */
 function headingDetail(mode: Exclude<PickerMode, { kind: "plan" }>): string {
   if (mode.kind === "add") {
+    if (mode.planless) return mode.after ? `Goes after ${mode.after}.` : "Your first exercise.";
     return mode.after ? `Goes after ${mode.after}. Your plan stays as it is.` : "Your plan stays as it is.";
   }
   if (mode.added) return "For this workout only.";
