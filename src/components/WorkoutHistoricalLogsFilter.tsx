@@ -5,7 +5,7 @@ import useWorkoutPlans from "../hooks/useWorkoutPlans";
 import SearchableInputDropdown, { DropdownSelection } from "./SearchableInputDropdown";
 import { Exercise, WorkoutPlan } from "../types/workoutType";
 import show from "../utils/toastUtils";
-import { getExerciseSessions } from "../services/db/workoutSessions";
+import { getExerciseSessions, getWorkoutSessions } from "../services/db/workoutSessions";
 import { TextBase } from "./TextBase";
 import { BORDER_RADIUS, SPACING } from "../constants/styles";
 import { WorkoutLog } from "../types/workoutLogs";
@@ -16,6 +16,9 @@ import { useExerciseNames } from "../hooks/useExerciseNames";
 import { useCatalogStore } from "../stores/useCatalogStore";
 import { exerciseDisplayName, type CatalogIndex } from "../utils/catalog";
 import { decodeStoredSets, plannedSegment } from "../utils/storedSets";
+import { FREESTYLE_HISTORY_WINDOW, freestyleHistoryEntry } from "../utils/freestyleHistory";
+import { FREESTYLE_ID } from "../constants/freestyle";
+import { WorkoutSessionDoc } from "../types/workoutSession";
 
 /**
  * Adapt stored, exercise-first sessions into the table view model. `SetLog.id`
@@ -77,13 +80,37 @@ export default function WorkoutHistoricalLogsFilter({
 
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[] | null>(null);
 
+  // Freestyle (TICKET-067): one read of its recent sessions on open, for the
+  // entry and its exercises (`freestyleHistoryEntry`). Listed after the plans,
+  // so the default selection is still the first plan. A failed read says so
+  // rather than leaving the entry out silently, which would read as "never
+  // done a Freestyle".
+  const [freestyleSessions, setFreestyleSessions] = useState<WorkoutSessionDoc[]>([]);
+  useEffect(() => {
+    if (!user?.uid) return;
+    let live = true;
+    getWorkoutSessions(user.uid, { workoutId: FREESTYLE_ID, pageSize: FREESTYLE_HISTORY_WINDOW })
+      .then(({ sessions }) => live && setFreestyleSessions(sessions))
+      .catch((error) => {
+        console.error("Error fetching Freestyle sessions:", error);
+        if (live) show.warn("Freestyle history did not load", "Plans are unaffected. Open History again to retry.");
+      });
+    return () => {
+      live = false;
+    };
+  }, [user?.uid]);
+  const freestyleEntry = useMemo(
+    () => freestyleHistoryEntry(freestyleSessions, workoutPlans),
+    [freestyleSessions, workoutPlans]
+  );
+
   const convertedWorkoutPlans = useMemo(() =>
-    workoutPlans.map((plan) => ({
+    [...workoutPlans, ...(freestyleEntry ? [freestyleEntry] : [])].map((plan) => ({
       label: plan.name,
       value: plan,
       isCustom: false,
     })),
-    [workoutPlans]
+    [workoutPlans, freestyleEntry]
   );
   const [selectedWorkout, setSelectedWorkout] = useState<DropdownSelection<WorkoutPlan> | undefined>(convertedWorkoutPlans[0]);
 
@@ -166,7 +193,8 @@ export default function WorkoutHistoricalLogsFilter({
         );
         // The query is cross-workout now. Narrowing to the selected plan keeps
         // this screen's existing meaning; dropping that filter would show every
-        // workout this exercise was done in (TICKET-020's job).
+        // workout this exercise was done in (TICKET-020's job). Freestyle's
+        // entry carries FREESTYLE_ID, so the same match keeps Freestyle only.
         const logs = toWorkoutLogs(
           sessions.filter(
             (session) => session.workoutId === selectedWorkout.value!.id

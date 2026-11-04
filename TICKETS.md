@@ -7187,6 +7187,31 @@ Hub 1 / Hub 9 for the row and the first-run button.
 - **Known, for stage 2:** a user can name a plan "Freestyle". It is a different
   id, so nothing mixes, but History's filter would list two entries of that name
 
+**Stage 2 notes (2026-11-04): History, decisions and deviations, written in the code too:**
+- **The filter is plan → that plan's exercises → one exercise's sessions**, so a
+  Freestyle entry needs an exercise list it does not have. It is a plan-shaped
+  entry (`freestyleHistoryEntry`, `src/utils/freestyleHistory.ts`) with
+  `FREESTYLE_ID`: the exercise query and the `workoutId` match run unchanged,
+  and keep Freestyle sessions out of every plan's history as before
+- **Its exercises come from one extra read on History open:** the last 50
+  Freestyle sessions (`sessions (workoutId, startedAt desc)`, index already
+  deployed), their `exerciseIds`, most recently done first. An exercise done
+  only in an older Freestyle is not offered. A custom exercise takes its name
+  from a plan that has it; an id in no plan and not in the catalog shows as
+  the existing "unknown exercise", never a guess
+- **Listed after the plans**, so the default selection is still the first plan
+- **A failed read warns** ("Freestyle history did not load"), rather than
+  leaving the entry out, which would read as "no Freestyle yet"
+- **Pending uploads are not shown**, for Freestyle as for plans: the filter
+  reads Firestore only
+- **Every other reader of `workoutId` / `workoutName`:** they display the
+  stored name ("Freestyle"): the logger's history sheet, the plan card's last
+  time, "Saved · Freestyle · N min", the debug screens. Only `buildPlanRows`
+  looks a plan up by id, and it drops Freestyle (stage 1 test). Firestore
+  rules do not check the plan exists
+- **Known:** a plan the user names "Freestyle" lists beside the real one, with
+  the same label; nothing mixes, since the ids differ
+
 **Deferred:** saving a Freestyle as a plan, TICKET-057.
 
 **Dependencies:** TICKET-066, TICKET-056 (done).
