@@ -6,6 +6,7 @@ import { Effort } from "../types/workoutSession";
 import { ActiveWorkout, ExerciseSet, LoggedExercise, PendingUpload } from "../types/zustandWorkoutType";
 import { saveWorkoutSession } from "../services/db/workoutSessions";
 import show from "../utils/toastUtils";
+import { savedSummary } from "../utils/sessionDuration";
 import { normalizeExerciseFields } from "../utils/exerciseFields";
 import { clampExerciseIndex } from "../utils/workoutProgress";
 import { extendRest, RestTimer } from "../utils/restTimer";
@@ -661,8 +662,8 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
 
     if (uploaded) return { status: "uploaded" };
     if (uploaded === null) {
-      // Still pending: offline, or a slow connection. The success toast follows
-      // if it lands. The history caveat is the accepted TICKET-028 gap: "last
+      // Still pending: offline, or a slow connection. The "Saved" toast
+      // follows if it lands (`attemptUpload`). The history caveat is the accepted TICKET-028 gap: "last
       // time" and ghost targets read the server rollup, which a queued workout
       // has not reached.
       show.info(
@@ -872,7 +873,10 @@ async function attemptUpload(entry: PendingUpload): Promise<boolean> {
     // If this write fails the entry comes back on restart and uploads again,
     // which is safe: same ids, and the rollup folds by replacement.
     await writePendingUploadsOrLog();
-    show.success("Workout saved successfully!");
+    // Names the workout and its length (TICKET-066): on Finish this is the one
+    // message the user gets, on the hub; for a workout queued offline it is
+    // the later "it landed", so it must say which one.
+    show.success("Saved", savedSummary(entry.workout.name, entry.workout.startTime, entry.endedAt));
     // A successful upload is the best evidence the connection is back.
     drainPendingUploads();
     return true;

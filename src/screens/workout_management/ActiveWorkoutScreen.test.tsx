@@ -6,6 +6,8 @@ import { EndWorkoutResult, useWorkoutStore } from "../../stores/useWorkoutStore"
 import { getExerciseStats, saveWorkoutSession } from "../../services/db/workoutSessions";
 import { useCatalogStore } from "../../stores/useCatalogStore";
 import { loadCatalog } from "../../utils/catalog";
+import show from "../../utils/toastUtils";
+import { WorkoutRoutes } from "../../constants/routes";
 
 // Only the Finish tests reach the save, through the real `endWorkout`. The
 // reads are the swap picker's (TICKET-047), mounted only while it is open.
@@ -123,6 +125,50 @@ describe("ActiveWorkoutScreen", () => {
     expect(save).toHaveBeenCalledTimes(1);
     expect(useWorkoutStore.getState().activeWorkout).toBeNull();
     log.mockRestore();
+  });
+});
+
+// TICKET-066: with no workout the logger hands over to the hub.
+describe("after the workout ends", () => {
+  const loggedWorkout = () =>
+    buildWorkout([], {
+      name: "Shoulders & Core",
+      startTime: Date.now() - 52 * 60_000,
+      exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: 60, Reps: 5 }] }] })],
+    });
+
+  it("Finish lands on the hub, with one Saved message naming the workout and its minutes", async () => {
+    (saveWorkoutSession as jest.Mock).mockResolvedValue({ sessionId: "s", rollupApplied: true });
+    const log = jest.spyOn(console, "log").mockImplementation(() => {});
+    const success = jest.spyOn(show, "success");
+    renderScreen(ActiveWorkoutScreen, { workout: loggedWorkout() });
+
+    await act(async () => fireEvent.press(finishButton()));
+
+    expect(screen.getByText("route:Workout/WorkoutHome")).toBeOnTheScreen();
+    expect(success).toHaveBeenCalledTimes(1);
+    expect(success).toHaveBeenCalledWith("Saved", "Shoulders & Core · 52 min");
+    success.mockRestore();
+    log.mockRestore();
+  });
+
+  it("Discard lands on the hub", async () => {
+    renderScreen(ActiveWorkoutScreen, { workout: loggedWorkout() });
+    fireEvent.press(screen.getByRole("button", { name: "Workout options" }));
+    fireEvent.press(screen.getByText("Discard workout"));
+    await act(async () => fireEvent.press(screen.getByText("Discard")));
+
+    expect(screen.getByText("route:Workout/WorkoutHome")).toBeOnTheScreen();
+  });
+
+  it.each([
+    ["the footer tab (Layout stack)", undefined],
+    ["the Workout stack", WorkoutRoutes.LogWorkout],
+  ])("opened from %s with no workout, it goes to the hub instead of 'No active workout'", (_, workoutRoute) => {
+    renderScreen(ActiveWorkoutScreen, { workout: null, workoutRoute });
+
+    expect(screen.getByText("route:Workout/WorkoutHome")).toBeOnTheScreen();
+    expect(screen.queryByText("No active workout")).toBeNull();
   });
 });
 

@@ -7054,6 +7054,36 @@ plans as tiles, longest since done first, each opening TICKET-065's card.
   inside the Workout stack so a tap on Plans, History or All plans lands on its
   stub
 
+**Stage 3 notes (2026-11-04): decisions and deviations, written in the code too:**
+- **One redirect covers everything:** the logger, focused and with no workout,
+  goes to the hub. That is Finish, Discard, and being reached with none. Only
+  while focused, so a workout discarded from All plans while the logger sits
+  mounted underneath does not pull the user away from where they are
+- **Device fixes (2026-11-04):** an odd last tile was wider than the tiles
+  above it, so each tile now sits in an equal cell. The "did not load" card,
+  which is on no board, gained an icon and Try again. The tile's "today" is
+  "Today": deviation from HubAfterFinish, user call, it stands alone
+- **The logger hands over with `popTo` the hub**, in whichever stack holds it
+  (Workout, or Layout's `Workout` route via the footer tab). It drops the
+  logger and anything above the hub, so back from the hub cannot bounce into
+  an empty logger. Deviation from TICKET-060's visit order: screens opened
+  after the hub leave the back history once a workout ends. Rejected: keeping
+  that order with a hand-built reset (the first version), complex for a trail
+  nobody needs after Finish
+- **"Saved · name · N min" is the upload's own success toast**, title "Saved",
+  body "Shoulders & Core · 52 min". It replaces "Workout saved successfully!",
+  so an online Finish shows exactly one message, and a workout queued offline
+  says which one landed when it uploads later. Offline Finish keeps "Saved on
+  this phone" unchanged. **Deviation from the board:** the toast is at the
+  bottom, where every toast in the app is, not in a strip at the top
+- **Minutes** share the plan card's rule (`sessionMinutes`): "under 1 min", never
+  "0 min"; dropped when the clock moved back
+- **Discard lands silently** on the hub: the ticket names no message for it
+- **Known, not fixed:** the hub can appear before the upload's grace period
+  ends, because the workout leaves the active slot first. If the queue write
+  then fails, the workout is restored and its alert shows on the hub, with the
+  Resume bar back. Rare (a disk write failure)
+
 **Acceptance Criteria:**
 - [ ] The Workout tab is the hub; the old tiles are gone
 - [ ] Tile choice and order match the rule; unit tests for: no sessions, under 6,
