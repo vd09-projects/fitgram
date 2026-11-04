@@ -206,7 +206,7 @@ export function chooseHubTiles(rows: PlanRow[]): PlanRow[] {
 }
 
 export type HubTileFace = {
-  /** The large figure: "9d", "today", or "—" when there is no date. */
+  /** The large figure: "9d", "Today" (capitalised: it stands alone, user call 2026-11-04), or "—" when there is no date. */
   big: TextPart[];
   /** Under it: "since last · 6 exercises", "not in recent workouts · 6 exercises". */
   caption: TextPart[];
@@ -243,7 +243,7 @@ export function hubTileFace(
   }
   const days = daysSince(row.lastDoneAt, now);
   return days === 0
-    ? { big: [txt("today")], caption: [txt("done"), ...count] }
+    ? { big: [txt("Today")], caption: [txt("done"), ...count] }
     : { big: [num(`${days}d`)], caption: [txt("since last"), ...count] };
 }
 

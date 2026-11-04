@@ -54,7 +54,7 @@ export default function WorkoutHubScreen() {
   const activeWorkout = useWorkoutStore((state) => state.activeWorkout);
   const pendingUploads = useWorkoutStore((state) => state.pendingUploads);
 
-  const { workoutPlans, loadingWorkoutPlans, failedToLoad } = useWorkoutPlansOnFocus();
+  const { workoutPlans, loadingWorkoutPlans, failedToLoad, retry } = useWorkoutPlansOnFocus();
   const myPendingCount = pendingUploads.filter((entry) => entry.uid === uid).length;
   const sessions = useRecentSessions(uid, myPendingCount);
   const sessionsKnown = sessions !== null;
@@ -110,10 +110,13 @@ export default function WorkoutHubScreen() {
   ) : workoutPlans.length === 0 && failedToLoad ? (
     // Not the first-run card: offering a first plan to someone whose plans
     // could not load is the false "No plans yet" TICKET-052 D5 ruled out.
-    // Leaving the tab and coming back reads again (`useWorkoutPlansOnFocus`).
+    // Try again reads now; leaving the tab and coming back also reads again
+    // (`useWorkoutPlansOnFocus`).
     <HubMessageCard
+      icon="cloud-offline-outline"
       title="Your plans did not load"
-      body="Check your connection, then come back to this tab."
+      body="Check your connection and try again."
+      action={{ label: "Try again", onPress: retry }}
     />
   ) : workoutPlans.length === 0 ? (
     // TICKET-067 adds Start Freestyle above Create a plan, and its half of

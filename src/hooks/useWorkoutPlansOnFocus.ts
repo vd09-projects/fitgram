@@ -17,7 +17,8 @@ import useWorkoutPlans from "./useWorkoutPlans";
  * components use, some outside a navigator in their tests.
  *
  * `loadingWorkoutPlans` is true only for a first load, with nothing to show
- * yet: a refetch keeps the list on screen.
+ * yet: a refetch keeps the list on screen. `retry` reads again now, for a
+ * Try again button.
  */
 export function useWorkoutPlansOnFocus() {
   const [refetch, setRefetch] = useState(true);
@@ -29,9 +30,11 @@ export function useWorkoutPlansOnFocus() {
     }, [])
   );
   const { workoutPlans, loadingWorkoutPlans, failedToLoad } = useWorkoutPlans(refetch);
+  const retry = useCallback(() => setRefetch((flag) => !flag), []);
   return {
     workoutPlans,
     loadingWorkoutPlans: loadingWorkoutPlans && workoutPlans.length === 0,
     failedToLoad,
+    retry,
   };
 }

@@ -1,5 +1,6 @@
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { TextBase } from "../TextBase";
 import { SPACING } from "../../constants/styles";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
@@ -11,22 +12,26 @@ import { useThemeStyles } from "../../utils/useThemeStyles";
  * same kind of message.
  *
  * Type sizes: title 22 → xLarge, body 14 → xMedium, button 17 → medium, the
- * button use (as the plan card's Start).
+ * button use (as the plan card's Start). The optional icon sits above the
+ * title, in the secondary text colour, so a failure reads as one at a glance.
  */
 export function HubMessageCard({
+  icon,
   title,
   body,
   action,
   testID,
 }: {
+  icon?: keyof typeof Ionicons.glyphMap;
   title: string;
   body: string;
   action?: { label: string; onPress: () => void };
   testID?: string;
 }) {
-  const { styles } = useThemeStyles(createStyles);
+  const { styles, t } = useThemeStyles(createStyles);
   return (
     <View style={styles.card} testID={testID}>
+      {icon && <Ionicons name={icon} size={32} color={t.colors.role.textSecondary} />}
       <TextBase style={styles.title}>{title}</TextBase>
       <TextBase style={styles.body}>{body}</TextBase>
       {action && (

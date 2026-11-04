@@ -74,7 +74,7 @@ describe("WorkoutHubScreen", () => {
 
     await waitFor(() => expect(tile("push")).toHaveTextContent("Push9dsince last · 2 exercises"));
     expect(tileIds()).toEqual(["push", "pull", "legs"]);
-    expect(tile("pull")).toHaveTextContent("Pulltodaydone · 1 exercise");
+    expect(tile("pull")).toHaveTextContent("PullTodaydone · 1 exercise");
     expect(tile("legs")).toHaveTextContent("Legs—not in recent workouts · 2 exercises");
     expect(screen.getByRole("button", { name: "All plans, 4" })).toBeOnTheScreen();
 
@@ -102,7 +102,7 @@ describe("WorkoutHubScreen", () => {
   it("re-reads the clock when the app comes back to the foreground", async () => {
     const realNow = Date.now();
     await renderHub([PUSH], [session("push", realNow)]);
-    await waitFor(() => expect(tile("push")).toHaveTextContent("Pushtodaydone · 2 exercises"));
+    await waitFor(() => expect(tile("push")).toHaveTextContent("PushTodaydone · 2 exercises"));
 
     const nowSpy = jest.spyOn(Date, "now").mockReturnValue(realNow + DAY);
     try {
@@ -178,5 +178,9 @@ describe("WorkoutHubScreen", () => {
     renderScreen(WorkoutHubScreen, { workoutRoute: WorkoutRoutes.WorkoutHome });
     expect(await screen.findByText("Your plans did not load")).toBeOnTheScreen();
     expect(screen.queryByText("Ready when you are")).toBeNull();
+
+    mockPlans.mockResolvedValue([plan("p1", "Push")]);
+    fireEvent.press(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByTestId("hub-tile-p1")).toBeOnTheScreen();
   });
 });

@@ -37,7 +37,9 @@ export function PickTodaySection({
 }) {
   const { styles, t } = useThemeStyles(createStyles);
 
-  // Two per row; an odd last tile keeps its half width.
+  // Two per row; an odd last tile keeps its half width. Each tile sits in a
+  // bare `cell`, the same as the empty one beside an odd tile: a tile beside
+  // a bare spacer came out wider, by its padding (device, 2026-11-04).
   const pairs: PlanRow[][] = [];
   for (let i = 0; i < tiles.length; i += 2) pairs.push(tiles.slice(i, i + 2));
 
@@ -68,8 +70,12 @@ export function PickTodaySection({
           <View style={styles.grid}>
             {pairs.map((pair) => (
               <View key={pair[0].id} style={styles.gridRow}>
-                {pair.map(renderTile)}
-                {pair.length === 1 && <View style={styles.spacer} />}
+                {pair.map((row) => (
+                  <View key={row.id} style={styles.cell}>
+                    {renderTile(row)}
+                  </View>
+                ))}
+                {pair.length === 1 && <View style={styles.cell} />}
               </View>
             ))}
           </View>
@@ -120,7 +126,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
       flexDirection: "row",
       gap: 10,
     },
-    spacer: {
+    cell: {
       flex: 1,
     },
   });
