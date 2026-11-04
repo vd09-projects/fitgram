@@ -5,6 +5,7 @@ import { PendingUpload } from "../types/zustandWorkoutType";
 import { buildSessionDocs, computeSessionTotalVolume } from "./exerciseStats";
 import {
   buildPlanRows,
+  chooseHubTiles,
   formatSince,
   formatVolume,
   groupPlanRows,
@@ -91,46 +92,46 @@ describe("computeSessionTotalVolume", () => {
   });
 });
 
-describe("buildPlanRows", () => {
-  const plan = (id: string, name: string, exerciseNames: string[] = ["Bench Press"]): WorkoutPlan => ({
-    id,
-    name,
-    exercises: exerciseNames.map((n) => buildExercise(n)),
-  });
-  const push = plan("push", "Push", ["Bench Press", "Overhead Press"]);
-  const pull = plan("pull", "Pull");
-  const legs = plan("legs", "Legs");
+const plan = (id: string, name: string, exerciseNames: string[] = ["Bench Press"]): WorkoutPlan => ({
+  id,
+  name,
+  exercises: exerciseNames.map((n) => buildExercise(n)),
+});
+const push = plan("push", "Push", ["Bench Press", "Overhead Press"]);
+const pull = plan("pull", "Pull");
+const legs = plan("legs", "Legs");
 
-  const session = (workoutId: string, startedAt: number, value: number | null = 1000): WorkoutSessionDoc => ({
-    sessionId: `${workoutId}_${startedAt}`,
-    workoutId,
-    workoutName: workoutId,
-    startedAt,
-    endedAt: startedAt + 3600_000,
-    exerciseIds: [],
-    rollupPending: false,
-    volume: {
-      totals: value === null ? [] : [{ unit: "kg", value }],
-      unavailableReason: value === null ? "unparseable" : null,
-      exercisesCounted: 1,
-      exercisesWeighted: 1,
-      exercisesTotal: 1,
-    },
-  });
+const session = (workoutId: string, startedAt: number, value: number | null = 1000): WorkoutSessionDoc => ({
+  sessionId: `${workoutId}_${startedAt}`,
+  workoutId,
+  workoutName: workoutId,
+  startedAt,
+  endedAt: startedAt + 3600_000,
+  exerciseIds: [],
+  rollupPending: false,
+  volume: {
+    totals: value === null ? [] : [{ unit: "kg", value }],
+    unavailableReason: value === null ? "unparseable" : null,
+    exercisesCounted: 1,
+    exercisesWeighted: 1,
+    exercisesTotal: 1,
+  },
+});
 
-  const pending = (uid: string, workoutId: string, startTime: number): PendingUpload => {
-    const workout = buildWorkout(["Bench Press"], { id: workoutId, startTime });
-    workout.exercises[0].sets = [{ id: 1, segments: [set("50", "10")] }];
-    return {
-      sessionId: `${workoutId}_${startTime}`,
-      uid,
-      workout,
-      endedAt: startTime + 3600_000,
-      failedAttempts: 0,
-      lastError: null,
-    };
+const pending = (uid: string, workoutId: string, startTime: number): PendingUpload => {
+  const workout = buildWorkout(["Bench Press"], { id: workoutId, startTime });
+  workout.exercises[0].sets = [{ id: 1, segments: [set("50", "10")] }];
+  return {
+    sessionId: `${workoutId}_${startTime}`,
+    uid,
+    workout,
+    endedAt: startTime + 3600_000,
+    failedAttempts: 0,
+    lastError: null,
   };
+};
 
+describe("buildPlanRows", () => {
   it("takes the newest session per plan, its volume, and leaves plans outside the window without a date", () => {
     const rows = buildPlanRows(
       [push, pull, legs],
@@ -188,6 +189,56 @@ describe("buildPlanRows", () => {
     expect(groupPlanRows(rows, false)).toMatchObject({ archived: [], hiddenArchived: 1 });
     expect(groupPlanRows(rows, false).plans.map((r) => r.id)).toEqual(["push"]);
     expect(groupPlanRows(rows, true).archived.map((r) => r.id)).toEqual(["old"]);
+  });
+});
+
+describe("chooseHubTiles", () => {
+  const tiles = (
+    plans: WorkoutPlan[],
+    sessions: WorkoutSessionDoc[] | null,
+    pendingUploads: PendingUpload[] = []
+  ) => chooseHubTiles(buildPlanRows(plans, sessions, pendingUploads, "me", "")).map((r) => r.id);
+  // Named so A–Z differs from both id order and the order passed in.
+  const many = ["g", "f", "e", "d", "c", "b", "a"].map((id) => plan(id, `Plan ${id.toUpperCase()}`));
+
+  it("fills with the other plans A–Z when there are no sessions", () => {
+    expect(tiles(many, [])).toEqual(["a", "b", "c", "d", "e", "f"]);
+  });
+
+  it("puts recent plans first, longest since done first, then fills A–Z", () => {
+    expect(tiles([push, pull, legs], [session("pull", 300), session("push", 100)])).toEqual([
+      "push",
+      "pull",
+      "legs",
+    ]);
+  });
+
+  it("keeps the 6 longest since done when more than 6 are recent, never filling", () => {
+    const sessions = many.map((p, i) => session(p.id, 100 * (i + 1)));
+    expect(tiles(many, sessions)).toEqual(["g", "f", "e", "d", "c", "b"]);
+  });
+
+  it("never gives an archived plan a tile, recent or not", () => {
+    const oldRecent = { ...plan("old", "Old"), archived: true };
+    const oldIdle = { ...plan("aaa", "Aaa"), archived: true };
+    expect(tiles([push, oldRecent, oldIdle], [session("old", 100)])).toEqual(["push"]);
+  });
+
+  it("counts this user's pending upload as recent", () => {
+    expect(tiles([push, pull], [], [pending("me", "push", 500)])).toEqual(["push", "pull"]);
+  });
+
+  it("breaks a tie on the same start time A–Z, then by id", () => {
+    const twin = plan("a-twin", "Pull");
+    expect(tiles([push, pull, twin], [session("push", 100), session("pull", 100), session("a-twin", 100)])).toEqual([
+      "a-twin",
+      "pull",
+      "push",
+    ]);
+  });
+
+  it("shows plans A–Z, pending ignored, while sessions are still loading", () => {
+    expect(tiles([pull, push, legs], null, [pending("me", "push", 500)])).toEqual(["legs", "pull", "push"]);
   });
 });
 

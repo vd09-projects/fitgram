@@ -30,7 +30,7 @@ function mockStub(text: string, next?: string) {
     return React.createElement(Text, { onPress: next ? () => navigation.navigate(next) : undefined }, text);
   };
 }
-jest.mock("./WorkoutScreen", () => mockStub("screen:Workout", "StartWorkout"));
+jest.mock("./workout_management/WorkoutHubScreen", () => mockStub("screen:Workout", "StartWorkout"));
 jest.mock("./workout_management/StartWorkoutScreen", () => mockStub("screen:NestedStart", "LogWorkout"));
 jest.mock("./workout_management/AddExerciseScreen", () => mockStub("screen:Manage"));
 jest.mock("./workout_management/WorkoutLogsScreen", () => mockStub("screen:Logs"));

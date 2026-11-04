@@ -44,6 +44,7 @@ import { ExerciseStatsDoc } from "../types/workoutSession";
 
 type WorkoutState = ReturnType<typeof useWorkoutStore.getState>;
 type LayoutRouteName = (typeof LayoutRoutes)[keyof typeof LayoutRoutes];
+type WorkoutRouteName = (typeof WorkoutRoutes)[keyof typeof WorkoutRoutes];
 
 export type RenderScreenOptions = {
   /** The active workout, or null for none. Default null. */
@@ -64,6 +65,13 @@ export type RenderScreenOptions = {
   user?: Pick<User, "uid"> | null;
   /** Route the screen is registered under. Default `LogWorkout`. */
   route?: LayoutRouteName;
+  /**
+   * Register the screen inside the Workout stack under this route instead, as
+   * the app does for the Workout tab's screens, so a `navigate` to a sibling
+   * Workout route lands on its stub (`route:Workout/AddExercise`). Overrides
+   * `route`.
+   */
+  workoutRoute?: WorkoutRouteName;
 };
 
 export const TEST_USER_ID = "test-user";
@@ -101,23 +109,38 @@ function RouteStub({ route }: { route: { name: string } }) {
 const LayoutStack = createStackNavigator();
 const WorkoutStack = createStackNavigator();
 
-function WorkoutStackStub() {
-  return (
-    <WorkoutStack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
-      {Object.values(WorkoutRoutes).map((name) => (
-        <WorkoutStack.Screen key={name} name={name}>
-          {() => <Text>{`route:${LayoutRoutes.Workout}/${name}`}</Text>}
-        </WorkoutStack.Screen>
-      ))}
-    </WorkoutStack.Navigator>
-  );
+/**
+ * The nested Workout stack: a stub per route, or `Screen` itself under
+ * `screenRoute` (`workoutRoute`), which is then the stack's initial route.
+ */
+function workoutStack(Screen?: React.ComponentType<any>, screenRoute?: WorkoutRouteName) {
+  return function WorkoutStackStub() {
+    return (
+      <WorkoutStack.Navigator
+        id={undefined}
+        initialRouteName={screenRoute}
+        screenOptions={{ headerShown: false }}
+      >
+        {Object.values(WorkoutRoutes).map((name) =>
+          name === screenRoute && Screen ? (
+            <WorkoutStack.Screen key={name} name={name} component={Screen} />
+          ) : (
+            <WorkoutStack.Screen key={name} name={name}>
+              {() => <Text>{`route:${LayoutRoutes.Workout}/${name}`}</Text>}
+            </WorkoutStack.Screen>
+          )
+        )}
+      </WorkoutStack.Navigator>
+    );
+  };
 }
 
 export function renderScreen(
   Screen: React.ComponentType<any>,
   options: RenderScreenOptions = {}
 ): RenderResult {
-  const { workout = null, workoutActions, history, user, route = LayoutRoutes.LogWorkout } = options;
+  const { workout = null, workoutActions, history, user, workoutRoute } = options;
+  const route = workoutRoute ? LayoutRoutes.Workout : (options.route ?? LayoutRoutes.LogWorkout);
 
   resetStores();
   useWorkoutStore.setState({ activeWorkout: workout, ...workoutActions });
@@ -158,9 +181,15 @@ export function renderScreen(
                 initialRouteName={route}
                 screenOptions={{ headerShown: false }}
               >
-                <LayoutStack.Screen name={route} component={Screen} />
-                {route !== LayoutRoutes.Workout && (
-                  <LayoutStack.Screen name={LayoutRoutes.Workout} component={WorkoutStackStub} />
+                {workoutRoute ? (
+                  <LayoutStack.Screen name={LayoutRoutes.Workout} component={workoutStack(Screen, workoutRoute)} />
+                ) : (
+                  <>
+                    <LayoutStack.Screen name={route} component={Screen} />
+                    {route !== LayoutRoutes.Workout && (
+                      <LayoutStack.Screen name={LayoutRoutes.Workout} component={workoutStack()} />
+                    )}
+                  </>
                 )}
                 {otherRoutes.map((name) => (
                   <LayoutStack.Screen key={name} name={name} component={RouteStub} />

@@ -1,6 +1,6 @@
 import React from 'react';
 import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack';
-import WorkoutScreen from '../screens/WorkoutScreen';
+import WorkoutHubScreen from '../screens/workout_management/WorkoutHubScreen';
 import { WorkoutRoutes } from '../constants/routes';
 import StartWorkoutScreen from '../screens/workout_management/StartWorkoutScreen';
 import ActiveWorkoutScreen from '../screens/workout_management/ActiveWorkoutScreen';
@@ -58,7 +58,7 @@ export default function WorkoutNavigator() {
       <Stack.Screen
         name={WorkoutRoutes.WorkoutHome}
         getId={singleCopy}
-        component={WorkoutScreen}
+        component={WorkoutHubScreen}
         options={{ headerShown: false }}
       />
 

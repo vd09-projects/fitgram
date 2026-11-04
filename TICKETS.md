@@ -4236,6 +4236,12 @@ wrong place. Never run on a device.
 replaces the Workout tab the Start and Manage tours begin from (it moves their two
 step ids to All plans and the Plans pill; the rest is this pass).
 
+**Input from TICKET-066:** `START_WORKOUT_BUTTON` is now on the hub's All plans
+link and `NEW_AND_UPDATE_BUTTON` on its Plans pill; both steps' copy still talks
+about the old tiles ("Tap this button to begin a new workout session"). The Start
+screen's title is now "All plans". Log Active Workout is gone, and its step was
+already commented out. Never run on a device.
+
 ---
 
 ### ~~TICKET-044: Logging Details — Plates as a Weight Unit~~ ✅ DONE
@@ -6983,11 +6989,20 @@ plans as tiles, longest since done first, each opening TICKET-065's card.
 - **"Pick today's workout"**, the line "Longest since you did it first.", and
   **All plans N →**, always shown: it is the only way to archived plans. All plans
   is today's Start Workout screen renamed, back button kept (TICKET-062)
+  - **N counts every plan, archived included** (user, 2026-11-03), unlike the
+    count in Start's own header, which counts the non-archived list it shows: the
+    link is the only way to archived plans, so its number covers them too
 - **Which plans get a tile, at most 6:** non-archived plans that appear in the last
   20 sessions (`RECENT_SESSIONS_WINDOW`, the query Start already makes, pending
   uploads included as in `buildPlanRows`), longest since done first. Fewer than 6:
   fill with the other plans in plan order. Rejected: longest-since over all plans,
   which with 34 plans shows the six you abandoned. A pure, unit-tested function
+  (`chooseHubTiles`, `src/utils/startWorkout.ts`)
+  - **Deviation (2026-11-03, stage 1): fill and loading order is A–Z, not "plan
+    order".** Plans have no order in code: `getAllWorkoutPlans` returns Firestore
+    document-id order, and plan ids are auto-ids, so that order is random to the
+    user and shifts with each new plan. A–Z is what All plans already uses for
+    plans with no date. Ties on the same start time also break A–Z, then by id
 - **Tile number:** "9d", "today". A plan with no session in the window shows a dash
   and "not in recent workouts". **Deviation from the canvas** (which shows "new"):
   the window cannot tell "never done" from "done long ago", so "new" would be a
@@ -7009,6 +7024,65 @@ plans as tiles, longest since done first, each opening TICKET-065's card.
 - **Tour:** today's tiles carry `START_WORKOUT_BUTTON` and `NEW_AND_UPDATE_BUTTON`.
   Move them to All plans and the Plans pill so no step points at a missing control;
   the full tour pass stays in TICKET-053
+
+**Stage 2 notes (2026-11-03): decisions and deviations, written in the code too:**
+- **Tile number is always days** ("23d"), even past two weeks where the card
+  switches to weeks: "3 weeks" does not fit a half-width tile. Same `daysSince`
+  as the card, so the count agrees. "today" reads "done" under it
+- **No date:** "not in recent workouts" only once sessions have loaded; while
+  loading or after a failed read, "last session unknown", the card's own words
+  (user, 2026-11-03: the card's `sessionsKnown` rule)
+- **First-run card without Freestyle:** body reads "Build a plan you can
+  repeat. Your plans show up here as tiles." and **Create a plan is the primary
+  button**, since a card whose only action is grey reads as disabled. TICKET-067
+  restores the board's copy and demotes Create a plan when it adds Start
+  Freestyle
+- **Plans failed to load:** a "Your plans did not load" card, never the first-run
+  card (TICKET-052 D5). Leaving the tab and coming back reads again
+- **Every plan archived:** the section stays, with All plans N and "All your
+  plans are archived. Open All plans to start one."
+- **The running plan's tile opens the card** (which shows Resume), like every
+  tile, not the logger: the Resume bar is the one-tap way back
+- **Resume bar has no Discard**, as on the board. Discard stays in the logger
+  and on All plans' banner
+- **The app's top bar (Fitgram) stays above the hub**, as above the old tiles.
+  The boards leave it out; hiding it is a Header.tsx change the ticket did not ask
+  for
+- **Plans re-read on focus:** Start's focus refetch moved into
+  `useWorkoutPlansOnFocus`, shared by the hub and All plans
+- **Tests:** `renderScreen` gained a `workoutRoute` option, mounting the screen
+  inside the Workout stack so a tap on Plans, History or All plans lands on its
+  stub
+
+**Stage 3 notes (2026-11-04): decisions and deviations, written in the code too:**
+- **One redirect covers everything:** the logger, focused and with no workout,
+  goes to the hub. That is Finish, Discard, and being reached with none. Only
+  while focused, so a workout discarded from All plans while the logger sits
+  mounted underneath does not pull the user away from where they are
+- **Device fixes (2026-11-04):** an odd last tile was wider than the tiles
+  above it, so each tile now sits in an equal cell. The "did not load" card,
+  which is on no board, gained an icon and Try again. The tile's "today" is
+  "Today": deviation from HubAfterFinish, user call, it stands alone
+- **The logger hands over with `popTo` the hub**, in whichever stack holds it
+  (Workout, or Layout's `Workout` route via the footer tab). It drops the
+  logger and anything above the hub, so back from the hub cannot bounce into
+  an empty logger. Deviation from TICKET-060's visit order: screens opened
+  after the hub leave the back history once a workout ends. Rejected: keeping
+  that order with a hand-built reset (the first version), complex for a trail
+  nobody needs after Finish
+- **"Saved · name · N min" is the upload's own success toast**, title "Saved",
+  body "Shoulders & Core · 52 min". It replaces "Workout saved successfully!",
+  so an online Finish shows exactly one message, and a workout queued offline
+  says which one landed when it uploads later. Offline Finish keeps "Saved on
+  this phone" unchanged. **Deviation from the board:** the toast is at the
+  bottom, where every toast in the app is, not in a strip at the top
+- **Minutes** share the plan card's rule (`sessionMinutes`): "under 1 min", never
+  "0 min"; dropped when the clock moved back
+- **Discard lands silently** on the hub: the ticket names no message for it
+- **Known, not fixed:** the hub can appear before the upload's grace period
+  ends, because the workout leaves the active slot first. If the queue write
+  then fails, the workout is restored and its alert shows on the hub, with the
+  Resume bar back. Rare (a disk write failure)
 
 **Acceptance Criteria:**
 - [ ] The Workout tab is the hub; the old tiles are gone

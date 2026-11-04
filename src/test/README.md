@@ -42,6 +42,7 @@ options (`src/test/renderScreen.tsx` documents each one):
 | `history` | cached history per exercise id, as `ready` | every exercise `idle` |
 | `user` | signed-in user, or `null` | `{ uid: "test-user" }` |
 | `route` | the route name the screen sits under | `LogWorkout` |
+| `workoutRoute` | mount it inside the Workout stack under this route instead, so taps to sibling Workout routes land | unset |
 
 Read state back from the store directly:
 `useWorkoutStore.getState().activeWorkout?.currentExerciseIndex`. When the tap

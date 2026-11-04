@@ -1,7 +1,7 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import useWorkoutPlans from "../../hooks/useWorkoutPlans";
+import { useWorkoutPlansOnFocus } from "../../hooks/useWorkoutPlansOnFocus";
 import { useAuthUser } from "../../hooks/useAuthUser";
 import { useRecentSessions } from "../../hooks/useRecentSessions";
 import { SPACING } from "../../constants/styles";
@@ -38,25 +38,8 @@ export default function StartWorkoutScreen() {
   const uid = user?.uid;
 
   const { cancelWorkout, activeWorkout, pendingUploads } = useWorkoutStore();
-  // Plans are re-read each time the screen comes back into view, not only on
-  // mount: the Workout tab keeps this screen mounted underneath (WorkoutNavigator
-  // `singleCopy`), so a plan edited in Manage Workout showed its old exercises
-  // until the app restarted (device, 2026-11-03). Flipping the hook's refetch
-  // flag reuses its one read; the first focus is the mount, which already reads.
-  // Rejected: a focus refetch inside `useWorkoutPlans`, which four other screens
-  // and components use, some outside a navigator in their tests.
-  const [plansRefetch, setPlansRefetch] = useState(true);
-  const focusedBefore = useRef(false);
-  useFocusEffect(
-    useCallback(() => {
-      if (focusedBefore.current) setPlansRefetch((flag) => !flag);
-      focusedBefore.current = true;
-    }, [])
-  );
-  const { workoutPlans, loadingWorkoutPlans: plansLoading } = useWorkoutPlans(plansRefetch);
-  // A refetch keeps the list on screen; only a first load, with nothing to
-  // show yet, shows the loading state.
-  const loadingWorkoutPlans = plansLoading && workoutPlans.length === 0;
+  // Re-read on focus: this screen stays mounted under the Workout tab.
+  const { workoutPlans, loadingWorkoutPlans } = useWorkoutPlansOnFocus();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -114,7 +97,7 @@ export default function StartWorkoutScreen() {
         innerContainerStyle={styles.inner}
       >
         <BackTitle>
-          <TextBase style={styles.title}>Start workout</TextBase>
+          <TextBase style={styles.title}>All plans</TextBase>
         </BackTitle>
 
         {/* Unfinished-work banners. Only the resume banner is built here;

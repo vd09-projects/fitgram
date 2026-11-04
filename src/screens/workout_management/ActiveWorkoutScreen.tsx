@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector, Directions } from "react-native-gesture-handler";
@@ -18,7 +18,7 @@ import { buildProgressSegments, resolveCurrentIndex } from "../../utils/workoutP
 import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
 import { LayoutScreenNavigationProp } from "../../navigation/LayoutNavigator";
 import { LayoutRoutes, WorkoutRoutes } from "../../constants/routes";
-import { useNavigation } from "@react-navigation/native";
+import { StackActions, useIsFocused, useNavigation } from "@react-navigation/native";
 import { TextBase } from "../../components/TextBase";
 import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
@@ -91,18 +91,49 @@ export default function ActiveWorkoutScreen() {
   );
 
   // This screen is registered in two stacks: Workout (reached from the workout
-  // home or Start Workout) and Layout (the Log Workout footer tab, which resets
-  // the Layout stack so nothing sits behind it). A Workout-stack route name is
-  // unknown to the Layout stack, so anything that leaves this screen goes via
-  // the Layout `Workout` route with a nested target. Called from the Workout
-  // stack, that action bubbles up to the Layout stack and resolves the same way.
-  const openWorkoutScreen = (screen: typeof WorkoutRoutes.WorkoutHome | typeof WorkoutRoutes.StartWorkout) =>
+  // hub or All plans) and Layout (the Log Workout footer tab, which moves or
+  // pushes it in the Layout history, LayoutScreen `openTab`). A Workout-stack
+  // route name is unknown to the Layout stack, so anything that leaves this
+  // screen goes via the Layout `Workout` route with a nested target. Called from
+  // the Workout stack, that action bubbles up to the Layout stack and resolves
+  // the same way.
+  const openWorkoutScreen = (screen: typeof WorkoutRoutes.WorkoutHome) =>
     layoutNavigation.navigate(LayoutRoutes.Workout, { screen });
 
   const handleBack = () => {
     if (navigation.canGoBack()) navigation.goBack();
     else openWorkoutScreen(WorkoutRoutes.WorkoutHome);
   };
+
+  // With no workout there is nothing to log (TICKET-066): after Finish or
+  // Discard, or reached with none, the logger hands over to the hub, which
+  // shows the "Saved" message and what to start next. `popTo` goes back to the
+  // hub, dropping this screen and anything above the hub, or replaces this
+  // screen with the hub when the hub is not in the history. Either way back
+  // from the hub cannot land on an empty logger. From the footer tab the
+  // target is the Layout `Workout` route; its `screen` param moves the nested
+  // stack to the hub even when that stack is open on All plans.
+  // Rejected: `openWorkoutScreen`, which leaves this screen beneath the hub,
+  // so back loops; keeping the full visit order (TICKET-060's `openTab`
+  // logic), which took a hand-built reset for a trail nobody needs once the
+  // workout is over.
+  //
+  // An effect, not a call in the Finish and Discard handlers: the store
+  // clears the workout before Finish's upload wait (up to 3 s), so this
+  // screen would sit blank until the handler resumed. Only while focused:
+  // this screen stays mounted under others (`singleCopy`), and a workout
+  // discarded from All plans must not pull the user away from where they
+  // are. The redirect runs when they next come back here.
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    if (!isFocused || activeWorkout) return;
+    const inWorkoutStack = (navigation.getState().routeNames as string[]).includes(WorkoutRoutes.WorkoutHome);
+    navigation.dispatch(
+      inWorkoutStack
+        ? StackActions.popTo(WorkoutRoutes.WorkoutHome)
+        : StackActions.popTo(LayoutRoutes.Workout, { screen: WorkoutRoutes.WorkoutHome })
+    );
+  }, [isFocused, activeWorkout, navigation]);
 
   const handleFinish = async () => {
     if (!activeWorkout) {
@@ -127,18 +158,8 @@ export default function ActiveWorkoutScreen() {
     await cancelWorkout();
   };
 
-  if (!activeWorkout) {
-    return (
-      <View style={styles.noWorkoutContainer}>
-        <TextBase style={styles.noWorkoutText}>No active workout</TextBase>
-        <TouchableOpacity
-          style={styles.noWorkoutLink}
-          onPress={() => openWorkoutScreen(WorkoutRoutes.StartWorkout)}>
-          <TextBase style={styles.switchText}>click to select a new one</TextBase>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  // Nothing to draw for the moment before the redirect above lands.
+  if (!activeWorkout) return null;
 
   const segments = buildProgressSegments(exercises, currentIndex, lastSessionSetCount);
   const addItem: MenuItem = {
@@ -314,28 +335,10 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     fontWeight: "bold",
     color: t.colors.role.textPrimary,
   },
-  noWorkoutContainer: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 90,
-    backgroundColor: t.colors.role.ground,
-  },
   noWorkoutText: {
     fontSize: t.fonts.large,
     color: t.colors.role.textPrimary,
     textAlign: "center",
     fontWeight: "bold",
-  },
-  noWorkoutLink: {
-    minHeight: HIT,
-    justifyContent: "center",
-  },
-  switchText: {
-    fontSize: t.fonts.medium,
-    color: t.colors.role.textSecondary,
-    textAlign: 'center',
-    fontWeight: "bold",
-    textDecorationLine: 'underline',
-    paddingVertical: SPACING.small,
   },
 });

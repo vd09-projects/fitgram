@@ -83,8 +83,8 @@ beforeEach(() => {
 afterEach(() => jest.restoreAllMocks());
 
 describe("useWorkoutStore.endWorkout", () => {
-  it("two calls without awaiting run one save and show one success toast", async () => {
-    seedWorkout();
+  it("two calls without awaiting run one save and show one success toast, naming the workout", async () => {
+    const workout = seedWorkout();
     const pending = deferredSave();
 
     const first = store().endWorkout("u1");
@@ -94,6 +94,7 @@ describe("useWorkoutStore.endWorkout", () => {
 
     expect(save).toHaveBeenCalledTimes(1);
     expect(toast.success).toHaveBeenCalledTimes(1);
+    expect(toast.success).toHaveBeenCalledWith("Saved", expect.stringMatching(new RegExp(`^${workout.name}( · |$)`)));
     expect(store().activeWorkout).toBeNull();
   });
 

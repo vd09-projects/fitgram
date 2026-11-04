@@ -6,6 +6,7 @@
 // time" is src/utils/setSummary/.
 
 import { PlanRow, TextPart, daysSince } from "./startWorkout";
+import { sessionMinutes } from "./sessionDuration";
 
 const num = (text: string): TextPart => ({ text, numeric: true });
 const txt = (text: string): TextPart => ({ text });
@@ -36,11 +37,11 @@ const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
  * - sessions not read yet, or the read failed (`sessionsKnown` false) →
  *   "—" "last session unknown"; "no recent session" would be a claim
  *
- * **about N min last time** = that same session's `endedAt − startedAt`,
- * rounded to the minute. Dropped, not shown as 0, when there is no session or
- * the span is not a positive finite number (a clock moved back). Under a
- * minute reads "under 1 min": "about 0 min" is the plausible wrong number.
- * Rejected: summing per-exercise time, which is not recorded.
+ * **about N min last time** = that same session's minutes (`sessionMinutes`,
+ * shared with the "Saved" message after Finish). Dropped, not shown as 0, when
+ * there is no session or the span is not a positive finite number (a clock
+ * moved back). Under a minute reads "under 1 min": "about 0 min" is the
+ * plausible wrong number.
  */
 export function planCardHeader(
   row: Pick<PlanRow, "exerciseCount" | "lastDoneAt" | "lastEndedAt">,
@@ -76,8 +77,7 @@ export function planCardHeader(
     caption = plural(months, "month since last", "months since last");
   }
 
-  const span = row.lastEndedAt === null ? NaN : row.lastEndedAt - row.lastDoneAt;
-  const minutes = Number.isFinite(span) && span > 0 ? Math.round(span / 60_000) : null;
+  const minutes = sessionMinutes(row.lastDoneAt, row.lastEndedAt);
   const meta =
     minutes === null
       ? count
