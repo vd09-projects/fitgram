@@ -16,12 +16,16 @@ import { useNavigation } from "@react-navigation/native";
 import { WorkoutScreenNavigationProp } from "../navigation/WorkoutNavigator";
 import show from "../utils/toastUtils";
 
+// It shows its selection as the library does: the item whose value deep-equals
+// the `value` prop (react-native-element-dropdown, `lodash/isEqual`).
 jest.mock("./SearchableInputDropdown", () => {
   const { Text, TouchableOpacity, View } = jest.requireActual("react-native");
+  const isEqual = jest.requireActual("lodash/isEqual");
   return {
     __esModule: true,
-    default: ({ title, data, onChange }: { title: string; data: { label: string; value: unknown }[]; onChange: (s: unknown) => void }) => (
+    default: ({ title, data, value, onChange }: { title: string; data: { label: string; value: unknown }[]; value?: { value: unknown }; onChange: (s: unknown) => void }) => (
       <View>
+        <Text>{`${title} shows: ${data.find((item) => value && isEqual(item.value, value.value))?.label ?? "nothing"}`}</Text>
         {data.map((item) => (
           <TouchableOpacity
             key={item.label}
@@ -55,7 +59,8 @@ const mockSessions = getWorkoutSessions as jest.Mock;
 const mockExerciseSessions = getExerciseSessions as jest.Mock;
 
 const bench = buildExercise("Bench Press");
-const PUSH = { id: "push", name: "Push", exercises: [bench] };
+const fly = buildExercise("Chest Fly");
+const PUSH = { id: "push", name: "Push", exercises: [bench, fly] };
 
 const workoutSession = (workoutId: string, startedAt: number, exerciseIds: string[]): WorkoutSessionDoc => ({
   sessionId: `${workoutId}_${startedAt}`,
@@ -159,6 +164,25 @@ describe("WorkoutHistoricalLogsFilter, Freestyle", () => {
 
     expect(await screen.findByRole("button", { name: "Workout Plan: Freestyle" })).toBeOnTheScreen();
     expect(mockSessions).toHaveBeenCalledTimes(2);
+  });
+
+  // Found on the device: each re-read builds a new entry, which the dropdown's
+  // deep match no longer found, so it showed its placeholder.
+  it("keeps Freestyle selected, with its new exercises and the chosen one, when a visit re-reads it", async () => {
+    await renderFilter([workoutSession(FREESTYLE_ID, 300, [bench.id])]);
+    fireEvent.press(screen.getByRole("button", { name: "Workout Plan: Freestyle" }));
+    fireEvent.press(await screen.findByRole("button", { name: "Exercises: Bench Press" }));
+
+    mockSessions.mockResolvedValue({
+      sessions: [workoutSession(FREESTYLE_ID, 400, [fly.id]), workoutSession(FREESTYLE_ID, 300, [bench.id])],
+      lastDoc: null,
+    });
+    await act(async () => nav.navigate(WorkoutRoutes.WorkoutHome));
+    await act(async () => nav.goBack());
+
+    expect(await screen.findByRole("button", { name: "Exercises: Chest Fly" })).toBeOnTheScreen();
+    expect(screen.getByText("Workout Plan shows: Freestyle")).toBeOnTheScreen();
+    expect(screen.getByText("Exercises shows: Bench Press")).toBeOnTheScreen();
   });
 
   it("with no Freestyle session: plans only, and a plan's history leaves Freestyle sessions out", async () => {

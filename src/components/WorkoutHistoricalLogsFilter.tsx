@@ -125,9 +125,20 @@ export default function WorkoutHistoricalLogsFilter({
     [workoutPlans, freestyleEntry]
   );
   const [selectedWorkout, setSelectedWorkout] = useState<DropdownSelection<WorkoutPlan> | undefined>(convertedWorkoutPlans[0]);
+  // The selection as currently listed, looked up by id. Each focus re-read
+  // builds a new Freestyle entry, and the dropdown matches its value by deep
+  // equality, so a selection holding the old entry showed "Choose Select
+  // Workout" and kept the old exercise list (device run, 2026-11-04). By id,
+  // the dropdown and the exercise list always read the fresh entry, and the
+  // chosen exercise is kept. Plans' ids are unique, and Freestyle's cannot
+  // collide with them (FREESTYLE_ID).
+  const currentWorkout = useMemo(
+    () => convertedWorkoutPlans.find((option) => option.value.id === selectedWorkout?.value?.id) ?? selectedWorkout,
+    [convertedWorkoutPlans, selectedWorkout]
+  );
 
   const catalogIndex = useCatalogStore((s) => s.catalog?.index ?? null);
-  const planExercises = useMemo(() => selectedWorkout?.value?.exercises ?? [], [selectedWorkout]);
+  const planExercises = useMemo(() => currentWorkout?.value?.exercises ?? [], [currentWorkout]);
   const exerciseNames = useExerciseNames(planExercises);
   const convertedExercises = useMemo(() => {
     return planExercises.map((exercise, index) => ({
@@ -281,7 +292,7 @@ export default function WorkoutHistoricalLogsFilter({
         <SearchableInputDropdown<WorkoutPlan>
           placeholder="Select Workout"
           data={convertedWorkoutPlans}
-          value={selectedWorkout}
+          value={currentWorkout}
           onChange={setSelectedWorkout}
           title="Workout Plan"
           allowCustomInput={false}

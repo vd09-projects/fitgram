@@ -7212,6 +7212,29 @@ Hub 1 / Hub 9 for the row and the first-run button.
 - **Known:** a plan the user names "Freestyle" lists beside the real one, with
   the same label; nothing mixes, since the ids differ
 
+**Device run (2026-11-04, Android emulator, real Firebase, by Claude):**
+- **Passed:** hub row starts at once; empty logger (E1) and refused empty
+  Finish; picker and ⋯ copy with no plan line; last time carried from a plan;
+  live row and Resume bar; plan card blocked by Freestyle, and the Freestyle
+  card blocked by a plan (closed by X, dim area, Android back; Back to lands
+  in the plan); kill and relaunch mid-Freestyle keeps it; Finish lands on the
+  hub with "Saved · Freestyle · 5 min"; Discard lands silently; offline Finish
+  "Saved on this phone", in History once back online; History lists
+  Freestyle after the plans, keeps the first plan as default, shows only
+  Freestyle sessions, and a plan's history leaves them out; History, mounted
+  across a Freestyle, shows it on return; tiles unchanged throughout
+- **Bug found and fixed:** with Freestyle selected, a visit after a new
+  Freestyle showed "Choose Select Workout" and the old exercise list. The
+  focus re-read (PR #46 review) builds a new entry, and the dropdown matches
+  by deep equality. The selection is now looked up by id
+  (`currentWorkout`); test added; confirmed on the device
+- **Not testable here:** the first-run card (needs an account with no plans;
+  unit-tested); the empty-plan state (would empty a plan); History Debug and
+  Pending Uploads (debug screens off in this build), so the upload after
+  offline is inferred from History, not seen in the queue
+- **Nit, not fixed:** the Resume bar and the live row (or blocked card) run
+  separate one-second clocks and can differ by a second (5:06 vs 5:05)
+
 **Deferred:** saving a Freestyle as a plan, TICKET-057.
 
 **Dependencies:** TICKET-066, TICKET-056 (done).
