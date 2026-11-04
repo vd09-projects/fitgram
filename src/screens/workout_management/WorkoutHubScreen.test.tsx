@@ -209,6 +209,10 @@ describe("WorkoutHubScreen", () => {
 
       expect(await screen.findByText("route:Workout/LogWorkout")).toBeOnTheScreen();
       expect(active()?.id).toBe(FREESTYLE_ID);
+      // Back on the hub, the card's button resumes it, and says so.
+      const card = screen.getByTestId("hub-first-run", { includeHiddenElements: true });
+      expect(within(card).getByText("Resume Freestyle", { includeHiddenElements: true })).toBeTruthy();
+      expect(within(card).queryByText("Start Freestyle", { includeHiddenElements: true })).toBeNull();
     });
 
     it("while a plan runs: a blocked card naming it, Back to it, and the plan left running", async () => {

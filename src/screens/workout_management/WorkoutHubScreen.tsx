@@ -185,7 +185,13 @@ export default function WorkoutHubScreen() {
     <HubMessageCard
       title="Ready when you are"
       body="Start now and pick exercises as you go, or build a plan you can repeat. Your plans show up here as tiles."
-      action={{ label: `Start ${FREESTYLE_NAME}`, icon: "add", onPress: onFreestyle }}
+      // While the Freestyle it started runs, the same button resumes it, so it
+      // says so (PR #46 review): "Start" under the Resume bar promised a new one.
+      action={{
+        label: freestyleRunning ? `Resume ${FREESTYLE_NAME}` : `Start ${FREESTYLE_NAME}`,
+        icon: freestyleRunning ? "play" : "add",
+        onPress: onFreestyle,
+      }}
       secondaryAction={{ label: "Create a plan", onPress: () => navigation.navigate(WorkoutRoutes.AddExercise) }}
       testID="hub-first-run"
     />

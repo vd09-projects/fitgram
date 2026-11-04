@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from "react-native";
 import { useAuthUser } from "../hooks/useAuthUser";
 import useWorkoutPlans from "../hooks/useWorkoutPlans";
@@ -80,28 +81,39 @@ export default function WorkoutHistoricalLogsFilter({
 
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[] | null>(null);
 
-  // Freestyle (TICKET-067): one read of its recent sessions on open, for the
-  // entry and its exercises (`freestyleHistoryEntry`). Listed after the plans,
-  // so the default selection is still the first plan. A failed read says so
-  // rather than leaving the entry out silently, which would read as "never
-  // done a Freestyle".
+  // Freestyle (TICKET-067): its recent sessions, for the entry and its
+  // exercises (`freestyleHistoryEntry`). Read on every focus, not on mount:
+  // History is a single copy that stays mounted under the other tabs, so a
+  // mount-only read never saw a Freestyle finished after History was first
+  // opened, and the first one ever had no entry at all (PR #46 review). One
+  // read per visit. A failed read says so rather than leaving the entry out
+  // silently, which would read as "never done a Freestyle"; the next visit
+  // retries. The filter's plans still read on mount only (`useWorkoutPlans`,
+  // older than this ticket).
+  const uid = user?.uid;
   const [freestyleSessions, setFreestyleSessions] = useState<WorkoutSessionDoc[]>([]);
-  useEffect(() => {
-    if (!user?.uid) return;
-    let live = true;
-    getWorkoutSessions(user.uid, { workoutId: FREESTYLE_ID, pageSize: FREESTYLE_HISTORY_WINDOW })
-      .then(({ sessions }) => live && setFreestyleSessions(sessions))
-      .catch((error) => {
-        console.error("Error fetching Freestyle sessions:", error);
-        if (live) show.warn("Freestyle history did not load", "Plans are unaffected. Open History again to retry.");
-      });
-    return () => {
-      live = false;
-    };
-  }, [user?.uid]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!uid) return;
+      let live = true;
+      getWorkoutSessions(uid, { workoutId: FREESTYLE_ID, pageSize: FREESTYLE_HISTORY_WINDOW })
+        .then(({ sessions }) => live && setFreestyleSessions(sessions))
+        .catch((error) => {
+          console.error("Error fetching Freestyle sessions:", error);
+          if (live) show.warn("Freestyle history did not load", "Plans are unaffected. Open History again to retry.");
+        });
+      return () => {
+        live = false;
+      };
+    }, [uid])
+  );
+  // Left out until the plans have loaded, for two reasons (PR #46 review):
+  // the entry is listed after the plans so the first plan stays the default
+  // selection, and a Freestyle read landing first would otherwise be the only
+  // entry and be selected; and a custom exercise takes its name from the plans.
   const freestyleEntry = useMemo(
-    () => freestyleHistoryEntry(freestyleSessions, workoutPlans),
-    [freestyleSessions, workoutPlans]
+    () => (loadingWorkoutPlans ? null : freestyleHistoryEntry(freestyleSessions, workoutPlans)),
+    [loadingWorkoutPlans, freestyleSessions, workoutPlans]
   );
 
   const convertedWorkoutPlans = useMemo(() =>
