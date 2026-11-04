@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState, StyleSheet, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useAuthUser } from "../../hooks/useAuthUser";
@@ -9,6 +9,7 @@ import { SPACING } from "../../constants/styles";
 import { WorkoutRoutes } from "../../constants/routes";
 import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
 import { showDebugScreens } from "../../config/envConfig";
+import { FREESTYLE_NAME, freestylePlan, isFreestyle } from "../../constants/freestyle";
 import ScrollableScreen from "../../components/ScrollableScreen";
 import LoadingData from "../../components/LoadingData";
 import { PlanCard } from "../../components/start_workout/PlanCard";
@@ -18,9 +19,12 @@ import { HubTile } from "../../components/workout_hub/HubTile";
 import { HubMessageCard } from "../../components/workout_hub/HubMessageCard";
 import { PickTodaySection } from "../../components/workout_hub/PickTodaySection";
 import { HubDebugRow } from "../../components/workout_hub/HubDebugRow";
+import { HubFreestyleRow } from "../../components/workout_hub/HubFreestyleRow";
+import { FreestyleBlockedCard } from "../../components/workout_hub/FreestyleBlockedCard";
 import { ReturnTypeUseThemeTokens } from "../../components/app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 import { buildPlanRows, chooseHubTiles, PlanRow } from "../../utils/startWorkout";
+import show from "../../utils/toastUtils";
 
 type NavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.WorkoutHome>;
 
@@ -43,8 +47,13 @@ type NavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.WorkoutHo
  * other tiles, which would hide why they cannot start. The two timers tick on
  * their own clocks, so the hub does not re-render every second.
  *
- * Freestyle (the dashed row under the tiles, and Start Freestyle on the first
- * run card) is TICKET-067's.
+ * Freestyle (TICKET-067): the dashed row under the tiles, and Start Freestyle
+ * on the first-run card. A tap starts it at once, with no card; while it runs
+ * the row is live and a tap resumes; while a plan runs a tap opens a short
+ * blocked card (`FreestyleBlockedCard`). Never greyed out, for the same reason
+ * as the tiles. The row also sits under "Your plans did not load": a Freestyle
+ * needs no plan, so failed plans are no reason to block it (not on a board;
+ * TICKET-067 notes).
  */
 export default function WorkoutHubScreen() {
   const { styles, t } = useThemeStyles(createStyles);
@@ -89,6 +98,54 @@ export default function WorkoutHubScreen() {
   }, []);
 
   const setsLogged = activeWorkout?.exercises.reduce((sum, exercise) => sum + exercise.sets.length, 0) ?? 0;
+  const freestyleRunning = isFreestyle(activeWorkout?.id);
+  const goToLogger = () => navigation.navigate(WorkoutRoutes.LogWorkout);
+
+  // Freestyle never opens a card: idle starts at once, running resumes, and
+  // only another workout running opens the blocked card. `starting` is a ref,
+  // not state, so a same-frame double tap cannot start twice; the store's
+  // refusal would catch it too, but with a "still in progress" alert.
+  const [freestyleBlockedOpen, setFreestyleBlockedOpen] = useState(false);
+  const starting = useRef(false);
+  // The card shows only while something blocks; once nothing runs, its flag
+  // is cleared too, so it cannot reopen by itself when the next workout starts.
+  useEffect(() => {
+    if (!activeWorkout) setFreestyleBlockedOpen(false);
+  }, [activeWorkout]);
+  const onFreestyle = async () => {
+    if (activeWorkout) {
+      if (freestyleRunning) goToLogger();
+      else setFreestyleBlockedOpen(true);
+      return;
+    }
+    if (starting.current) return;
+    starting.current = true;
+    try {
+      const result = await useWorkoutStore.getState().startWorkout(freestylePlan());
+      if (result.status === "refused") {
+        show.alert("Could not start workout", result.reason);
+        return;
+      }
+    } catch (error) {
+      console.error("Could not start Freestyle:", error);
+      show.alert("Could not start workout", "Please try again.");
+      return;
+    } finally {
+      starting.current = false;
+    }
+    show.info("Starting workout", FREESTYLE_NAME);
+    goToLogger();
+  };
+  const freestyleRow = (
+    <HubFreestyleRow
+      running={
+        freestyleRunning && activeWorkout
+          ? { startTime: activeWorkout.startTime, exerciseCount: activeWorkout.exercises.length }
+          : null
+      }
+      onPress={onFreestyle}
+    />
+  );
 
   const renderTile = (row: PlanRow) => (
     <HubTile
@@ -112,29 +169,36 @@ export default function WorkoutHubScreen() {
     // could not load is the false "No plans yet" TICKET-052 D5 ruled out.
     // Try again reads now; leaving the tab and coming back also reads again
     // (`useWorkoutPlansOnFocus`).
-    <HubMessageCard
-      icon="cloud-offline-outline"
-      title="Your plans did not load"
-      body="Check your connection and try again."
-      action={{ label: "Try again", onPress: retry }}
-    />
+    <>
+      <HubMessageCard
+        icon="cloud-offline-outline"
+        title="Your plans did not load"
+        body="Check your connection and try again."
+        action={{ label: "Try again", onPress: retry }}
+      />
+      {freestyleRow}
+    </>
   ) : workoutPlans.length === 0 ? (
-    // TICKET-067 adds Start Freestyle above Create a plan, and its half of
-    // this sentence. Create a plan is the primary until then: a card whose
-    // only action is grey reads as disabled.
+    // The board's copy and order (Hub 9): Start Freestyle is the primary,
+    // Create a plan the secondary under it. No Freestyle row here: the card's
+    // button is it.
     <HubMessageCard
       title="Ready when you are"
-      body="Build a plan you can repeat. Your plans show up here as tiles."
-      action={{ label: "Create a plan", onPress: () => navigation.navigate(WorkoutRoutes.AddExercise) }}
+      body="Start now and pick exercises as you go, or build a plan you can repeat. Your plans show up here as tiles."
+      action={{ label: `Start ${FREESTYLE_NAME}`, icon: "add", onPress: onFreestyle }}
+      secondaryAction={{ label: "Create a plan", onPress: () => navigation.navigate(WorkoutRoutes.AddExercise) }}
       testID="hub-first-run"
     />
   ) : (
-    <PickTodaySection
-      planCount={workoutPlans.length}
-      tiles={tiles}
-      renderTile={renderTile}
-      onAllPlans={() => navigation.navigate(WorkoutRoutes.StartWorkout)}
-    />
+    <>
+      <PickTodaySection
+        planCount={workoutPlans.length}
+        tiles={tiles}
+        renderTile={renderTile}
+        onAllPlans={() => navigation.navigate(WorkoutRoutes.StartWorkout)}
+      />
+      {freestyleRow}
+    </>
   );
 
   return (
@@ -149,7 +213,7 @@ export default function WorkoutHubScreen() {
             workoutName={activeWorkout.name}
             startTime={activeWorkout.startTime}
             setsLogged={setsLogged}
-            onResume={() => navigation.navigate(WorkoutRoutes.LogWorkout)}
+            onResume={goToLogger}
           />
         )}
         {body}
@@ -166,6 +230,14 @@ export default function WorkoutHubScreen() {
         row={selectedRow}
         sessionsKnown={sessionsKnown}
         onClose={() => setSelectedId(null)}
+      />
+      <FreestyleBlockedCard
+        blockedBy={freestyleBlockedOpen && activeWorkout && !freestyleRunning ? activeWorkout : null}
+        onBack={() => {
+          setFreestyleBlockedOpen(false);
+          goToLogger();
+        }}
+        onClose={() => setFreestyleBlockedOpen(false)}
       />
     </View>
   );

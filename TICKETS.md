@@ -4242,6 +4242,10 @@ about the old tiles ("Tap this button to begin a new workout session"). The Star
 screen's title is now "All plans". Log Active Workout is gone, and its step was
 already commented out. Never run on a device.
 
+**Input from TICKET-067:** the hub has a Freestyle row under the tiles and Start
+Freestyle on the first-run card, neither in any tour step. A tour that starts a
+workout could use the row: it needs no plan to exist.
+
 ---
 
 ### ~~TICKET-044: Logging Details — Plates as a Weight Unit~~ ✅ DONE
@@ -7123,7 +7127,8 @@ Hub 1 / Hub 9 for the row and the first-run button.
   nothing on the way (prefetch, `isResume`) assumes a plan doc exists
 - **Logger unchanged** (user, 2026-11-02): it opens with today's "This workout has no
   exercises"; the first exercise comes from ⋯ → Add exercise (TICKET-056). Finish
-  with no sets and Discard behave as today
+  with no sets and Discard behave as today. **Superseded for the empty state**
+  (user, 2026-11-04): see stage 1 notes, Busy 6 and 7
 - **Hub:** a Freestyle row under the tiles, "No plan. Pick exercises as you go."
   Tapping it starts at once, no card. Never greyed out:
   - another workout running → a short card, "Legs is in progress. Finish or discard
@@ -7145,6 +7150,42 @@ Hub 1 / Hub 9 for the row and the first-run button.
 - [ ] **Device test (done when it passes):** a whole Freestyle day: start, add, log,
       add, finish, find it in History; start one while a plan runs; start a plan
       while a Freestyle runs
+
+**Stage 1 notes (2026-11-04): decisions and deviations, written in the code too:**
+- **One constant:** `src/constants/freestyle.ts` holds `FREESTYLE_ID`,
+  `FREESTYLE_NAME`, `freestylePlan()` (the empty plan-shaped object
+  `startWorkout` takes) and `isFreestyle`. No screen writes the literal
+- **Checked, nothing assumes a plan doc:** `startWorkout`'s prefetch gets an
+  empty list and returns before any read (`prefetchExerciseHistory`); resume
+  after a kill (`loadWorkoutFromStorage`) reads only the stored workout; the
+  upload writes session docs only. The ticket's `isResume` does not exist in
+  the code; the resume path above is what it meant
+- **Comparisons against a plan id stay false for "freestyle":** the plan card's
+  `isRunning`, the hub's live tile, Manage's `runningHere`. Grepped; no others
+- **The row also sits under "Your plans did not load"** (not on a board): a
+  Freestyle needs no plan, so failed plans are no reason to block it. While
+  plans load, no row, as no tiles. On the first-run card, no row: its Start
+  Freestyle is it
+- **First-run card:** the board's copy, Start Freestyle primary (with its +),
+  Create a plan secondary
+- **The blocked card has no drag to close**, unlike the plan card: X, dim area
+  and Android back close it. Scrim is the plan card's `rgba(0,0,0,0.5)`, not the
+  board's darker one (no role token for either). TICKET-068 may cover it
+- **The row sits under the tiles' grid**, not inside it: 12 px above it, the
+  hub's gap, where the board has the grid's 10
+- **Logger empty state (user, 2026-11-04), reversing "logger unchanged":** on
+  the device the empty Freestyle showed "This workout has no exercises" in large
+  bold, read as an error, with ⋯ → Add exercise the only way on. Options E1–E3
+  on the Fitgram Workout Hub canvas; the user picked E1, now Busy 6 on the main
+  canvas: "Add your first exercise", one line, and an Add exercise button that
+  opens the picker the menu opens. An empty plan gets the same state
+- **No plan copy in a Freestyle (Busy 7):** the picker's add line and the ⋯
+  menu's Add exercise line dropped "Your plan stays as it is." A Freestyle's
+  first pick reads "Your first exercise."; later ones "Goes after Row."
+  Swaps needed nothing: every slot in a Freestyle is added, and an added
+  slot's swap already says "For this workout only."
+- **Known, for stage 2:** a user can name a plan "Freestyle". It is a different
+  id, so nothing mixes, but History's filter would list two entries of that name
 
 **Deferred:** saving a Freestyle as a plan, TICKET-057.
 

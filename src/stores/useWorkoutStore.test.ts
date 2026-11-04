@@ -23,6 +23,7 @@ import { useCatalogStore } from "./useCatalogStore";
 import { loadCatalog } from "../utils/catalog";
 import { buildSessionDocs } from "../utils/exerciseStats";
 import { Effort } from "../types/workoutSession";
+import { FREESTYLE_ID, freestylePlan } from "../constants/freestyle";
 
 jest.mock("../services/db/workoutSessions", () => ({
   ...jest.requireActual("../services/db/workoutSessions"),
@@ -417,6 +418,29 @@ describe("startWorkout", () => {
     expect(result.status).toBe("refused");
     expect(store().activeWorkout).toBe(running);
     expect(JSON.parse((await AsyncStorage.getItem("activeWorkout")) ?? "null")).toEqual(running);
+  });
+});
+
+// TICKET-067: no plan doc exists for a Freestyle; History, the tiles and
+// "last time" read the session's workoutId and workoutName.
+describe("Freestyle", () => {
+  it("starts empty, takes an added exercise, and saves as workoutId freestyle, workoutName Freestyle", async () => {
+    expect(await store().startWorkout(freestylePlan())).toEqual({ status: "started" });
+    expect(store().activeWorkout).toMatchObject({ id: FREESTYLE_ID, exercises: [], currentExerciseIndex: null });
+
+    const curl = { id: "wrist-curl-cable", name: "", nameSnapshot: "Wrist Curl · Cable", fields: [{ name: "Reps", role: "reps" as const }] };
+    await store().addExercise(curl);
+    await store().addSetToExercise(curl.id, { id: 1, segments: [{ Reps: 15 }] });
+    save.mockResolvedValueOnce(saved);
+    expect(await store().endWorkout("u1")).toEqual({ status: "uploaded" });
+
+    const [, workout, endedAt] = save.mock.calls[0];
+    const { session, exerciseSessions } = buildSessionDocs(workout, endedAt);
+    // Literals, not the constants: this is the stored shape History reads, so
+    // renaming a constant must fail here.
+    expect(session).toMatchObject({ workoutId: "freestyle", workoutName: "Freestyle", exerciseIds: [curl.id] });
+    expect(session.sessionId).toMatch(/^freestyle_\d+$/);
+    expect(exerciseSessions[0]).toMatchObject({ workoutId: "freestyle", workoutName: "Freestyle" });
   });
 });
 
