@@ -44,6 +44,8 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap. Storage: per-plan copies today, library undecided |
 | 047 | Swap an exercise: offline device re-run | Small | **Merged**, PR #34 (2026-10-31). Swap re-checked on device in 056's run (2026-11-02); the re-run after the offline and layering fixes is not recorded |
 | 057 | Save a Freestyle as a plan | Small-Med | Deferred; trimmed 2026-11-02, the rest is 067 |
+| 063 | Finish summary | Small-Med | Low. From 056's design review (2026-11-02): exercises and set counts before saving, as Finish's confirm. To decide: how 0-set exercises show, sheet or screen |
+| 068 | Drag to close: every sheet on a real phone | Small | Low. From 065's device run (2026-11-03): only `PlanCard` drags; decide drag on every sheet with a handle, or drop the handles |
 | 061 | Archive plans | Small-Med | Design decided 2026-11-01 (boards in `design/workout-flow/`). Built on PR #37 (data, Start, Manage); review pass 1 addressed. `archived` flag, no backfill. **Device run owed** |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
 
