@@ -608,6 +608,10 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
    * reads the live count, as Swap's does, so deleting every set makes it
    * available. Rejected: removing a logged exercise after a confirm.
    *
+   * Values typed but not logged go with it, with no confirm (user,
+   * 2026-11-05), and Undo does not bring them back: they live in the logger,
+   * which is keyed by id and remounts empty.
+   *
    * Nothing stored changes: `buildSessionDocs` already drops 0-set exercises,
    * so Finish saves the same docs with or without the slot. What changes is
    * today's list: "N of M", the swipe, the progress bar. The plan is never

@@ -7528,15 +7528,15 @@ Each seen red with its line broken before it is kept.
 *Not handled, as today:* a rejected `AsyncStorage` write is an unhandled rejection,
 like every action's caller (TICKET-004). Tour: notes only, in TICKET-053.
 
-**Build (2026-11-05, branch `TICKET-069`, uncommitted for review):**
+**Build (2026-11-05, branch `TICKET-069`):**
 - As designed above. Store: `removeExercise`, `restoreExercise`, `RemovedExercise`,
   `REMOVE_LOCKED_REASON`; `indexAfterRemoval` in `workoutProgress.ts`; the Undo bar
   (`RemovedExerciseBar`) and its state on `ActiveWorkoutScreen`; the menu row and the
   Freestyle copy fix in `ExerciseLogger`. Design boards committed separately (606e8a3)
-- Tests: 5 `indexAfterRemoval` cases, 4 store, 4 screen (the Freestyle copy fix got its
+- Tests: 5 `indexAfterRemoval` cases, 4 store, 5 screen (the Freestyle copy fix got its
   own). Each seen red with its line broken. The Freestyle test first passed with its
   line broken: a role's `name` also matches the row's title text, so it now checks the
-  exact label. 617 tests pass (48 suites); `tsc` clean
+  exact label. 618 tests pass (48 suites); `tsc` clean
 - Device run (emulator, Test WK and a Freestyle, no Firestore writes: the run ended in
   Discard). All 15 steps passed: the menu row in its own group (RemoveMenu); remove
   lands on the next, "1 of 2", the bar (RemoveLanded); Undo puts it back in view; the

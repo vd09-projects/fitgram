@@ -347,6 +347,10 @@ export default function ExerciseLogger({
           onPress: onAddSplit,
         };
 
+  // Swap's and Remove's detail line: neither touches the plan, and a Freestyle
+  // has none to mention.
+  const planDetail = freestyle ? {} : { detail: "For this workout only. Your plan keeps it." };
+
   // TICKET-047 (boards SwapMenu, SwapLocked): under Split, disabled with its
   // reason once a set is logged rather than hidden, so the menu keeps its shape.
   // The live count: deleting every set enables it again. The store refuses the
@@ -355,7 +359,7 @@ export default function ExerciseLogger({
     key: "swap",
     renderIcon: (color) => <Ionicons name="swap-horizontal" size={20} color={color} />,
     title: "Swap exercise",
-    ...(freestyle ? {} : { detail: "For this workout only. Your plan keeps it." }),
+    ...planDetail,
     disabledReason: exercise.sets.length > 0 ? SWAP_LOCKED_REASON : null,
     onPress: onSwap,
   };
@@ -368,7 +372,7 @@ export default function ExerciseLogger({
     key: "remove",
     renderIcon: (color) => <Ionicons name="remove-circle-outline" size={20} color={color} />,
     title: "Remove from today",
-    ...(freestyle ? {} : { detail: "For this workout only. Your plan keeps it." }),
+    ...planDetail,
     disabledReason: exercise.sets.length > 0 ? REMOVE_LOCKED_REASON : null,
     onPress: onRemove,
   };

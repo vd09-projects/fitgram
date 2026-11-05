@@ -373,6 +373,17 @@ describe("remove exercise", () => {
     expect(screen.queryByTestId("removed-exercise-bar")).toBeNull();
   });
 
+  // Typing lives in the logger, not the store, so it is not "the next action".
+  it("the Undo bar stays while the user types into the next exercise", async () => {
+    renderScreen(ActiveWorkoutScreen, { workout: cardioAndBack() });
+    await remove("Treadmill Walk");
+
+    fireEvent.changeText(screen.getByLabelText("Weight · kg"), "60");
+
+    expect(screen.getByDisplayValue("60")).toBeOnTheScreen();
+    expect(screen.getByLabelText("Treadmill Walk removed")).toBeOnTheScreen();
+  });
+
   it("is disabled with its reason once a set is logged", () => {
     const logged = buildExercise("Lat Pulldown", { sets: [{ id: 1, segments: [{ Weight: 55, Reps: 10 }] }] });
     renderScreen(ActiveWorkoutScreen, { workout: buildWorkout([], { exercises: [logged] }) });
