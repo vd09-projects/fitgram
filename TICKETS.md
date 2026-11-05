@@ -43,8 +43,6 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 053 | Guided tour: end-to-end pass after the catalog work | Medium | After 043, 050, 051, 052. The tour is not working and is no longer fixed per ticket (user, 2026-10-27) |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap. Storage: per-plan copies today, library undecided |
 | 047 | Swap an exercise: offline device re-run | Small | **Merged**, PR #34 (2026-10-31). Swap re-checked on device in 056's run (2026-11-02); the re-run after the offline and layering fixes is not recorded |
-| 065 | Plan card + set-summary util: device test | Small | **Merged**, PR #44 (2026-11-02). Its device test box is unchecked: no pass recorded |
-| 066 | Workout hub: device test | Small | **Merged**, PR #45 (2026-11-04). Its device test box is unchecked: no pass recorded (`cda505d` fixed device-review findings) |
 | 057 | Save a Freestyle as a plan | Small-Med | Deferred; trimmed 2026-11-02, the rest is 067 |
 | 061 | Archive plans | Small-Med | Design decided 2026-11-01 (boards in `design/workout-flow/`). Built on PR #37 (data, Start, Manage); review pass 1 addressed. `archived` flag, no backfill. **Device run owed** |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
@@ -6837,7 +6835,8 @@ Exercises and set counts only; no Add exercise on it.
 ### TICKET-065: Plan Card — Look at a Plan Before Starting It
 
 **Priority:** High | **Effort:** Medium | **Status: MERGED** — PR #44 (54d1366),
-2026-11-02; device test not recorded as passed. Workout hub redesign, stage 1 of 3 (065 → 066 → 067)
+2026-11-02. Device test passed on the emulator (user, 2026-11-02); a real phone is left to a
+QA pass across the merged work. Workout hub redesign, stage 1 of 3 (065 → 066 → 067)
 
 **Description:**
 Tapping a plan on Start Workout expands its row in place. Replace that with a card
@@ -6965,7 +6964,7 @@ deviations:
       TICKET-068)
 - [ ] Unit tests: the summary for a weighted, bodyweight, timed, never-logged,
       unreadable and unit-changed exercise; varied weights across sets; a tie
-- [ ] **Device test (done when it passes):** Start Workout → open a short plan, a long
+- [x] **Device test (done when it passes):** Start Workout → open a short plan, a long
       one, an archived one; start one; come back and open it (Resume) and another one
       (blocked)
 
@@ -6976,7 +6975,8 @@ deviations:
 ### TICKET-066: Workout Hub — Pick Today's Workout on the Workout Tab
 
 **Priority:** High | **Effort:** Medium-Large | **Status: MERGED** — PR #45 (49bc1c0),
-2026-11-04; device test not recorded as passed. Workout hub redesign, stage 2 of 3. After TICKET-065
+2026-11-04. Device test run by the user 2026-11-04; its three findings (tile alignment,
+UI, "Today") fixed in `cda505d` before merge. Workout hub redesign, stage 2 of 3. After TICKET-065
 
 **Description:**
 The Workout tab is four identical grey tiles, and "Log Active Workout" opens a dead
@@ -7095,7 +7095,7 @@ plans as tiles, longest since done first, each opening TICKET-065's card.
 - [ ] Running state: Resume bar, live tile, blocked card on the others
 - [ ] Finish and Discard land on the hub; nothing reaches "No active workout"
 - [ ] Debug tiles reachable in a debug build only
-- [ ] **Device test (done when it passes):** a plan day end to end from the hub; leave
+- [x] **Device test (done when it passes):** a plan day end to end from the hub; leave
       mid-workout and come back; a fresh account with no plans; an account with more
       than 6 plans
 
@@ -7573,64 +7573,29 @@ like every action's caller (TICKET-004). Tour: notes only, in TICKET-053.
 
 Finished tickets have been removed — they are not blockers for anything.
 
-**The exercise catalog track goes first** (user's decision, 2026-10-24): 044 → 042 →
-046 → 043, in that order, before 033 / 032 / 029 below. 044 is done (PR #19). 042 runs
-in two parts around 046 (2026-10-25): stage 1 (the shape) first, stage 2 (the app reads
-it) once 046's content exists. Phase 3B; research is in
-`research/exercise-catalog/` (git-ignored, local only).
+**The exercise catalog track goes first** (user's decision, 2026-10-24). Everything
+before the tour pass is done; it was the order 044 → 042 → 046 → 043 → 050 → 051 →
+052. Research is in `research/exercise-catalog/` (git-ignored, local only).
 
 ```
-1. TICKET-042  stage 1 (Catalog shape)    — Done: types, id/name rules, loader
-2. TICKET-046  (Real catalog content)      — Done (PR #21): 489 movements, 805 versions
-3. TICKET-042  stage 2 (App reads catalog) — Done (PR #22, 2026-10-27): Firestore + cache,
-                                             name sites, test-data wipe, rules deployed
-4. TICKET-043  (Search + picker)           — Done (PR #23, 2026-10-27); device test
-                                             pending on a phone
-5. TICKET-050  (Picker start page)        — Done (PR #24, 2026-10-27)
-6. TICKET-051  (Manage Workout list)      — Done (PR #25, 2026-10-28); full device
-                                             plan pending on a phone
-7. TICKET-052  (New plan, first plan)     — Done (PR #26, 2026-10-28); device plan
-                                             pending on a phone
-8. TICKET-053  (Guided tour pass)         — Next
+1. TICKET-053  (Guided tour pass)         — Next
 ```
 
-**Now (user, 2026-11-02): the workout hub, in three stages.** Each is usable on
-its own and the next one does not reopen it.
+**Left from the workout hub and the mid-workout menu** (user, 2026-11-02 and
+2026-10-30). The tickets they came from are done.
 
 ```
-1. TICKET-065  (Plan card + set summary)  — Merged (PR #44, 2026-11-02); device test owed
-2. TICKET-066  (Workout hub)              — Merged (PR #45, 2026-11-04); device test owed
-3. TICKET-067  (Freestyle)                — Done (PR #46, 2026-11-04); device run passed
    TICKET-068  (Drag to close sheets)     — Open, low; real-phone check, from 065
-   TICKET-069  (Remove exercise today)    — Done (PR #47, 2026-11-05); device run passed
-```
-
-**Before that (user, 2026-10-30):** the exercise menu, then swapping and adding an exercise
-mid-workout, ahead of 032 and 029 below.
-
-```
-1. TICKET-058  (Exercise menu + split)    — Done (PR #32, 2026-10-30); device run passed
-   TICKET-059  (Today list arrows)        — Done (PR #33, 2026-10-30); device run passed
-2. TICKET-047  (Swap an exercise)         — Done (PR #34, 2026-10-31). Adds Swap to 058's menu
-3. TICKET-056  (Add an exercise)          — Done (PR #40, 2026-11-02); device run passed
    TICKET-063  (Finish summary)           — Open, low; from 056's review
-   TICKET-064  (Store save path)          — Open, low; from 056's duplication review
    TICKET-057  (Save Freestyle as plan)   — Deferred; after 067
 ```
 
-**Then the next three, decided.** They are what makes logging an exercise match what
-people actually do, and 033 changes a stored shape: pre-launch is the cheap moment
-for that.
+**Then the next two, decided.** 033 and 055 (the stored shape for a set) are done, so
+032 is written against the final shape.
 
 ```
-1. TICKET-033  (Split sets)                — A weight change within one set.
-                                             Done: 033-1 (PR #27), 033-2
-                                             (PR #29), 033-3 (PR #30) merged
-   TICKET-055  (Set segments)              — One shape for a set and its splits.
-                                             Merged (PR #28)
-2. TICKET-032  (Edit/delete uploaded set)  — Needs the rollup rebuild; after 033 so it
-                                             is written once against the final shape
-3. TICKET-029  (Pending uploads view)      — Replaces the TEMPORARY debug screen.
+1. TICKET-032  (Edit/delete uploaded set)  — Needs the rollup rebuild
+2. TICKET-029  (Pending uploads view)      — Replaces the TEMPORARY debug screen.
                                              Surface overlaps TICKET-011: either pull
                                              011 in or let 029 decide it
 ```
