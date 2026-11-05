@@ -790,7 +790,55 @@
     "HubMany.dc.html": {"h": 844, "radius": 28, "title": "Hub 8 \u00b7 34 plans: six tiles from your last 20 workouts", "w": 390, "x": 3290, "y": 34300},
     "HubRunning.dc.html": {"h": 844, "radius": 28, "title": "Busy 1 \u00b7 Workout running: Resume on top, its tile is live", "w": 390, "x": 0, "y": 35444},
     "HubRunningBlocked.dc.html": {"h": 844, "radius": 28, "title": "Busy 2 \u00b7 Another tile tapped: look, can't start, Back to Legs", "w": 390, "x": 470, "y": 35444},
-    "HubStart.dc.html": {"h": 844, "radius": 28, "title": "Hub 1 \u00b7 Workout tab: up to 6 plan tiles, longest since done first; Freestyle; All plans", "w": 390, "x": 0, "y": 34300}
+    "HubStart.dc.html": {"h": 844, "radius": 28, "title": "Hub 1 \u00b7 Workout tab: up to 6 plan tiles, longest since done first; Freestyle; All plans", "w": 390, "x": 0, "y": 34300},
+    "RemoveMenu.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "1 \u00b7 Exercise \u22ef at 0 sets: Remove from today, its own group",
+      "w": 390,
+      "x": 0,
+      "y": 37140
+    },
+    "RemoveLocked.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "2 \u00b7 Set logged: Swap and Remove disabled, same reason",
+      "w": 390,
+      "x": 470,
+      "y": 37140
+    },
+    "RemoveLanded.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "3 \u00b7 Removed: the next one takes its place, Undo under the header",
+      "w": 390,
+      "x": 940,
+      "y": 37140
+    },
+    "RemoveSecond.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "4 \u00b7 Second cardio removed: Undo names it, one at a time",
+      "w": 390,
+      "x": 1410,
+      "y": 37140
+    },
+    "RemoveAddedLast.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "5 \u00b7 Added exercise removed from 7 of 7: lands on the new last, + back",
+      "w": 390,
+      "x": 1880,
+      "y": 37140
+    },
+    "RemoveEmpty.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "6 \u00b7 Everything removed: Freestyle's empty screen, Undo still there",
+      "w": 390,
+      "x": 2350,
+      "y": 37140
+    }
   },
   "createdOnFiles": {
     "at": "2026-10-03T12:00:00Z",
@@ -1083,7 +1131,9 @@
     "hubbusytitle": {"kind": "title1", "maxW": 3200, "text": "Hub: one workout at a time", "x": 0, "y": 35144},
     "hubcode": {"fill": "purple", "text": "FOR THE TICKETS\n\n1. Set-summary util first, own ticket: one folder under src/utils owns '3 sets \u00b7 top \u2026'; reconcile with personalBest, setDeltas, comparisonSegment, withUnit.\n2. Hub replaces WorkoutScreen. StartWorkoutScreen becomes All plans (tap opens the card).\n3. Store: start a workout with no plan (Freestyle).\n4. History filter: Freestyle entry.\n5. Debug tiles (History Debug, Pending Uploads) need a spot: small row at the end of the hub, debug builds only.", "w": 380, "x": 4230, "y": 34900},
     "hubrules": {"fill": "orange", "text": "FINAL (user, 2026-11-02). Designed on the 'Fitgram Workout Hub' canvas.\n\nTILES (max 6): plans in your last 20 workouts, longest since done first; fewer than 6 \u2192 filled with other plans in plan order. Big number: 9d / today / new (never done) / dash while loading, never 0.\nAll plans: today's Start list (search, Show archived), always linked.\nFreestyle: no plan created, saved as Freestyle, one entry in History. Tap starts it at once (no card).\n\nCARD: pop-up over the same page, no swipe. Max 75% height, list scrolls, Start pinned, header shrinks on scroll. Close: tap outside, X, drag down from the header, Android back.\nLast time per exercise: '3 sets \u00b7 top 40 kg \u00d7 8' (heaviest; tie \u2192 more reps), 'best 12 reps', 'best 45 s', 'new', or just '3 sets' if unreadable.\n\nLOGGER: unchanged (Main board), with two exceptions: after Finish/Discard go to the hub, not 'No active workout'; and an empty workout shows Add your first exercise with an Add exercise button (Busy 6, user 2026-11-04). In a Freestyle, Add exercise says nothing about a plan (Busy 7).", "w": 380, "x": 4230, "y": 34340},
-    "hubtitle": {"kind": "title1", "maxW": 4150, "text": "Workout hub: pick today's workout", "x": 0, "y": 34000}
+    "hubtitle": {"kind": "title1", "maxW": 4150, "text": "Workout hub: pick today's workout", "x": 0, "y": 34000},
+    "removeex": {"kind": "title1", "maxW": 2740, "text": "TICKET-069 \u2014 remove an exercise, this workout only", "x": 0, "y": 36800},
+    "removeexwhy": {"fill": "orange", "text": "DECIDED (user, 2026-11-05).\n\nExercise \u22ef \u2192 Remove from today, in its own group under Split and Swap. Not red: danger is Discard's only, and nothing is lost.\n\nOnly at 0 sets, with Swap's reason (2). Logged sets are work done.\n\nThe next exercise takes its place; the last one lands on the new last; the only one leaves Freestyle's empty screen.\n\nUndo: one bar under the header, untimed, until the next log, page, removal or Finish. \u2296, bold white name, grey \"removed\".\n\nRejected: Undo above Finish (stray tap), a timed toast, a confirm with sets.\n\nExplorations: Drafts canvas, row TICKET-069.", "w": 320, "x": 2820, "y": 37140}
   },
   "order": [
     "Main.dc.html",
@@ -1203,7 +1253,13 @@
     "HubFreestyleRunning.dc.html",
     "HubFreestylePlanBlocked.dc.html",
     "HubFreestyleEmpty.dc.html",
-    "HubFreestyleAdd.dc.html"
+    "HubFreestyleAdd.dc.html",
+    "RemoveMenu.dc.html",
+    "RemoveLocked.dc.html",
+    "RemoveLanded.dc.html",
+    "RemoveSecond.dc.html",
+    "RemoveAddedLast.dc.html",
+    "RemoveEmpty.dc.html"
   ],
   "pages": [],
   "title": "Fitgram Workout Flow Redesign"

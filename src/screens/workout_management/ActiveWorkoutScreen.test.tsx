@@ -331,3 +331,81 @@ describe("add exercise", () => {
     expect(screen.queryByRole("button", { name: /^Back to plan/ })).toBeNull();
   });
 });
+
+// TICKET-069: ⋯ → Remove from today, with one Undo under the header.
+describe("remove exercise", () => {
+  const cardioAndBack = () => buildWorkout(["Treadmill Walk", "Stationary Bike", "Lat Pulldown"]);
+  const openMenu = (name: string) => fireEvent.press(screen.getByRole("button", { name: `${name} options` }));
+  const remove = async (name: string) => {
+    openMenu(name);
+    await act(async () => {
+      fireEvent.press(screen.getByRole("button", { name: /^Remove from today/ }));
+    });
+  };
+
+  it("lands on the next exercise with the Undo bar; Undo brings the removed one back, in view", async () => {
+    renderScreen(ActiveWorkoutScreen, { workout: cardioAndBack() });
+
+    await remove("Treadmill Walk");
+
+    expect(screen.getByLabelText("Exercise 1 of 2")).toBeOnTheScreen();
+    expect(screen.getByText("Stationary Bike")).toBeOnTheScreen();
+    expect(screen.getByLabelText("Treadmill Walk removed")).toBeOnTheScreen();
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole("button", { name: "Undo" }));
+    });
+
+    expect(screen.getByLabelText("Exercise 1 of 3")).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Treadmill Walk options" })).toBeOnTheScreen();
+    expect(screen.queryByTestId("removed-exercise-bar")).toBeNull();
+  });
+
+  it("the Undo bar goes on the next action (paging)", async () => {
+    renderScreen(ActiveWorkoutScreen, { workout: cardioAndBack() });
+    await remove("Treadmill Walk");
+
+    await act(async () => {
+      fireEvent.press(nextArrow());
+    });
+
+    expect(screen.getByText("Lat Pulldown")).toBeOnTheScreen();
+    expect(screen.queryByTestId("removed-exercise-bar")).toBeNull();
+  });
+
+  // Typing lives in the logger, not the store, so it is not "the next action".
+  it("the Undo bar stays while the user types into the next exercise", async () => {
+    renderScreen(ActiveWorkoutScreen, { workout: cardioAndBack() });
+    await remove("Treadmill Walk");
+
+    fireEvent.changeText(screen.getByLabelText("Weight · kg"), "60");
+
+    expect(screen.getByDisplayValue("60")).toBeOnTheScreen();
+    expect(screen.getByLabelText("Treadmill Walk removed")).toBeOnTheScreen();
+  });
+
+  it("is disabled with its reason once a set is logged", () => {
+    const logged = buildExercise("Lat Pulldown", { sets: [{ id: 1, segments: [{ Weight: 55, Reps: 10 }] }] });
+    renderScreen(ActiveWorkoutScreen, { workout: buildWorkout([], { exercises: [logged] }) });
+
+    openMenu("Lat Pulldown");
+
+    expect(
+      screen.getByRole("button", { name: "Remove from today, Only before set 1. Delete the logged sets to remove." })
+    ).toBeDisabled();
+  });
+
+  // Swap said "Your plan keeps it." in a Freestyle from TICKET-067 until here.
+  it("in a Freestyle, Swap and Remove say nothing about a plan", () => {
+    renderScreen(ActiveWorkoutScreen, {
+      workout: buildWorkout([], { id: FREESTYLE_ID, name: "Freestyle", exercises: [buildExercise("Lat Pulldown")] }),
+    });
+
+    openMenu("Lat Pulldown");
+
+    // By label: a role's name also matches the row's title text, which is the
+    // same with or without the detail line.
+    expect(screen.getByLabelText("Swap exercise")).toBeEnabled();
+    expect(screen.getByLabelText("Remove from today")).toBeEnabled();
+  });
+});

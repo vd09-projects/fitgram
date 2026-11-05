@@ -44,6 +44,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap. Storage: per-plan copies today, library undecided |
 | 047 | Swap an exercise mid-workout | Medium | **In review**, PR #34 (branch TICKET-047, 2026-10-31); device re-run owed after the offline and layering fixes. Only at 0 sets, full picker, the new exercise's own history, this workout only |
 | 056 | Add an exercise mid-workout | Small-Med | After 047; reuses its picker mode. Appended, this workout only |
+| 069 | Remove an exercise from today's workout | Small | Raised 2026-11-05. **Built** on branch TICKET-069; device run passed. Design in `design/workout-flow/` (Remove boards). PR open. Reverses 056's "No remove action". Nothing stored changes |
 | 065 | Plan card + set-summary util | Medium | **Next.** Hub redesign 1 of 3; design final 2026-11-02 (`design/workout-flow/`, Hub boards) |
 | 066 | Workout hub | Medium-Large | Hub redesign 2 of 3, after 065 |
 | 067 | Freestyle: a workout with no plan | Medium | Hub redesign 3 of 3, after 066. Takes over 057's core |
@@ -5189,7 +5190,8 @@ so it is missing from history with nothing to say so.
 - **One at a time.** No multi-add
 - **No remove action.** An added exercise never logged leaves nothing: 0-set
   exercises are dropped at save (`buildSessionDocs`). A logged one's sets are
-  deleted the normal way, as for a planned exercise
+  deleted the normal way, as for a planned exercise. *Reversed by TICKET-069
+  (2026-11-05): Swap cannot make a planned exercise go away for today*
 - **Not marked as added**, in the pager or in storage
 
 **Why its own ticket, not part of 047:** a different entry point (the workout, not
@@ -7280,6 +7282,296 @@ close paths work. Check drag on a real phone across every sheet, every way in.
 
 ---
 
+### TICKET-069: Remove an Exercise From Today's Workout
+
+**Priority:** Medium | **Effort:** Small | **Status: OPEN** — raised 2026-11-05;
+scenarios, design and code decided 2026-11-05; built, device run passed; PR open
+
+**Description:**
+Mid-workout the user decides not to do an exercise today. Two cases from the user:
+- **A planned exercise.** Cardio and back together, two cardio exercises, and no
+  cardio today. Both should leave today's list
+- **An added one.** Added with TICKET-056, then the user changes their mind
+
+**Why, and what it is not (CLAUDE.md 2.2):** skipping already saves correctly.
+`buildSessionDocs` drops every 0-set exercise, and the session's `exerciseIds` and
+`volume` are built from that filtered list, so an exercise never logged leaves nothing
+in Firestore, history or volume. Removal is only offered at 0 sets (scenario 5), so it
+changes nothing that is stored. What it fixes is the screen: "N of M" counts the dropped exercises, the swipe stops on them, the
+progress bar keeps their untouched segments, and the user cannot tell "skipping
+today" from "not got to it yet".
+
+**Reverses TICKET-056's "No remove action".** 056 reasoned that an unlogged added
+exercise leaves nothing and a wrong pick is fixed by Swap. Both hold, but Swap cannot
+make a planned exercise go away, and swapping a wrong add for something else is not
+"I don't want this one". The `addExercise` comment in `useWorkoutStore.tsx` says
+"No remove" and changes with the build.
+
+**Already true, carried over (checked 2026-11-05):**
+- For this workout only: the plan is not written, and next time the plan starts with
+  the exercise again (as Swap and Add, TICKET-047 / 056)
+- An exercise is in today's list once (`ALREADY_IN_WORKOUT_REASON`)
+- Swap is allowed only at 0 sets (`SWAP_LOCKED_REASON`), read from the live count
+- An open swap picker closes when its slot is gone (`ActiveWorkoutScreen`)
+- The logger is keyed by exercise id: typed values, the set Undo row and edit mode
+  belong to one exercise and go when its card unmounts
+- Finish with nothing logged is refused: "Nothing to save — no sets were logged."
+
+**Scenarios**
+
+*What is being removed*
+1. **A planned exercise, never touched** (the cardio case). Removed; nothing saved
+   changes
+2. **Two in a row** (cardio × 2). Remove one, land on the other, remove it too. One at a
+   time must be quick enough that a multi-select is not needed (see Not in scope)
+3. **An added exercise, 0 sets** (056's wrong add). Removed, as for a planned one
+4. **A swapped slot, 0 sets** (047). The slot goes, swapped-in exercise and its
+   `planned` with it: removing is "not this slot today", not "back to plan"
+5. **An exercise with sets logged.** Refused, the same lock as Swap: the row is
+   disabled with its reason ("delete its sets first"), read from the live count
+   (user, 2026-11-05). Sets logged are work done: they belong in today's volume and
+   history, so there is nothing to remove. A set logged by mistake is deleted the
+   normal way (TICKET-019); at 0 sets the exercise can go. Rejected, after first being
+   chosen the same day: removing with a confirm ("Remove Bench press and its 3 logged
+   sets?") and an Undo that brings the sets back — it would throw away real work, and
+   is the only path here that could lose data
+6. **Sets logged, then all deleted.** 0 sets, so removed at once (as Swap). The pending
+   set Undo row goes with the card; the exercise Undo (scenario 16) brings back the
+   slot as it was at removal, not the sets deleted before it
+7. **Typed values on the card, nothing logged.** Removed at once, no confirm (user,
+   2026-11-05); the typed values go. Paging away already drops them (the logger is
+   keyed by exercise), so a confirm here would guard them more than navigation does.
+   Rejected: a confirm only when something was typed
+
+*Where the user lands*
+8. **The exercise on screen, in the middle.** The next one takes its place: "3 of 6"
+   becomes "3 of 5" on the next exercise. Rejected: going to the previous one, which
+   is usually done
+9. **The last exercise.** Lands on the new last one, which shows TICKET-056's + in
+   place of the disabled ›
+10. **The only exercise left.** The empty screen from TICKET-067 (board E1), Freestyle's
+    copy unchanged ("Add your first exercise") for every workout (user, 2026-11-05): it
+    encourages adding one, and a plan with no exercises already shows it. Rejected: a
+    planned-workout line ("No exercises left today", pointing at Discard), more
+    accurate after a removal but a branch for a screen Add already explains
+11. **An exercise not on screen** — only if the UI offers removal from somewhere other
+    than the exercise's own page. The index then shifts down by one when the removed
+    slot was before it. Depends on the UI choice
+
+*Things running when it is removed*
+12. **A rest on the removed slot** (log set 1, delete it, remove). The rest ends, as
+    for Swap; one keyed to a gone id would hide and come back on Undo.
+    Undo does not bring it back (rest is memory only). A rest on another exercise keeps
+    counting there
+13. **Header and bar recompute:** "N of M", the ‹ › neighbour names, the progress bar,
+    and the + on the new last exercise
+14. **A sheet open on the slot** (history, picker). Closes with it; the swap picker
+    already does
+
+*Undo*
+15. **Undo puts it back** in its old position, with its `planned` / `added` marks, so a
+    swapped slot still offers Back to plan and an added one still does not
+16. **Undo's form and end** (user, 2026-11-05): a bar under the header, "⊖ Treadmill
+    Walk removed · Undo" (board RemoveLanded). Not timed: it stays until
+    the next action — logging a set, paging, another removal (which replaces it; one
+    pending Undo), or Finish. Why not inline as set Undo is (TICKET-019): the removed
+    exercise is no longer on screen. Rejected: a timed toast, which races the user (019's
+    reason) and needs a new toast type, since `toastConfig.tsx` toasts hold no button
+17. **Undo after the same exercise was added again** (remove, then ⋯ → Add it).
+    Refused: already in today's workout. The UI should not offer it
+18. **Undo across an app kill.** Not kept: memory only, as for set Undo. The removal
+    itself is written at once and survives the kill. Nothing logged is lost: only the
+    slot's position (Add puts it back at the end, scenario 23)
+
+*Finish, plan and Freestyle*
+19. **Resume after a kill** shows today's list without the removed exercise
+20. **Finish** saves the session without it: the same docs as if it were never logged
+21. **Everything removed, then Finish.** Refused by the existing check; nothing new
+22. **The plan is unchanged** and Manage Workout is not touched. In a planned workout
+    the UI may say so ("Your plan stays as it is", as Add does); a Freestyle has no plan
+    to mention (TICKET-067)
+23. **Removed, then added back** with Add. Appended at the end and marked `added`, so
+    Swap offers no Back to plan for it. Accepted: Undo is the way to put a planned
+    exercise back where it was
+24. **Guided tour:** notes only, in TICKET-053 (the exercise ⋯ step may mention Remove)
+
+**Not in scope:**
+- Selecting several exercises and removing them in one action. Two cardio exercises
+  are two removals (scenario 2); reopen if that proves slow on a device
+- Removing from the plan itself: Manage Workout does that. No "also remove from plan"
+  option here
+- Reordering today's exercises
+- Recording that an exercise was skipped. Nothing stored today says so, and removing
+  does not start to
+
+**Decided (user, 2026-11-05):**
+- **Where:** the exercise ⋯ menu (TICKET-058), "Remove from today", detail "For this
+  workout only. Your plan keeps it." (Swap's line; none in a Freestyle), in its own group
+  under Split and Swap so it is not tapped for Swap. Not `danger`: `colors.ts` keeps it
+  for Discard only, and at 0 sets nothing is lost. It acts on the exercise on screen,
+  so scenario 11 does not arise. Rejected: workout ⋯ → a sheet
+  listing today's exercises with a remove per row (removes off-screen ones and several
+  at once, but a new sheet and the out-of-scope multi-remove)
+- **With sets:** refused, same lock as Swap (scenario 5). No confirm dialog anywhere in
+  this ticket
+- **Typed values:** no confirm (scenario 7)
+- **Undo:** the bar under the header, untimed (scenario 16)
+- **Empty screen:** Freestyle's copy, unchanged (scenario 10)
+
+**Design decided (user, 2026-11-05):** Workout Flow canvas, row "TICKET-069 — remove an
+exercise, this workout only" (`design/workout-flow/project/Remove*.dc.html`). Drafts
+canvas, row "Remove an exercise from today (TICKET-069)", with the rejected options:
+https://claude.ai/artifact/3yyXCn86SSMVeyzyqUcuiZ
+- **Boards:** RemoveMenu (⋯ at 0 sets), RemoveLocked (set logged: Swap and Remove
+  disabled, "Only before set 1. Delete the logged sets to remove."), RemoveLanded (the
+  next one takes its place, 1 of 5), RemoveSecond (second removal replaces the Undo),
+  RemoveAddedLast (an added last exercise removed: lands on the new last, + back),
+  RemoveEmpty (everything removed: Freestyle's empty screen, Undo still shown)
+- **Undo bar under the header** (U1), between the workout header and the exercise
+  name: no stray tap next to Finish. Rejected: above Finish (U2)
+- **Undo bar text:** ⊖ (the menu row's icon), the name in bold white, "removed" in grey,
+  then Undo in the accent. Rejected: grey "Removed" before a white name (the colour and
+  weight jump at once, user), one colour throughout, a two-line label, and a
+  grey-to-white gradient (needs `expo-linear-gradient` and masked-view, native
+  dependencies for one line, and fades the start of the name)
+- **Illustrative on the boards, not decided:** the Stationary Bike card's last-time
+  format and ±0.5 steps, and RemoveAddedLast's "No set 4 last time" line. The logger
+  draws what it draws today
+
+**Code design (approved by the user 2026-11-05, built on branch `TICKET-069`):**
+
+*Triage:* Tier 1 + 2. Nothing stored changes shape and nothing else reads the output;
+the user judges it on the screen. Tier 3 skipped: no claim to measure, no stored data,
+one small stage.
+
+*Facts checked first:*
+- 0-set exercises never reach Firestore: `buildSessionDocs` filters them, and the
+  session's `exerciseIds` and `volume` come from the filtered list
+- `MenuSheet` calls `onClose()` before `item.onPress()`, so the sheet is closing when
+  the removal runs
+- The logger is keyed by exercise id, so removing the exercise on screen unmounts its
+  card: typed values, the set Undo row and an open history sheet go with it
+- Every change to the workout writes a new `activeWorkout` object
+  (`saveActiveWorkout`; paging writes one too, unless the index is unchanged). Nothing
+  but the user's actions and `loadWorkoutFromStorage` at app start replaces it. That
+  is what the Undo bar's lifetime rests on (below)
+
+*Store (`useWorkoutStore.tsx`):*
+- `removeExercise(exerciseId) → { status: "removed"; removed: RemovedExercise } |
+  { status: "refused"; reason }`, the result shape Swap and Add use. Refused when the
+  slot has sets (`REMOVE_LOCKED_REASON`, "Only before set 1. Delete the logged sets to
+  remove.", exported for the menu as `SWAP_LOCKED_REASON` is) or is not in the workout.
+  Filters the slot out, moves the index (`indexAfterRemoval`, below), ends a rest on
+  that slot (as Swap), saves through `saveActiveWorkout`. `lastUpdated` moves
+- `RemovedExercise = { slot: LoggedExercise; index: number }`. The whole slot, so Undo
+  brings back `planned` and `added` with it. By position, like `RemovedSet`
+- `restoreExercise(removed) → { status: "restored" } | { status: "refused"; reason }`.
+  Refused when the id is back in the workout (`ALREADY_IN_WORKOUT_REASON`, scenario 17).
+  Inserts at `min(index, length)` and shows it: `currentExerciseIndex` = that index.
+  Undo means "as it was", and that includes the screen. Rejected: staying on the
+  exercise that took its place, which leaves the restored one off screen
+- `addExercise`'s "No remove" comment is rewritten to point here
+
+*Pure function (`utils/workoutProgress.ts`, tested in its own file):*
+`indexAfterRemoval(current, removed, countAfter) → number | null`. Before the current
+one: `current − 1`. The current one: the same index, clamped, so the next one takes its
+place and the last lands on the new last. After it: unchanged. None left: `null`.
+
+*Undo bar:*
+- **State on the screen**, `ActiveWorkoutScreen`:
+  `{ removed: RemovedExercise; after: ActiveWorkout } | null`, where `after` is the
+  workout object the removal wrote. The bar shows only while
+  `activeWorkout === after`. Any later change (a set logged, a page, a mark, an edit,
+  Add, Swap, another removal) writes a new object, so the bar goes with no clearing
+  code in any action. Typing does not touch the store, so the bar stays while the user
+  types. Finish and Discard clear the workout. Memory only, so a kill drops it
+  (scenario 18)
+- Rejected: the pending Undo in the store, cleared by every action (six actions to
+  edit, and the next action added would have to remember); a callback from the logger
+  on Log (misses paging, marks, Add, Swap)
+- **Component** `components/active_workout/RemovedExerciseBar.tsx`: ⊖, the name, "removed",
+  Undo. The name from `useExerciseName(slot).title`, the header's title, which includes
+  the version for a catalog exercise ("Bench Press · Dumbbell"; the boards drew it
+  shorter, corrected after the device run). The name is its own `Text` with `numberOfLines={1}` and `flexShrink`, and
+  "removed" a sibling, so a long name is cut and "removed" never is. Sizes from
+  `t.fonts` (14 px → `xMedium`), colours from role tokens (`surface`, `hairlineStrong`,
+  `textPrimary`, `textSecondary`, `accent`). `accessibilityLiveRegion="polite"`, so a
+  screen reader says what was removed
+- Undo calls `restoreExercise`; refused → `show.alert("Couldn't undo", reason)`, as the
+  picker does for Swap and Add
+
+*Menu (`ExerciseLogger.tsx`):*
+- New prop `onRemove`. A third item in its own group: `groups={[[split, swap], [remove]]}`,
+  `disabledReason` = `REMOVE_LOCKED_REASON` while the slot has sets (the live count, as
+  Swap), no `tone`
+- The screen's `onRemove` calls `removeExercise`, refused → alert, removed → sets the
+  Undo state
+- **Scope growth, stated (CLAUDE.md 2.7):** the detail "For this workout only. Your plan
+  keeps it." is wrong in a Freestyle, which has no plan. Swap has said it there since
+  067 (the line is TICKET-047's, c94edec; 067 changed only Add's line). The logger
+  reads `isFreestyle(activeWorkout.id)` from the store, and in a Freestyle both Swap
+  and Remove drop the detail line. Same fix as Add's, two lines
+
+*Tests (stop there):*
+1. `indexAfterRemoval`: before, current in the middle, current last, only one, after
+2. Store: removing a 0-set slot drops it, saves, ends a rest on it, and the session
+   docs are unchanged
+3. Store: refused with a set logged; nothing changes, nothing saved
+4. Store: restore puts the slot back at its index with `planned` / `added` and shows it;
+   refused when the id was added again
+5. Screen: ⋯ → Remove from today lands on the next one ("1 of 5") with the bar; Undo
+   brings back "1 of 6" on the removed one
+6. Screen: the bar goes when the user pages; the Remove row is disabled with its reason
+   once a set is logged
+Each seen red with its line broken before it is kept.
+
+*Not handled, as today:* a rejected `AsyncStorage` write is an unhandled rejection,
+like every action's caller (TICKET-004). Tour: notes only, in TICKET-053.
+
+**Build (2026-11-05, branch `TICKET-069`):**
+- As designed above. Store: `removeExercise`, `restoreExercise`, `RemovedExercise`,
+  `REMOVE_LOCKED_REASON`; `indexAfterRemoval` in `workoutProgress.ts`; the Undo bar
+  (`RemovedExerciseBar`) and its state on `ActiveWorkoutScreen`; the menu row and the
+  Freestyle copy fix in `ExerciseLogger`. Design boards committed separately (606e8a3)
+- Tests: 5 `indexAfterRemoval` cases, 4 store, 5 screen (the Freestyle copy fix got its
+  own). Each seen red with its line broken. The Freestyle test first passed with its
+  line broken: a role's `name` also matches the row's title text, so it now checks the
+  exact label. 618 tests pass (48 suites); `tsc` clean
+- Device run (emulator, Test WK and a Freestyle, no Firestore writes: the run ended in
+  Discard). All 15 steps passed: the menu row in its own group (RemoveMenu); remove
+  lands on the next, "1 of 2", the bar (RemoveLanded); Undo puts it back in view; the
+  bar stays while typing; a second removal with typed values goes with no confirm and
+  replaces the bar (RemoveSecond); remove the last lands on the new last with + ;
+  remove the only one shows Freestyle's empty screen with the bar (RemoveEmpty); Finish
+  there is refused and the bar stays; force-quit keeps the removals and drops the bar;
+  added exercises removed from the end (RemoveAddedLast); logging a set clears the bar;
+  with a set logged Remove is disabled with its reason and a tap does nothing
+  (RemoveLocked); delete the set and remove during a rest: the rest ends and Undo does
+  not bring it back; the plan still has 3 exercises on the hub; in a Freestyle, Swap
+  and Remove have no plan line
+- Seen, not part of this ticket: Plank's card reads "HISTORY" and "No weight and reps
+  to target" when paged to normally, with no removal involved. Not investigated
+
+- **Swap unchanged:** stays locked at 0 sets (user, 2026-11-05). Considered: giving
+  Swap a confirm with sets. Rejected: carrying the sets over files Bench press values
+  under Dumbbell press (wrong numbers that look like data, CLAUDE.md 2.4), and dropping
+  them throws away work done. "Did 2 sets, switching now" is Add, which keeps them
+
+**Acceptance Criteria:**
+- [x] UI/UX decided on the Drafts canvas, final boards on the Workout Flow canvas and in
+      `design/workout-flow/` (2026-11-05)
+- [x] Code design decided after the UI/UX
+- [x] Every scenario above handled as decided, or written here as a deviation (the
+      bar's name includes the version, above)
+- [x] The `addExercise` "No remove" comment and TICKET-056's decision updated
+- [x] **Device test (done when it passes):** the cardio case (two planned exercises
+      removed, back logged, Finish), the added case, Undo, resume after force-quit,
+      and the plan unchanged afterwards
+
+**Dependencies:** TICKET-056, TICKET-067 (empty screen).
+
+---
+
 ## Recommended Execution Order
 
 Finished tickets have been removed — they are not blockers for anything.
@@ -7313,6 +7605,7 @@ its own and the next one does not reopen it.
 2. TICKET-066  (Workout hub)              — Replaces the Workout tab; opens 065's card
 3. TICKET-067  (Freestyle)                — Adds the no-plan workout to 066's hub
    TICKET-068  (Drag to close sheets)     — Open, low; real-phone check, from 065
+   TICKET-069  (Remove exercise today)    — Built, device run passed; PR open
 ```
 
 **Before that (user, 2026-10-30):** the exercise menu, then swapping and adding an exercise

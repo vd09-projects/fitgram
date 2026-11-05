@@ -603,3 +603,77 @@ describe("addExercise", () => {
     expect(slot.planned).toBeUndefined();
   });
 });
+
+// TICKET-069: take an unlogged exercise out of today's list, with an Undo.
+describe("removeExercise and restoreExercise", () => {
+  const seedCardioAndBack = () => {
+    const workout = {
+      ...buildWorkout([], {
+        startTime: ++startTime,
+        exercises: [
+          buildExercise("Treadmill Walk"),
+          buildExercise("Stationary Bike"),
+          buildExercise("Lat Pulldown", { sets: [{ id: 1, segments: [{ Weight: 55, Reps: 10 }] }] }),
+        ],
+      }),
+      currentExerciseIndex: 0,
+    };
+    useWorkoutStore.setState({ activeWorkout: workout });
+    return workout;
+  };
+  const stored = async () => JSON.parse((await AsyncStorage.getItem("activeWorkout")) ?? "null");
+  const ids = () => store().activeWorkout!.exercises.map((e) => e.id);
+
+  it("drops a 0-set slot, shows the next one, stores it, ends its rest; Finish would save the same docs", async () => {
+    const before = seedCardioAndBack();
+    store().startRest("treadmill-walk", 90_000, 1);
+
+    const result = await store().removeExercise("treadmill-walk");
+
+    expect(result).toEqual({ status: "removed", removed: { slot: before.exercises[0], index: 0 } });
+    expect(ids()).toEqual(["stationary-bike", "lat-pulldown"]);
+    expect(store().activeWorkout!.currentExerciseIndex).toBe(0);
+    expect(await stored()).toEqual(store().activeWorkout);
+    expect(store().rest).toBeNull();
+    expect(buildSessionDocs(store().activeWorkout!, 5_000).exerciseSessions).toEqual(
+      buildSessionDocs(before, 5_000).exerciseSessions
+    );
+  });
+
+  it("is refused once the slot has a set, and changes nothing", async () => {
+    const workout = seedCardioAndBack();
+
+    const result = await store().removeExercise("lat-pulldown");
+
+    expect(result).toEqual({ status: "refused", reason: "Only before set 1. Delete the logged sets to remove." });
+    expect(store().activeWorkout).toBe(workout);
+    expect(await stored()).toBeNull();
+  });
+
+  it("Undo puts a swapped slot back where it was, Back to plan kept, and shows it", async () => {
+    seedCardioAndBack();
+    const incline = { id: "treadmill-walk-incline", name: "", nameSnapshot: "Treadmill Walk · Incline", fields: [{ name: "Time", role: "time" as const, unit: "min" as const }] };
+    await store().swapExercise("treadmill-walk", incline);
+    const result = await store().removeExercise("treadmill-walk-incline");
+    if (result.status !== "removed") throw new Error("expected a removal");
+    await store().setCurrentExerciseIndex(1);
+
+    expect(await store().restoreExercise(result.removed)).toEqual({ status: "restored" });
+
+    expect(ids()).toEqual(["treadmill-walk-incline", "stationary-bike", "lat-pulldown"]);
+    expect(store().activeWorkout!.exercises[0].planned).toMatchObject({ id: "treadmill-walk" });
+    expect(store().activeWorkout!.currentExerciseIndex).toBe(0);
+    expect(await stored()).toEqual(store().activeWorkout);
+  });
+
+  it("Undo is refused once the same exercise was added back (one id per session)", async () => {
+    const workout = seedCardioAndBack();
+    const result = await store().removeExercise("treadmill-walk");
+    if (result.status !== "removed") throw new Error("expected a removal");
+    const slot = workout.exercises[0];
+    await store().addExercise({ id: slot.id, name: slot.name, fields: slot.fields });
+
+    expect((await store().restoreExercise(result.removed)).status).toBe("refused");
+    expect(ids()).toEqual(["stationary-bike", "lat-pulldown", "treadmill-walk"]);
+  });
+});

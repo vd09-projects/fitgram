@@ -32,6 +32,26 @@ export function resolveCurrentIndex(stored: number | null, count: number): numbe
 }
 
 /**
+ * The index in view after the exercise at `removed` leaves today's list
+ * (TICKET-069), given the list's length after the removal.
+ *
+ * - Before the one in view: it moves down one, so the same exercise stays on
+ *   screen.
+ * - The one in view: the same index, so the next exercise takes its place; the
+ *   last one lands on the new last. Rejected: the previous exercise, which is
+ *   usually done already.
+ * - After it: unchanged.
+ * - None left: `null`, the empty screen.
+ *
+ * `current` is the index as the screen resolves it (`resolveCurrentIndex`),
+ * not the stored one, which can be `null` with exercises present.
+ */
+export function indexAfterRemoval(current: number | null, removed: number, countAfter: number): number | null {
+  const viewed = current ?? 0;
+  return clampExerciseIndex(viewed > removed ? viewed - 1 : viewed, countAfter);
+}
+
+/**
  * Planned set count assumed for an exercise with no usable history. The plan
  * records no set count, so without last session to go on this is a guess —
  * chosen deliberately over showing nothing. 3 is the common default; at 2 sets
