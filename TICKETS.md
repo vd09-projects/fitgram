@@ -42,8 +42,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 039 | Decide whether the PR banner rewards rep progression | Small (decision) + Med (build) | |
 | 053 | Guided tour: end-to-end pass after the catalog work | Medium | After 043, 050, 051, 052. The tour is not working and is no longer fixed per ticket (user, 2026-10-27) |
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap. Storage: per-plan copies today, library undecided |
-| 047 | Swap an exercise mid-workout | Medium | **In review**, PR #34 (branch TICKET-047, 2026-10-31); device re-run owed after the offline and layering fixes. Only at 0 sets, full picker, the new exercise's own history, this workout only |
-| 056 | Add an exercise mid-workout | Small-Med | After 047; reuses its picker mode. Appended, this workout only |
+| 047 | Swap an exercise: offline device re-run | Small | **Merged**, PR #34 (2026-10-31). Swap re-checked on device in 056's run (2026-11-02); the re-run after the offline and layering fixes is not recorded |
 | 065 | Plan card + set-summary util: device test | Small | **Merged**, PR #44 (2026-11-02). Its device test box is unchecked: no pass recorded |
 | 066 | Workout hub: device test | Small | **Merged**, PR #45 (2026-11-04). Its device test box is unchecked: no pass recorded (`cda505d` fixed device-review findings) |
 | 057 | Save a Freestyle as a plan | Small-Med | Deferred; trimmed 2026-11-02, the rest is 067 |
