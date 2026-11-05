@@ -3,6 +3,7 @@ import {
   buildProgressSegments,
   clampExerciseIndex,
   formatElapsed,
+  indexAfterRemoval,
 } from "./workoutProgress";
 
 /** An exercise with `n` logged sets; only `sets.length` is read. */
@@ -42,6 +43,19 @@ describe("clampExerciseIndex", () => {
 
   it("is null for an empty workout, never 0", () => {
     expect(clampExerciseIndex(0, 0)).toBeNull();
+  });
+});
+
+// TICKET-069: viewing index 2 of 6 (0-based), one exercise removed, 5 left.
+describe("indexAfterRemoval", () => {
+  it.each([
+    ["before the one in view: the same exercise stays on screen", 2, 0, 5, 1],
+    ["the one in view: the next one takes its place", 2, 2, 5, 2],
+    ["the one in view, last: lands on the new last", 5, 5, 5, 4],
+    ["after the one in view: unchanged", 2, 4, 5, 2],
+    ["the only one: nothing to show", 0, 0, 0, null],
+  ])("%s", (_case, current, removed, countAfter, expected) => {
+    expect(indexAfterRemoval(current, removed, countAfter)).toBe(expected);
   });
 });
 

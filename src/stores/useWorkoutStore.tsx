@@ -8,7 +8,7 @@ import { saveWorkoutSession } from "../services/db/workoutSessions";
 import show from "../utils/toastUtils";
 import { savedSummary } from "../utils/sessionDuration";
 import { normalizeExerciseFields } from "../utils/exerciseFields";
-import { clampExerciseIndex } from "../utils/workoutProgress";
+import { clampExerciseIndex, indexAfterRemoval, resolveCurrentIndex } from "../utils/workoutProgress";
 import { extendRest, RestTimer } from "../utils/restTimer";
 import { buildSessionDocs, buildSessionId } from "../utils/exerciseStats";
 import { useAuthStore } from "./authStore";
@@ -89,6 +89,21 @@ export type AddExerciseResult = { status: "added" } | { status: "refused"; reaso
 
 /** The menu item's reason too (board SwapLocked), so the two say the same thing. */
 export const SWAP_LOCKED_REASON = "Only before set 1. Delete the logged sets to swap.";
+
+/** As `SWAP_LOCKED_REASON`, for Remove from today (TICKET-069, board RemoveLocked). */
+export const REMOVE_LOCKED_REASON = "Only before set 1. Delete the logged sets to remove.";
+
+/**
+ * A slot taken out by `removeExercise` (TICKET-069), whole, with the 0-based
+ * position it held. Whole so Undo brings back `planned` and `added` with it;
+ * by position, like `RemovedSet`, since the list has moved up around it.
+ */
+export type RemovedExercise = { slot: LoggedExercise; index: number };
+
+export type RemoveExerciseResult =
+  | { status: "removed"; removed: RemovedExercise }
+  | { status: "refused"; reason: string };
+export type RestoreExerciseResult = { status: "restored" } | { status: "refused"; reason: string };
 
 /**
  * A set taken out by `removeSet`, with the exercise it came from and the 0-based
@@ -198,6 +213,10 @@ interface WorkoutStoreState {
   swapExercise: (exerciseId: string, exercise: Exercise) => Promise<SwapExerciseResult>;
   /** Append an exercise and show it, for this workout only (TICKET-056). */
   addExercise: (exercise: Exercise) => Promise<AddExerciseResult>;
+  /** Take an unlogged exercise out of today's list, for this workout only (TICKET-069). */
+  removeExercise: (exerciseId: string) => Promise<RemoveExerciseResult>;
+  /** Undo a `removeExercise`: the slot back where it was, and in view. */
+  restoreExercise: (removed: RemovedExercise) => Promise<RestoreExerciseResult>;
   endWorkout: (userId : string | undefined) => Promise<EndWorkoutResult>;
   cancelWorkout: () => Promise<void>;
   loadWorkoutFromStorage: () => Promise<void>;
@@ -555,8 +574,8 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
    * here and not only in the picker, for an id already in today's workout
    * (`ALREADY_IN_WORKOUT_REASON`).
    *
-   * No remove: an added exercise never logged leaves nothing, since
-   * `buildSessionDocs` drops 0-set exercises, and a wrong pick is fixed by Swap.
+   * A wrong pick is taken out with `removeExercise` (TICKET-069), which
+   * reversed 056's "no remove": Swap cannot make an exercise go away.
    *
    * History for the new id is fetched here, as for a swap.
    */
@@ -579,6 +598,77 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
 
     prefetchHistory([exercise.id]);
     return { status: "added" };
+  },
+
+  /**
+   * 🔹 Take an exercise out of today's list, for this workout only (TICKET-069).
+   *
+   * Only at 0 sets, refused here and not only in the menu: sets logged are work
+   * done and belong in today's volume and history (user, 2026-11-05). The rule
+   * reads the live count, as Swap's does, so deleting every set makes it
+   * available. Rejected: removing a logged exercise after a confirm.
+   *
+   * Nothing stored changes: `buildSessionDocs` already drops 0-set exercises,
+   * so Finish saves the same docs with or without the slot. What changes is
+   * today's list: "N of M", the swipe, the progress bar. The plan is never
+   * written.
+   *
+   * The index follows `indexAfterRemoval`: the next exercise takes the
+   * removed one's place. A rest on the slot ends, as for Swap: one keyed to a
+   * gone id would hide, and come back on Undo with the time gone.
+   */
+  removeExercise: async (exerciseId) => {
+    const { activeWorkout, rest } = get();
+    if (!activeWorkout) return { status: "refused", reason: "No active workout." };
+
+    const index = activeWorkout.exercises.findIndex((ex) => ex.id === exerciseId);
+    if (index === -1) return { status: "refused", reason: "That exercise is not in this workout." };
+    const slot = activeWorkout.exercises[index];
+    if (slot.sets.length > 0) return { status: "refused", reason: REMOVE_LOCKED_REASON };
+
+    const exercises = activeWorkout.exercises.filter((_, i) => i !== index);
+    const current = resolveCurrentIndex(activeWorkout.currentExerciseIndex, activeWorkout.exercises.length);
+    const updatedWorkout: ActiveWorkout = {
+      ...activeWorkout,
+      exercises,
+      currentExerciseIndex: indexAfterRemoval(current, index, exercises.length),
+      lastUpdated: Date.now(),
+    };
+
+    await saveActiveWorkout(updatedWorkout, rest?.exerciseId === exerciseId ? { rest: null } : {});
+    return { status: "removed", removed: { slot, index } };
+  },
+
+  /**
+   * 🔹 Undo a `removeExercise`: the slot goes back at its position, clamped to
+   * the end, and is shown. Undo means "as it was", which includes the screen.
+   * Rejected: staying on the exercise that took its place, which leaves the
+   * restored one off screen.
+   *
+   * Refused when the id is in today's list again (removed, then added back):
+   * one id per session (`ALREADY_IN_WORKOUT_REASON`). The screen offers Undo
+   * only until the workout next changes, so in practice the list is as the
+   * removal left it.
+   */
+  restoreExercise: async (removed) => {
+    const { activeWorkout } = get();
+    if (!activeWorkout) return { status: "refused", reason: "No active workout." };
+    if (activeWorkout.exercises.some((ex) => ex.id === removed.slot.id)) {
+      return { status: "refused", reason: ALREADY_IN_WORKOUT_REASON };
+    }
+
+    const exercises = [...activeWorkout.exercises];
+    const index = Math.min(removed.index, exercises.length);
+    exercises.splice(index, 0, removed.slot);
+    const updatedWorkout: ActiveWorkout = {
+      ...activeWorkout,
+      exercises,
+      currentExerciseIndex: index,
+      lastUpdated: Date.now(),
+    };
+
+    await saveActiveWorkout(updatedWorkout);
+    return { status: "restored" };
   },
 
   /**

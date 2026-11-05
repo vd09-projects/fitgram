@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { RemovedSet, SWAP_LOCKED_REASON, useWorkoutStore } from "../stores/useWorkoutStore";
+import { RemovedSet, REMOVE_LOCKED_REASON, SWAP_LOCKED_REASON, useWorkoutStore } from "../stores/useWorkoutStore";
+import { isFreestyle } from "../constants/freestyle";
 import { useRestPreferenceStore } from "../stores/restPreferenceStore";
 import { useExerciseHistoryStore } from "../stores/useExerciseHistoryStore";
 import { useAuthStore } from "../stores/authStore";
@@ -199,6 +200,7 @@ export default function ExerciseLogger({
   menuOpen,
   onCloseMenu,
   onSwap,
+  onRemove,
 }: {
   exercise: LoggedExercise;
   /** The exercise ⋯ menu, opened from the screen's nav header. */
@@ -206,6 +208,8 @@ export default function ExerciseLogger({
   onCloseMenu: () => void;
   /** Open the swap picker for this exercise (TICKET-047); the screen owns it. */
   onSwap: () => void;
+  /** Take this exercise out of today's list (TICKET-069); the screen owns the Undo. */
+  onRemove: () => void;
 }) {
   const { styles, t } = useThemeStyles(createStyles);
   const {
@@ -221,6 +225,9 @@ export default function ExerciseLogger({
   } = useWorkoutStore();
   const history = useExerciseHistory(exercise.id);
   const name = useExerciseName(exercise);
+  // A Freestyle has no plan, so Swap and Remove say nothing about one (as Add,
+  // TICKET-067). Swap said "Your plan keeps it." there until TICKET-069.
+  const freestyle = useWorkoutStore((s) => isFreestyle(s.activeWorkout?.id));
   /** The next set as typed: the first segment, then any split rows. Never empty. */
   const [rows, setRows] = useState<SplitRowValues[]>([{}]);
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -348,9 +355,22 @@ export default function ExerciseLogger({
     key: "swap",
     renderIcon: (color) => <Ionicons name="swap-horizontal" size={20} color={color} />,
     title: "Swap exercise",
-    detail: "For this workout only. Your plan keeps it.",
+    ...(freestyle ? {} : { detail: "For this workout only. Your plan keeps it." }),
     disabledReason: exercise.sets.length > 0 ? SWAP_LOCKED_REASON : null,
     onPress: onSwap,
+  };
+
+  // TICKET-069 (boards RemoveMenu, RemoveLocked): its own group under Split and
+  // Swap, so it is not tapped for Swap. Not `danger`: that is Discard's only,
+  // and at 0 sets nothing is lost. Disabled with its reason once a set is
+  // logged, as Swap; the store refuses the same case.
+  const removeItem: MenuItem = {
+    key: "remove",
+    renderIcon: (color) => <Ionicons name="remove-circle-outline" size={20} color={color} />,
+    title: "Remove from today",
+    ...(freestyle ? {} : { detail: "For this workout only. Your plan keeps it." }),
+    disabledReason: exercise.sets.length > 0 ? REMOVE_LOCKED_REASON : null,
+    onPress: onRemove,
   };
 
   // Shown on a one-row card only (hidden once split), so there are no split
@@ -618,7 +638,7 @@ export default function ExerciseLogger({
       <MenuSheet
         visible={menuOpen}
         title={name.title}
-        groups={[[splitItem, swapItem]]}
+        groups={[[splitItem, swapItem], [removeItem]]}
         onClose={onCloseMenu}
         testID="exercise-menu"
       />

@@ -2,13 +2,15 @@ import React, { useEffect, useState } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector, Directions } from "react-native-gesture-handler";
-import { useWorkoutStore } from "../../stores/useWorkoutStore";
+import { type RemovedExercise, useWorkoutStore } from "../../stores/useWorkoutStore";
+import type { ActiveWorkout } from "../../types/zustandWorkoutType";
 import ExerciseLogger from "../../components/ExerciseLogger";
 import ScrollableScreen from "../../components/ScrollableScreen";
 import { DiscardWorkoutDialog } from "../../components/active_workout/DiscardWorkoutDialog";
 import WorkoutHeader from "../../components/active_workout/WorkoutHeader";
 import ExerciseNavHeader from "../../components/active_workout/ExerciseNavHeader";
 import WorkoutProgressBar from "../../components/active_workout/WorkoutProgressBar";
+import RemovedExerciseBar from "../../components/active_workout/RemovedExerciseBar";
 import { SPACING } from "../../constants/styles";
 import { useAuthUser } from "../../hooks/useAuthUser";
 import { useExerciseHistory } from "../../hooks/useExerciseHistory";
@@ -39,7 +41,8 @@ export default function ActiveWorkoutScreen() {
   const layoutNavigation = useNavigation<layoutScreenNavigationProp>();
 
   const { user } = useAuthUser();
-  const { activeWorkout, endWorkout, cancelWorkout, setCurrentExerciseIndex } = useWorkoutStore();
+  const { activeWorkout, endWorkout, cancelWorkout, setCurrentExerciseIndex, removeExercise, restoreExercise } =
+    useWorkoutStore();
 
   const [workoutMenuOpen, setWorkoutMenuOpen] = useState(false);
   const [exerciseMenuOpen, setExerciseMenuOpen] = useState(false);
@@ -49,6 +52,21 @@ export default function ActiveWorkoutScreen() {
    */
   const [picker, setPicker] = useState<{ kind: "swap"; id: string } | { kind: "add" } | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  /**
+   * The last removal (TICKET-069) and the workout object it wrote. The Undo bar
+   * shows only while the store still holds that object: every later change to
+   * the workout (a set logged, a page, a mark, an edit, Add, Swap, another
+   * removal) writes a new one, so the bar goes on the user's next action with
+   * no clearing code in any of them. Typing does not touch the store, so the
+   * bar stays while the user types. Finish and Discard empty the slot. Memory
+   * only: an app kill drops it, and nothing logged is lost with it.
+   *
+   * Rejected: the pending Undo in the store, cleared by every action (each new
+   * action would have to remember); a callback from the logger on Log, which
+   * misses paging, Add and Swap.
+   */
+  const [lastRemoval, setLastRemoval] = useState<{ removed: RemovedExercise; after: ActiveWorkout } | null>(null);
+  const undoable = lastRemoval && lastRemoval.after === activeWorkout ? lastRemoval.removed : null;
   const [finishing, setFinishing] = useState(false);
 
   // The store's index is the only record of which exercise is in view; there is
@@ -154,6 +172,24 @@ export default function ActiveWorkoutScreen() {
     }
   };
 
+  // The menu has closed by now (MenuSheet closes before it calls a row).
+  const handleRemove = async (exerciseId: string) => {
+    const result = await removeExercise(exerciseId);
+    if (result.status === "refused") {
+      show.alert("Couldn't remove", result.reason);
+      return;
+    }
+    const after = useWorkoutStore.getState().activeWorkout;
+    setLastRemoval(after ? { removed: result.removed, after } : null);
+  };
+
+  const handleUndoRemove = async () => {
+    if (!undoable) return;
+    setLastRemoval(null);
+    const result = await restoreExercise(undoable);
+    if (result.status === "refused") show.alert("Couldn't undo", result.reason);
+  };
+
   const handleDiscard = async () => {
     setConfirmDiscard(false);
     await cancelWorkout();
@@ -189,6 +225,10 @@ export default function ActiveWorkoutScreen() {
         onBack={handleBack}
         onOpenMenu={() => setWorkoutMenuOpen(true)}
       />
+
+      {/* Under the header, away from Finish (TICKET-069, board RemoveLanded);
+          outside the pager so a tap on Undo is never read as a fling. */}
+      {undoable && <RemovedExerciseBar slot={undoable.slot} onUndo={handleUndoRemove} />}
 
       <GestureDetector gesture={swipe}>
         <View style={styles.pager} collapsable={false}>
@@ -227,6 +267,7 @@ export default function ActiveWorkoutScreen() {
                   menuOpen={exerciseMenuOpen}
                   onCloseMenu={() => setExerciseMenuOpen(false)}
                   onSwap={() => setPicker({ kind: "swap", id: currentExercise.id })}
+                  onRemove={() => handleRemove(currentExercise.id)}
                 />
               </ScrollableScreen>
             </>
