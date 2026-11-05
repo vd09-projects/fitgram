@@ -46,7 +46,6 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 057 | Save a Freestyle as a plan | Small-Med | Deferred; trimmed 2026-11-02, the rest is 067 |
 | 063 | Finish summary | Small-Med | Low. From 056's design review (2026-11-02): exercises and set counts before saving, as Finish's confirm. To decide: how 0-set exercises show, sheet or screen |
 | 068 | Drag to close: every sheet on a real phone | Small | Low. From 065's device run (2026-11-03): only `PlanCard` drags; decide drag on every sheet with a handle, or drop the handles |
-| 061 | Archive plans | Small-Med | Design decided 2026-11-01 (boards in `design/workout-flow/`). Built on PR #37 (data, Start, Manage); review pass 1 addressed. `archived` flag, no backfill. **Device run owed** |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
 
 ### Not tickets — verification owed
@@ -6652,8 +6651,9 @@ one. Not run on a device.
 
 ### TICKET-061: Archive Plans
 
-**Priority:** Medium | **Effort:** Small-Med | **Status: OPEN** — raised 2026-11-01,
-design decided the same day
+**Priority:** Medium | **Effort:** Small-Med | **Status: MERGED** — PR #37 (036716e),
+2026-11-01. Device run passed (user, 2026-11-01: "tested and its looking good on
+device"). Raised 2026-11-01, design decided the same day
 
 **Description:**
 Plans pile up. A small change to a routine often becomes a new plan, so after a few
