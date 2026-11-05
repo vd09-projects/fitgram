@@ -47,6 +47,8 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 063 | Finish summary | Small-Med | Low. From 056's design review (2026-11-02): exercises and set counts before saving, as Finish's confirm. To decide: how 0-set exercises show, sheet or screen |
 | 068 | Drag to close: every sheet on a real phone | Small | Low. From 065's device run (2026-11-03): only `PlanCard` drags; decide drag on every sheet with a handle, or drop the handles |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
+| 070 | Keep plans (and recent history) on the phone | Medium | Raised 2026-11-05 (user). Instant and offline plans; whether to persist the history rollups too. Under discussion |
+| 071 | History page redesign | Medium-Large | Raised 2026-11-05 (user). Design on the Drafts canvas first; after 070 |
 
 ### Not tickets — verification owed
 
@@ -7568,6 +7570,77 @@ like every action's caller (TICKET-004). Tour: notes only, in TICKET-053.
       and the plan unchanged afterwards
 
 **Dependencies:** TICKET-056, TICKET-067 (empty screen).
+
+---
+
+### TICKET-070: Keep Plans (and Recent History) on the Phone
+
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — raised 2026-11-05 (user),
+under discussion
+
+**Description:**
+Plans change rarely (at most once or twice a day, usually about once a week), yet every
+screen that lists them reads them from Firestore each time. Keep them on the phone,
+show that copy at once and offline, and refresh from Firestore behind it. The same
+question for history: keep each exercise's recent sessions on the phone, or keep
+fetching them.
+
+**Why (user, 2026-11-05):** like the catalog, which is already cached (TICKET-042
+stage 2), plans hardly change, so a network read on every visit buys nothing.
+
+**What holds today (checked 2026-11-05):**
+- `useWorkoutPlans` calls `getAllWorkoutPlans` on every mount, and the hub and All
+  plans re-read on every focus (`useWorkoutPlansOnFocus`). Five call sites each hold
+  their own copy: hub/All plans, Start Workout, Manage Workout, the History filter, the
+  mid-workout picker. Nothing is shared.
+- Firestore runs on `memoryLocalCache()` (`src/services/firebase/firebase.ts`):
+  React Native has no IndexedDB, so nothing survives an app restart. On an offline
+  cold start the plans are an empty cache and the hub shows "Your plans did not
+  load" (TICKET-052 D5); only a Freestyle can be started.
+- History already has a session-lifetime cache (`useExerciseHistoryStore`): one
+  `exercise_stats` rollup doc per exercise, prefetched at workout start, invalidated
+  after a save. The rollup is small and capped: 10 recent sessions, 12 volume points,
+  plus best-by-reps. It is lost on every app restart.
+
+**The real gain** is instant screens and starting a planned workout offline, not
+fewer reads. At ~5–10 users a plans read is a handful of documents.
+
+**To discuss:**
+- Plans: stale-while-revalidate (show the copy, re-read in the background each time)
+  vs a version check (one small doc says when plans last changed, as the catalog's
+  hash does) vs trust the copy until this device saves. Edits from a second device
+  or the console are the case that decides it.
+- One shared plans store instead of five hook copies: the cache needs one owner.
+- History: persist the rollups (small, capped) keyed by exercise id, or keep
+  fetching. Same staleness question: a workout finished on another device.
+- Account switch: anything cached is per user and must be cleared on sign-out
+  (TICKET-026).
+- What a stale copy looks like: shown silently, or marked.
+
+**Dependencies:** none. Touches TICKET-026 (clear on sign-out), TICKET-029 (what is
+stored locally), TICKET-071 (History reads plans and history).
+
+---
+
+### TICKET-071: History Page Redesign
+
+**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN** — raised
+2026-11-05 (user)
+
+**Description:**
+The History page (`WorkoutLogsScreen`, with `WorkoutHistoricalLogsFilter` and
+`ExerciseSetLogTable`) predates the workout hub, the plan card and Freestyle, and no
+longer matches them. Redesign it: research what a workout app's history should
+answer, draw options on the Drafts canvas, decide, then build.
+
+**To decide in design:** what the page is for (last session per exercise, progress
+over time, a calendar of sessions, or a mix); whether it is plan-first (today's
+filter: plan, then exercise) or exercise-first, given that history is already keyed
+by exercise; how Freestyle fits; what reuses the history sheet (TICKET-020) and
+set summary util (065).
+
+**Dependencies:** best after TICKET-070 decides how plans and history are read.
+Touches TICKET-037 (two sessions on the same day).
 
 ---
 
