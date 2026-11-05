@@ -44,9 +44,8 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap. Storage: per-plan copies today, library undecided |
 | 047 | Swap an exercise mid-workout | Medium | **In review**, PR #34 (branch TICKET-047, 2026-10-31); device re-run owed after the offline and layering fixes. Only at 0 sets, full picker, the new exercise's own history, this workout only |
 | 056 | Add an exercise mid-workout | Small-Med | After 047; reuses its picker mode. Appended, this workout only |
-| 065 | Plan card + set-summary util | Medium | **Next.** Hub redesign 1 of 3; design final 2026-11-02 (`design/workout-flow/`, Hub boards) |
-| 066 | Workout hub | Medium-Large | Hub redesign 2 of 3, after 065 |
-| 067 | Freestyle: a workout with no plan | Medium | Hub redesign 3 of 3, after 066. Takes over 057's core |
+| 065 | Plan card + set-summary util: device test | Small | **Merged**, PR #44 (2026-11-02). Its device test box is unchecked: no pass recorded |
+| 066 | Workout hub: device test | Small | **Merged**, PR #45 (2026-11-04). Its device test box is unchecked: no pass recorded (`cda505d` fixed device-review findings) |
 | 057 | Save a Freestyle as a plan | Small-Med | Deferred; trimmed 2026-11-02, the rest is 067 |
 | 061 | Archive plans | Small-Med | Design decided 2026-11-01 (boards in `design/workout-flow/`). Built on PR #37 (data, Start, Manage); review pass 1 addressed. `archived` flag, no backfill. **Device run owed** |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
@@ -6838,8 +6837,8 @@ Exercises and set counts only; no Add exercise on it.
 
 ### TICKET-065: Plan Card — Look at a Plan Before Starting It
 
-**Priority:** High | **Effort:** Medium | **Status: OPEN** — raised 2026-11-02. Workout
-hub redesign, stage 1 of 3 (065 → 066 → 067)
+**Priority:** High | **Effort:** Medium | **Status: MERGED** — PR #44 (54d1366),
+2026-11-02; device test not recorded as passed. Workout hub redesign, stage 1 of 3 (065 → 066 → 067)
 
 **Description:**
 Tapping a plan on Start Workout expands its row in place. Replace that with a card
@@ -6977,8 +6976,8 @@ deviations:
 
 ### TICKET-066: Workout Hub — Pick Today's Workout on the Workout Tab
 
-**Priority:** High | **Effort:** Medium-Large | **Status: OPEN** — raised 2026-11-02.
-Workout hub redesign, stage 2 of 3. After TICKET-065
+**Priority:** High | **Effort:** Medium-Large | **Status: MERGED** — PR #45 (49bc1c0),
+2026-11-04; device test not recorded as passed. Workout hub redesign, stage 2 of 3. After TICKET-065
 
 **Description:**
 The Workout tab is four identical grey tiles, and "Log Active Workout" opens a dead
@@ -7107,8 +7106,8 @@ plans as tiles, longest since done first, each opening TICKET-065's card.
 
 ### TICKET-067: Freestyle — Start a Workout With No Plan
 
-**Priority:** High | **Effort:** Medium | **Status: OPEN** — raised 2026-11-02.
-Workout hub redesign, stage 3 of 3. After TICKET-066. Takes over TICKET-057's core
+**Priority:** High | **Effort:** Medium | **Status: MERGED** — PR #46 (fa0a060),
+2026-11-04. Device run passed (2026-11-04); first-run card untested on device. Workout hub redesign, stage 3 of 3. After TICKET-066. Takes over TICKET-057's core
 
 **Description:**
 For a day with no plan in mind: start an empty workout and add exercises as you go.
@@ -7600,9 +7599,9 @@ it) once 046's content exists. Phase 3B; research is in
 its own and the next one does not reopen it.
 
 ```
-1. TICKET-065  (Plan card + set summary)  — Next. Built on today's Start screen
-2. TICKET-066  (Workout hub)              — Replaces the Workout tab; opens 065's card
-3. TICKET-067  (Freestyle)                — Adds the no-plan workout to 066's hub
+1. TICKET-065  (Plan card + set summary)  — Merged (PR #44, 2026-11-02); device test owed
+2. TICKET-066  (Workout hub)              — Merged (PR #45, 2026-11-04); device test owed
+3. TICKET-067  (Freestyle)                — Done (PR #46, 2026-11-04); device run passed
    TICKET-068  (Drag to close sheets)     — Open, low; real-phone check, from 065
    TICKET-069  (Remove exercise today)    — Done (PR #47, 2026-11-05); device run passed
 ```
