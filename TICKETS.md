@@ -44,7 +44,6 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 045 | Create a custom exercise again | Medium | Deferred 2026-10-24: catalog only for now. Reopen on evidence of a gap. Storage: per-plan copies today, library undecided |
 | 047 | Swap an exercise mid-workout | Medium | **In review**, PR #34 (branch TICKET-047, 2026-10-31); device re-run owed after the offline and layering fixes. Only at 0 sets, full picker, the new exercise's own history, this workout only |
 | 056 | Add an exercise mid-workout | Small-Med | After 047; reuses its picker mode. Appended, this workout only |
-| 069 | Remove an exercise from today's workout | Small | Raised 2026-11-05. **Built** on branch TICKET-069; device run passed. Design in `design/workout-flow/` (Remove boards). PR open. Reverses 056's "No remove action". Nothing stored changes |
 | 065 | Plan card + set-summary util | Medium | **Next.** Hub redesign 1 of 3; design final 2026-11-02 (`design/workout-flow/`, Hub boards) |
 | 066 | Workout hub | Medium-Large | Hub redesign 2 of 3, after 065 |
 | 067 | Freestyle: a workout with no plan | Medium | Hub redesign 3 of 3, after 066. Takes over 057's core |
@@ -7284,8 +7283,8 @@ close paths work. Check drag on a real phone across every sheet, every way in.
 
 ### TICKET-069: Remove an Exercise From Today's Workout
 
-**Priority:** Medium | **Effort:** Small | **Status: OPEN** — raised 2026-11-05;
-scenarios, design and code decided 2026-11-05; built, device run passed; PR open
+**Priority:** Medium | **Effort:** Small | **Status: MERGED** — PR #47 (0637530),
+2026-11-05. Device run passed (2026-11-05, Android emulator); iOS untested
 
 **Description:**
 Mid-workout the user decides not to do an exercise today. Two cases from the user:
@@ -7605,7 +7604,7 @@ its own and the next one does not reopen it.
 2. TICKET-066  (Workout hub)              — Replaces the Workout tab; opens 065's card
 3. TICKET-067  (Freestyle)                — Adds the no-plan workout to 066's hub
    TICKET-068  (Drag to close sheets)     — Open, low; real-phone check, from 065
-   TICKET-069  (Remove exercise today)    — Built, device run passed; PR open
+   TICKET-069  (Remove exercise today)    — Done (PR #47, 2026-11-05); device run passed
 ```
 
 **Before that (user, 2026-10-30):** the exercise menu, then swapping and adding an exercise
