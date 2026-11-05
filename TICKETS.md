@@ -47,7 +47,9 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 063 | Finish summary | Small-Med | Low. From 056's design review (2026-11-02): exercises and set counts before saving, as Finish's confirm. To decide: how 0-set exercises show, sheet or screen |
 | 068 | Drag to close: every sheet on a real phone | Small | Low. From 065's device run (2026-11-03): only `PlanCard` drags; decide drag on every sheet with a handle, or drop the handles |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
-| 070 | Keep plans (and recent history) on the phone | Medium | Raised 2026-11-05 (user). Instant and offline plans; whether to persist the history rollups too. Under discussion |
+| 070 | Keep plans on the phone | Medium | Raised 2026-11-05 (user). Approach decided: one stored copy, fetch only what changed. 2 stages; two devices moved to 073 |
+| 073 | Two devices editing one plan | Medium | Split from 070 (user, 2026-11-05). `rev` + a rules change; **before launch**; rules deploy after the app build |
+| 072 | Keep recent history on the phone | TBD | Split from 070 (user, 2026-11-05). Not yet discussed; after 070 |
 | 071 | History page redesign | Medium-Large | Raised 2026-11-05 (user). Design on the Drafts canvas first; after 070 |
 
 ### Not tickets — verification owed
@@ -7573,20 +7575,22 @@ like every action's caller (TICKET-004). Tour: notes only, in TICKET-053.
 
 ---
 
-### TICKET-070: Keep Plans (and Recent History) on the Phone
+### TICKET-070: Keep Plans on the Phone
 
 **Priority:** Medium | **Effort:** Medium | **Status: OPEN** — raised 2026-11-05 (user),
-under discussion
+approach decided 2026-11-05 (below). History moved to TICKET-072; two devices editing
+one plan (D6, D7, D10) moved to TICKET-073.
 
 **Description:**
 Plans change rarely (at most once or twice a day, usually about once a week), yet every
 screen that lists them reads them from Firestore each time. Keep them on the phone,
-show that copy at once and offline, and refresh from Firestore behind it. The same
-question for history: keep each exercise's recent sessions on the phone, or keep
-fetching them.
+show that copy at once and offline, and fetch only what changed, and only when it can
+have changed.
 
 **Why (user, 2026-11-05):** like the catalog, which is already cached (TICKET-042
-stage 2), plans hardly change, so a network read on every visit buys nothing.
+stage 2), plans hardly change. A read on every visit adds latency and data on a poor
+connection, and load on the database, for nothing. Sized for 1,000+ users and up to
+~20 plans each, not for today's handful.
 
 **What holds today (checked 2026-11-05):**
 - `useWorkoutPlans` calls `getAllWorkoutPlans` on every mount, and the hub and All
@@ -7595,30 +7599,171 @@ stage 2), plans hardly change, so a network read on every visit buys nothing.
   mid-workout picker. Nothing is shared.
 - Firestore runs on `memoryLocalCache()` (`src/services/firebase/firebase.ts`):
   React Native has no IndexedDB, so nothing survives an app restart. On an offline
-  cold start the plans are an empty cache and the hub shows "Your plans did not
-  load" (TICKET-052 D5); only a Freestyle can be started.
-- History already has a session-lifetime cache (`useExerciseHistoryStore`): one
-  `exercise_stats` rollup doc per exercise, prefetched at workout start, invalidated
-  after a save. The rollup is small and capped: 10 recent sessions, 12 volume points,
-  plus best-by-reps. It is lost on every app restart.
+  cold start the hub shows "Your plans did not load" (TICKET-052 D5); only a Freestyle
+  can be started.
+- The one writer is `overrideWorkoutDetails` (`userDB.ts`), a full overwrite on Save,
+  called only from Manage (`AddExerciseScreen`). Archive is a flag written by that same
+  Save (TICKET-061); nothing deletes a plan. `importHistory.ts` also writes plans, with
+  admin credentials.
+- Offline, a Save is held only in Firestore's memory queue: lost if the app is killed
+  (`AddExerciseScreen.tsx`, "Not saved yet").
+- Offline, `getDocs` does not reject: it answers from the cache (`userDB.ts`).
+- `firestore.rules` allows every read and write under `users/{uid}/**` with one
+  recursive rule.
 
-**The real gain** is instant screens and starting a planned workout offline, not
-fewer reads. At ~5–10 users a plans read is a handful of documents.
+**Size (user's budget, 2026-11-05):** up to 20 plans of up to 20 KB each, so 400 KB at
+most; one Firestore doc may be 1 MB, AsyncStorage on Android allows ~6 MB by default.
 
-**To discuss:**
-- Plans: stale-while-revalidate (show the copy, re-read in the background each time)
-  vs a version check (one small doc says when plans last changed, as the catalog's
-  hash does) vs trust the copy until this device saves. Edits from a second device
-  or the console are the case that decides it.
-- One shared plans store instead of five hook copies: the cache needs one owner.
-- History: persist the rollups (small, capped) keyed by exercise id, or keep
-  fetching. Same staleness question: a workout finished on another device.
-- Account switch: anything cached is per user and must be cleared on sign-out
-  (TICKET-026).
-- What a stale copy looks like: shown silently, or marked.
+**Decided (user, 2026-11-05):**
+- **D1 One plans store** on the phone, read by every screen instead of the five hook
+  copies, saved to AsyncStorage, keyed by user id, with a stored format version.
+- **D2 Sign-out clears it** (TICKET-026). A stored copy with a different format version
+  is discarded and fetched again. Clearing first stops any save still in flight, so a
+  late write cannot refill it.
+- **D3 Fetch only what changed.** Each plan carries `updatedAt`, set to
+  `serverTimestamp()` on every save. A check queries `updatedAt >= lastSeen`, where
+  `lastSeen` is the newest `updatedAt` already held (the server's clock, never the
+  phone's), and merges the result. Duplicates at the same instant are dropped.
+  - Rejected: a metadata doc saying when plans last changed. It costs the same one
+    read when nothing changed, and a second round trip when something did.
+  - Plans saved before 070 have no `updatedAt`: the first full load gets them, and
+    their next Save adds the field. No backfill.
+- **D4 When to check:** on a cold start; on return to the foreground after more than
+  30 minutes away; and on opening a plan to edit in Manage (that one plan, fresh, so an
+  edit is not made on an old version). Opening a screen otherwise reads the stored
+  copy. While the app is in use, a change made on another device may show late;
+  `rev` (D6, TICKET-073) keeps it from doing harm (user, 2026-11-05).
+  - Rejected for now: a live listener. Always current, but it holds a connection open
+    and React Native can drop it quietly in the background. Revisit if "edited on one
+    device, stale on the other" shows up in feedback.
+- **D5 Full reload** on Reload, and on the first check after a week with no full
+  reload, to catch plans deleted outside the app (console, scripts). A future Delete
+  marks the plan `deleted: true` and sets `updatedAt` rather than removing the doc, so
+  the change query sees it.
+- **D6, D7 → TICKET-073** (`rev`, and what a refused save does).
+- **D8 The stored copy changes only on what the server confirmed:** a Save updates it
+  when the write resolves, never before. Offline, Save behaves as today ("Not saved
+  yet"), so the phone never shows a save the server did not get.
+- **D9 One check at a time.** A second trigger while a check runs joins it instead of
+  issuing another read; the wait is bounded (as `raceSave` is), after which the screen
+  shows the stored copy and the answer applies when it arrives.
+- **D10 Newer `updatedAt` wins a merge.** An incoming plan replaces the stored one only
+  if its `updatedAt` is newer, so a check that started before a Save and answers after
+  it cannot undo the Save. TICKET-073 switches this to the higher `rev`.
+- **D11 Absence is explicit** (CLAUDE.md 2.4): "nothing stored" and "stored, no plans"
+  are different states. A check that comes back empty *from the cache* failed; it
+  does not count as "nothing changed" and does not move `lastSeen` or the weekly
+  timer. An unreadable stored copy counts as nothing stored.
+- **D12 First launch offline** (nothing stored) shows "Couldn't load plans" as today;
+  how that state looks is for later.
+- **D13 Plan order** in every list stays as today, whatever order merged updates
+  arrive in.
+
+**Out of scope:** history (TICKET-072); two devices editing one plan, and any rules
+change (TICKET-073); a live listener; how the offline first-launch state looks.
+
+**Build (stages, each runnable on its own — CLAUDE.md 3.4):**
+1. The plans store (D1, D2, D8, D11, D12, D13): every screen reads it; a full read on
+   the D4 triggers. No new fields yet.
+2. Fetch only what changed (D3, D4, D5, D9, D10): `updatedAt` on Save and in
+   `importHistory.ts`, the change query, the weekly full reload, the edit-open read of
+   one plan.
+
+Device test after stage 1 as well as at the end: stage 1 is where screens change and
+offline start appears (user, 2026-11-05).
+
+**Acceptance Criteria:**
+- [ ] Measured (CLAUDE.md 3.1): a cold start with nothing changed issues 1 read and
+      returns no docs; one plan edited elsewhere returns 1 doc; opening hub, Start,
+      Manage, History filter and the picker issues 0 reads
+- [ ] A temporary readout (CLAUDE.md 3.3) shows `lastSeen`, the last check and its
+      result, each plan's `updatedAt`; marked `TEMPORARY`, removed before merge
+- [ ] Device test after stage 1: offline cold start with plans stored starts a planned
+      workout; a Save in Manage shows on the hub with no re-read; sign-out then sign-in
+      as another user shows none of the first user's plans
+- [ ] Device test after stage 2: edit on device A, cold start on device B shows it
 
 **Dependencies:** none. Touches TICKET-026 (clear on sign-out), TICKET-029 (what is
-stored locally), TICKET-071 (History reads plans and history).
+stored locally), TICKET-049 (scripts on the admin SDK), TICKET-071 (History reads
+plans), TICKET-073 (builds on its store).
+
+---
+
+### TICKET-072: Keep Recent History on the Phone
+
+**Priority:** Medium | **Effort:** TBD | **Status: OPEN** — split from TICKET-070
+(user, 2026-11-05), not yet discussed
+
+**Description:**
+Whether to keep each exercise's recent history on the phone across restarts, or keep
+fetching it. The user's thought: only the last two or three sessions per exercise are
+needed, but history changes every day and the number of exercises can be large.
+
+**What holds today (checked 2026-11-05):** `useExerciseHistoryStore` is a
+session-lifetime cache of one `exercise_stats` rollup doc per exercise, prefetched at
+workout start and invalidated after a save. The rollup is small and capped: 10 recent
+sessions, 12 volume points, plus best-by-reps. It is lost on every restart, so offline
+after a cold start the history sheet and "last time" show their failed state. Full
+session docs grow without limit and are not a candidate.
+
+**To discuss:** persist the rollups (keyed by exercise id) or not; how fresh they must
+be (a workout finished on another device); when to refresh; whether 070's pattern
+(`updatedAt`, fetch only what changed, sign-out clears) carries over; size at ~100
+exercises per user.
+
+**Dependencies:** after TICKET-070 (reuse its store pattern). Touches TICKET-071.
+
+---
+
+### TICKET-073: Two Devices Editing One Plan
+
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — split from TICKET-070
+stage 3 (user, 2026-11-05); decided there, 2026-11-05. **Before launch.**
+
+**Description:**
+Save overwrites the whole plan (`overrideWorkoutDetails`, `merge: false`), so with one
+account on two devices the last save wins and silently erases the other device's edit.
+Make the server refuse a save that was based on an old version of the plan.
+
+**Why split from 070:** it has a release gate (the app build that sends `rev` must be
+out before the rules deploy), it needs a way to test Firestore rules that the repo does
+not have, and it blocks nothing: last-save-wins is today's behaviour, and 070 does not
+make it worse.
+
+**Decided (user, 2026-11-05; numbers kept from TICKET-070):**
+- **D6 `rev`.** Each plan carries a revision number. Save writes the loaded `rev` + 1,
+  and a Firestore rule accepts the write only if the stored `rev` is the one this device
+  loaded (a missing `rev` counts as 0). A save based on an old version is refused by the
+  server, online or when a queued write lands later. Rejected: a transaction, which
+  refuses every offline save.
+- **D7 A refused save** reloads that plan at once, so the phone does not keep an old
+  `rev` that refuses every later save. Shown as "This plan changed on another device"
+  when online; logged only when it lands late from the queue. The lost edits are not
+  kept as a draft (MVP; later).
+- **D10 Higher `rev` wins a merge**, replacing 070's newer-`updatedAt` rule.
+
+**Rules (checked 2026-11-05):** `firestore.rules` allows every read and write under
+`users/{uid}/**` with one recursive rule. Firestore allows a request if any matching
+rule allows it, so a stricter plans rule next to the catch-all does nothing: the
+catch-all must be split so plans get their own rule.
+
+**Deploy order:** the app build that sends `rev` ships first; then the user deploys the
+rules (`npx firebase-tools deploy --only firestore:rules`). Deployed first, the rule
+refuses every Save from installed builds. The deploy is the user's to trigger.
+
+**To decide at build time:** how the rule is tested. Recommended: add the Firestore
+emulator and `@firebase/rules-unit-testing` (new dev tool, needs Java), since a wrong
+rule locks every user's saves. Fallback: a manual run after deploy with a "test…" plan
+on two emulators.
+
+**Acceptance Criteria:**
+- [ ] Rule tests: a save with the stored `rev` passes; with an old `rev` is refused; a
+      new plan and a plan with no `rev` pass; other collections behave as before
+- [ ] Device test: edit on device A; device B, holding the old version, saves and is
+      refused, sees the notice, and shows A's plan; B's next save goes through
+- [ ] Rules deployed by the user after the app build is out
+
+**Dependencies:** after TICKET-070 (its store and merge).
 
 ---
 
@@ -7639,7 +7784,7 @@ filter: plan, then exercise) or exercise-first, given that history is already ke
 by exercise; how Freestyle fits; what reuses the history sheet (TICKET-020) and
 set summary util (065).
 
-**Dependencies:** best after TICKET-070 decides how plans and history are read.
+**Dependencies:** best after TICKET-070 and TICKET-072 decide how plans and history are read.
 Touches TICKET-037 (two sessions on the same day).
 
 ---
