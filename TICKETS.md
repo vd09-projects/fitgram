@@ -47,10 +47,9 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 063 | Finish summary | Small-Med | Low. From 056's design review (2026-11-02): exercises and set counts before saving, as Finish's confirm. To decide: how 0-set exercises show, sheet or screen |
 | 068 | Drag to close: every sheet on a real phone | Small | Low. From 065's device run (2026-11-03): only `PlanCard` drags; decide drag on every sheet with a handle, or drop the handles |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
-| 070 | Keep plans on the phone | Medium | Raised 2026-11-05 (user). Approach decided: one stored copy, check on each plans screen (1 read when nothing changed), full reload on an interval. 2 stages; two devices moved to 073 |
 | 073 | Two devices editing one plan | Medium | Split from 070 (user, 2026-11-05). `rev` + a rules change; **before launch**; rules deploy after the app build |
-| 072 | Keep recent history on the phone | TBD | Split from 070 (user, 2026-11-05). Not yet discussed; after 070 |
-| 071 | History page redesign | Medium-Large | Raised 2026-11-05 (user). Design on the Drafts canvas first; after 070 |
+| 072 | Keep recent history on the phone | TBD | Split from 070 (user, 2026-11-05). Not yet discussed; 070 is merged |
+| 071 | History page redesign | Medium-Large | Raised 2026-11-05 (user). Design on the Drafts canvas first; 070 is merged |
 
 ### Not tickets — verification owed
 
@@ -7577,8 +7576,9 @@ like every action's caller (TICKET-004). Tour: notes only, in TICKET-053.
 
 ### TICKET-070: Keep Plans on the Phone
 
-**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — raised 2026-11-05 (user),
-approach decided 2026-11-05/06 (below). History moved to TICKET-072; two devices editing
+**Priority:** Medium | **Effort:** Medium | **Status: MERGED** — stage 1 PR #48 (58741ee),
+stage 2 PR #49 (d30457e), both 2026-11-06. Device runs after each stage passed (below).
+Raised 2026-11-05 (user), approach decided 2026-11-05/06 (below). History moved to TICKET-072; two devices editing
 one plan (D6, D7, D10's `rev`) moved to TICKET-073.
 
 **Description:**
