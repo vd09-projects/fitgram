@@ -7757,15 +7757,92 @@ offline start appears (user, 2026-11-05).
   shown (`readStoredPlans` rejects it).
 - Open before stage 2: D4 says opening a plan to edit reads that one plan fresh. A change
   check costs the same 1 read and downloads nothing when unchanged; settle which one
-  stage 2 builds (PR #48 review).
+  stage 2 builds (PR #48 review). **Settled in stage 2: a change check** (below).
+
+**Stage 2 as built (2026-11-06; deviations and choices, CLAUDE.md 2.2):**
+- **D4's edit-open read is a forced change check**, not a read of the one plan: the same
+  1 read, it downloads nothing when unchanged, and it brings any other plan changed
+  since. Only for a stored plan (a new one has nothing to check). Changed and the draft
+  not dirty: the new version replaces `saved` and the draft in place
+  (`refreshOpenPlan`). Dirty: the draft stays (TICKET-073). A plan the check removed
+  (`deleted`) leaves the open draft as it is; Delete is a future ticket.
+- **Save's `updatedAt` (option B, read back):** `setDoc` does not return the server stamp,
+  so after a confirmed Save `applySaved` runs a change query from `lastSeen` and merges
+  it (D10), which stamps the saved plan and moves `lastSeen` past the Save. Cost: 1 read
+  per Save; the next check then returns 0 docs, not the plan again. Rejected: option A
+  (unstamped until the next check: free, but nothing orders it against a slow check's
+  answer, so D10 could not replace stage 1's guard); a read of the one doc (same read,
+  but `lastSeen` cannot move, so the next check returns the plan once more). The
+  read-back does not join a running check (D9): that read may predate the Save. If the
+  read-back fails or misses the plan, the plan goes in unstamped and the 2-minute skip
+  is lifted; until the next check a slow check could put the old version back
+  (accepted: needs a failure right after a successful write).
+- **A stored `updatedAt` is never written back:** `overrideWorkoutDetails` picks its fields
+  one by one and adds `updatedAt: serverTimestamp()`; `draftFromPlan`/`planFromDraft` do
+  not carry it either. `importHistory.ts` writes `FieldValue.serverTimestamp()` on each
+  plan in its `--confirm` path.
+- **`savesApplied` removed.** D10 covers its case: "a check that started before a Save
+  cannot undo it" passes without it and fails with D10's comparison switched off.
+  `newestApplied` (a stalled check landing after a forced one) stays: it also covers
+  unstamped plans, which D10 cannot order.
+- **Full reload with D10:** a full reload replaces what is held, except a held plan newer
+  than the server's copy, and a held plan absent from the answer whose stamp is after
+  `lastSeen` when the read started (a Save of a new plan while the read was out).
+  Everything else absent is dropped: that is how removals outside the app go. Equal
+  stamps take the server's copy, so a console edit that kept the stamp shows on a full
+  reload.
+- **Stamps are `{seconds, nanoseconds}`** (`PlanStamp`), never milliseconds, in the store
+  and on disk; the query rebuilds the exact `Timestamp`. No stamp is older than any
+  stamp.
+- **`lastSeen` unset** (no stamped plan seen yet, e.g. every plan predates 070): a change
+  check from the Unix epoch (`NO_STAMP_SEEN`, named), which returns every stamped plan:
+  none until one is saved. Rejected: a full read each time, one read per plan per check.
+  `lastSeen` counts `deleted` markers too, or one would come back on every check.
+- **`PLANS_FULL_RELOAD_INTERVAL_MS` = 7 days** in `planSync.ts` beside the other plans
+  constants (D5's `FULL_RELOAD_INTERVAL`): nothing in the app removes a plan yet, so a
+  full reload only catches hand edits, and it costs up to 20 reads against 1. Timed by
+  the phone's clock (a schedule, not a change marker); a last full reload in the future
+  counts as due. `REMOVAL_WINDOW`, TTL and the interval ≤ window test are left to Delete.
+- **Full reload** on: Try again / Retry (`retry` passes `full`), nothing stored, no
+  `lastFullAt`, or the interval passed. Not on each cold start: `lastFullAt` is stored.
+  Try again and Retry show only with nothing stored, which is a full reload anyway, so
+  `full` there has no visible effect today (a test that drops it still passes); kept so
+  a Reload shown with plans stored would be full.
+- **`formatVersion` 2** stores `lastSeen` and `lastFullAt`; a stage 1 copy is discarded
+  and fully reloaded (seen on the device: "read full", 4 docs, on the first launch).
+- **`deleted: true`** plans are dropped by both merges and never enter the store, so no
+  reader sees them; the stored copy never holds one. The admin scripts' `--inspect`
+  listings still print them (not readers of the app).
+- Plans saved before 070 have no stamp: the change query skips them and only a full
+  reload sees an outside edit to them. No backfill. A console edit does not stamp
+  either (D5 accepts it).
+- Not changed: `src/scripts/addExerciseToUserWorkout.ts` also `setDoc`s a plan (a seed
+  script for `user_123`, the pre-051 field shape), unstamped. Left alone: it is not a
+  live writer, and its plans would show on the next full reload.
+- Seen on the device, not from this ticket: after a Save in Manage, the add-field box
+  still shows the text typed into it, while the draft (and Save) treat it as saved.
+  `ExerciseFieldEditor` keeps that text in its own state (unchanged since 52484ca,
+  TICKET-051). Not fixed here.
+- The debug page now shows `lastSeen` (seconds and nanoseconds), the last full reload and
+  when the next is due, each plan's stamp, and each check's kind (full, change, save
+  read-back) with the docs it returned; a "Full reload now" button. Still TEMPORARY:
+  remove before stage 2 merges, by the steps in its header comment.
 
 **Acceptance Criteria:**
 - [ ] Measured (CLAUDE.md 3.1), stage 2: a plans screen open with nothing changed
       issues 1 read and returns 0 docs; one plan edited elsewhere returns 1 doc; a
       second plans screen within 2 minutes issues 0 reads
+      - 2026-11-06, Android emulator, debug page log. Nothing changed: hub focus after
+        the skip expired, `read change` → `ok change (0 docs)`, server reads +1; again
+        with a real stamp held (`lastSeen` 1793962776 s 788000000 ns): 0 docs; after a
+        cold start: `read change`, 0 docs, no full reload. Second screen within 2
+        minutes: `skipped`, reads unchanged. Edited elsewhere → 1 doc: **not yet
+        measured** (needs the Firebase console edit, below). Measured on the way: a
+        Save costs 1 read (`save read-back (1 docs)`), and the next check 0 docs.
 - [ ] A temporary readout (CLAUDE.md 3.3) shows what the store holds, `lastSeen`, the
       last check, its kind (full or change) and result; marked `TEMPORARY`, removed
       before merge
+      - Built (Plans Store page); removal still to do before stage 2 merges.
 - [x] Device test after stage 1: offline cold start with plans stored starts a planned
       workout; a Save in Manage shows on the hub with no re-read; sign-out then sign-in
       as another user shows none of the first user's plans
@@ -7783,6 +7860,18 @@ offline start appears (user, 2026-11-05).
       - Writes made: one plan "Test 070" on the test account pinky@gmail.com.
 - [ ] Device test after stage 2: edit a "test…" plan in the Firebase console (as a
       second device), open a plans screen on the emulator, see it change with 1 doc read
+      - 2026-11-06, Android emulator, account uid 17AePB…, `SHOW_DEBUG_SCREENS=true`,
+        Metro restarted with `-c`. Passed so far: the stage 1 copy discarded (format 1)
+        and fully reloaded, 4 docs; opening "test 070" in Manage ran `read change
+        (forced)`, 0 docs (D4); Save of "test 070" read its stamp back, 1 doc, and
+        `lastSeen` moved to it; offline (wifi and data off) two forced change checks and
+        a forced full reload all logged `failed`, and `lastSeen`, last ok, last full
+        reload and the 4 plans held stayed as they were (D11); the hub showed all 4
+        plans offline.
+      - Still to run: the console edit of a "test…" plan with `updatedAt` set by hand,
+        then a plans screen (expect `change (1 docs)`) and Manage showing it fresh.
+      - Writes made: one Save of "test 070" (`zlmS2YQIDr1BHn1xmYWd`) adding an `other`
+        field "Notes"; that Save also wrote its first `updatedAt`. Nothing else.
 
 **Dependencies:** none. Touches TICKET-026 (clear on sign-out), TICKET-029 (what is
 stored locally), TICKET-049 (scripts on the admin SDK), TICKET-071 (History reads

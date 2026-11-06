@@ -78,7 +78,30 @@ export type WorkoutPlan = {
    * whole and filtered on the phone, as they already were.
    */
   archived?: boolean;
+  /**
+   * TICKET-070 D3: when the server last wrote this plan, set to
+   * `serverTimestamp()` by every save (Manage, `importHistory.ts`), never by
+   * the phone. Read only: Save writes a fresh server stamp whatever the plan
+   * it is given carries (`overrideWorkoutDetails`). Absent on plans saved
+   * before 070 (no backfill) and on edits made outside the app, which only a
+   * full reload sees (D5).
+   */
+  updatedAt?: PlanStamp;
+  /**
+   * TICKET-070 D5: the future Delete's marker. Never written by this build;
+   * a plan carrying it is dropped by every merge (`planSync.ts`), so no reader
+   * ever sees it.
+   */
+  deleted?: boolean;
 };
+
+/**
+ * A Firestore Timestamp as plain numbers, so it survives JSON in the stored
+ * copy at full precision. Not milliseconds: the server stamps to the
+ * microsecond, and a value rounded down to the millisecond would make
+ * `updatedAt > lastSeen` return the newest plan on every check.
+ */
+export type PlanStamp = { seconds: number; nanoseconds: number };
 
 /** TICKET-061: only a stored `true` archives a plan; absent or anything else does not. */
 export const isArchived = (plan: Pick<WorkoutPlan, "archived">): boolean => plan.archived === true;

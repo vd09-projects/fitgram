@@ -3,7 +3,7 @@ import { AppState } from "react-native";
 import WorkoutHubScreen from "./WorkoutHubScreen";
 import { renderScreen, TEST_USER_ID } from "../../test/renderScreen";
 import { buildExercise, buildWorkout } from "../../test/fixtures";
-import { getAllWorkoutPlans } from "../../services/db/userDB";
+import { getAllWorkoutPlans, getChangedPlans } from "../../services/db/userDB";
 import { getExerciseStats, getWorkoutSessions } from "../../services/db/workoutSessions";
 import { WorkoutRoutes } from "../../constants/routes";
 import { WorkoutPlan } from "../../types/workoutType";
@@ -15,6 +15,7 @@ import { PLANS_CHECK_SKIP_MS } from "../../utils/planSync";
 jest.mock("../../services/db/userDB", () => ({
   ...jest.requireActual("../../services/db/userDB"),
   getAllWorkoutPlans: jest.fn(),
+  getChangedPlans: jest.fn(async () => []),
 }));
 jest.mock("../../services/db/workoutSessions", () => ({
   ...jest.requireActual("../../services/db/workoutSessions"),
@@ -125,14 +126,16 @@ describe("WorkoutHubScreen", () => {
     await renderHub([PUSH]);
     await waitFor(() => expect(tile("push")).toBeTruthy());
     expect(mockPlans).toHaveBeenCalledTimes(1);
-    mockPlans.mockResolvedValue([PUSH, PULL]);
+    // TICKET-070 stage 2: a check after the first load asks only for what changed.
+    jest.mocked(getChangedPlans).mockResolvedValueOnce([PULL]);
     await act(() => jest.advanceTimersByTimeAsync(PLANS_CHECK_SKIP_MS));
     const handlers = (AppState.addEventListener as jest.Mock).mock.calls
       .filter(([type]) => type === "change")
       .map(([, handler]) => handler);
     await act(async () => handlers.forEach((handler) => handler("active")));
     await waitFor(() => expect(tile("pull")).toBeTruthy());
-    expect(mockPlans).toHaveBeenCalledTimes(2);
+    expect(mockPlans).toHaveBeenCalledTimes(1);
+    expect(getChangedPlans).toHaveBeenCalledTimes(1);
   });
 
   // The six tiles reorder when sessions land; an open card must not close

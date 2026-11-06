@@ -15,6 +15,9 @@
 // What it is for (TICKET-070 device test):
 //  - hub → All plans → Manage within 2 minutes: "server reads" goes up by 1,
 //    the rest log "skipped"
+//  - stage 2: each check logs its kind (full or change) and the docs it
+//    returned; nothing changed is "ok change (0 docs)". "Last seen" is the
+//    server stamp the next change check starts after
 //  - Save in Manage: "holds" goes up, reads do not
 //  - offline: the check logs "failed", the stored copy stays; "dropped" is
 //    an answer set aside as older than a Save or a newer check, not a failure
@@ -29,12 +32,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import ScrollableScreen from "../../components/ScrollableScreen";
 import { TextBase } from "../../components/TextBase";
 import { PLANS_STORAGE_KEY, usePlansStore } from "../../stores/usePlansStore";
-import { PLANS_CHECK_SKIP_MS } from "../../utils/planSync";
+import { PLANS_CHECK_SKIP_MS, PLANS_FULL_RELOAD_INTERVAL_MS } from "../../utils/planSync";
+import type { PlanStamp } from "../../types/workoutType";
 import { BORDER_RADIUS, SPACING } from "../../constants/styles";
 import { ReturnTypeUseThemeTokens } from "../../components/app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 
 const time = (ms: number) => new Date(ms).toLocaleTimeString();
+// Seconds and nanoseconds as stored, plus a readable time: the console shows the latter.
+const stamp = (s: PlanStamp) => `${new Date(s.seconds * 1000).toLocaleString()} (${s.seconds}s ${s.nanoseconds}ns)`;
 
 /** The stored copy, read directly: memory can't prove what survives a restart or a sign-out. */
 async function readDisk(): Promise<string> {
@@ -43,7 +49,8 @@ async function readDisk(): Promise<string> {
     if (raw === null) return "key absent";
     const parsed = JSON.parse(raw);
     const count = Array.isArray(parsed?.plans) ? parsed.plans.length : "?";
-    return `${count} plans · format ${parsed?.formatVersion} · user ${String(parsed?.uid).slice(0, 6)} · ${raw.length} chars`;
+    const seen = parsed?.lastSeen ? `${parsed.lastSeen.seconds}s ${parsed.lastSeen.nanoseconds}ns` : "none";
+    return `${count} plans · format ${parsed?.formatVersion} · user ${String(parsed?.uid).slice(0, 6)} · last seen ${seen} · ${raw.length} chars`;
   } catch (error) {
     return `unreadable: ${error instanceof Error ? error.message : String(error)}`;
   }
@@ -71,6 +78,13 @@ export default function PlansStoreDebugScreen() {
     ["Check", s.checking ? (s.waitOver ? "running, wait over" : "running") : "idle"],
     ["Last result", s.lastResult ?? "none"],
     ["Last ok", s.lastOkAt ? `${time(s.lastOkAt)} · checks skipped until ${time(s.lastOkAt + PLANS_CHECK_SKIP_MS)}` : "never"],
+    ["Last seen", s.lastSeen ? stamp(s.lastSeen) : "none (a change check starts at the epoch)"],
+    [
+      "Last full reload",
+      s.lastFullAt
+        ? `${new Date(s.lastFullAt).toLocaleString()} · next due ${new Date(s.lastFullAt + PLANS_FULL_RELOAD_INTERVAL_MS).toLocaleString()}`
+        : "never (the next check is full)",
+    ],
     ["Server reads", `${s.readout.reads} this app run`],
   ];
 
@@ -96,6 +110,7 @@ export default function PlansStoreDebugScreen() {
           Clear store: sign-out's clear without signing out; the next plans screen reloads. */}
       {button("Force check now", () => usePlansStore.getState().check({ force: true }))}
       {button("Expire the 2-minute skip", () => usePlansStore.setState({ lastOkAt: null }))}
+      {button("Full reload now (as Try again)", () => usePlansStore.getState().check({ force: true, full: true }))}
       {button("Clear store (as sign-out)", () => usePlansStore.getState().clear())}
 
       <TextBase style={styles.section}>Checks, newest first</TextBase>
@@ -105,6 +120,7 @@ export default function PlansStoreDebugScreen() {
         s.readout.log.map((entry, index) => (
           <TextBase key={index} style={styles.line}>
             {time(entry.at)} {entry.outcome}
+            {entry.kind ? ` ${entry.kind}` : ""}
             {entry.detail ? ` (${entry.detail})` : ""}
           </TextBase>
         ))
@@ -115,6 +131,7 @@ export default function PlansStoreDebugScreen() {
         <TextBase key={plan.id} style={styles.line}>
           {plan.name} · {plan.exercises.length} ex · {plan.id}
           {plan.archived ? " · archived" : ""}
+          {plan.updatedAt ? ` · ${plan.updatedAt.seconds}s ${plan.updatedAt.nanoseconds}ns` : " · no stamp"}
         </TextBase>
       ))}
     </ScrollableScreen>

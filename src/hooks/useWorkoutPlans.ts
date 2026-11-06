@@ -20,7 +20,8 @@ import { plansView } from "../utils/planSync";
  * only `loadingWorkoutPlans`, so there a failed first load still shows "No
  * plans yet": a known gap, now only on a first launch offline (D12).
  *
- * `retry` reads every plan now, past the 2-minute skip (Try again, Reload).
+ * `retry` reads every plan now, past the 2-minute skip: a full reload (Try
+ * again, Reload; D5).
  */
 export default function useWorkoutPlans({ check = "mount" }: { check?: "mount" | "none" } = {}) {
   const { user } = useAuthUser();
@@ -36,7 +37,7 @@ export default function useWorkoutPlans({ check = "mount" }: { check?: "mount" |
   }, [uid, check]);
 
   const retry = useCallback(() => {
-    usePlansStore.getState().check({ force: true });
+    usePlansStore.getState().check({ force: true, full: true });
   }, []);
 
   const view = useMemo(
