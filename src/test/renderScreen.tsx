@@ -97,7 +97,7 @@ export function resetStores() {
   // `clear` also drops the store's module state (a check in flight, the
   // stored-copy read), which `setState` cannot reach.
   usePlansStore.getState().clear();
-  usePlansStore.setState({ readout: { reads: 0, log: [] } }); // TEMPORARY (TICKET-070 debug page)
+  usePlansStore.setState({ readout: { reads: 0, log: [] } }); // debug readout (Plans Store page)
   AsyncStorage.clear();
 }
 

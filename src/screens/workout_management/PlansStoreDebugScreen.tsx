@@ -1,18 +1,21 @@
 // src/screens/workout_management/PlansStoreDebugScreen.tsx
 //
-// TEMPORARY (TICKET-070, CLAUDE.md 3.3). Makes the plans store observable on a
-// device: what it holds, what is on disk, and what each check did. Kept
-// through stage 2, whose 1-read check it measures; remove before stage 2
-// merges:
-//  1. Delete this file.
-//  2. Its route in constants/routes.tsx, its type and Stack.Screen in
-//     navigation/WorkoutNavigator.tsx, its button in
-//     components/workout_hub/HubDebugRow.tsx and WorkoutHubScreen, and its
-//     mock in screens/LayoutScreen.test.tsx.
-//  3. usePlansStore: `ReadoutEntry`, the `readout` field and its initial value,
-//     `note` and its calls (every line marked TEMPORARY).
+// Debug tooling, kept for good (TICKET-070; user, 2026-11-06), behind
+// `showDebugScreens` like the other debug pages: a device run needs
+// `SHOW_DEBUG_SCREENS=true` in `.env` and a Metro restart, and release builds
+// never show it (docs/RELEASE.md). Makes the plans store observable on a
+// device: what it holds, what is on disk, and what each check did. Built as
+// CLAUDE.md 3.3's instrument for TICKET-070; kept because the store is
+// invisible otherwise, and TICKET-072/073 build on it.
 //
-// What it is for (TICKET-070 device test):
+// Its parts, if it is ever removed: this file; its route in
+// constants/routes.tsx, its type and Stack.Screen in
+// navigation/WorkoutNavigator.tsx, its button in
+// components/workout_hub/HubDebugRow.tsx and WorkoutHubScreen, its mock in
+// screens/LayoutScreen.test.tsx; in usePlansStore, `ReadoutEntry`, the
+// `readout` field and `note` (each marked "debug readout").
+//
+// What it shows (TICKET-070 device test):
 //  - hub → All plans → Manage within 2 minutes: "server reads" goes up by 1,
 //    the rest log "skipped"
 //  - stage 2: each check logs its kind (full or change) and the docs it

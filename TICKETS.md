@@ -7838,8 +7838,13 @@ offline start appears (user, 2026-11-05).
   TICKET-051). Not fixed here.
 - The debug page now shows `lastSeen` (seconds and nanoseconds), the last full reload and
   when the next is due, each plan's stamp, and each check's kind (full, change, save
-  read-back) with the docs it returned; a "Full reload now" button. Still TEMPORARY:
-  remove before stage 2 merges, by the steps in its header comment.
+  read-back) with the docs it returned; a "Full reload now" button.
+- **The Plans Store debug page is kept for good** (user, 2026-11-06), not removed before
+  merge as stage 1 and the readout criterion said. Behind `showDebugScreens` like the
+  other debug pages, so release builds never show it (docs/RELEASE.md lists it). Its
+  "TEMPORARY" markers (page, `usePlansStore`'s `readout` and `note`, route, navigator,
+  hub button, test harness) now say it is lasting debug tooling; the page's header still
+  lists its parts in case it is ever removed. Code unchanged.
 
 **Acceptance Criteria:**
 - [ ] Measured (CLAUDE.md 3.1), stage 2: a plans screen open with nothing changed
@@ -7852,10 +7857,10 @@ offline start appears (user, 2026-11-05).
         minutes: `skipped`, reads unchanged. Edited elsewhere → 1 doc: **not yet
         measured** (needs the Firebase console edit, below). Measured on the way: a
         Save costs 1 read (`save read-back (1 docs)`), and the next check 0 docs.
-- [ ] A temporary readout (CLAUDE.md 3.3) shows what the store holds, `lastSeen`, the
-      last check, its kind (full or change) and result; marked `TEMPORARY`, removed
-      before merge
-      - Built (Plans Store page); removal still to do before stage 2 merges.
+- [x] A readout (CLAUDE.md 3.3) shows what the store holds, `lastSeen`, the last check,
+      its kind (full or change) and result
+      - Built (Plans Store page). Kept as lasting debug tooling behind
+        `showDebugScreens`, not removed before merge (user, 2026-11-06).
 - [x] Device test after stage 1: offline cold start with plans stored starts a planned
       workout; a Save in Manage shows on the hub with no re-read; sign-out then sign-in
       as another user shows none of the first user's plans

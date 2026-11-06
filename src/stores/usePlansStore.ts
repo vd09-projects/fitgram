@@ -53,7 +53,7 @@ export type PlansSource = "none" | "stored" | "server";
 
 export type CheckKind = "full" | "change";
 
-// TEMPORARY (TICKET-070 debug page, CLAUDE.md 3.3). Remove with PlansStoreDebugScreen.
+// Debug readout, for the Plans Store debug page (TICKET-070; kept, user 2026-11-06).
 export type ReadoutEntry = {
   at: number;
   outcome: "read" | "skipped" | "joined" | "ok" | "failed" | "dropped";
@@ -81,7 +81,7 @@ interface PlansStore {
   /** When the last full reload answered, the phone's clock (D5). Stored with the plans. */
   lastFullAt: number | null;
   epoch: number;
-  // TEMPORARY (TICKET-070 debug page). Server reads issued this app run, and the last few checks.
+  // Debug readout (Plans Store page). Server reads issued this app run, and the last few checks.
   readout: { reads: number; log: ReadoutEntry[] };
 
   /** A plans screen opened: load the stored copy for `uid`, then check unless `check` is false. */
@@ -116,7 +116,7 @@ const initialState = {
   lastOkAt: null,
   lastSeen: null,
   lastFullAt: null,
-  readout: { reads: 0, log: [] }, // TEMPORARY (TICKET-070 debug page)
+  readout: { reads: 0, log: [] }, // debug readout (Plans Store page)
 };
 
 // ---------------------------------------------------------------------------
@@ -243,7 +243,7 @@ function stateAfterSave(state: State, plan: WorkoutPlan, docs: WorkoutPlan[] | n
 // ---------------------------------------------------------------------------
 
 export const usePlansStore = create<PlansStore>((set, get) => {
-  // TEMPORARY (TICKET-070 debug page).
+  // Debug readout (Plans Store page): logs each check and counts server reads.
   const note = (outcome: ReadoutEntry["outcome"], kind?: ReadoutEntry["kind"], detail?: string) =>
     set((s) => ({
       readout: {
@@ -423,8 +423,7 @@ export const usePlansStore = create<PlansStore>((set, get) => {
     clear: () => {
       checkInFlight = null;
       storedLoad = null;
-      // TEMPORARY (TICKET-070 debug page): `readout` counts the whole app run,
-      // so it survives a clear; back to `{ ...initialState, epoch }` on removal.
+      // Debug readout: `readout` counts the whole app run, so it survives a clear.
       set((s) => ({ ...initialState, epoch: s.epoch + 1, readout: s.readout }));
       persist();
     },
