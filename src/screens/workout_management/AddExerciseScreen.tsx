@@ -97,8 +97,9 @@ export default function AddExerciseScreen() {
   const [pickerOpen, setPickerOpen] = useState(false);
   // Checked on focus, not mount: Manage is `singleCopy`, so going back to it
   // moves the same mounted copy up and a mount check would never run again
-  // (TICKET-070 D4, PR #48 review). A check cannot reset an open draft:
-  // `saved` and `draft` are set in `openPlan`, not derived from the plans.
+  // (TICKET-070 D4, PR #48 review). A focus check cannot reset an open draft:
+  // `saved` and `draft` are set in `openPlan`, not derived from the plans;
+  // only opening a plan refreshes it (`refreshOpenPlan`).
   const { workoutPlans, loadingWorkoutPlans, failedToLoad, retry } = useWorkoutPlansOnFocus();
   const customExercises = useMemo(() => customExercisesFromPlans(workoutPlans), [workoutPlans]);
   // From the draft (D3): a version added and not yet saved is greyed, one
@@ -193,11 +194,39 @@ export default function AddExerciseScreen() {
     return !!queued && !!draft && queued.plan.id === draft.id && !isDraftDirty(queued.plan, draft);
   };
 
+  // The draft as last rendered, for `refreshOpenPlan`, which runs after a check.
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+
   const openPlan = (plan: WorkoutPlan) => {
     setSaved(plan);
     setDraft(draftFromPlan(plan));
     setExpandedId(null);
     setShowErrors(false);
+    if (workoutPlans.some((p) => p.id === plan.id)) refreshOpenPlan(plan);
+  };
+
+  /**
+   * TICKET-070 D4: opening a stored plan to edit runs a change check past the
+   * 2-minute skip, so an edit from another device shows before this one is
+   * built on it. Changed, and nothing typed yet: the new version replaces the
+   * draft in place. Typed: the draft stays; two devices editing one plan is
+   * TICKET-073. Rejected: a read of this one plan (the PR #48 question): the
+   * same 1 read, but it downloads the plan even when unchanged, and a check
+   * also brings every other plan changed since.
+   */
+  const refreshOpenPlan = (opened: WorkoutPlan) => {
+    usePlansStore
+      .getState()
+      .check({ force: true })
+      .then(() => {
+        const fresh = usePlansStore.getState().plans?.find((p) => p.id === opened.id);
+        const current = draftRef.current;
+        if (!fresh || !isDraftDirty(fresh, draftFromPlan(opened))) return;
+        if (current?.id !== opened.id || isDraftDirty(opened, current)) return;
+        setSaved(fresh);
+        setDraft(draftFromPlan(fresh));
+      });
   };
 
   // From the sheet, a saved plan or a new one: either way 051's "Discard

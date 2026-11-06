@@ -10,7 +10,7 @@ import AddExerciseScreen from "./AddExerciseScreen";
 import { renderScreen, RenderScreenOptions, TEST_USER_ID } from "../../test/renderScreen";
 import { buildWorkout } from "../../test/fixtures";
 import { CATALOG } from "../../catalog";
-import { getAllWorkoutPlans, overrideWorkoutDetails } from "../../services/db/userDB";
+import { getAllWorkoutPlans, getChangedPlans, overrideWorkoutDetails } from "../../services/db/userDB";
 import { useCatalogStore } from "../../stores/useCatalogStore";
 import { usePlansStore } from "../../stores/usePlansStore";
 import { loadCatalog } from "../../utils/catalog";
@@ -25,6 +25,7 @@ import show from "../../utils/toastUtils";
 jest.mock("../../services/db/userDB", () => ({
   ...jest.requireActual("../../services/db/userDB"),
   getAllWorkoutPlans: jest.fn(),
+  getChangedPlans: jest.fn(async () => []),
   overrideWorkoutDetails: jest.fn(),
   newPlanId: jest.fn(() => "generated_id"),
 }));
@@ -305,11 +306,16 @@ it("New plan: the sheet's first row names a plan, which opens empty and is writt
   expect(saveButton()).toBeEnabled();
   save.mockResolvedValue(undefined);
   const readsBefore = (getAllWorkoutPlans as jest.Mock).mock.calls.length;
+  jest.mocked(getChangedPlans).mockResolvedValueOnce([
+    { id: "generated_id", name: "Legs Day", exercises: [], updatedAt: { seconds: 9, nanoseconds: 0 } },
+  ]);
   await act(async () => fireEvent.press(saveButton()));
   // D1: the generated id, never the name's slug.
   expect(save).toHaveBeenCalledWith(TEST_USER_ID, expect.objectContaining({ id: "generated_id", name: "Legs Day" }));
-  // TICKET-070 D8: the confirmed Save is in the store, in id order, with no re-read.
+  // TICKET-070 D8: the confirmed Save is in the store, in id order, with no
+  // full re-read: its stamp comes back from one change query.
   expect(usePlansStore.getState().plans?.map((plan) => plan.id)).toEqual(["generated_id", "push"]);
+  expect(usePlansStore.getState().lastSeen).toEqual({ seconds: 9, nanoseconds: 0 });
   expect(getAllWorkoutPlans).toHaveBeenCalledTimes(readsBefore);
 });
 
@@ -456,12 +462,47 @@ it("checks the plans again when Manage comes back into view", async () => {
     return <AddExerciseScreen />;
   }
   const reads = jest.mocked(getAllWorkoutPlans);
+  const changes = jest.mocked(getChangedPlans);
   reads.mockClear().mockResolvedValue([push()]);
+  changes.mockClear();
   renderScreen(ManageWithNavigation);
   await waitFor(() => expect(reads).toHaveBeenCalledTimes(1));
   await act(() => jest.advanceTimersByTimeAsync(PLANS_CHECK_SKIP_MS));
   act(() => navigation.navigate(LayoutRoutes.Home));
   await screen.findByText(`route:${LayoutRoutes.Home}`);
   act(() => navigation.goBack());
-  await waitFor(() => expect(reads).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(changes).toHaveBeenCalledTimes(1));
+  expect(reads).toHaveBeenCalledTimes(1);
+});
+
+// TICKET-070 D4, stage 2: opening a plan runs a change check past the 2-minute
+// skip; a newer version shows in place unless the draft has edits.
+describe("opening a plan checks it is current", () => {
+  const pushFromElsewhere = (): WorkoutPlan => ({ ...push(), name: "Push (laptop)", updatedAt: { seconds: 9, nanoseconds: 0 } });
+
+  it("changed elsewhere and nothing typed: the new version replaces the draft", async () => {
+    const changes = jest.mocked(getChangedPlans);
+    changes.mockClear();
+    renderManage([push()]);
+    await waitFor(() => expect(getAllWorkoutPlans).toHaveBeenCalled());
+    changes.mockResolvedValueOnce([pushFromElsewhere()]);
+    await selectPlan([push()], "Push");
+    expect(await screen.findByLabelText("Plan: Push (laptop)")).toBeTruthy();
+    expect(changes).toHaveBeenCalledTimes(1);
+    expect(saveButton()).toBeDisabled();
+  });
+
+  it("edited before the check answers: the draft stays", async () => {
+    renderManage([push()]);
+    await waitFor(() => expect(getAllWorkoutPlans).toHaveBeenCalled());
+    let answer!: (plans: WorkoutPlan[]) => void;
+    jest.mocked(getChangedPlans).mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+    await selectPlan([push()], "Push");
+    fireEvent.press(screen.getByLabelText(/edit fields$/));
+    fireEvent.changeText(screen.getByDisplayValue("Weight"), "Load");
+    await act(async () => answer([pushFromElsewhere()]));
+    expect(screen.getByLabelText("Plan: Push")).toBeTruthy();
+    expect(screen.getByDisplayValue("Load")).toBeTruthy();
+    expect(usePlansStore.getState().plans?.[0].name).toBe("Push (laptop)");
+  });
 });

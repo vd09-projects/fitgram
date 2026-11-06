@@ -11,7 +11,9 @@
 // logged on the phone.
 //
 // Writes, under users/{uid} (uid looked up from the file's email):
-//   workouts/{planId}                         one per plan, overwritten
+//   workouts/{planId}                         one per plan, overwritten, with
+//                                             `updatedAt` = the server's time
+//                                             (TICKET-070 D3)
 //   sessions/{sessionId}                      one per session
 //   exercise_sessions/{sessionId}__{exercise} one per exercise per session
 //   exercise_stats/{exerciseId}               REBUILT from every exercise_session
@@ -25,6 +27,7 @@
 // Admin credentials (firebaseAdmin.ts) for --inspect and --confirm.
 import { readFileSync } from "fs";
 import { getAuth } from "firebase-admin/auth";
+import { FieldValue } from "firebase-admin/firestore";
 import { tables } from "../constants/tables";
 import type { ExerciseSessionDoc, WorkoutSessionDoc } from "../types/workoutSession";
 import { buildExerciseSessionId, rebuildStatsFromSessions } from "../utils/exerciseStats";
@@ -97,7 +100,10 @@ const run = async () => {
     }
   };
 
-  for (const plan of built.plans) await queue((b) => b.set(user.collection(WORKOUTS).doc(plan.id), plan));
+  // TICKET-070 D3: stamped by the server, so phones' change checks return the
+  // overwritten plans; an unstamped write would show only on a full reload.
+  for (const plan of built.plans)
+    await queue((b) => b.set(user.collection(WORKOUTS).doc(plan.id), { ...plan, updatedAt: FieldValue.serverTimestamp() }));
   for (const { session, exerciseSessions } of built.sessions) {
     // Written settled: the rollup is rebuilt below, in this same run.
     await queue((b) => b.set(user.collection(SESSIONS).doc(session.sessionId), { ...session, rollupPending: false }));

@@ -10,7 +10,7 @@ import WorkoutLogsScreen from '../screens/workout_management/WorkoutLogsScreen';
 import ExerciseHistoryDebugScreen from '../screens/workout_management/ExerciseHistoryDebugScreen';
 // TEMPORARY — remove with PendingUploadsDebugScreen.
 import PendingUploadsDebugScreen from '../screens/workout_management/PendingUploadsDebugScreen';
-// TEMPORARY — remove with PlansStoreDebugScreen (TICKET-070).
+// Debug tooling, kept (TICKET-070): PlansStoreDebugScreen.
 import PlansStoreDebugScreen from '../screens/workout_management/PlansStoreDebugScreen';
 import { useThemeTokens } from '../components/app_manager/ThemeContext';
 import { showDebugScreens } from '../config/envConfig';
@@ -106,7 +106,7 @@ export default function WorkoutNavigator() {
             options={{ headerShown: false }}
           />
 
-          {/* TEMPORARY — remove with PlansStoreDebugScreen (TICKET-070). */}
+          {/* Debug tooling, kept (TICKET-070): PlansStoreDebugScreen. */}
           <Stack.Screen
             name={WorkoutRoutes.PlansStoreDebug}
             getId={singleCopy}
