@@ -37,7 +37,7 @@ const num = (value: number | null) => (value === null ? "null" : String(value));
 export default function ExerciseHistoryDebugScreen() {
   const { styles, t } = useThemeStyles(createStyles);
   const { user } = useAuthUser();
-  const { workoutPlans, loadingWorkoutPlans } = useWorkoutPlans(true);
+  const { workoutPlans, loadingWorkoutPlans } = useWorkoutPlans();
 
   const [plan, setPlan] = useState<DropdownSelection<WorkoutPlan> | undefined>();
   const [exercise, setExercise] = useState<DropdownSelection<Exercise> | undefined>();

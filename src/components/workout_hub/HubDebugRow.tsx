@@ -13,9 +13,11 @@ import { useThemeStyles } from "../../utils/useThemeStyles";
 export function HubDebugRow({
   onHistoryDebug,
   onPendingUploads,
+  onPlansStore,
 }: {
   onHistoryDebug: () => void;
   onPendingUploads: () => void;
+  onPlansStore: () => void;
 }) {
   const { styles } = useThemeStyles(createStyles);
   return (
@@ -27,6 +29,10 @@ export function HubDebugRow({
       {/* TEMPORARY — remove with PendingUploadsDebugScreen. */}
       <TouchableOpacity style={styles.button} onPress={onPendingUploads}>
         <TextBase style={styles.text}>Pending Uploads</TextBase>
+      </TouchableOpacity>
+      {/* TEMPORARY — remove with PlansStoreDebugScreen (TICKET-070). */}
+      <TouchableOpacity style={styles.button} onPress={onPlansStore}>
+        <TextBase style={styles.text}>Plans Store</TextBase>
       </TouchableOpacity>
     </View>
   );

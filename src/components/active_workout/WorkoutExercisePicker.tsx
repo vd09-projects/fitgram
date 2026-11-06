@@ -51,7 +51,7 @@ export default function WorkoutExercisePicker({ exercises, purpose, onClose }: P
   const pendingUploads = useWorkoutStore((s) => s.pendingUploads);
   const workoutId = useWorkoutStore((s) => s.activeWorkout?.id);
 
-  const { workoutPlans } = useWorkoutPlans(false);
+  const { workoutPlans } = useWorkoutPlans({ check: "none" });
   const customExercises = useMemo(() => customExercisesFromPlans(workoutPlans), [workoutPlans]);
   const myPendingCount = pendingUploads.filter((entry) => entry.uid === uid).length;
   const sessions = useRecentSessions(uid, myPendingCount);

@@ -1,40 +1,45 @@
 // src/hooks/useWorkoutPlansOnFocus.ts
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback } from "react";
+import { AppState } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { useAuthUser } from "./useAuthUser";
+import { usePlansStore } from "../stores/usePlansStore";
 import useWorkoutPlans from "./useWorkoutPlans";
 
 /**
- * `useWorkoutPlans`, re-read each time the screen comes back into view, not
- * only on mount. The Workout stack keeps its screens mounted underneath
- * (WorkoutNavigator `singleCopy`), so a plan edited in Manage Workout showed its
- * old exercises until the app restarted (device, 2026-11-03). Flipping the
- * hook's refetch flag reuses its one read; the first focus is the mount, which
- * already reads. Used by the hub and All plans (TICKET-066), the two screens
- * that list plans and stay mounted.
+ * `useWorkoutPlans`, checked each time the screen comes into view, not only on
+ * mount. The Workout stack keeps its screens mounted underneath (WorkoutNavigator
+ * `singleCopy`), so for the hub, All plans, Manage and History "the screen
+ * opens" is a focus (TICKET-070 D4). The check is skipped if one succeeded in
+ * the last 2 minutes, so hub → Start → Manage costs one read.
  *
- * Rejected: a focus refetch inside `useWorkoutPlans`, which other screens and
- * components use, some outside a navigator in their tests.
+ * Coming back from the background is not a focus, and the hub is often left
+ * open for hours, so while the screen is focused a return to the foreground
+ * checks too (D4: a phone left open in the background must not show a
+ * laptop's edit late; PR #48 review). Rejected: the hub's own AppState
+ * listener, which would cover the hub only.
  *
- * `loadingWorkoutPlans` is true only for a first load, with nothing to show
- * yet: a refetch keeps the list on screen. `retry` reads again now, for a
- * Try again button.
+ * Until TICKET-070 this re-read every plan on every focus, so a plan edited in
+ * Manage showed here (device, 2026-11-03). Manage's Save now updates the store
+ * itself (D8), so that needs no read: the screen re-renders from the store.
+ * The focus check stays because D4 asks for one on each open, not to see Save.
+ *
+ * Rejected: a focus check inside `useWorkoutPlans`, which components outside a
+ * navigator also use (the picker, and screens in their tests).
  */
 export function useWorkoutPlansOnFocus() {
-  const [refetch, setRefetch] = useState(true);
-  const focusedBefore = useRef(false);
+  const { user } = useAuthUser();
+  const uid = user?.uid;
   useFocusEffect(
     useCallback(() => {
-      if (focusedBefore.current) setRefetch((flag) => !flag);
-      focusedBefore.current = true;
-    }, [])
+      if (!uid) return;
+      usePlansStore.getState().open(uid);
+      const subscription = AppState.addEventListener("change", (state) => {
+        if (state === "active") usePlansStore.getState().open(uid);
+      });
+      return () => subscription.remove();
+    }, [uid])
   );
-  const { workoutPlans, loadingWorkoutPlans, failedToLoad } = useWorkoutPlans(refetch);
-  const retry = useCallback(() => setRefetch((flag) => !flag), []);
-  return {
-    workoutPlans,
-    loadingWorkoutPlans: loadingWorkoutPlans && workoutPlans.length === 0,
-    failedToLoad,
-    retry,
-  };
+  return useWorkoutPlans({ check: "none" });
 }

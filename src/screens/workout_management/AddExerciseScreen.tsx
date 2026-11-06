@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BORDER_RADIUS, SPACING } from '../../constants/styles';
 import ScrollableScreen from '../../components/ScrollableScreen';
 import { BackTitle } from '../../components/BackButton';
-import useWorkoutPlans from '../../hooks/useWorkoutPlans';
+import { useWorkoutPlansOnFocus } from '../../hooks/useWorkoutPlansOnFocus';
 import show from '../../utils/toastUtils';
 import { newPlanId, overrideWorkoutDetails } from '../../services/db/userDB';
 import { useAuthUser } from '../../hooks/useAuthUser';
@@ -25,6 +25,7 @@ import { useThemeStyles } from '../../utils/useThemeStyles';
 import { MANAGE_WOURKOUT_STEP_NAMES } from '../../tour_steps/manageWorkout';
 import { MaybeTourStep } from '../../components/guide_tour/MaybeTourStep';
 import { useCatalogStore } from '../../stores/useCatalogStore';
+import { usePlansStore } from '../../stores/usePlansStore';
 import {
   DraftExercise,
   PlanDraft,
@@ -87,8 +88,6 @@ export default function AddExerciseScreen() {
   // EXPERIMENT (user, 2026-10-28): the floating footer's measured height.
   const [footerHeight, setFooterHeight] = useState(0);
 
-  const [reload, setReload] = useState<boolean>(false);
-
   // The exercise picker (TICKET-043) replaced TICKET-042's interim dropdown of
   // all 805 versions and its "New" switch: no new custom exercises (TICKET-045);
   // existing ones are found by name.
@@ -96,7 +95,11 @@ export default function AddExerciseScreen() {
   const catalogLoaded = useCatalogStore((s) => s.cacheLoaded);
   const searchWords = useCatalogStore((s) => s.searchWords);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const { workoutPlans, loadingWorkoutPlans, failedToLoad } = useWorkoutPlans(reload);
+  // Checked on focus, not mount: Manage is `singleCopy`, so going back to it
+  // moves the same mounted copy up and a mount check would never run again
+  // (TICKET-070 D4, PR #48 review). A check cannot reset an open draft:
+  // `saved` and `draft` are set in `openPlan`, not derived from the plans.
+  const { workoutPlans, loadingWorkoutPlans, failedToLoad, retry } = useWorkoutPlansOnFocus();
   const customExercises = useMemo(() => customExercisesFromPlans(workoutPlans), [workoutPlans]);
   // From the draft (D3): a version added and not yet saved is greyed, one
   // removed in the draft can be picked again.
@@ -127,8 +130,9 @@ export default function AddExerciseScreen() {
     return buildPlanRows(workoutPlans, sessions, pendingUploads, uid, '').flatMap((row) => byId.get(row.id) ?? []);
   }, [workoutPlans, sessions, pendingUploads, uid]);
   // The open plan's archive state is its saved copy's: `workoutPlans` catches
-  // up only when the reload after Save lands. Not the draft's: an unsaved
-  // Archive is not stored, and the sheet lists plans as stored.
+  // up only when the server confirms the Save (TICKET-070 D8). Not the
+  // draft's: an unsaved Archive is not stored, and the sheet lists plans as
+  // stored.
   const savedArchived = saved !== null && isArchived(saved);
   const savedId = saved?.id;
   const sheetPlans = useMemo(
@@ -189,8 +193,6 @@ export default function AddExerciseScreen() {
     return !!queued && !!draft && queued.plan.id === draft.id && !isDraftDirty(queued.plan, draft);
   };
 
-  const handleReload = () => setReload((prev) => !prev);
-
   const openPlan = (plan: WorkoutPlan) => {
     setSaved(plan);
     setDraft(draftFromPlan(plan));
@@ -242,14 +244,19 @@ export default function AddExerciseScreen() {
    * edited since; if it was, it stays dirty against the new baseline.
    * Archive is such an edit (TICKET-061), so one tapped while this write is in
    * flight or queued stays in the draft.
+   *
+   * The plans store takes the plan now, the server having confirmed it
+   * (TICKET-070 D8): every plans screen shows it with no re-read. Never on
+   * 'pending' ("Not saved yet"), so the phone never shows a save the server
+   * did not get.
    */
-  const onSaved = (plan: WorkoutPlan) => {
+  const onSaved = (plan: WorkoutPlan, epoch: number) => {
     // D5's running-workout note is the banner, before editing; a longer toast
     // was cut off on the device (round 1).
     show.success('Plan saved', `"${plan.name}" saved.`);
     setSaved((prev) => (prev?.id === plan.id ? plan : prev));
     setDraft((prev) => (prev?.id === plan.id && !isDraftDirty(plan, prev) ? draftFromPlan(plan) : prev));
-    handleReload();
+    if (uid) usePlansStore.getState().applySaved(uid, epoch, plan);
   };
 
   const handleSave = async () => {
@@ -270,6 +277,9 @@ export default function AddExerciseScreen() {
     // one "Plan saved", not two (device review, round 1).
     const queued = draftIsQueued() ? queuedRef.current : null;
     const write = queued ? queued.write : overrideWorkoutDetails(uid ?? '', plan);
+    // The plans store's epoch now: a write landing after sign-out must not
+    // refill it for the next user (TICKET-070 D2).
+    const epoch = usePlansStore.getState().epoch;
     setSaving(true);
     try {
       // Offline rule (D4): `setDoc` does not settle while offline, so the wait
@@ -280,13 +290,13 @@ export default function AddExerciseScreen() {
         show.warn('Not saved yet', 'Check your connection. Your changes are still here; tap Save changes to retry.');
       if (queued) return;
       if (result === 'saved') {
-        onSaved(plan);
+        onSaved(plan, epoch);
         return;
       }
       queuedRef.current = { plan, write };
       write
         .then(
-          () => onSaved(plan),
+          () => onSaved(plan, epoch),
           (error) => {
             console.error('Could not save plan:', error);
             show.alert('Could not save plan', 'Please try again.');
@@ -358,7 +368,7 @@ export default function AddExerciseScreen() {
         {mode === 'failed' && (
           <View style={styles.loadError}>
             <TextBase style={styles.loadErrorText}>Couldn't load plans.</TextBase>
-            <TouchableOpacityBase onPress={handleReload} accessibilityRole="button" style={styles.retry}>
+            <TouchableOpacityBase onPress={retry} accessibilityRole="button" style={styles.retry}>
               <TextBase style={styles.retryText}>Retry</TextBase>
             </TouchableOpacityBase>
           </View>

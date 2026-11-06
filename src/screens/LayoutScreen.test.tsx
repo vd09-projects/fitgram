@@ -36,6 +36,7 @@ jest.mock("./workout_management/AddExerciseScreen", () => mockStub("screen:Manag
 jest.mock("./workout_management/WorkoutLogsScreen", () => mockStub("screen:Logs"));
 jest.mock("./workout_management/ExerciseHistoryDebugScreen", () => mockStub("screen:HistoryDebug"));
 jest.mock("./workout_management/PendingUploadsDebugScreen", () => mockStub("screen:PendingDebug"));
+jest.mock("./workout_management/PlansStoreDebugScreen", () => mockStub("screen:PlansStoreDebug"));
 jest.mock("./workout_management/ActiveWorkoutScreen", () => () => {
   const React = require("react");
   const { Text, View } = require("react-native");

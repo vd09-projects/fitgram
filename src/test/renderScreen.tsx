@@ -39,6 +39,7 @@ import { useExerciseHistoryStore } from "../stores/useExerciseHistoryStore";
 import { useAuthStore } from "../stores/authStore";
 import { useRestPreferenceStore } from "../stores/restPreferenceStore";
 import { useCatalogStore } from "../stores/useCatalogStore";
+import { usePlansStore } from "../stores/usePlansStore";
 import { ActiveWorkout } from "../types/zustandWorkoutType";
 import { ExerciseStatsDoc } from "../types/workoutSession";
 
@@ -93,6 +94,10 @@ export function resetStores() {
   useAuthStore.setState(authInitial, true);
   useRestPreferenceStore.setState(restPreferenceInitial, true);
   useCatalogStore.setState(catalogInitial, true);
+  // `clear` also drops the store's module state (a check in flight, the
+  // stored-copy read), which `setState` cannot reach.
+  usePlansStore.getState().clear();
+  usePlansStore.setState({ readout: { reads: 0, log: [] } }); // TEMPORARY (TICKET-070 debug page)
   AsyncStorage.clear();
 }
 

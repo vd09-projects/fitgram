@@ -3,6 +3,7 @@ import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, getDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 import { useAuthStore } from '../stores/authStore';
+import { usePlansStore } from '../stores/usePlansStore';
 
 const INACTIVE_EXPIRY_DAYS = 10; // sign out if no activity for 10 days
 const FRESH_SIGNIN_WINDOW_MS = 5 * 60 * 1000; // credential verified this recently is trusted
@@ -58,6 +59,10 @@ export const initAuthIfNeeded = () => {
     }
 
     if (!firebaseUser) {
+      // TICKET-070 D2: the stored plans are account data. Cleared before the
+      // user is, so no screen renders them for nobody; the clear also drops
+      // any check or Save still in flight. TICKET-026 clears the rest.
+      usePlansStore.getState().clear();
       store.setUser(null);
       store.setUserInfo(null);
       store.setInitialized(true); // no user — show auth screen

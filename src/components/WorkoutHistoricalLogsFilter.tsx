@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from "react-native";
 import { useAuthUser } from "../hooks/useAuthUser";
-import useWorkoutPlans from "../hooks/useWorkoutPlans";
+import { useWorkoutPlansOnFocus } from "../hooks/useWorkoutPlansOnFocus";
 import SearchableInputDropdown, { DropdownSelection } from "./SearchableInputDropdown";
 import { Exercise, WorkoutPlan } from "../types/workoutType";
 import show from "../utils/toastUtils";
@@ -77,7 +77,7 @@ export default function WorkoutHistoricalLogsFilter({
 }: WorkoutHistoricalLogsFilterProps) {
   const { styles, t } = useThemeStyles(createStyles);
   const { user } = useAuthUser();
-  const { workoutPlans, loadingWorkoutPlans } = useWorkoutPlans(true);
+  const { workoutPlans, loadingWorkoutPlans } = useWorkoutPlansOnFocus();
 
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[] | null>(null);
 
@@ -88,8 +88,8 @@ export default function WorkoutHistoricalLogsFilter({
   // opened, and the first one ever had no entry at all (PR #46 review). One
   // read per visit. A failed read says so rather than leaving the entry out
   // silently, which would read as "never done a Freestyle"; the next visit
-  // retries. The filter's plans still read on mount only (`useWorkoutPlans`,
-  // older than this ticket).
+  // retries. The filter's plans come from the plans store (TICKET-070), checked
+  // on focus too: `WorkoutLogsScreen` is `singleCopy`, so it mounts once.
   const uid = user?.uid;
   const [freestyleSessions, setFreestyleSessions] = useState<WorkoutSessionDoc[]>([]);
   useFocusEffect(
