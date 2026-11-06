@@ -11,7 +11,7 @@ import {
   collection,
   doc,
   getDoc,
-  getDocs,
+  getDocsFromServer,
   setDoc,
   updateDoc,
 } from "firebase/firestore";
@@ -32,7 +32,12 @@ export const getAllWorkoutPlans = async (
   if (!userId) return [];
 
   try {
-    const querySnapshot = await getDocs(
+    // From the server, never Firestore's cache (TICKET-070 D11): offline this
+    // rejects, so a failed check is never read as "nothing changed". `getDocs`
+    // resolved offline with the memory cache, empty on a cold start, which
+    // needed a guard to fail (TICKET-052 D5); the phone's copy of the plans is
+    // the plans store now, not that cache.
+    const querySnapshot = await getDocsFromServer(
       collection(
         db,
         tables.users.collection,
@@ -40,13 +45,6 @@ export const getAllWorkoutPlans = async (
         tables.users.fields.workouts.collection
       )
     );
-    // Offline, getDocs doesn't reject: it resolves with the cache, which on a
-    // cold start (memoryLocalCache) is empty. That empty list isn't "no plans",
-    // so it fails like any other load (TICKET-052 D5, PR #26 review). A
-    // non-empty cached list, from an earlier load this session, is shown.
-    if (querySnapshot.metadata.fromCache && querySnapshot.empty) {
-      throw new Error("Plans unavailable offline");
-    }
     const plans = (
       querySnapshot.docs.map((doc) => ({
         id: doc.id,
@@ -59,7 +57,7 @@ export const getAllWorkoutPlans = async (
   } catch (error) {
     // Rethrown, not `[]` (TICKET-052 D5): an empty list reads as "no plans
     // yet", which would offer a first plan to someone who has plans but could
-    // not load them. The one caller, useWorkoutPlans, flags the failure.
+    // not load them. The one caller, `usePlansStore`, keeps the stored copy.
     console.error("❌ Error fetching exercises:", error);
     throw error;
   }

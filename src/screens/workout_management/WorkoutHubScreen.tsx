@@ -36,10 +36,10 @@ type NavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.WorkoutHo
  * which of loading / failed / first run / tiles to show.
  *
  * Reads the same two things as All plans (StartWorkoutScreen), with the same
- * hooks: the plans, re-read on focus because this screen stays mounted under
- * the tab (`useWorkoutPlansOnFocus`), and the one recent-sessions query
- * (`useRecentSessions`), joined with pending uploads by `buildPlanRows`. No
- * read of its own.
+ * hooks: the plans from the plans store, checked on focus because this screen
+ * stays mounted under the tab (`useWorkoutPlansOnFocus`, TICKET-070), and the
+ * one recent-sessions query (`useRecentSessions`), joined with pending uploads
+ * by `buildPlanRows`. No read of its own.
  *
  * While a workout runs: a Resume bar on top, the running plan's tile shows the
  * live timer, and every tile still opens the card, which shows Resume for the
@@ -167,8 +167,9 @@ export default function WorkoutHubScreen() {
   ) : workoutPlans.length === 0 && failedToLoad ? (
     // Not the first-run card: offering a first plan to someone whose plans
     // could not load is the false "No plans yet" TICKET-052 D5 ruled out.
-    // Try again reads now; leaving the tab and coming back also reads again
-    // (`useWorkoutPlansOnFocus`).
+    // Shown only with nothing stored (TICKET-070 D11). Try again reads every
+    // plan now; coming back to the tab checks again unless one succeeded in
+    // the last 2 minutes (`useWorkoutPlansOnFocus`).
     <>
       <HubMessageCard
         icon="cloud-offline-outline"
@@ -227,6 +228,7 @@ export default function WorkoutHubScreen() {
           <HubDebugRow
             onHistoryDebug={() => navigation.navigate(WorkoutRoutes.HistoryDebug)}
             onPendingUploads={() => navigation.navigate(WorkoutRoutes.PendingUploadsDebug)}
+            onPlansStore={() => navigation.navigate(WorkoutRoutes.PlansStoreDebug)}
           />
         )}
       </ScrollableScreen>

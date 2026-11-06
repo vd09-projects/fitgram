@@ -10,6 +10,8 @@ import WorkoutLogsScreen from '../screens/workout_management/WorkoutLogsScreen';
 import ExerciseHistoryDebugScreen from '../screens/workout_management/ExerciseHistoryDebugScreen';
 // TEMPORARY — remove with PendingUploadsDebugScreen.
 import PendingUploadsDebugScreen from '../screens/workout_management/PendingUploadsDebugScreen';
+// TEMPORARY — remove with PlansStoreDebugScreen (TICKET-070).
+import PlansStoreDebugScreen from '../screens/workout_management/PlansStoreDebugScreen';
 import { useThemeTokens } from '../components/app_manager/ThemeContext';
 import { showDebugScreens } from '../config/envConfig';
 
@@ -21,6 +23,7 @@ export type WorkoutStackParamList = {
   LogWorkout: undefined;
   HistoryDebug: undefined;
   PendingUploadsDebug: undefined;
+  PlansStoreDebug: undefined;
 };
 
 const Stack = createStackNavigator<WorkoutStackParamList>();
@@ -100,6 +103,14 @@ export default function WorkoutNavigator() {
             name={WorkoutRoutes.PendingUploadsDebug}
             getId={singleCopy}
             component={PendingUploadsDebugScreen}
+            options={{ headerShown: false }}
+          />
+
+          {/* TEMPORARY — remove with PlansStoreDebugScreen (TICKET-070). */}
+          <Stack.Screen
+            name={WorkoutRoutes.PlansStoreDebug}
+            getId={singleCopy}
+            component={PlansStoreDebugScreen}
             options={{ headerShown: false }}
           />
         </>

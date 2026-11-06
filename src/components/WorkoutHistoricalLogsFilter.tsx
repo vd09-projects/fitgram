@@ -77,7 +77,7 @@ export default function WorkoutHistoricalLogsFilter({
 }: WorkoutHistoricalLogsFilterProps) {
   const { styles, t } = useThemeStyles(createStyles);
   const { user } = useAuthUser();
-  const { workoutPlans, loadingWorkoutPlans } = useWorkoutPlans(true);
+  const { workoutPlans, loadingWorkoutPlans } = useWorkoutPlans();
 
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[] | null>(null);
 
@@ -88,8 +88,8 @@ export default function WorkoutHistoricalLogsFilter({
   // opened, and the first one ever had no entry at all (PR #46 review). One
   // read per visit. A failed read says so rather than leaving the entry out
   // silently, which would read as "never done a Freestyle"; the next visit
-  // retries. The filter's plans still read on mount only (`useWorkoutPlans`,
-  // older than this ticket).
+  // retries. The filter's plans come from the plans store (TICKET-070), checked
+  // on mount only; the Workout screens keep that store current.
   const uid = user?.uid;
   const [freestyleSessions, setFreestyleSessions] = useState<WorkoutSessionDoc[]>([]);
   useFocusEffect(

@@ -1,40 +1,33 @@
 // src/hooks/useWorkoutPlansOnFocus.ts
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback } from "react";
 import { useFocusEffect } from "@react-navigation/native";
+import { useAuthUser } from "./useAuthUser";
+import { usePlansStore } from "../stores/usePlansStore";
 import useWorkoutPlans from "./useWorkoutPlans";
 
 /**
- * `useWorkoutPlans`, re-read each time the screen comes back into view, not
- * only on mount. The Workout stack keeps its screens mounted underneath
- * (WorkoutNavigator `singleCopy`), so a plan edited in Manage Workout showed its
- * old exercises until the app restarted (device, 2026-11-03). Flipping the
- * hook's refetch flag reuses its one read; the first focus is the mount, which
- * already reads. Used by the hub and All plans (TICKET-066), the two screens
- * that list plans and stay mounted.
+ * `useWorkoutPlans`, checked each time the screen comes into view, not only on
+ * mount. The Workout stack keeps its screens mounted underneath (WorkoutNavigator
+ * `singleCopy`), so for the hub and All plans "the screen opens" is a focus
+ * (TICKET-070 D4). The check is skipped if one succeeded in the last 2
+ * minutes, so hub → Start → Manage costs one read.
  *
- * Rejected: a focus refetch inside `useWorkoutPlans`, which other screens and
- * components use, some outside a navigator in their tests.
+ * Until TICKET-070 this re-read every plan on every focus, so a plan edited in
+ * Manage showed here (device, 2026-11-03). Manage's Save now updates the store
+ * itself (D8), so that needs no read: the screen re-renders from the store.
+ * The focus check stays because D4 asks for one on each open, not to see Save.
  *
- * `loadingWorkoutPlans` is true only for a first load, with nothing to show
- * yet: a refetch keeps the list on screen. `retry` reads again now, for a
- * Try again button.
+ * Rejected: a focus check inside `useWorkoutPlans`, which components outside a
+ * navigator also use (the picker, and screens in their tests).
  */
 export function useWorkoutPlansOnFocus() {
-  const [refetch, setRefetch] = useState(true);
-  const focusedBefore = useRef(false);
+  const { user } = useAuthUser();
+  const uid = user?.uid;
   useFocusEffect(
     useCallback(() => {
-      if (focusedBefore.current) setRefetch((flag) => !flag);
-      focusedBefore.current = true;
-    }, [])
+      if (uid) usePlansStore.getState().open(uid);
+    }, [uid])
   );
-  const { workoutPlans, loadingWorkoutPlans, failedToLoad } = useWorkoutPlans(refetch);
-  const retry = useCallback(() => setRefetch((flag) => !flag), []);
-  return {
-    workoutPlans,
-    loadingWorkoutPlans: loadingWorkoutPlans && workoutPlans.length === 0,
-    failedToLoad,
-    retry,
-  };
+  return useWorkoutPlans({ check: "none" });
 }

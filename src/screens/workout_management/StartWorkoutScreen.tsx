@@ -38,7 +38,7 @@ export default function StartWorkoutScreen() {
   const uid = user?.uid;
 
   const { cancelWorkout, activeWorkout, pendingUploads } = useWorkoutStore();
-  // Re-read on focus: this screen stays mounted under the Workout tab.
+  // Checked on focus: this screen stays mounted under the Workout tab (TICKET-070 D4).
   const { workoutPlans, loadingWorkoutPlans } = useWorkoutPlansOnFocus();
 
   const [searchQuery, setSearchQuery] = useState("");

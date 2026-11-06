@@ -11,6 +11,7 @@ import { buildWorkout } from "../../test/fixtures";
 import { CATALOG } from "../../catalog";
 import { getAllWorkoutPlans, overrideWorkoutDetails } from "../../services/db/userDB";
 import { useCatalogStore } from "../../stores/useCatalogStore";
+import { usePlansStore } from "../../stores/usePlansStore";
 import { loadCatalog } from "../../utils/catalog";
 import { getWorkoutSessions } from "../../services/db/workoutSessions";
 import { WorkoutPlan } from "../../types/workoutType";
@@ -168,6 +169,8 @@ it("offline: says not saved yet when the write is still pending, and Save can be
     expect(show.warn).toHaveBeenCalledWith("Not saved yet", expect.stringMatching(/^Check your connection/));
     expect(screen.getByText("Save changes")).toBeTruthy();
     expect(saveButton()).toBeEnabled();
+    // TICKET-070 D8: the store keeps what the server has, not the unsent edit.
+    expect(usePlansStore.getState().plans).toEqual([push()]);
   } finally {
     race.mockRestore();
   }
@@ -298,9 +301,13 @@ it("New plan: the sheet's first row names a plan, which opens empty and is writt
   fireEvent.press(within(picker).getByText("Pec Deck (Machine Fly)"));
   expect(saveButton()).toBeEnabled();
   save.mockResolvedValue(undefined);
+  const readsBefore = (getAllWorkoutPlans as jest.Mock).mock.calls.length;
   await act(async () => fireEvent.press(saveButton()));
   // D1: the generated id, never the name's slug.
   expect(save).toHaveBeenCalledWith(TEST_USER_ID, expect.objectContaining({ id: "generated_id", name: "Legs Day" }));
+  // TICKET-070 D8: the confirmed Save is in the store, in id order, with no re-read.
+  expect(usePlansStore.getState().plans?.map((plan) => plan.id)).toEqual(["generated_id", "push"]);
+  expect(getAllWorkoutPlans).toHaveBeenCalledTimes(readsBefore);
 });
 
 it("New plan refuses a name a plan already has, and keeps the open plan", async () => {
@@ -400,11 +407,12 @@ describe("archive", () => {
     }
   });
 
-  it("the plan sheet groups the open plan by its saved archive state before the reload lands", async () => {
+  it("the plan sheet groups the open plan by its saved archive state", async () => {
     save.mockResolvedValue(undefined);
     await openPlan([push(), pull()], "Push");
     fireEvent.press(screen.getByRole("button", { name: "Archive" }));
-    // The reload still returns the plan unarchived, as a stale read can.
+    // A check answering late can still return the plan unarchived (a read that
+    // started before the Save); the sheet goes by the saved copy.
     await act(async () => fireEvent.press(saveButton()));
     await openSheet();
     expect(within(screen.getByTestId("plan-sheet")).getByRole("button", { name: "Hide archived" })).toBeTruthy();

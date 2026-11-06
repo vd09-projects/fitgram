@@ -47,7 +47,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 063 | Finish summary | Small-Med | Low. From 056's design review (2026-11-02): exercises and set counts before saving, as Finish's confirm. To decide: how 0-set exercises show, sheet or screen |
 | 068 | Drag to close: every sheet on a real phone | Small | Low. From 065's device run (2026-11-03): only `PlanCard` drags; decide drag on every sheet with a handle, or drop the handles |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
-| 070 | Keep plans on the phone | Medium | Raised 2026-11-05 (user). Approach decided: one stored copy, fetch only what changed. 2 stages; two devices moved to 073 |
+| 070 | Keep plans on the phone | Medium | Raised 2026-11-05 (user). Approach decided: one stored copy, check on each plans screen (1 read when nothing changed), full reload on an interval. 2 stages; two devices moved to 073 |
 | 073 | Two devices editing one plan | Medium | Split from 070 (user, 2026-11-05). `rev` + a rules change; **before launch**; rules deploy after the app build |
 | 072 | Keep recent history on the phone | TBD | Split from 070 (user, 2026-11-05). Not yet discussed; after 070 |
 | 071 | History page redesign | Medium-Large | Raised 2026-11-05 (user). Design on the Drafts canvas first; after 070 |
@@ -7578,110 +7578,181 @@ like every action's caller (TICKET-004). Tour: notes only, in TICKET-053.
 ### TICKET-070: Keep Plans on the Phone
 
 **Priority:** Medium | **Effort:** Medium | **Status: OPEN** — raised 2026-11-05 (user),
-approach decided 2026-11-05 (below). History moved to TICKET-072; two devices editing
-one plan (D6, D7, D10) moved to TICKET-073.
+approach decided 2026-11-05/06 (below). History moved to TICKET-072; two devices editing
+one plan (D6, D7, D10's `rev`) moved to TICKET-073.
 
 **Description:**
 Plans change rarely (at most once or twice a day, usually about once a week), yet every
-screen that lists them reads them from Firestore each time. Keep them on the phone,
-show that copy at once and offline, and fetch only what changed, and only when it can
-have changed.
+screen that lists them downloads all of them from Firestore each time. Keep them on the
+phone, show that copy at once and offline, and ask the server only for what changed.
 
-**Why (user, 2026-11-05):** like the catalog, which is already cached (TICKET-042
-stage 2), plans hardly change. A read on every visit adds latency and data on a poor
-connection, and load on the database, for nothing. Sized for 1,000+ users and up to
-~20 plans each, not for today's handful.
+**Why (user, 2026-11-05):** fewer reads and less data, not only offline. Firestore bills
+one read per document a query returns, so each plans screen load today costs N reads
+for N plans (one query, one round trip) and downloads every plan. With the stored copy,
+a check that finds nothing changed costs 1 read and downloads nothing: about 20× fewer
+reads at 20 plans. Instant screens and starting a planned workout offline come with it.
+Sized for 1,000+ users and up to ~20 plans each, not for today's handful.
 
 **What holds today (checked 2026-11-05):**
 - `useWorkoutPlans` calls `getAllWorkoutPlans` on every mount, and the hub and All
-  plans re-read on every focus (`useWorkoutPlansOnFocus`). Five call sites each hold
-  their own copy: hub/All plans, Start Workout, Manage Workout, the History filter, the
-  mid-workout picker. Nothing is shared.
+  plans re-read on every focus (`useWorkoutPlansOnFocus`). Six call sites each hold
+  their own copy: hub/All plans, Start Workout, Manage Workout (`AddExerciseScreen`),
+  the History filter, the mid-workout picker, the history debug screen. Nothing is
+  shared.
 - Firestore runs on `memoryLocalCache()` (`src/services/firebase/firebase.ts`):
   React Native has no IndexedDB, so nothing survives an app restart. On an offline
   cold start the hub shows "Your plans did not load" (TICKET-052 D5); only a Freestyle
   can be started.
+- A plan is one doc, `users/{uid}/workouts/{planId}`, with its exercises nested as an
+  array: one read per plan however many exercises it has. Reading plans pulls in no
+  other collection. Keep exercises nested; a subcollection would cost one read each.
 - The one writer is `overrideWorkoutDetails` (`userDB.ts`), a full overwrite on Save,
-  called only from Manage (`AddExerciseScreen`). Archive is a flag written by that same
-  Save (TICKET-061); nothing deletes a plan. `importHistory.ts` also writes plans, with
-  admin credentials.
+  called only from Manage. Archive is a flag written by that same Save (TICKET-061);
+  nothing deletes a plan. `importHistory.ts` also writes plans, with admin credentials.
 - Offline, a Save is held only in Firestore's memory queue: lost if the app is killed
   (`AddExerciseScreen.tsx`, "Not saved yet").
 - Offline, `getDocs` does not reject: it answers from the cache (`userDB.ts`).
-- `firestore.rules` allows every read and write under `users/{uid}/**` with one
-  recursive rule.
+  `getDocsFromServer` rejects instead.
+- Sign-out lands in the `!firebaseUser` branch of `src/services/initAuth.ts`.
 
 **Size (user's budget, 2026-11-05):** up to 20 plans of up to 20 KB each, so 400 KB at
 most; one Firestore doc may be 1 MB, AsyncStorage on Android allows ~6 MB by default.
 
-**Decided (user, 2026-11-05):**
-- **D1 One plans store** on the phone, read by every screen instead of the five hook
+**Decided (user, 2026-11-05/06):**
+- **D1 One plans store** on the phone, read by every screen instead of the six hook
   copies, saved to AsyncStorage, keyed by user id, with a stored format version.
-- **D2 Sign-out clears it** (TICKET-026). A stored copy with a different format version
-  is discarded and fetched again. Clearing first stops any save still in flight, so a
-  late write cannot refill it.
+  `useWorkoutPlans` becomes a thin reader of it and keeps its return shape.
+- **D2 Sign-out clears it** (TICKET-026 does the rest of the account). A stored copy
+  with a different format version is discarded and fetched again. Clearing first stops
+  any save still in flight, so a late write cannot refill it.
 - **D3 Fetch only what changed.** Each plan carries `updatedAt`, set to
-  `serverTimestamp()` on every save. A check queries `updatedAt >= lastSeen`, where
+  `serverTimestamp()` on every save (Manage and `importHistory.ts`). A check runs
+  `getDocsFromServer(query(plans, where("updatedAt", ">", lastSeen)))`, where
   `lastSeen` is the newest `updatedAt` already held (the server's clock, never the
-  phone's), and merges the result. Duplicates at the same instant are dropped.
+  phone's), and merges the result. Nothing changed: 0 docs, billed 1 read.
+  - `>`, not `>=`: `>=` would return the newest plan on every check. `>` misses
+    nothing: one server read sees every commit before it, so two saves at the same
+    instant are both returned or both already held.
+  - No index to create: a range on one field uses Firestore's automatic index.
   - Rejected: a metadata doc saying when plans last changed. It costs the same one
     read when nothing changed, and a second round trip when something did.
+  - Rejected: all plans in one doc (1 read for everything). A check would download
+    every plan, every Save rewrites all of them, two devices conflict on any plan, and
+    all plans share the 1 MB limit; with D3 a check is 1 read anyway.
   - Plans saved before 070 have no `updatedAt`: the first full load gets them, and
     their next Save adds the field. No backfill.
-- **D4 When to check:** on a cold start; on return to the foreground after more than
-  30 minutes away; and on opening a plan to edit in Manage (that one plan, fresh, so an
-  edit is not made on an old version). Opening a screen otherwise reads the stored
-  copy. While the app is in use, a change made on another device may show late;
-  `rev` (D6, TICKET-073) keeps it from doing harm (user, 2026-11-05).
+- **D4 When to check (user, 2026-11-06):** each time a plans screen opens, the stored
+  copy shows at once and the check runs behind it. Skipped if a check succeeded less
+  than 2 minutes ago, a time kept in memory only (moving hub → Start → Manage costs one
+  check). A change made on another device shows on the next plans screen; while a
+  screen is open it may show late, and `rev` (TICKET-073) keeps that from doing harm.
+  Opening a plan to edit in Manage reads that one plan fresh (stage 2), shown in place
+  of the stored copy if it changed and nothing has been typed yet.
+  - Replaced (2026-11-06): checks on cold start and after 30 minutes away. A phone kept
+    open in the background would show a laptop's edit late; a check is cheap enough
+    with D3 to run on every screen.
   - Rejected for now: a live listener. Always current, but it holds a connection open
     and React Native can drop it quietly in the background. Revisit if "edited on one
     device, stale on the other" shows up in feedback.
-- **D5 Full reload** on Reload, and on the first check after a week with no full
-  reload, to catch plans deleted outside the app (console, scripts). A future Delete
-  marks the plan `deleted: true` and sets `updatedAt` rather than removing the doc, so
-  the change query sees it.
+- **D5 Full reload** of every plan on Reload / Try again, the first load, and the first
+  check after `FULL_RELOAD_INTERVAL` with no full reload. It replaces the stored copy
+  whole, which is what catches plans removed outside the app (console, scripts): they
+  leave no doc for D3 to return.
+  - **Decided for the future Delete feature, not built here:** Delete sets
+    `deleted: true`, `updatedAt` and an `expireAt` of `REMOVAL_WINDOW` ahead, and a
+    Firestore TTL policy removes the doc after it (TTL setup is the user's to trigger;
+    check whether it needs the Blaze plan). `FULL_RELOAD_INTERVAL ≤ REMOVAL_WINDOW`,
+    so a phone that missed the marker reloads fully before it is gone. Both are
+    constants (e.g. 2 and 3 days, or 7 and 7), with a test that fails if the interval
+    is set above the window. Whether History still names a removed plan's sessions is
+    for TICKET-071 or the Delete ticket.
+  - **Built here:** every reader hides a plan with `deleted: true`, and a check that
+    returns one removes it from the store.
 - **D6, D7 → TICKET-073** (`rev`, and what a refused save does).
 - **D8 The stored copy changes only on what the server confirmed:** a Save updates it
   when the write resolves, never before. Offline, Save behaves as today ("Not saved
   yet"), so the phone never shows a save the server did not get.
-- **D9 One check at a time.** A second trigger while a check runs joins it instead of
-  issuing another read; the wait is bounded (as `raceSave` is), after which the screen
-  shows the stored copy and the answer applies when it arrives.
+- **D9 One check at a time.** A trigger while a check runs joins it instead of issuing
+  another read; the wait is bounded (as `raceSave` is), after which the screen keeps
+  the stored copy and the answer applies when it arrives.
 - **D10 Newer `updatedAt` wins a merge.** An incoming plan replaces the stored one only
   if its `updatedAt` is newer, so a check that started before a Save and answers after
   it cannot undo the Save. TICKET-073 switches this to the higher `rev`.
-- **D11 Absence is explicit** (CLAUDE.md 2.4): "nothing stored" and "stored, no plans"
-  are different states. A check that comes back empty *from the cache* failed; it
-  does not count as "nothing changed" and does not move `lastSeen` or the weekly
-  timer. An unreadable stored copy counts as nothing stored.
+- **D11 Absence is explicit** (CLAUDE.md 2.4): "nothing stored", "stored, no plans"
+  and "failed" are different states. Checks use `getDocsFromServer`, which rejects
+  offline, so a failed check is never read as "nothing changed"; it moves neither
+  `lastSeen`, the 2-minute skip nor the full-reload timer. An unreadable stored copy
+  counts as nothing stored.
 - **D12 First launch offline** (nothing stored) shows "Couldn't load plans" as today;
-  how that state looks is for later.
+  how that state looks, and a "data is X old" note, are for later.
 - **D13 Plan order** in every list stays as today, whatever order merged updates
   arrive in.
 
 **Out of scope:** history (TICKET-072); two devices editing one plan, and any rules
-change (TICKET-073); a live listener; how the offline first-launch state looks.
+change (TICKET-073); the Delete button and TTL setup (future Delete ticket); a live
+listener; how the offline first-launch state looks. No UI changes beyond the hub's Try
+again and Manage's Reload becoming a full reload.
 
 **Build (stages, each runnable on its own — CLAUDE.md 3.4):**
-1. The plans store (D1, D2, D8, D11, D12, D13): every screen reads it; a full read on
-   the D4 triggers. No new fields yet.
-2. Fetch only what changed (D3, D4, D5, D9, D10): `updatedAt` on Save and in
-   `importHistory.ts`, the change query, the weekly full reload, the edit-open read of
-   one plan.
+1. The plans store (D1, D2, D4's on-open check with the 2-minute skip, D8, D9, D11,
+   D12, D13): every screen reads it; a check is still a full read, now with
+   `getDocsFromServer`. The focus re-read (`useWorkoutPlansOnFocus`) goes once Manage's
+   Save updates the store. No new fields yet.
+2. Fetch only what changed (D3, D5, D10, and D4's edit-open read): `updatedAt` on Save
+   and in `importHistory.ts`, the change query and merge, the full-reload interval,
+   hiding `deleted` plans.
 
 Device test after stage 1 as well as at the end: stage 1 is where screens change and
 offline start appears (user, 2026-11-05).
 
+**Stage 1 as built (2026-11-06; deviations from the text above, CLAUDE.md 2.2):**
+- `useWorkoutPlansOnFocus` stays, as the check trigger. D4 asks for a check each time a
+  plans screen opens, and the hub and All plans stay mounted (`singleCopy`), so for them
+  "opens" is a focus. What went is the re-read on every focus and Manage's re-read after
+  Save: a focus within 2 minutes of a check issues no read.
+- Stored but empty, then a failed check: the hub shows the first-run card, not "did not
+  load" (D11: the stored copy says there are none). Accepted (user, 2026-11-06).
+- Start uses `useWorkoutPlansOnFocus`, not `useWorkoutPlans` as "What holds today" says.
+  It reads only `loadingWorkoutPlans`, so a failed first load still shows "No plans
+  yet" there; now only on a first launch offline (D12).
+- D9's bound is `PLANS_CHECK_WAIT_MS` (10 s, its own constant, not `SAVE_GRACE_MS`).
+  It decides one visible thing: with nothing stored, when the spinner gives way to
+  "Couldn't load plans". The read is not cancelled; its answer applies when it arrives.
+- Stored as one AsyncStorage key (`workoutPlans`) holding `{formatVersion, uid, plans}`.
+  A copy for another uid reads as nothing stored. Rejected: a key per user, which a
+  missed clear would leave on the phone for good. Writes are chained, each writing the
+  state as it is when its turn comes, so an older write cannot land last.
+- `open(uid)` for a different uid than the store holds clears it first (user,
+  2026-11-06).
+- Not in the text: a check whose read started before a Save landed drops its answer
+  and does not count as a success (the next screen checks again). Without it a slow
+  check could put a just-saved plan back to its old version, silently, until the next
+  check. A stand-in for D10's newer-`updatedAt` merge, which replaces it in stage 2.
+- Which readers check: hub and All plans on focus; Manage, the History filter and the
+  history debug screen on mount; the mid-workout picker never (read only).
+- `getAllWorkoutPlans` uses `getDocsFromServer`; its `fromCache && empty` guard
+  (TICKET-052 D5) went with `getDocs`.
+- **TEMPORARY debug page** (`PlansStoreDebugScreen`, the hub's "Plans Store" debug
+  button; user, 2026-11-06, in place of a readout box on the hub). Behind
+  `showDebugScreens` like the other debug pages, so a device run needs
+  `SHOW_DEBUG_SCREENS=true` in `.env` and a Metro restart. Shows what the store holds,
+  the stored copy read from disk, the last check and its result, server reads this
+  run, the check log and the plans by id; buttons force a check, expire the 2-minute
+  skip, and clear the store as sign-out does. Remove before merge: the steps are in
+  the screen's header comment.
+
 **Acceptance Criteria:**
-- [ ] Measured (CLAUDE.md 3.1): a cold start with nothing changed issues 1 read and
-      returns no docs; one plan edited elsewhere returns 1 doc; opening hub, Start,
-      Manage, History filter and the picker issues 0 reads
-- [ ] A temporary readout (CLAUDE.md 3.3) shows `lastSeen`, the last check and its
-      result, each plan's `updatedAt`; marked `TEMPORARY`, removed before merge
+- [ ] Measured (CLAUDE.md 3.1), stage 2: a plans screen open with nothing changed
+      issues 1 read and returns 0 docs; one plan edited elsewhere returns 1 doc; a
+      second plans screen within 2 minutes issues 0 reads
+- [ ] A temporary readout (CLAUDE.md 3.3) shows what the store holds, `lastSeen`, the
+      last check, its kind (full or change) and result; marked `TEMPORARY`, removed
+      before merge
 - [ ] Device test after stage 1: offline cold start with plans stored starts a planned
       workout; a Save in Manage shows on the hub with no re-read; sign-out then sign-in
       as another user shows none of the first user's plans
-- [ ] Device test after stage 2: edit on device A, cold start on device B shows it
+- [ ] Device test after stage 2: edit a "test…" plan in the Firebase console (as a
+      second device), open a plans screen on the emulator, see it change with 1 doc read
 
 **Dependencies:** none. Touches TICKET-026 (clear on sign-out), TICKET-029 (what is
 stored locally), TICKET-049 (scripts on the admin SDK), TICKET-071 (History reads
