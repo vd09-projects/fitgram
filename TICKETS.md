@@ -7847,15 +7847,15 @@ offline start appears (user, 2026-11-05).
   lists its parts in case it is ever removed. Code unchanged.
 
 **Acceptance Criteria:**
-- [ ] Measured (CLAUDE.md 3.1), stage 2: a plans screen open with nothing changed
+- [x] Measured (CLAUDE.md 3.1), stage 2: a plans screen open with nothing changed
       issues 1 read and returns 0 docs; one plan edited elsewhere returns 1 doc; a
       second plans screen within 2 minutes issues 0 reads
       - 2026-11-06, Android emulator, debug page log. Nothing changed: hub focus after
         the skip expired, `read change` → `ok change (0 docs)`, server reads +1; again
         with a real stamp held (`lastSeen` 1793962776 s 788000000 ns): 0 docs; after a
         cold start: `read change`, 0 docs, no full reload. Second screen within 2
-        minutes: `skipped`, reads unchanged. Edited elsewhere → 1 doc: **not yet
-        measured** (needs the Firebase console edit, below). Measured on the way: a
+        minutes: `skipped`, reads unchanged. Edited elsewhere: `read change` → `ok change
+        (1 docs)`, server reads +1 (console edit, below). Measured on the way: a
         Save costs 1 read (`save read-back (1 docs)`), and the next check 0 docs.
 - [x] A readout (CLAUDE.md 3.3) shows what the store holds, `lastSeen`, the last check,
       its kind (full or change) and result
@@ -7876,7 +7876,7 @@ offline start appears (user, 2026-11-05).
         Sign-out: the `workoutPlans` AsyncStorage key gone (adb, RKStorage). A second
         account then showed only its own 4 plans, by id.
       - Writes made: one plan "Test 070" on the test account pinky@gmail.com.
-- [ ] Device test after stage 2: edit a "test…" plan in the Firebase console (as a
+- [x] Device test after stage 2: edit a "test…" plan in the Firebase console (as a
       second device), open a plans screen on the emulator, see it change with 1 doc read
       - 2026-11-06, Android emulator, account uid 17AePB…, `SHOW_DEBUG_SCREENS=true`,
         Metro restarted with `-c`. Passed so far: the stage 1 copy discarded (format 1)
@@ -7886,10 +7886,20 @@ offline start appears (user, 2026-11-05).
         a forced full reload all logged `failed`, and `lastSeen`, last ok, last full
         reload and the 4 plans held stayed as they were (D11); the hub showed all 4
         plans offline.
-      - Still to run: the console edit of a "test…" plan with `updatedAt` set by hand,
-        then a plans screen (expect `change (1 docs)`) and Manage showing it fresh.
+      - Console edit, 2026-11-06 (user): "test 070" renamed "test 070 b" and `updatedAt`
+        set by hand to 17:31:36 IST (after the plan's own 16:29:36 stamp, before the
+        current time). On the emulator, opening All plans: `read change` → `ok change
+        (1 docs)`, the plan listed as "test 070 b", `lastSeen` moved to 1793966496 s 0 ns.
+        The hub and the next screens within 2 minutes: `skipped` (4 times), no reads.
+        Opening it in Manage: `read change (forced)` → `0 docs`, showing "test 070 b".
+        Not seen on the device: Manage replacing an open, stale draft in place (the
+        store was already current when the plan opened); unit tests only.
+      - Seen, not explained: twice the hub's Plans pill did nothing on tap; after Back to
+        Feed and the Workout tab it opened Manage. Not investigated; no evidence it is
+        from this ticket either way.
       - Writes made: one Save of "test 070" (`zlmS2YQIDr1BHn1xmYWd`) adding an `other`
-        field "Notes"; that Save also wrote its first `updatedAt`. Nothing else.
+        field "Notes"; that Save also wrote its first `updatedAt`. The user's console edit
+        of the same plan (name, `updatedAt`). Nothing else.
 
 **Dependencies:** none. Touches TICKET-026 (clear on sign-out), TICKET-029 (what is
 stored locally), TICKET-049 (scripts on the admin SDK), TICKET-071 (History reads
