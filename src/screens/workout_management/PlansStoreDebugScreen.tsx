@@ -1,8 +1,9 @@
 // src/screens/workout_management/PlansStoreDebugScreen.tsx
 //
 // TEMPORARY (TICKET-070, CLAUDE.md 3.3). Makes the plans store observable on a
-// device: what it holds, what is on disk, and what each check did. Remove
-// before TICKET-070 merges:
+// device: what it holds, what is on disk, and what each check did. Kept
+// through stage 2, whose 1-read check it measures; remove before stage 2
+// merges:
 //  1. Delete this file.
 //  2. Its route in constants/routes.tsx, its type and Stack.Screen in
 //     navigation/WorkoutNavigator.tsx, its button in
@@ -15,7 +16,8 @@
 //  - hub → All plans → Manage within 2 minutes: "server reads" goes up by 1,
 //    the rest log "skipped"
 //  - Save in Manage: "holds" goes up, reads do not
-//  - offline: the check logs "failed", the stored copy stays
+//  - offline: the check logs "failed", the stored copy stays; "dropped" is
+//    an answer set aside as older than a Save or a newer check, not a failure
 //  - sign-out: the disk line says "key absent"
 // Leaving the hub for this page and coming back is a focus: the hub checks
 // (or skips) again, and the log shows it.

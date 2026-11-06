@@ -40,7 +40,7 @@ export const PLANS_STORAGE_KEY = "workoutPlans";
 export type PlansSource = "none" | "stored" | "server";
 
 // TEMPORARY (TICKET-070 debug page, CLAUDE.md 3.3). Remove with PlansStoreDebugScreen.
-export type ReadoutEntry = { at: number; outcome: "read" | "skipped" | "joined" | "ok" | "failed"; detail?: string };
+export type ReadoutEntry = { at: number; outcome: "read" | "skipped" | "joined" | "ok" | "failed" | "dropped"; detail?: string };
 
 interface PlansStore {
   uid: string | null;
@@ -60,7 +60,11 @@ interface PlansStore {
 
   /** A plans screen opened: load the stored copy for `uid`, then check unless `check` is false. */
   open: (uid: string, options?: { check?: boolean }) => Promise<void>;
-  /** Read the plans now unless skipped (D4) or one is running (D9). `force`: Try again, Reload. */
+  /**
+   * Read the plans now unless skipped (D4) or one is running (D9). `force`:
+   * Try again, Reload; it also starts a fresh read when the running one is
+   * past its wait.
+   */
   check: (options?: { force?: boolean }) => Promise<void>;
   /** A Save of `plan`, started under `epoch`, was confirmed by the server (D8). */
   applySaved: (uid: string, epoch: number, plan: WorkoutPlan) => void;
@@ -85,6 +89,13 @@ let persistChain: Promise<void> = Promise.resolve();
  * newer-`updatedAt` merge (D10) replaces this.
  */
 let savesApplied = 0;
+/**
+ * Checks started, and the newest one whose answer was applied. A forced check
+ * can start while a stalled one still runs (`check`); if the stalled one
+ * answers last, its plans are older and are dropped.
+ */
+let checksStarted = 0;
+let newestApplied = 0;
 
 const initialState = {
   uid: null,
@@ -151,7 +162,11 @@ export const usePlansStore = create<PlansStore>((set, get) => {
     check: ({ force = false } = {}) => {
       const { uid, epoch } = get();
       if (uid === null) return Promise.resolve();
-      if (checkInFlight) {
+      // D9: a trigger joins the running check. Except Try again on a check
+      // past its wait: the screen already says "Couldn't load plans", and
+      // joining a stalled read would make the tap do nothing (PR #48 review).
+      // The stalled read is left to land; `newestApplied` drops it if late.
+      if (checkInFlight && !(force && get().waitOver)) {
         note("joined");
         return checkInFlight;
       }
@@ -170,19 +185,31 @@ export const usePlansStore = create<PlansStore>((set, get) => {
       }, PLANS_CHECK_WAIT_MS);
 
       const savesBefore = savesApplied;
+      const seq = ++checksStarted;
       const running: Promise<void> = (async () => {
         try {
           const plans = await getAllWorkoutPlans(uid);
           if (get().epoch !== epoch) return;
           if (savesApplied !== savesBefore) {
-            note("failed", "answer older than a Save; dropped");
+            note("dropped", "answer older than a Save");
             return;
           }
+          if (seq < newestApplied) {
+            note("dropped", "answer older than a newer check's");
+            return;
+          }
+          newestApplied = seq;
           set({ plans, source: "server", lastResult: "ok", lastError: null, lastOkAt: Date.now() });
           note("ok", `${plans.length} plans`);
           persist();
         } catch (error) {
           if (get().epoch !== epoch) return;
+          // A read superseded by a forced one: its failure says nothing about
+          // the read now running, which owns the result.
+          if (seq < checksStarted) {
+            note("dropped", "failed after a newer check started");
+            return;
+          }
           // D11: a failure moves nothing but these two fields; the stored
           // copy and the 2-minute skip stay as they were.
           const message = error instanceof Error ? error.message : String(error);

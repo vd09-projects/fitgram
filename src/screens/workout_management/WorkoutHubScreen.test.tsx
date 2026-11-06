@@ -10,6 +10,7 @@ import { WorkoutPlan } from "../../types/workoutType";
 import { WorkoutSessionDoc } from "../../types/workoutSession";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
 import { FREESTYLE_ID } from "../../constants/freestyle";
+import { PLANS_CHECK_SKIP_MS } from "../../utils/planSync";
 
 jest.mock("../../services/db/userDB", () => ({
   ...jest.requireActual("../../services/db/userDB"),
@@ -116,6 +117,22 @@ describe("WorkoutHubScreen", () => {
     } finally {
       nowSpy.mockRestore();
     }
+  });
+
+  // TICKET-070 D4: left open on the hub, coming back from the background is
+  // not a focus, so the plans hook checks on foregrounding (PR #48 review).
+  it("checks the plans when the app comes back to the foreground", async () => {
+    await renderHub([PUSH]);
+    await waitFor(() => expect(tile("push")).toBeTruthy());
+    expect(mockPlans).toHaveBeenCalledTimes(1);
+    mockPlans.mockResolvedValue([PUSH, PULL]);
+    await act(() => jest.advanceTimersByTimeAsync(PLANS_CHECK_SKIP_MS));
+    const handlers = (AppState.addEventListener as jest.Mock).mock.calls
+      .filter(([type]) => type === "change")
+      .map(([, handler]) => handler);
+    await act(async () => handlers.forEach((handler) => handler("active")));
+    await waitFor(() => expect(tile("pull")).toBeTruthy());
+    expect(mockPlans).toHaveBeenCalledTimes(2);
   });
 
   // The six tiles reorder when sessions land; an open card must not close

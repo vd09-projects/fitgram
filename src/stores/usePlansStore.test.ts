@@ -143,3 +143,17 @@ it("stored writes land in order: a slow older write cannot land last", async () 
     setItem.mockRestore();
   }
 });
+
+it("Try again on a check past its wait reads afresh; the stalled read, landing late, is dropped", async () => {
+  const stalled = deferredRead();
+  const opening = store().open("u1");
+  await jest.advanceTimersByTimeAsync(PLANS_CHECK_WAIT_MS);
+  expect(store().waitOver).toBe(true);
+  reads.mockResolvedValueOnce([plan("b")]);
+  await store().check({ force: true });
+  expect(reads).toHaveBeenCalledTimes(2);
+  expect(store().plans).toEqual([plan("b")]);
+  stalled([plan("a")]);
+  await opening;
+  expect(store().plans).toEqual([plan("b")]);
+});

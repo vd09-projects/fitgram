@@ -7718,6 +7718,12 @@ offline start appears (user, 2026-11-05).
 - D9's bound is `PLANS_CHECK_WAIT_MS` (10 s, its own constant, not `SAVE_GRACE_MS`).
   It decides one visible thing: with nothing stored, when the spinner gives way to
   "Couldn't load plans". The read is not cancelled; its answer applies when it arrives.
+  Try again on a check past its wait starts a fresh read instead of joining the stalled
+  one, so the tap is never a no-op; the stalled read, if it answers after the fresh one,
+  is dropped, and its failure is ignored (PR #48 review).
+- A first launch offline (nothing stored) now spins for up to `PLANS_CHECK_WAIT_MS` before
+  "Couldn't load plans"; before 070 `getDocs` answered from the empty cache at once. D12's
+  edge case, accepted: not a regression on the device run (PR #48 review).
 - Stored as one AsyncStorage key (`workoutPlans`) holding `{formatVersion, uid, plans}`.
   A copy for another uid reads as nothing stored. Rejected: a key per user, which a
   missed clear would leave on the phone for good. Writes are chained, each writing the
@@ -7728,8 +7734,12 @@ offline start appears (user, 2026-11-05).
   and does not count as a success (the next screen checks again). Without it a slow
   check could put a just-saved plan back to its old version, silently, until the next
   check. A stand-in for D10's newer-`updatedAt` merge, which replaces it in stage 2.
-- Which readers check: hub and All plans on focus; Manage, the History filter and the
-  history debug screen on mount; the mid-workout picker never (read only).
+- Which readers check: hub, All plans, Manage and the History filter on focus, and on a
+  return to the foreground while focused (`useWorkoutPlansOnFocus`); the history debug
+  screen on mount; the mid-workout picker never (read only). Manage and History are
+  `singleCopy`, so going back to them is a focus, not a mount, and a mount check would
+  never run again; coming back from the background is neither, and the hub is often left
+  open for hours (PR #48 review, B1 and B2).
 - `getAllWorkoutPlans` uses `getDocsFromServer`; its `fromCache && empty` guard
   (TICKET-052 D5) went with `getDocs`.
 - **TEMPORARY debug page** (`PlansStoreDebugScreen`, the hub's "Plans Store" debug
@@ -7738,8 +7748,16 @@ offline start appears (user, 2026-11-05).
   `SHOW_DEBUG_SCREENS=true` in `.env` and a Metro restart. Shows what the store holds,
   the stored copy read from disk, the last check and its result, server reads this
   run, the check log and the plans by id; buttons force a check, expire the 2-minute
-  skip, and clear the store as sign-out does. Remove before merge: the steps are in
-  the screen's header comment.
+  skip, and clear the store as sign-out does. Stays until stage 2 merges, whose
+  acceptance check (1 read, 0 docs) needs it; remove then: the steps are in the screen's
+  header comment (PR #48 review). A check answer set aside (older than a Save or a newer
+  check) logs as `dropped`, not `failed`.
+- For TICKET-026: with one key, another user signing in without a sign-out clear leaves
+  the first user's copy on disk until the new user's first successful check. Never
+  shown (`readStoredPlans` rejects it).
+- Open before stage 2: D4 says opening a plan to edit reads that one plan fresh. A change
+  check costs the same 1 read and downloads nothing when unchanged; settle which one
+  stage 2 builds (PR #48 review).
 
 **Acceptance Criteria:**
 - [ ] Measured (CLAUDE.md 3.1), stage 2: a plans screen open with nothing changed
@@ -7748,9 +7766,21 @@ offline start appears (user, 2026-11-05).
 - [ ] A temporary readout (CLAUDE.md 3.3) shows what the store holds, `lastSeen`, the
       last check, its kind (full or change) and result; marked `TEMPORARY`, removed
       before merge
-- [ ] Device test after stage 1: offline cold start with plans stored starts a planned
+- [x] Device test after stage 1: offline cold start with plans stored starts a planned
       workout; a Save in Manage shows on the hub with no re-read; sign-out then sign-in
       as another user shows none of the first user's plans
+      - Passed 2026-11-06, Android emulator, with the PR #48 review fixes. Read counts
+        from the Plans Store page. Save of a new "Test 070" plan: on the hub, server
+        reads stayed at 1. Hub left open, app backgrounded past the 2-minute skip and
+        foregrounded: 1 read (B2). Manage and History, left via the Workout tab and
+        reopened after 2 minutes: 1 read each (B1). Offline cold start: the hub showed
+        the stored plan and its workout started (then Discarded, nothing written).
+        Nothing stored + offline: "Your plans did not load" within about 1 s, since
+        `getDocsFromServer` rejected at once on this run (no 10 s spin, no stall for S1
+        to fix; its fix stays as a guard). Try again online: `read (forced)`, plan back.
+        Sign-out: the `workoutPlans` AsyncStorage key gone (adb, RKStorage). A second
+        account then showed only its own 4 plans, by id.
+      - Writes made: one plan "Test 070" on the test account pinky@gmail.com.
 - [ ] Device test after stage 2: edit a "test…" plan in the Firebase console (as a
       second device), open a plans screen on the emulator, see it change with 1 doc read
 

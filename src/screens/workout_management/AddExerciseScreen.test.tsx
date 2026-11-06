@@ -4,7 +4,8 @@
 // TICKET-052: plans are chosen and created in a sheet; a first plan without one.
 
 import { StyleSheet, TextInput } from "react-native";
-import { act, fireEvent, screen, within } from "@testing-library/react-native";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react-native";
+import { NavigationProp, ParamListBase, useNavigation } from "@react-navigation/native";
 import AddExerciseScreen from "./AddExerciseScreen";
 import { renderScreen, RenderScreenOptions, TEST_USER_ID } from "../../test/renderScreen";
 import { buildWorkout } from "../../test/fixtures";
@@ -13,6 +14,8 @@ import { getAllWorkoutPlans, overrideWorkoutDetails } from "../../services/db/us
 import { useCatalogStore } from "../../stores/useCatalogStore";
 import { usePlansStore } from "../../stores/usePlansStore";
 import { loadCatalog } from "../../utils/catalog";
+import { PLANS_CHECK_SKIP_MS } from "../../utils/planSync";
+import { LayoutRoutes } from "../../constants/routes";
 import { getWorkoutSessions } from "../../services/db/workoutSessions";
 import { WorkoutPlan } from "../../types/workoutType";
 import * as planDraft from "../../utils/planDraft";
@@ -442,4 +445,23 @@ describe("archive", () => {
     expect(sheet().getByText("Push v1")).toBeTruthy();
     expect(sheet().getByRole("button", { name: "Hide archived" })).toBeTruthy();
   });
+});
+
+// TICKET-070 D4: Manage is `singleCopy`, so going back to it is a focus, not a
+// mount. It must check the plans again then (PR #48 review).
+it("checks the plans again when Manage comes back into view", async () => {
+  let navigation!: NavigationProp<ParamListBase>;
+  function ManageWithNavigation() {
+    navigation = useNavigation<NavigationProp<ParamListBase>>();
+    return <AddExerciseScreen />;
+  }
+  const reads = jest.mocked(getAllWorkoutPlans);
+  reads.mockClear().mockResolvedValue([push()]);
+  renderScreen(ManageWithNavigation);
+  await waitFor(() => expect(reads).toHaveBeenCalledTimes(1));
+  await act(() => jest.advanceTimersByTimeAsync(PLANS_CHECK_SKIP_MS));
+  act(() => navigation.navigate(LayoutRoutes.Home));
+  await screen.findByText(`route:${LayoutRoutes.Home}`);
+  act(() => navigation.goBack());
+  await waitFor(() => expect(reads).toHaveBeenCalledTimes(2));
 });

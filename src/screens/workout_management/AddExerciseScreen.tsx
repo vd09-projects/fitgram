@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BORDER_RADIUS, SPACING } from '../../constants/styles';
 import ScrollableScreen from '../../components/ScrollableScreen';
 import { BackTitle } from '../../components/BackButton';
-import useWorkoutPlans from '../../hooks/useWorkoutPlans';
+import { useWorkoutPlansOnFocus } from '../../hooks/useWorkoutPlansOnFocus';
 import show from '../../utils/toastUtils';
 import { newPlanId, overrideWorkoutDetails } from '../../services/db/userDB';
 import { useAuthUser } from '../../hooks/useAuthUser';
@@ -95,7 +95,11 @@ export default function AddExerciseScreen() {
   const catalogLoaded = useCatalogStore((s) => s.cacheLoaded);
   const searchWords = useCatalogStore((s) => s.searchWords);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const { workoutPlans, loadingWorkoutPlans, failedToLoad, retry } = useWorkoutPlans();
+  // Checked on focus, not mount: Manage is `singleCopy`, so going back to it
+  // moves the same mounted copy up and a mount check would never run again
+  // (TICKET-070 D4, PR #48 review). A check cannot reset an open draft:
+  // `saved` and `draft` are set in `openPlan`, not derived from the plans.
+  const { workoutPlans, loadingWorkoutPlans, failedToLoad, retry } = useWorkoutPlansOnFocus();
   const customExercises = useMemo(() => customExercisesFromPlans(workoutPlans), [workoutPlans]);
   // From the draft (D3): a version added and not yet saved is greyed, one
   // removed in the draft can be picked again.
