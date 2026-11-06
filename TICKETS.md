@@ -7785,12 +7785,25 @@ offline start appears (user, 2026-11-05).
   cannot undo it" passes without it and fails with D10's comparison switched off.
   `newestApplied` (a stalled check landing after a forced one) stays: it also covers
   unstamped plans, which D10 cannot order.
-- **Full reload with D10:** a full reload replaces what is held, except a held plan newer
-  than the server's copy, and a held plan absent from the answer whose stamp is after
-  `lastSeen` when the read started (a Save of a new plan while the read was out).
-  Everything else absent is dropped: that is how removals outside the app go. Equal
-  stamps take the server's copy, so a console edit that kept the stamp shows on a full
-  reload.
+- **Full reload with D10:** a full reload replaces what is held, except a held plan that
+  arrived after the read started (stamp after `lastSeen` at the start: a Save the read
+  ran too early to see). That one is kept if the answer lacks it or has an older copy.
+  Everything else is the server's: removals outside the app go, and a held copy the
+  server no longer has is corrected. Equal stamps take the server's copy, so a console
+  edit that kept the stamp shows on a full reload.
+- **A full reload resets `lastSeen`** to the newest stamp it holds afterwards, instead of
+  only moving it forward (PR #49 review, S1): one `updatedAt` set in the future by hand
+  (the console takes local time; a slipped date or +5:30 does it) would otherwise pin
+  `lastSeen` ahead of every real Save, and change checks on every phone would miss them
+  for good. The review's fix alone was not enough: D10 also kept the held plan with the
+  future stamp over the server's real one, so `lastSeen` came back to it. Hence the
+  rule above (held before the read started: the server wins). Heals on the first full
+  reload once the server has a real stamp again; while a plan on the server still
+  carries the future stamp, `lastSeen` stays there until that plan is saved again. Cost:
+  a `deleted` marker is not held, so the next change check returns it once.
+- **Save read-back tested both ways** (PR #49 review, S2): a check that answers during the
+  read-back with the saved plan stamped keeps it, and the skip is not lifted, when the
+  read-back then fails.
 - **Stamps are `{seconds, nanoseconds}`** (`PlanStamp`), never milliseconds, in the store
   and on disk; the query rebuilds the exact `Timestamp`. No stamp is older than any
   stamp.

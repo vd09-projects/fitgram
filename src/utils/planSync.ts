@@ -105,15 +105,33 @@ export const NO_STAMP_SEEN: PlanStamp = { seconds: 0, nanoseconds: 0 };
 export const changeCheckAfter = (lastSeen: PlanStamp | null): PlanStamp => lastSeen ?? NO_STAMP_SEEN;
 
 /**
- * `lastSeen` after an answer: the newest stamp held before or returned now,
- * deleted plans included (their marker was seen; leaving it out would return
- * it on every check). Never moves back, and never past what the server sent.
+ * `lastSeen` after a change check or a Save's read-back: the newest stamp
+ * held before or returned now, deleted plans included (their marker was seen;
+ * leaving it out would return it on every check). Never moves back, and never
+ * past what the server sent. A full reload resets it instead
+ * (`lastSeenAfterFullReload`).
  */
 export function lastSeenAfter(lastSeen: PlanStamp | null, incoming: WorkoutPlan[]): PlanStamp | null {
   return incoming.reduce<PlanStamp | null>(
     (newest, plan) => (plan.updatedAt && compareStamps(plan.updatedAt, newest) > 0 ? plan.updatedAt : newest),
     lastSeen
   );
+}
+
+/**
+ * `lastSeen` after a full reload: the newest stamp among the plans held once
+ * the answer is merged, not the newest ever seen (PR #49 review, S1). A full
+ * reload sees every plan, so it may move `lastSeen` back: otherwise one stamp
+ * in the future (a hand edit in the console with the wrong date or time zone)
+ * would pin it ahead of every real Save, and change checks on every phone
+ * would miss them for good. Safe: a Save made while the read was out stays
+ * held with its stamp (`mergeFullReload`), so it is counted. Cost: a
+ * `deleted` marker is not held, so the next change check returns it once.
+ * A plan still holding the future stamp keeps `lastSeen` there until it is
+ * saved again; then the next full reload heals it.
+ */
+export function lastSeenAfterFullReload(held: WorkoutPlan[]): PlanStamp | null {
+  return lastSeenAfter(null, held);
 }
 
 /**
@@ -160,31 +178,36 @@ export function mergeChanges(held: WorkoutPlan[], incoming: WorkoutPlan[]): Work
 
 /**
  * A full reload's answer (D5): it replaces the plans held, which is what
- * drops plans removed outside the app. Two exceptions, both a plan the read
- * could not have seen, decided by stamps alone:
- * - a held plan newer than the server's copy (D10: a Save that landed
- *   while the read was out);
- * - a held plan absent from the answer whose stamp is after `lastSeenAtStart`
- *   (`lastSeen` when the read started). Everything held then was at most that
- *   stamp, so a newer one arrived since, through a Save: a new plan the read
- *   ran too early to return. Held at or before it, and absent: removed.
- * `deleted` plans are left out.
+ * drops plans removed outside the app, and what corrects a held copy the
+ * server no longer has. One exception: a held plan that arrived after the
+ * read started, through a Save the read ran too early to see. Told by its
+ * stamp alone: everything held when the read started was at most
+ * `lastSeenAtStart` (`lastSeen` then), so a held stamp after it arrived
+ * since. Such a plan is kept if the answer lacks it (a new plan) or holds an
+ * older copy (D10). Held at or before `lastSeenAtStart`: the server's answer
+ * wins, even over a "newer" held stamp (PR #49 review: a stamp set in the
+ * future by hand would otherwise survive every full reload). `deleted` plans
+ * are left out.
  */
 export function mergeFullReload(
   held: WorkoutPlan[] | null,
   incoming: WorkoutPlan[],
   lastSeenAtStart: PlanStamp | null
 ): WorkoutPlan[] {
+  const arrivedSince = (held ?? []).filter(
+    (plan) => plan.updatedAt && compareStamps(plan.updatedAt, lastSeenAtStart) > 0
+  );
+  const keep = (current: WorkoutPlan | undefined): current is WorkoutPlan =>
+    current !== undefined && arrivedSince.includes(current);
+
   const answered = new Set(incoming.map((plan) => plan.id));
   const fromServer = incoming.flatMap((plan) => {
     const current = held?.find((p) => p.id === plan.id);
-    if (!replaces(plan, current)) return current ? [current] : [];
+    if (keep(current) && !replaces(plan, current)) return [current];
     return plan.deleted === true ? [] : [plan];
   });
-  const arrivedSince = (held ?? []).filter(
-    (plan) => !answered.has(plan.id) && plan.updatedAt && compareStamps(plan.updatedAt, lastSeenAtStart) > 0
-  );
-  return arrivedSince.reduce(withPlan, fromServer);
+  const newSince = arrivedSince.filter((plan) => !answered.has(plan.id));
+  return newSince.reduce(withPlan, fromServer);
 }
 
 /**

@@ -8,6 +8,7 @@ import {
   compareStamps,
   isFullReloadDue,
   lastSeenAfter,
+  lastSeenAfterFullReload,
   mergeChanges,
   mergeFullReload,
   readStoredPlans,
@@ -194,15 +195,21 @@ function checkKindNow(state: State, fullRequested: boolean): CheckKind {
 /**
  * After a check's answer (D3, D5). D10 is in both merges: a Save that landed
  * while the read was out is newer than anything the read returned, so it
- * stays.
+ * stays. A full reload resets `lastSeen` from what it now holds
+ * (`lastSeenAfterFullReload`); a change check only moves it forward.
  */
 function stateAfterAnswer(state: State, run: CheckRun, docs: WorkoutPlan[]): Partial<State> {
   const now = Date.now();
-  const isFull = run.kind === "full";
+  if (run.kind === "full") {
+    const plans = mergeFullReload(state.plans, docs, run.seenAtStart);
+    return { ...answered(now), plans, lastSeen: lastSeenAfterFullReload(plans), lastFullAt: now };
+  }
+  return { ...answered(now), plans: mergeChanges(state.plans ?? [], docs), lastSeen: lastSeenAfter(state.lastSeen, docs) };
+}
+
+/** What every successful check sets, whatever its kind. */
+function answered(now: number): Partial<State> {
   return {
-    plans: isFull ? mergeFullReload(state.plans, docs, run.seenAtStart) : mergeChanges(state.plans ?? [], docs),
-    lastSeen: lastSeenAfter(state.lastSeen, docs),
-    lastFullAt: isFull ? now : state.lastFullAt,
     source: "server",
     lastResult: "ok",
     lastError: null,

@@ -167,6 +167,35 @@ it("a confirmed Save goes into the store stamped, read back by one change query;
   expect(changes).toHaveBeenLastCalledWith("u1", at(6));
 });
 
+it("a full reload resets lastSeen from what it holds: a stamp in the future cannot pin it (PR #49, S1)", async () => {
+  // A hand edit in the console set `updatedAt` a year ahead; that plan was
+  // saved again since, with a real stamp.
+  const held = { plans: [stamped("a", at(9_999))], lastSeen: at(9_999), lastFullAt: Date.now() };
+  await AsyncStorage.setItem(PLANS_STORAGE_KEY, serializeStoredPlans("u1", held));
+  reads.mockResolvedValueOnce([stamped("a", at(7)), stamped("b", at(6))]);
+  await store().open("u1", { check: false });
+  await store().check({ force: true, full: true });
+  expect(store().lastSeen).toEqual(at(7));
+  await store().check({ force: true });
+  expect(changes).toHaveBeenLastCalledWith("u1", at(7));
+});
+
+it("a Save whose read-back fails keeps the stamped copy a check brought meanwhile (PR #49, S2)", async () => {
+  reads.mockResolvedValue([stamped("a", at(5))]);
+  await store().open("u1");
+  let failReadBack!: (error: Error) => void;
+  changes.mockImplementationOnce(() => new Promise((_resolve, reject) => (failReadBack = reject)));
+  const saving = store().applySaved("u1", store().epoch, plan("a", "A2"));
+  await tick();
+  changes.mockResolvedValueOnce([stamped("a", at(7), "A2")]);
+  await store().check({ force: true });
+  const okAt = store().lastOkAt;
+  failReadBack(new Error("unavailable"));
+  await saving;
+  expect(store().plans).toEqual([stamped("a", at(7), "A2")]);
+  expect(store().lastOkAt).toBe(okAt);
+});
+
 it("a Save whose read-back fails still shows, unstamped, and lifts the skip so the next screen checks", async () => {
   reads.mockResolvedValue([stamped("a", at(5))]);
   await store().open("u1");

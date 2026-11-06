@@ -126,6 +126,10 @@ describe("mergeFullReload (D5, D10)", () => {
     expect(names(mergeFullReload(held, [stamped("a", at(5), "old")], at(6)))).toEqual(["saved", "new"]);
   });
 
+  it("a held stamp 'newer' than the server's, but held before the read started: the server wins", () => {
+    expect(names(mergeFullReload([stamped("a", at(9_999), "future")], [stamped("a", at(7), "real")], at(9_999)))).toEqual(["real"]);
+  });
+
   it("first load: nothing held, every plan the server has", () => {
     expect(names(mergeFullReload(null, [plan("a"), stamped("b", at(1))], null))).toEqual(["a", "b"]);
   });
