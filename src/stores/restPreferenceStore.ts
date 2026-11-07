@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import show from '../utils/toastUtils';
 import { DEFAULT_REST_MS } from '../config/workout';
+import { REST_DURATION_KEY } from '../config/storageKeys';
 
 /**
  * How long to rest between sets — one global preference (TICKET-021, Phase 3
@@ -23,7 +24,7 @@ interface RestPreferenceStore {
   loadFromStorage: () => Promise<void>;
 }
 
-const REST_DURATION_KEY = 'rest_duration_ms';
+// REST_DURATION_KEY: value and reason in src/config/storageKeys.ts.
 
 /** 5 s to 30 min. Anything outside is a corrupt value, not a preference. */
 export function isValidRestDuration(ms: unknown): ms is number {

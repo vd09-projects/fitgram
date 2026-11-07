@@ -22,6 +22,7 @@ import { drainPendingUploads, useWorkoutStore } from "../../stores/useWorkoutSto
 import { BORDER_RADIUS, SPACING } from "../../constants/styles";
 import { ReturnTypeUseThemeTokens } from "../../components/app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
+import { PENDING_UPLOADS_KEY } from "../../config/storageKeys";
 
 const when = (ms: number) =>
   new Date(ms).toLocaleDateString() + " " + new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -29,7 +30,7 @@ const when = (ms: number) =>
 /** Entries in AsyncStorage, read directly: memory can't prove the queue survives a restart. */
 async function readDiskCount(): Promise<string> {
   try {
-    const raw = await AsyncStorage.getItem("pendingUploads");
+    const raw = await AsyncStorage.getItem(PENDING_UPLOADS_KEY);
     if (!raw) return "0 (key absent)";
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? String(parsed.length) : "unreadable";

@@ -9,13 +9,9 @@
 import type { PlanStamp, WorkoutPlan } from "../types/workoutType";
 import { compareVersions, toPlanVersion } from "./planVersion";
 import { PLANS_CHECK_SKIP_MS, PLANS_FULL_RELOAD_INTERVAL_MS } from "../config/sync";
+import { PLANS_FORMAT_VERSION } from "../config/storageKeys";
 
-/**
- * Format of the stored copy. Bump it when the stored shape changes: a copy
- * written under another version is discarded and fetched again (D2), never
- * read field by field.
- */
-export const PLANS_FORMAT_VERSION = 3; // 2: `lastSeen` and `lastFullAt` (070 stage 2); 3: each plan's `version` (073)
+// PLANS_FORMAT_VERSION: value and reason in src/config/storageKeys.ts.
 
 // Check skip, check wait and full-reload interval: value and reason in src/config/sync.ts.
 
