@@ -24,7 +24,7 @@ import { computeSessionVolume } from "./exerciseStats";
 import { comparisonSegment, decodeStoredSets } from "./storedSets";
 import { HISTORY_RECENT_SESSION_COUNT, HISTORY_TREND_SESSION_COUNT } from "../config/display";
 
-// History sheet windows (sessions, volume trend): value and reason in src/config/display.ts.
+// HISTORY_RECENT_SESSION_COUNT, HISTORY_TREND_SESSION_COUNT: value and reason in src/config/display.ts.
 
 const NO_FIELDS: ExerciseField[] = [];
 const NO_SESSIONS: StatsSessionEntry[] = [];

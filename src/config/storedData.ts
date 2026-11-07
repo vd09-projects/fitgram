@@ -9,19 +9,22 @@
  * Sessions embedded in the rollup (`recentSessions`). Deeper history comes from
  * exercise_sessions.
  *
- * Changes stored data: existing rollups keep the old length until each
- * exercise's next workout re-folds it, so raising it shows nothing new until
- * then. Run `src/scripts/rebuildExerciseStats.ts` per user to apply it to every
- * exercise at once. Must stay at or above `HISTORY_RECENT_SESSION_COUNT` and
- * `HISTORY_TREND_SESSION_COUNT` (config.test.ts).
+ * Changes stored data: each workout re-folds only its own exercises' rollups
+ * (`applySessionToStats` keeps `[new, ...old].slice(0, cap)`). Lowering it
+ * applies at that exercise's next workout. Raising it does not: the rollup
+ * grows by one entry per workout, and sessions already dropped come back only
+ * from `src/scripts/rebuildExerciseStats.ts`, run per user. Must stay at or
+ * above `HISTORY_RECENT_SESSION_COUNT` and `HISTORY_TREND_SESSION_COUNT`
+ * (config.test.ts).
  */
 export const STATS_RECENT_SESSION_CAP = 10;
 
 /**
  * Volume trend points kept in the rollup (`volumeHistory`).
  *
- * Changes stored data: as `STATS_RECENT_SESSION_CAP`, existing rollups change
- * only when re-folded; rebuild with `src/scripts/rebuildExerciseStats.ts`. Must
- * stay at or above `HISTORY_TREND_SESSION_COUNT` (config.test.ts).
+ * Changes stored data: as `STATS_RECENT_SESSION_CAP`. Lowering it applies at
+ * each exercise's next workout; raising it grows the rollup one point per
+ * workout, and only `src/scripts/rebuildExerciseStats.ts` restores dropped
+ * points. Must stay at or above `HISTORY_TREND_SESSION_COUNT` (config.test.ts).
  */
 export const STATS_VOLUME_HISTORY_CAP = 12;

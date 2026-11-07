@@ -1261,7 +1261,7 @@ per point so only the other-unit points drop out.
       others, instead of hiding the trend
 - [ ] A test: one lb session among five kg sessions shows five bars and one gap
 - [ ] The invariant at `HISTORY_TREND_SESSION_COUNT` (must not exceed
-      `STATS_RECENT_SESSION_CAP`) and its test are removed, since it no longer protects anything
+      `STATS_RECENT_SESSION_CAP`) and its test (`src/config/config.test.ts`, since TICKET-074) are removed, since it no longer protects anything
 
 **Technical Notes:**
 - Today's suppression over-hides: `unitMismatch` scans `recentSessions` (cap 10), so a
@@ -1866,6 +1866,10 @@ while reviewing TICKET-017's resume prefetch.
 - The same class applies to the saved active workout: AsyncStorage key `activeWorkout`
   is not per account. B signing in on A's device resumes A's in-progress workout, and
   Finish saves it under B's uid
+- Every phone storage key is listed in `src/config/storageKeys.ts` (TICKET-074), with
+  notes on which are account data (plans) and which are not (catalog cache, search
+  words). Decide there what sign-out clears, including the upload queue's
+  `pendingUploads.corrupt.<ms>` keys
 
 **Acceptance Criteria:**
 - [ ] The history cache is cleared whenever the signed-in uid changes, including to
@@ -8363,8 +8367,8 @@ Touches TICKET-037 (two sessions on the same day).
 
 ### TICKET-074: Config in One Place
 
-**Priority:** Medium | **Effort:** Medium | **Status: IN REVIEW** — raised 2026-11-08 (user),
-first of the history-reads track (TICKET-072 D10)
+**Priority:** Medium | **Effort:** Medium | **Status: MERGED** — PR #51, 2026-11-08; Android emulator launch (hub, plan card).
+Raised 2026-11-08 (user), first of the history-reads track (TICKET-072 D10)
 
 **Description:**
 About 60 exported constants live in about 20 files, so finding where a limit or a
@@ -8451,7 +8455,7 @@ Stays:
 | Constant | In | Why it stays |
 | --- | --- | --- |
 | `NO_STAMP_SEEN`, `NO_VERSION`, `PLAN_MODE` | `utils/planSync.ts`, `utils/planVersion.ts`, `ExercisePicker.tsx` | sentinel values of a type, not a knob |
-| `PREFIX_MIN`, `SCORE`, `CATEGORY_RANK` | `utils/exerciseSearch.ts` | search ranking internals, tuned together against the benchmark; splitting them from the scorer helps no one |
+| `PREFIX_MIN`, `SCORE`, `CATEGORY_RANK` | `utils/exerciseSearch.ts` | search ranking internals, tuned together and pinned by `exerciseSearch.test.ts`; splitting them from the scorer helps no one |
 | `EXERCISE_NAME_CHARACTER`, `MOVEMENT_ID` | `utils/validation.ts`, `utils/catalog.ts` | format rules (regexes), not amounts |
 | `DAY_MS` | `utils/startWorkout.ts`, `test/fixtures.ts` | a unit, not a choice |
 | `HIT`, `ROW_HEIGHT`, `SLOT_WIDTH`, `PILL_HEIGHT`, `ACTION_HEIGHT`, `MENU_HEIGHT`, `TREND_HEIGHT`, `TABLE_MIN_WIDTH`, `COLUMN_WIDTH`, `TOOLTIP_WIDTH`, `DEFAULT_WIDTH`/`HEIGHT`, `PADDING`, `MAX_DISPLAY_LENGTH` | components | layout of one component; theme/style, like the tokens |
