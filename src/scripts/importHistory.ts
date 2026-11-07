@@ -13,7 +13,8 @@
 // Writes, under users/{uid} (uid looked up from the file's email):
 //   workouts/{planId}                         one per plan, overwritten, with
 //                                             `updatedAt` = the server's time
-//                                             (TICKET-070 D3)
+//                                             (TICKET-070 D3) and `version` =
+//                                             the next one (TICKET-073)
 //   sessions/{sessionId}                      one per session
 //   exercise_sessions/{sessionId}__{exercise} one per exercise per session
 //   exercise_stats/{exerciseId}               REBUILT from every exercise_session
@@ -25,12 +26,14 @@
 // workout or an earlier import under other ids, and both need a person.
 //
 // Admin credentials (firebaseAdmin.ts) for --inspect and --confirm.
+import { randomUUID } from "crypto";
 import { readFileSync } from "fs";
 import { getAuth } from "firebase-admin/auth";
 import { FieldValue } from "firebase-admin/firestore";
 import { tables } from "../constants/tables";
 import type { ExerciseSessionDoc, WorkoutSessionDoc } from "../types/workoutSession";
 import { buildExerciseSessionId, rebuildStatsFromSessions } from "../utils/exerciseStats";
+import { NO_VERSION, nextVersion, toPlanVersion, versionOf } from "../utils/planVersion";
 import { getAdminFirestore } from "./firebaseAdmin";
 import { buildImport, type ImportFile } from "./historyImport";
 import { isConfirmedRun } from "./wipe";
@@ -102,8 +105,21 @@ const run = async () => {
 
   // TICKET-070 D3: stamped by the server, so phones' change checks return the
   // overwritten plans; an unstamped write would show only on a full reload.
-  for (const plan of built.plans)
-    await queue((b) => b.set(user.collection(WORKOUTS).doc(plan.id), { ...plan, updatedAt: FieldValue.serverTimestamp() }));
+  // TICKET-073: as the next version after the existing one (`nextVersion`,
+  // none: rev 1), as a Save would write. Admin credentials skip
+  // firestore.rules, but an overwrite without `version` would leave the plan
+  // with none, and every phone's next Save of it would be refused once. A new
+  // version id, so a phone's Save made on the old version is refused. Read in
+  // the listing above, so a phone saving between that read and this write is
+  // overwritten (last write wins, as before 073): run it with the phones idle.
+  const existing = new Map(plansSnap.docs.map((d) => [d.id, versionOf({ version: toPlanVersion(d.get("version")) })]));
+  for (const plan of built.plans) {
+    const version = nextVersion(existing.get(plan.id) ?? NO_VERSION, randomUUID());
+    console.log(`  plan ${plan.id}: rev ${version.rev}`);
+    await queue((b) =>
+      b.set(user.collection(WORKOUTS).doc(plan.id), { ...plan, version, updatedAt: FieldValue.serverTimestamp() })
+    );
+  }
   for (const { session, exerciseSessions } of built.sessions) {
     // Written settled: the rollup is rebuilt below, in this same run.
     await queue((b) => b.set(user.collection(SESSIONS).doc(session.sessionId), { ...session, rollupPending: false }));

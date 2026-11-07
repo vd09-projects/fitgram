@@ -10,7 +10,7 @@ import AddExerciseScreen from "./AddExerciseScreen";
 import { renderScreen, RenderScreenOptions, TEST_USER_ID } from "../../test/renderScreen";
 import { buildWorkout } from "../../test/fixtures";
 import { CATALOG } from "../../catalog";
-import { getAllWorkoutPlans, getChangedPlans, overrideWorkoutDetails } from "../../services/db/userDB";
+import { getAllWorkoutPlans, getChangedPlans, getPlanFromServer, newVersionId, overrideWorkoutDetails } from "../../services/db/userDB";
 import { useCatalogStore } from "../../stores/useCatalogStore";
 import { usePlansStore } from "../../stores/usePlansStore";
 import { loadCatalog } from "../../utils/catalog";
@@ -26,8 +26,10 @@ jest.mock("../../services/db/userDB", () => ({
   ...jest.requireActual("../../services/db/userDB"),
   getAllWorkoutPlans: jest.fn(),
   getChangedPlans: jest.fn(async () => []),
+  getPlanFromServer: jest.fn(),
   overrideWorkoutDetails: jest.fn(),
   newPlanId: jest.fn(() => "generated_id"),
+  newVersionId: jest.fn(() => "version_id"),
 }));
 jest.mock("../../services/db/workoutSessions", () => ({
   ...jest.requireActual("../../services/db/workoutSessions"),
@@ -120,6 +122,8 @@ it("a collapsed row shows its fields; editing one enables Save, which writes the
   expect(save).toHaveBeenCalledWith(TEST_USER_ID, {
     ...push(),
     exercises: [{ ...push().exercises[0], fields: [{ name: "Load", role: "weight", unit: "plates" }, { name: "Reps", role: "reps" }] }],
+    // Loaded with no version: saved as rev 1, made on none (TICKET-073).
+    version: { rev: 1, id: "version_id", base: null },
   });
   expect(saveButton()).toBeDisabled();
 });
@@ -504,5 +508,92 @@ describe("opening a plan checks it is current", () => {
     expect(screen.getByLabelText("Plan: Push")).toBeTruthy();
     expect(screen.getByDisplayValue("Load")).toBeTruthy();
     expect(usePlansStore.getState().plans?.[0].name).toBe("Push (laptop)");
+  });
+});
+
+// TICKET-073 D7: the server refuses a Save not made on the stored version.
+describe("a Save refused because the plan changed on another device", () => {
+  const s3 = { rev: 3, id: "s3", base: null };
+  const refused = Object.assign(new Error("Missing or insufficient permissions."), { code: "permission-denied" });
+  const fromPhoneA = (): WorkoutPlan => ({
+    ...push(),
+    name: "Push (phone A)",
+    version: { rev: 4, id: "a4", base: "s3" },
+    updatedAt: { seconds: 9, nanoseconds: 0 },
+  });
+  // A refused Save always reads the plan from the server (`reloadRefused`).
+  beforeEach(() => jest.mocked(getPlanFromServer).mockResolvedValue(fromPhoneA()));
+  const editWeightUnit = () => {
+    fireEvent.press(screen.getByLabelText(/edit fields$/));
+    fireEvent.press(screen.getByLabelText("Set Weight unit to plates"));
+  };
+
+  it("online: the notice, the other device's version in place, and the next Save goes out at its rev + 1", async () => {
+    await openPlan([{ ...push(), version: s3 }], "Push");
+    editWeightUnit();
+    save.mockRejectedValueOnce(refused);
+    await act(async () => fireEvent.press(saveButton()));
+
+    await waitFor(() =>
+      expect(show.alert).toHaveBeenCalledWith("This plan changed on another device", "Your changes were not saved. This is the latest version.")
+    );
+    expect(screen.getByLabelText("Plan: Push (phone A)")).toBeTruthy();
+    expect(saveButton()).toBeDisabled();
+
+    editWeightUnit();
+    save.mockResolvedValueOnce(undefined);
+    await act(async () => fireEvent.press(saveButton()));
+    expect(save).toHaveBeenLastCalledWith(
+      TEST_USER_ID,
+      expect.objectContaining({ name: "Push (phone A)", version: expect.objectContaining({ rev: 5, base: "a4" }) })
+    );
+  });
+
+  it("late from the offline queue: logged with no notice, and the plan still reloads", async () => {
+    const race = jest.spyOn(planDraft, "raceSave").mockResolvedValue("pending");
+    try {
+      await openPlan([{ ...push(), version: s3 }], "Push");
+      editWeightUnit();
+      let land!: (error: unknown) => void;
+      save.mockReturnValueOnce(new Promise<void>((_resolve, reject) => (land = reject)));
+      await act(async () => fireEvent.press(saveButton()));
+      expect(show.warn).toHaveBeenCalledWith("Not saved yet", expect.anything());
+
+        await act(async () => land(refused));
+
+      expect(await screen.findByLabelText("Plan: Push (phone A)")).toBeTruthy();
+      expect(show.alert).not.toHaveBeenCalled();
+      expect(usePlansStore.getState().readout.log.map((e) => `${e.outcome} ${e.detail ?? ""}`)).toContain(
+        "refused plan push at rev 4, late from the queue"
+      );
+    } finally {
+      race.mockRestore();
+    }
+  });
+
+  // PR #50 review, B1 case 2: edited after the queued Save, the draft stays
+  // and is still based on that Save. Its next Save names it as the base, so
+  // the rule refuses it, even though its rev (5) is phone A's 4 + 1.
+  it("late, with edits since: the edits stay, and the next Save is based on the refused one", async () => {
+    const race = jest.spyOn(planDraft, "raceSave").mockResolvedValueOnce("pending");
+    jest.mocked(newVersionId).mockReturnValueOnce("b4").mockReturnValueOnce("b5");
+    try {
+      await openPlan([{ ...push(), version: s3 }], "Push");
+      editWeightUnit();
+      let land!: (error: unknown) => void;
+      save.mockReturnValueOnce(new Promise<void>((_resolve, reject) => (land = reject)));
+      await act(async () => fireEvent.press(saveButton()));
+      fireEvent.press(screen.getByLabelText("Set Weight unit to lb")); // edited after the queued Save
+
+        await act(async () => land(refused));
+      await waitFor(() => expect(usePlansStore.getState().plans?.[0]?.version?.id).toBe("a4"));
+      expect(screen.queryByLabelText("Plan: Push (phone A)")).toBeNull();
+
+      save.mockRejectedValueOnce(refused);
+      await act(async () => fireEvent.press(saveButton()));
+      expect(save).toHaveBeenLastCalledWith(TEST_USER_ID, expect.objectContaining({ version: { rev: 5, id: "b5", base: "b4" } }));
+    } finally {
+      race.mockRestore();
+    }
   });
 });

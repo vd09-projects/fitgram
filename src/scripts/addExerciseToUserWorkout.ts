@@ -1,3 +1,7 @@
+// Broken since the open rule expired (2025-08-25): it writes with the client
+// SDK and never signs in. TICKET-049 moves it to the admin SDK; it must then
+// also write `rev` (the existing one + 1, as importHistory.ts does) and
+// `updatedAt`, or phones refuse to save the plan once (TICKET-073).
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "./firebase";
 

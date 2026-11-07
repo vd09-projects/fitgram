@@ -1,6 +1,8 @@
 # How to add a test
 
 `npm test` runs everything once; `npm run test:watch` reruns on save.
+`npm run test:rules` runs the Firestore rules tests (`src/firestoreRules/`) against
+the emulator; it needs Java 17+, and `npm test` and CI leave it out (TICKET-073).
 
 ## Where files go
 

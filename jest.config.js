@@ -19,4 +19,6 @@ module.exports = {
   // Tests sit next to the code they cover. `src/scripts/` holds hand-run
   // scripts; only their I/O-free cores have suites (wipe.test.ts).
   testMatch: ["<rootDir>/src/**/*.test.ts", "<rootDir>/src/**/*.test.tsx"],
+  // The Firestore rules tests need the emulator (TICKET-073): `npm run test:rules`.
+  testPathIgnorePatterns: ["/node_modules/", "<rootDir>/src/firestoreRules/"],
 };

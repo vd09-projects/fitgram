@@ -9,6 +9,7 @@
 import { Exercise, ExerciseField, WorkoutPlan, isArchived } from "../types/workoutType";
 import { validateCustomFields } from "./exerciseValidations";
 import { planExerciseFromPick } from "./catalog";
+import { nextVersion, sameVersion, versionOf, type VersionBase, type VersionedPlan } from "./planVersion";
 
 /**
  * A field as edited. `savedName` is the name it had in the saved plan, so a
@@ -39,12 +40,22 @@ export type PlanDraft = {
    * unsaved Archive is an unsaved edit.
    */
   archived?: boolean;
+  /**
+   * TICKET-073: the version this draft was made on (`planVersion.ts`); Save
+   * writes the next one, based on it. Not part of the dirty check: it is not
+   * an edit. It moves when the version it is made on does: a Save confirmed
+   * or queued (`draftAfterSave`, `draftAfterQueued`), or a newer version
+   * replacing the draft (`openPlanRefresh`, a refused save's reload). Left
+   * behind, every later Save is refused.
+   */
+  basedOn: VersionBase;
 };
 
 export function draftFromPlan(plan: WorkoutPlan): PlanDraft {
   return {
     id: plan.id,
     name: plan.name,
+    basedOn: versionOf(plan),
     exercises: plan.exercises.map((exercise) => ({
       ...exercise,
       fields: exercise.fields.map((field) => ({ ...field, savedName: field.name })),
@@ -78,8 +89,19 @@ function fieldsToStore(exercise: DraftExercise): ExerciseField[] {
   return fields;
 }
 
-/** The plan document Save writes: the whole plan, as the draft now reads. */
-export function planFromDraft(draft: PlanDraft): WorkoutPlan {
+/**
+ * The plan document Save writes: the whole plan, as the draft now reads, as
+ * the next version (TICKET-073), made on the draft's: what firestore.rules
+ * accepts if nothing else saved this plan since that version. The plan as it
+ * will be stored, so once confirmed it is the new saved baseline as is. The
+ * new version's `id` comes from the caller (`newVersionId`), so this stays pure.
+ */
+export function planFromDraft(draft: PlanDraft, versionId: string): VersionedPlan {
+  return { ...planContent(draft), version: nextVersion(draft.basedOn, versionId) };
+}
+
+/** The draft as a plan without its version fields: what the dirty check compares. */
+function planContent(draft: PlanDraft): WorkoutPlan {
   return {
     id: draft.id,
     name: draft.name,
@@ -95,6 +117,52 @@ export function planFromDraft(draft: PlanDraft): WorkoutPlan {
     // stale field an old document carries; this way Save writes exactly the screen's plan.
     ...(isArchived(draft) ? { archived: true } : {}),
   };
+}
+
+/**
+ * The draft once a Save of `plan` is queued offline (TICKET-073): made on
+ * `plan`'s version from now on. Firestore sends queued writes in order, so a
+ * second Save made offline goes out after the first and is made on it; left
+ * on the old version, it would repeat the first's and be refused. Only
+ * `basedOn` changes: the content is what the user sees. Safe because the
+ * second Save names the first as its base: if the server refuses the first,
+ * it refuses the second too, even when another device's Save makes its `rev`
+ * fit (PR #50 review, B1).
+ * Forward only, so a first Save landing after a second was queued leaves the
+ * draft on the second's. Another plan open: unchanged.
+ */
+export function draftAfterQueued(draft: PlanDraft | null, plan: WorkoutPlan): PlanDraft | null {
+  if (draft?.id !== plan.id || versionOf(plan).rev < draft.basedOn.rev) return draft;
+  return { ...draft, basedOn: versionOf(plan) };
+}
+
+/**
+ * The draft once the server confirmed a Save of `plan` (TICKET-073). Not
+ * edited since: the saved plan, so new saved names show (TICKET-051 D2).
+ * Edited since: the edits stay. Either way it is made on `plan`'s version now
+ * (forward only, as `draftAfterQueued`); before 073 an edited draft kept its
+ * base, and its next Save would now be made on an old version and refused.
+ */
+export function draftAfterSave(draft: PlanDraft | null, plan: WorkoutPlan): PlanDraft | null {
+  const moved = draftAfterQueued(draft, plan);
+  if (moved === null || moved.id !== plan.id || isDraftDirty(plan, moved)) return moved;
+  return { ...draftFromPlan(plan), basedOn: moved.basedOn };
+}
+
+/**
+ * The version Manage's open plan moves to after the check run on opening it
+ * (TICKET-070 D4, TICKET-073), or null to leave it. Moves only if `opened`
+ * is still open, untouched, and `fresh` is a different version, or the same
+ * version with other content (a console edit keeps the version).
+ * The caller replaces the saved copy and the draft with `fresh`, so the
+ * draft's `basedOn` moves with it; a draft left on the old version would be
+ * refused on Save. Typed into: the draft stays, and if the plan did change,
+ * its Save is refused and reloads (D7).
+ */
+export function openPlanRefresh(opened: WorkoutPlan, fresh: WorkoutPlan | undefined, current: PlanDraft | null): WorkoutPlan | null {
+  if (!fresh || current?.id !== opened.id || isDraftDirty(opened, current)) return null;
+  const changed = !sameVersion(versionOf(fresh), versionOf(opened)) || isDraftDirty(fresh, draftFromPlan(opened));
+  return changed ? fresh : null;
 }
 
 /** Order-sensitive: reordering exercises or fields is a change. So is archiving. */
@@ -121,7 +189,7 @@ function canonical(plan: WorkoutPlan): string {
  * not a change, and pending add-box text is.
  */
 export function isDraftDirty(saved: WorkoutPlan, draft: PlanDraft): boolean {
-  return canonical(saved) !== canonical(planFromDraft(draft));
+  return canonical(saved) !== canonical(planContent(draft));
 }
 
 const mapExercise = (
@@ -232,7 +300,7 @@ export type DraftErrors = {
  * not editable here, so a row's name is the one it was saved or picked with.
  */
 export function validateDraft(draft: PlanDraft): DraftErrors {
-  const plan = planFromDraft(draft);
+  const plan = planContent(draft);
   const rows: Record<string, string> = {};
   for (const exercise of plan.exercises) {
     const error = validateCustomFields(exercise.fields);
