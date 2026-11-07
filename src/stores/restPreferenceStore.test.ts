@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { DEFAULT_REST_MS } from "../utils/restTimer";
 import { resetStores } from "../test/renderScreen";
 import { useRestPreferenceStore } from "./restPreferenceStore";
+import { DEFAULT_REST_MS } from "../config/workout";
 
 const KEY = "rest_duration_ms";
 const load = () => useRestPreferenceStore.getState().loadFromStorage();

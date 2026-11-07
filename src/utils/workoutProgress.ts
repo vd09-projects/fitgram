@@ -6,6 +6,7 @@
 // a screen. Tests: workoutProgress.test.ts, next to this file.
 
 import { LoggedExercise } from "../types/zustandWorkoutType";
+import { DEFAULT_TARGET_SETS } from "../config/workout";
 
 /**
  * Clamp a requested exercise index into `[0, count - 1]`.
@@ -51,17 +52,7 @@ export function indexAfterRemoval(current: number | null, removed: number, count
   return clampExerciseIndex(viewed > removed ? viewed - 1 : viewed, countAfter);
 }
 
-/**
- * Planned set count assumed for an exercise with no usable history. The plan
- * records no set count, so without last session to go on this is a guess —
- * chosen deliberately over showing nothing. 3 is the common default; at 2 sets
- * the segment reads 67%, at 3 it is full.
- *
- * Rejected, after a device test: one 3px tick per set with no target. It was
- * honest (a count, not a ratio) but any mark inside a bar reads as a
- * percentage, so 2 logged sets looked like 3% progress.
- */
-export const DEFAULT_TARGET_SETS = 3;
+// DEFAULT_TARGET_SETS: value and reason in src/config/workout.ts.
 
 /**
  * One segment of the progress bar.

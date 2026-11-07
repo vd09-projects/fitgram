@@ -1,4 +1,5 @@
-// src/utils/restTimer.ts
+
+import { ADD_REST_MS } from "../config/workout";// src/utils/restTimer.ts
 //
 // The derived values behind the rest timer (TICKET-021): how much rest is left,
 // how far through it the user is, and what adding time does. Kept pure so the
@@ -22,11 +23,7 @@ export type RestTimer = {
   setNumber: number;
 };
 
-/** What a rest-duration preference falls back to: 1:30, the design's target. */
-export const DEFAULT_REST_MS = 90_000;
-
-/** What one tap of add-time adds. */
-export const ADD_REST_MS = 30_000;
+// DEFAULT_REST_MS, ADD_REST_MS: value and reason in src/config/workout.ts.
 
 export type RestCountdown =
   | {

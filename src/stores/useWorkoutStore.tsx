@@ -15,6 +15,7 @@ import { useAuthStore } from "./authStore";
 import { useExerciseHistoryStore } from "./useExerciseHistoryStore";
 import { useCatalogStore } from "./useCatalogStore";
 import { exerciseDisplayName, type CatalogIndex } from "../utils/catalog";
+import { UPLOAD_GRACE_MS } from "../config/workout";
 
 /**
  * In-flight uploads per session (`buildSessionId`), outside the store for the
@@ -58,14 +59,7 @@ async function clearLocalDataFromOlderBuilds(): Promise<void> {
   console.log(`Local workout data from an older build cleared (data version ${LOCAL_DATA_VERSION}).`);
 }
 
-/**
- * How long Finish waits on the upload before telling the user it will upload
- * later. Only picks the message: the workout has already left the active slot.
- * Offline, `batch.commit()` does not reject — it stays pending until the
- * connection returns (TICKET-028 step 0) — so without a bound Finish would wait
- * as long as the user is offline.
- */
-export const UPLOAD_GRACE_MS = 3000;
+// UPLOAD_GRACE_MS: value and reason in src/config/workout.ts.
 
 /**
  * What Finish did. Callers branch on this instead of watching `activeWorkout` go

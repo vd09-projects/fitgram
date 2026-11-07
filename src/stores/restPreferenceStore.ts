@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { DEFAULT_REST_MS } from '../utils/restTimer';
 import show from '../utils/toastUtils';
+import { DEFAULT_REST_MS } from '../config/workout';
 
 /**
  * How long to rest between sets — one global preference (TICKET-021, Phase 3

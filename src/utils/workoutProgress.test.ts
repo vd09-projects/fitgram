@@ -1,10 +1,10 @@
 import {
-  DEFAULT_TARGET_SETS,
   buildProgressSegments,
   clampExerciseIndex,
   formatElapsed,
   indexAfterRemoval,
 } from "./workoutProgress";
+import { DEFAULT_TARGET_SETS } from "../config/workout";
 
 /** An exercise with `n` logged sets; only `sets.length` is read. */
 const withSets = (n: number) => ({ sets: Array.from({ length: n }, () => ({}) as any) });

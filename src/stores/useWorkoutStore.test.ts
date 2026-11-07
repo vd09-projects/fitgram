@@ -13,7 +13,6 @@ import {
   drainPendingUploads,
   LOCAL_DATA_VERSION,
   LOCAL_DATA_VERSION_KEY,
-  UPLOAD_GRACE_MS,
   useWorkoutStore,
 } from "./useWorkoutStore";
 import { useAuthStore } from "./authStore";
@@ -24,6 +23,7 @@ import { loadCatalog } from "../utils/catalog";
 import { buildSessionDocs } from "../utils/exerciseStats";
 import { Effort } from "../types/workoutSession";
 import { FREESTYLE_ID, freestylePlan } from "../constants/freestyle";
+import { UPLOAD_GRACE_MS } from "../config/workout";
 
 jest.mock("../services/db/workoutSessions", () => ({
   ...jest.requireActual("../services/db/workoutSessions"),
