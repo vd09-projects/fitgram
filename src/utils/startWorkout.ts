@@ -13,9 +13,9 @@ import { WorkoutPlan, isArchived } from "../types/workoutType";
 import { PendingUpload } from "../types/zustandWorkoutType";
 import { unitLabel } from "./exerciseFields";
 import { buildSessionDocs, computeSessionTotalVolume } from "./exerciseStats";
+import { HUB_TILE_LIMIT } from "../config/display";
 
-/** Recent sessions read on open. Plans not done within this window show no date. */
-export const RECENT_SESSIONS_WINDOW = 20;
+// RECENT_SESSIONS_WINDOW: value and reason in src/config/display.ts.
 
 export type PlanRow = {
   id: string;
@@ -163,8 +163,7 @@ function comparePlanRows(a: PlanRow, b: PlanRow): number {
 const compareNames = (a: PlanRow, b: PlanRow) =>
   a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
 
-/** Most tiles the Workout hub shows (TICKET-066). The rest are under All plans. */
-export const HUB_TILE_LIMIT = 6;
+// HUB_TILE_LIMIT: value and reason in src/config/display.ts.
 
 /**
  * The Workout hub's tiles (TICKET-066), from `buildPlanRows(…, "")`.

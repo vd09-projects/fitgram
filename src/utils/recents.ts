@@ -12,9 +12,9 @@ import type { PendingUpload } from "../types/zustandWorkoutType";
 import type { CatalogIndex } from "./catalog";
 import { buildSessionDocs } from "./exerciseStats";
 import { formatSessionDate } from "./setDeltas";
+import { RECENT_LIMIT } from "../config/display";
 
-/** Recent rows shown (user, 2026-10-27, D5). */
-export const RECENT_LIMIT = 10;
+// RECENT_LIMIT: value and reason in src/config/display.ts.
 
 export type LastUsed = { movement: Movement; version: MovementVersion; performedAt: number };
 

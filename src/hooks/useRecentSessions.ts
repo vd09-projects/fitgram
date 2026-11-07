@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import { getWorkoutSessions } from "../services/db/workoutSessions";
 import { WorkoutSessionDoc } from "../types/workoutSession";
-import { RECENT_SESSIONS_WINDOW } from "../utils/startWorkout";
+import { RECENT_SESSIONS_WINDOW } from "../config/display";
 
 /**
  * `null` until the first query returns, and after a failure with nothing to

@@ -1,12 +1,13 @@
 import { sessionSets, sheetBest, sheetSession, sheetStatusMessage, sheetTrend } from "./historySheet";
 import { setDelta } from "./setDeltas";
-import { deriveExerciseHistory, HISTORY_TREND_SESSION_COUNT } from "./exerciseHistory";
+import { deriveExerciseHistory } from "./exerciseHistory";
 import { STATS_RECENT_SESSION_CAP } from "./exerciseStats";
 import { resolveNumericFields } from "./exerciseFields";
 import { buildStats, StatsSessionSpec } from "../test/fixtures";
 import { ExerciseHistoryStatus } from "../types/exerciseHistory";
 import { Effort, StoredSetFields } from "../types/workoutSession";
 import { ExerciseField } from "../types/workoutType";
+import { HISTORY_TREND_SESSION_COUNT } from "../config/display";
 
 const KG: ExerciseField = { name: "Weight", role: "weight", unit: "kg" };
 const LB: ExerciseField = { name: "Weight", role: "weight", unit: "lb" };

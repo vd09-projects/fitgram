@@ -22,20 +22,9 @@ import {
 } from "./exerciseFields";
 import { computeSessionVolume } from "./exerciseStats";
 import { comparisonSegment, decodeStoredSets } from "./storedSets";
+import { HISTORY_RECENT_SESSION_COUNT, HISTORY_TREND_SESSION_COUNT } from "../config/display";
 
-/** `sessions` window. */
-export const HISTORY_RECENT_SESSION_COUNT = 3;
-/**
- * `volumeTrend` window.
- *
- * Must not exceed `STATS_RECENT_SESSION_CAP` (10) while `VolumePoint` carries
- * no unit. The history sheet hides the trend when `unitMismatch` is set, and
- * `unitMismatch` only scans `recentSessions`. Past that cap a shown point can
- * come from a session it never scanned, and kg and lb volumes would share one
- * chart with no notice. Asserted in historySheet.test.ts; TICKET-036 removes
- * the limit by putting a unit on `VolumePoint`.
- */
-export const HISTORY_TREND_SESSION_COUNT = 6;
+// History sheet windows (sessions, volume trend): value and reason in src/config/display.ts.
 
 const NO_FIELDS: ExerciseField[] = [];
 const NO_SESSIONS: StatsSessionEntry[] = [];

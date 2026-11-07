@@ -14,8 +14,7 @@ export type PickerRow =
   | { kind: "movement"; key: string; movement: Movement; preselect: VersionPick }
   | { kind: "custom"; key: string; exercise: Exercise };
 
-/** Search results shown at once. Totals beyond it are not listed; a longer query narrows them. */
-export const PICKER_RESULT_LIMIT = 100;
+// PICKER_RESULT_LIMIT: value and reason in src/config/display.ts.
 
 export type PickerData = {
   catalog: SearchCatalog;
