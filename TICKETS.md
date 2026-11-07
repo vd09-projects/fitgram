@@ -34,7 +34,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 029 | Pending uploads view | Small-Med | A `TEMPORARY` debug screen is currently the only way to see the queue |
 | 030 | Drop unit suffixes from catalogue field names | Small | **Silent data loss:** renaming a field nulls every past value for it, and the session stays `comparable` so nothing flags it |
 | 031 | Contrast guards for the rest of the role palette | Small | Extends the `colors.test.ts` pattern |
-| 032 | Edit or delete an already-uploaded set | Med-Large | Needs a rollup rebuild |
+| 032 | Edit or delete an already-uploaded set | Med-Large | Needs a rollup rebuild: `rebuildExerciseSummary` from TICKET-077 |
 | 035 | Measures beyond weight x reps | Med-Large | "Which way is better" is a product decision |
 | 036 | Put a unit on volume trend points | Small-Med | Today the trend over-suppresses; held by an invariant test, not a fix |
 | 037 | Tell apart two sessions on the same day | Small | |
@@ -47,8 +47,10 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 063 | Finish summary | Small-Med | Low. From 056's design review (2026-11-02): exercises and set counts before saving, as Finish's confirm. To decide: how 0-set exercises show, sheet or screen |
 | 068 | Drag to close: every sheet on a real phone | Small | Low. From 065's device run (2026-11-03): only `PlanCard` drags; decide drag on every sheet with a handle, or drop the handles |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
-| 073 | Two devices editing one plan | Medium | Split from 070 (user, 2026-11-05). `rev` + a rules change; **before launch**; rules deploy after the app build |
-| 072 | Keep recent history on the phone | TBD | Split from 070 (user, 2026-11-05). Not yet discussed; 070 is merged |
+| 074 | Config in one place | Medium | First of the history-reads track (072, decided 2026-11-08). Tuning values into `src/config/`; no behaviour change |
+| 075 | Recent workouts on the phone | Med-Large | Last 5 per plan, one shared store, change check. ~80 of ~100 reads per workout today |
+| 076 | Exercise summaries on the phone | Med-Large | Saved store, change check; history works offline after a restart |
+| 077 | Summary integrity | Medium | **Silent:** a failed summary update is repaired only by a hand-run script. Also the one rebuild path 032 needs |
 | 071 | History page redesign | Medium-Large | Raised 2026-11-05 (user). Design on the Drafts canvas first; 070 is merged |
 
 ### Not tickets — verification owed
@@ -7913,27 +7915,78 @@ plans), TICKET-073 (builds on its store).
 
 ### TICKET-072: Keep Recent History on the Phone
 
-**Priority:** Medium | **Effort:** TBD | **Status: OPEN** — split from TICKET-070
-(user, 2026-11-05), not yet discussed
+**Priority:** Medium | **Effort:** — | **Status: DECIDED** — discussed with the user
+2026-11-07/08; the work is TICKET-074 to TICKET-077. This section is the decision
+record; build nothing from it directly.
 
 **Description:**
-Whether to keep each exercise's recent history on the phone across restarts, or keep
-fetching it. The user's thought: only the last two or three sessions per exercise are
-needed, but history changes every day and the number of exercises can be large.
+Started as "keep each exercise's recent history on the phone across restarts". The
+discussion widened it to every history read the app makes, taken one collection at
+a time: `sessions`, `exercise_stats`, `exercise_sessions`.
 
-**What holds today (checked 2026-11-05):** `useExerciseHistoryStore` is a
-session-lifetime cache of one `exercise_stats` rollup doc per exercise, prefetched at
-workout start and invalidated after a save. The rollup is small and capped: 10 recent
-sessions, 12 volume points, plus best-by-reps. It is lost on every restart, so offline
-after a cold start the history sheet and "last time" show their failed state. Full
-session docs grow without limit and are not a candidate.
+**What the reads were (counted from the code, 2026-11-07, not measured on a device):**
+- `sessions`: the newest 20 (`useRecentSessions`) on every focus of the hub, Start,
+  Manage and the mid-workout picker, each screen its own copy. About 80 of the
+  ~100 reads in one workout. History also reads the newest 50 Freestyle sessions
+  on every visit, to list Freestyle's exercises.
+- `exercise_stats`: one doc per exercise on plan card open and workout start, held
+  in memory until restart; the Finish transaction reads them again (~6).
+- `exercise_sessions`: read only by History's logs (50 per exercise, filtered to
+  the plan on the phone). `getSessionExercises` and `getExerciseSession` have no
+  caller.
 
-**To discuss:** persist the rollups (keyed by exercise id) or not; how fresh they must
-be (a workout finished on another device); when to refresh; whether 070's pattern
-(`updatedAt`, fetch only what changed, sign-out clears) carries over; size at ~100
-exercises per user.
+**Measured sizes** (the user's import file, 31 days, 15 workouts, built with the
+app's own code): `sessions` 590 B average; `exercise_sessions` 492 B, 122 docs;
+`exercise_stats` 2.1 KB average, 4.1 KB max, holding at most 5 of the 10 capped
+sessions so far (full: an estimated ~6 KB). Summaries grow with the number of
+exercises, not with time.
 
-**Dependencies:** after TICKET-070 (reuse its store pattern). Touches TICKET-071.
+**Decisions:**
+- **D1. History page out of scope** (user). Its reads (Freestyle's 50, the logs'
+  50) stay as they are; TICKET-071 redesigns the page and decides its reads. The
+  Freestyle read is a workaround the redesign replaces.
+- **D2. Workout summaries (`sessions`): the last N = 5 per plan on the phone**,
+  saved across restarts, one shared copy for every screen. The screens need only
+  each plan's latest (last date, duration, order); 5 leaves room for a plan trend
+  (dates, durations, total volume) at no real cost. Rejected: every summary (grows
+  with time, and the History redesign decides what it needs; the phone copy is a
+  cache, so switching later is a format bump), latest only (N = 1; equally valid,
+  one constant away).
+- **D3. N is one constant, recorded in the saved copy.** Lowering it trims; raising
+  it cannot be served by a change check (the older workouts were never fetched), so
+  a copy built with another N is discarded and refilled.
+- **D4. Exercise summaries (`exercise_stats`) stay** (user, after weighing deriving
+  them at runtime). One doc holds 10 sessions, so a 10-exercise plan is 10 reads,
+  against 50 (its last 5 workouts' sets) or 100 (10 per exercise); plan-scoped
+  sessions miss an exercise's last use in another plan; the PR banner's bests are
+  all-time and would need every session. Kept on the phone for every exercise done.
+- **D5. Summaries are derived, never edited.** `exercise_sessions` is the one
+  source of truth. Finish folds a workout in; any edit or delete of a set changes
+  `exercise_sessions` and then rebuilds that exercise's summary.
+- **D6. Two phones finishing at once lose nothing.** The fold runs in a Firestore
+  transaction, which re-runs the whole function (read, compute, write) on a
+  conflict. Proven on the emulator 2026-11-08: both read the 9 Oct state, A's
+  retry read B's write, both 12 Oct sessions kept. The fold replaces by
+  `sessionId`, so a retried upload never double counts. No version field needed.
+- **D7. Full sets (`exercise_sessions`): not on the phone.** They grow without limit
+  (~122 docs, ~59 KB a month measured) and nothing in scope reads them. Rejected for
+  now: embedding the sets in the workout doc (21 → 11 writes per Finish, and one
+  read per whole workout); the History redesign decides the record's shape.
+- **D8. Freshness: a server timestamp on every write of both summaries**, and a
+  check fetches only what changed since the last one, as plans do (TICKET-070). A
+  workout uploaded late from another phone's queue has an old start time but a new
+  stamp, so the check still finds it.
+- **D9. One shared sync core** for plans, workout summaries and exercise summaries,
+  not three copies.
+- **D10. Config in one place first** (user): the tuning values these tickets add
+  land in `src/config/` from the start.
+
+**Known gap found here, fixed in TICKET-077:** a session whose summary transaction
+fails is marked `rollupPending`, and nothing in the app repairs it; until a
+hand-run script does, "last time", ghosts and the PR banner ignore that workout.
+
+**Tickets:** 074 (config in one place), 075 (recent workouts on the phone), 076
+(exercise summaries on the phone), 077 (summary integrity). In that order.
 
 ---
 
@@ -8308,6 +8361,177 @@ Touches TICKET-037 (two sessions on the same day).
 
 ---
 
+### TICKET-074: Config in One Place
+
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — raised 2026-11-08 (user),
+first of the history-reads track (TICKET-072 D10)
+
+**Description:**
+About 60 exported constants live in about 20 files, so finding where a limit or a
+timing is set means searching. Move the tuning values into a few files under
+`src/config/`, one per area, so they can be found and changed in one place. No
+behaviour changes.
+
+**Three kinds of constant, treated differently:**
+- **Tuning knobs** (how much, how long, how often): move. `HUB_TILE_LIMIT`,
+  `RECENT_LIMIT`, `PICKER_RESULT_LIMIT`, `HISTORY_RECENT_SESSION_COUNT`,
+  `HISTORY_TREND_SESSION_COUNT`, `RECENT_SESSIONS_WINDOW`, `PLANS_CHECK_SKIP_MS`,
+  `PLANS_CHECK_WAIT_MS`, `PLANS_FULL_RELOAD_INTERVAL_MS`, `SAVE_GRACE_MS`,
+  `UPLOAD_GRACE_MS`, `DEFAULT_REST_MS`, `ADD_REST_MS`, `DEFAULT_TARGET_SETS`,
+  `STATS_RECENT_SESSION_CAP`, `STATS_VOLUME_HISTORY_CAP`, `PLAN_NAME_MAX`,
+  `IN_QUERY_CHUNK` and the like. The inventory is part of the work.
+- **Storage identity** (phone storage keys and their format numbers): one list,
+  `storageKeys.ts`, each key beside its format number. Sign-out will clear from this
+  list (helps TICKET-026).
+- **Vocabulary, copy, theme** (catalog words, error strings, `FREESTYLE_ID`, fonts):
+  stay where they are; they are not knobs.
+
+**Proposed layout:**
+- `sync.ts`: check skip and wait, full-reload interval, query chunk size; later
+  075's workouts-per-plan N
+- `display.ts`: how much screens show
+- `workout.ts`: rest timer, default target sets, save and upload grace
+- `storedData.ts`: caps that set a stored shape (summary sessions, volume points)
+- `storageKeys.ts`: every AsyncStorage key with its format number
+- `envConfig.ts`: unchanged
+
+**Decisions:**
+- **Plain TypeScript, not a file read at startup.** A runtime config adds a load
+  step that can fail and a moment with no values, and loses type checking. Remote
+  Config (changing values without a release) can sit on top later if ever needed.
+- **The "why" moves with the value.** Each constant's comment explaining its number
+  goes into the config file; the use site keeps a one-line pointer. Moving values
+  away from their reasons would make tracing harder.
+- **Dangerous knobs are labelled and guarded.** Values that change stored data
+  (`STATS_RECENT_SESSION_CAP`, format numbers) carry a "changes stored data" note.
+  A test checks the pairs that depend on each other (e.g. a shown history count is
+  never above the stored cap).
+- **Rule from here on:** a new tuning value goes into `src/config/` with its reason.
+
+**Build:**
+- Pure move: imports change, values do not. `npm test` and tsc are the proof; no
+  device run needed beyond a launch.
+- Keep the diff reviewable: one area per commit.
+
+**Dependencies:** none. Before TICKET-075, so its new values land here.
+
+---
+
+### TICKET-075: Recent Workouts on the Phone
+
+**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN** — raised 2026-11-08,
+decided in TICKET-072 (D2, D3, D8, D9)
+
+**Description:**
+Workout summaries (`sessions`) are read 20 at a time on every focus of the hub,
+Start, Manage and the mid-workout picker, each screen with its own copy: about 80
+of the ~100 reads in one workout. Keep the last N = 5 per plan in one shared store,
+saved on the phone, and fetch only what changed.
+
+**Build:**
+- **Server timestamp on every `sessions` write:** the Finish batch, the summary
+  transaction's merge (`rollupPending: false`), `importHistory.ts`,
+  `rebuildExerciseStats.ts`. Docs written before it have none; the first load
+  covers them.
+- **Shared sync core** from the plans code's helpers (`planSync.ts`: stamps, change
+  query, `lastSeen`, the skip window, sign-out clearing, format number), made
+  generic. Plans moves onto it with no change in behaviour; its tests stay green.
+- **Workouts store:** the last N per plan (N in `src/config/sync.ts`, recorded in
+  the saved copy; another N discards and refills it). First load: one query per
+  plan, newest N (index `sessions (workoutId, startedAt desc)` exists). Then a
+  change check on the stamp; a held plan's list keeps its newest N by `startedAt`.
+  Refuses Firestore's local copy, as the plans reads do.
+- **Readers move to the store:** hub, Start, Manage, the mid-workout picker's Recent
+  (from the held workouts' `exerciseIds`). `useRecentSessions` goes. Pending uploads
+  still merge in on the phone, as today.
+- **Fixes on the way:** `useRecentSessions` does not refuse a cached answer, so
+  offline after a restart it may read an empty list and show every plan as never
+  done (seen in the code, not yet on a device; confirm first).
+
+**To decide in the ticket:** which screens check on focus (plans' rule: every
+reader on focus, 2-minute skip); whether a plan's archive drops its held workouts.
+
+**Proof (TICKET-070 style, on the debug page):** session reads for one workout,
+before and after (target: ~80 → ~3). Lists keep their dates in airplane mode after
+a restart. A workout finished on another device appears on the next check.
+
+**Out of scope:** History's Freestyle read and logs (TICKET-071).
+
+**Dependencies:** TICKET-074.
+
+---
+
+### TICKET-076: Exercise Summaries on the Phone
+
+**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN** — raised 2026-11-08,
+decided in TICKET-072 (D4, D5, D8)
+
+**Description:**
+`useExerciseHistoryStore` holds exercise summaries (`exercise_stats`) in memory
+only: one read per exercise on plan card open and workout start, refetched after
+every upload, and gone on restart, so offline after a cold start "last time",
+ghosts, the PR banner and the history sheet show their failed state. Save them on
+the phone for every exercise done, and fetch only what changed.
+
+**Build:**
+- **Server timestamp on every summary write:** the Finish transaction,
+  `rebuildExerciseStats.ts`, `importHistory.ts`. The doc's `updatedAt` today is a
+  phone-clock number no screen reads; decide whether to reuse the name or add a
+  field (not both meanings in one name).
+- **The store becomes a saved store** on TICKET-075's sync core: first load reads
+  the whole `exercise_stats` collection once (~50 docs today), then a change check.
+  Plan card open and workout start become a check, not a fetch.
+- **Own Finish, zero reads after:** the summaries the transaction just computed go
+  straight into the store (`saveWorkoutSession` returns them), instead of
+  `invalidateExercises` and a refetch.
+- **Sign-out clears it:** `clearExerciseHistory` has no caller today.
+- **Saved as several entries,** not one value: Android is said to fail on one large
+  entry (~2 MB, from memory; check it here).
+
+**To decide in the ticket:** whether the history sheet says "offline · as of
+<date>" when it shows a copy the check could not refresh (ghosts would not: an old
+target does no harm).
+
+**Proof:** summary reads per workout, before and after (target: ~12 → ~1). History,
+ghosts and the PR banner work in airplane mode after a restart.
+
+**Dependencies:** TICKET-075 (the sync core).
+
+---
+
+### TICKET-077: Summary Integrity
+
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — raised 2026-11-08,
+from TICKET-072 (D5, known gap)
+
+**Description:**
+When the summary transaction on Finish fails (all 5 retries, or the connection drops
+mid-way), the workout is saved but marked `rollupPending`, and only a hand-run
+script repairs it. Until then "last time", ghost targets and the PR banner silently
+ignore that workout: a plausible wrong number. Make the app repair it, and give
+every future edit or delete one rebuild path.
+
+**Build:**
+- **Repair in the app:** on the next upload or check, find this user's sessions with
+  `rollupPending: true` and fold them in from their `exercise_sessions` (the fold
+  replaces by `sessionId`, so re-running is safe), then clear the flag. Phones get
+  the repaired summary through TICKET-076's change check.
+- **`rebuildExerciseSummary(exerciseId)`:** the one way to recompute a summary from
+  `exercise_sessions` (wraps `rebuildStatsFromSessions`). TICKET-032 (edit or delete
+  an uploaded set) calls it; the fold's comment points to it. A rebuild also lowers
+  a best, which the fold cannot.
+- **Drift check on the debug page:** one exercise's stored summary against one
+  rebuilt from its sets.
+- **Remove dead code:** `getSessionExercises`, `getExerciseSession`.
+
+**Proof:** fail a summary transaction on purpose on the emulator; the next check
+repairs it with no script, and the drift check shows none.
+
+**Dependencies:** TICKET-076. Unblocks TICKET-032's rebuild. TICKET-049 (scripts on
+the admin SDK) still matters for the hand-run script.
+
+---
+
 ## Recommended Execution Order
 
 Finished tickets have been removed — they are not blockers for anything.
@@ -8328,6 +8552,19 @@ before the tour pass is done; it was the order 044 → 042 → 046 → 043 → 0
    TICKET-063  (Finish summary)           — Open, low; from 056's review
    TICKET-057  (Save Freestyle as plan)   — Deferred; after 067
 ```
+
+**History reads track** (decided 2026-11-08, TICKET-072). In order; each needs the
+one before it.
+
+```
+1. TICKET-074  (Config in one place)       — Values the next three add land here
+2. TICKET-075  (Recent workouts on phone)  — Biggest read saving; builds the sync core
+3. TICKET-076  (Exercise summaries)        — Reuses 075's core
+4. TICKET-077  (Summary integrity)         — Repair in the app; 032's rebuild path
+```
+
+**Next after that:** TICKET-012 Phase 2 (account linking), the user's pick
+(2026-11-07).
 
 **Then the next two, decided.** 033 and 055 (the stored shape for a set) are done, so
 032 is written against the final shape.
