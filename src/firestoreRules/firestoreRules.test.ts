@@ -25,7 +25,9 @@ import {
   doc,
   enableNetwork,
   getDoc,
+  getDocFromServer,
   getDocs,
+  getDocsFromServer,
   getFirestore,
   onSnapshot,
   setLogLevel,
@@ -245,6 +247,39 @@ describe("queued saves refused after reconnecting (D7)", () => {
       const snap = await getDoc(doc(context.firestore(), PLAN));
       expect(snap.data()).toMatchObject({ name: "A edit", version: { rev: 4, id: "a4" } });
     });
+  });
+
+  // Device run, 2026-11-07: the refusal reload read the phone's own queued
+  // Save as the server's copy. The SDK lays writes still queued on top of
+  // what a server read returns (latency compensation), even for
+  // `getDocFromServer` / `getDocsFromServer`; only `hasPendingWrites` says so.
+  it("a server read while a save is still queued returns that save on top, flagged hasPendingWrites", async () => {
+    let seenPending = 0;
+    for (let attempt = 0; attempt < 5 && seenPending === 0; attempt++) {
+      await env.clearFirestore();
+      await seed(PLAN, stored(3));
+      await phoneB(async (db, ref) => {
+        await disableNetwork(db);
+        const first = setDoc(ref, { ...save(4, "s3", "b4"), name: "B edit 1" });
+        const second = setDoc(ref, { ...save(5, "b4", "b5"), name: "B edit 2" });
+        const outcomes = Promise.allSettled([first, second]);
+        await assertSucceeds(setDoc(doc(alice(), PLAN), { ...save(4, "s3", "a4"), name: "A edit" }));
+
+        await enableNetwork(db);
+        await first.catch(() => undefined); // refused; the second may still be queued
+        const reads = await Promise.all([
+          getDocFromServer(ref),
+          getDocsFromServer(collection(db, "users/alice/workouts")).then((all) => all.docs[0]),
+        ]);
+        await outcomes;
+        for (const read of reads) {
+          // The flag is the only tell: with it, the queued save; without, the server's copy.
+          expect(read.get("name")).toBe(read.metadata.hasPendingWrites ? "B edit 2" : "A edit");
+          if (read.metadata.hasPendingWrites) seenPending++;
+        }
+      });
+    }
+    expect(seenPending).toBeGreaterThan(0);
   });
 });
 

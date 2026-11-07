@@ -6,8 +6,8 @@
 // screen shows, and what a refused save reloads (TICKET-073). `usePlansStore`
 // does the I/O around them.
 
-import type { PlanStamp, PlanVersion, WorkoutPlan } from "../types/workoutType";
-import { compareVersions, toPlanVersion, versionOf } from "./planVersion";
+import type { PlanStamp, WorkoutPlan } from "../types/workoutType";
+import { compareVersions, toPlanVersion } from "./planVersion";
 
 /**
  * Format of the stored copy. Bump it when the stored shape changes: a copy
@@ -301,20 +301,6 @@ export function withSavedPlan(plans: WorkoutPlan[] | null, plan: WorkoutPlan): W
  */
 export const isRefusedSave = (error: unknown): boolean =>
   typeof error === "object" && error !== null && (error as { code?: unknown }).code === "permission-denied";
-
-/**
- * After a refused save (D7) and the check that followed it: did the server's
- * version come back? The refused write was made on `sent.base`, which the
- * server no longer holds. Held as another version: read from the server since,
- * and the next Save starts from it. Still held as `sent.base` (the check did
- * not return the plan, or D10 kept the held copy over a server copy whose
- * `rev` was lowered by hand): read the one plan and take it as the server has
- * it (`withServerPlan`), or every later Save is refused again. By id, not
- * `rev`: a Save made on another version is refused even when its `rev` fits
- * (PR #50 review, B1), so the server's `rev` can be below the one sent.
- */
-export const refusedPlanCameBack = (held: WorkoutPlan | undefined, sent: PlanVersion): boolean =>
-  held !== undefined && versionOf(held).id !== sent.base;
 
 /**
  * The plans held after reading one plan from the server for a refused save

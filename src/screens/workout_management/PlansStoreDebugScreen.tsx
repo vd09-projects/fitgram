@@ -27,7 +27,7 @@
 //  - sign-out: the disk line says "key absent"
 //  - TICKET-073: each plan's `rev`; a refused save logs "refused" (with
 //    "late from the queue" when it landed from the offline queue), then its
-//    reload: "ok refusal reload (by the check, rev N)", or a one-plan read
+//    one-plan reload: "ok refusal reload (by reading it, rev N)" or "failed"
 //  - each plan's version id, first 6 characters (PR #50 review, B1): two
 //    phones showing the same rev and id are on the same version
 // Leaving the hub for this page and coming back is a focus: the hub checks

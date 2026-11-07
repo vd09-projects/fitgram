@@ -12,7 +12,6 @@ import {
   mergeChanges,
   mergeFullReload,
   readStoredPlans,
-  refusedPlanCameBack,
   serializeStoredPlans,
   type HeldPlans,
   shouldSkipCheck,
@@ -440,29 +439,29 @@ export const usePlansStore = create<PlansStore>((set, get) => {
     },
 
     /**
-     * A forced change check first (D7, recommended in TICKET-073): 1 read,
-     * nothing downloaded beyond what changed, it moves `lastSeen`, and Manage
-     * already runs one on opening a plan. Forced, so the 2-minute skip cannot
-     * swallow it; a check already running is joined (D9), and if it started
-     * too early to see the other device's Save, the read below catches it.
-     * The plan did not come back as another version (`refusedPlanCameBack`):
-     * read that one plan and take the server's copy whatever D10 says
-     * (`withServerPlan`). `lastSeen` is not moved by that read: it saw one
-     * plan, not every change before its stamp; the next change check returns
-     * the plan once more.
+     * That one plan, read from the server (D7) and taken whatever D10 says
+     * (`withServerPlan`): a direct read of one document is the only answer
+     * that is certainly the server's current copy, whatever the stamps,
+     * `lastSeen` or a check already running say. 1 read. `lastSeen` is not
+     * moved: the read saw one plan, not every change before its stamp; the
+     * next change check returns the plan once more.
+     *
+     * Deviation from D7 as written ("a forced change check, then this read if
+     * the check did not bring the plan"), user 2026-11-07, after the device
+     * run. A check usually brings the plan (every app Save moves `updatedAt`),
+     * but misses it when it joins a check started before the other device's
+     * Save (D9), when a Save of the plan is still queued here (the queued write
+     * fails the stamp filter), or after edits outside the app; and the guess
+     * "did it come back?" was wrong on the device for a Save chained on a
+     * refused one. The read alone covers all of these, costs 1 read instead
+     * of 2, and other plans are refreshed by the check every screen runs.
+     * A read answered while another Save of the plan is still queued is
+     * rejected (`serverOnly`, in userDB) and returns "failed"; that queued
+     * Save's own refusal reloads.
      */
     reloadRefused: async (uid, epoch, planId, sent, late) => {
       if (!isCurrent(epoch) || get().uid !== uid) return { kind: "failed" };
       note("refused", undefined, `plan ${planId} at rev ${sent.rev}${late ? ", late from the queue" : ""}`);
-
-      await get().check({ force: true });
-      if (!isCurrent(epoch)) return { kind: "failed" };
-      const held = get().plans?.find((p) => p.id === planId);
-      if (held && refusedPlanCameBack(held, sent)) {
-        note("ok", "refusal reload", `by the check, rev ${versionRev(held)}`);
-        return { kind: "reloaded", plan: held };
-      }
-
       note("read", "refusal reload", "one plan");
       try {
         const plan = await getPlanFromServer(uid, planId);

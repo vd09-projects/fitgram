@@ -10,7 +10,7 @@ import AddExerciseScreen from "./AddExerciseScreen";
 import { renderScreen, RenderScreenOptions, TEST_USER_ID } from "../../test/renderScreen";
 import { buildWorkout } from "../../test/fixtures";
 import { CATALOG } from "../../catalog";
-import { getAllWorkoutPlans, getChangedPlans, newVersionId, overrideWorkoutDetails } from "../../services/db/userDB";
+import { getAllWorkoutPlans, getChangedPlans, getPlanFromServer, newVersionId, overrideWorkoutDetails } from "../../services/db/userDB";
 import { useCatalogStore } from "../../stores/useCatalogStore";
 import { usePlansStore } from "../../stores/usePlansStore";
 import { loadCatalog } from "../../utils/catalog";
@@ -26,6 +26,7 @@ jest.mock("../../services/db/userDB", () => ({
   ...jest.requireActual("../../services/db/userDB"),
   getAllWorkoutPlans: jest.fn(),
   getChangedPlans: jest.fn(async () => []),
+  getPlanFromServer: jest.fn(),
   overrideWorkoutDetails: jest.fn(),
   newPlanId: jest.fn(() => "generated_id"),
   newVersionId: jest.fn(() => "version_id"),
@@ -520,6 +521,8 @@ describe("a Save refused because the plan changed on another device", () => {
     version: { rev: 4, id: "a4", base: "s3" },
     updatedAt: { seconds: 9, nanoseconds: 0 },
   });
+  // A refused Save always reads the plan from the server (`reloadRefused`).
+  beforeEach(() => jest.mocked(getPlanFromServer).mockResolvedValue(fromPhoneA()));
   const editWeightUnit = () => {
     fireEvent.press(screen.getByLabelText(/edit fields$/));
     fireEvent.press(screen.getByLabelText("Set Weight unit to plates"));
@@ -529,7 +532,6 @@ describe("a Save refused because the plan changed on another device", () => {
     await openPlan([{ ...push(), version: s3 }], "Push");
     editWeightUnit();
     save.mockRejectedValueOnce(refused);
-    jest.mocked(getChangedPlans).mockResolvedValueOnce([fromPhoneA()]);
     await act(async () => fireEvent.press(saveButton()));
 
     await waitFor(() =>
@@ -557,8 +559,7 @@ describe("a Save refused because the plan changed on another device", () => {
       await act(async () => fireEvent.press(saveButton()));
       expect(show.warn).toHaveBeenCalledWith("Not saved yet", expect.anything());
 
-      jest.mocked(getChangedPlans).mockResolvedValueOnce([fromPhoneA()]);
-      await act(async () => land(refused));
+        await act(async () => land(refused));
 
       expect(await screen.findByLabelText("Plan: Push (phone A)")).toBeTruthy();
       expect(show.alert).not.toHaveBeenCalled();
@@ -584,8 +585,7 @@ describe("a Save refused because the plan changed on another device", () => {
       await act(async () => fireEvent.press(saveButton()));
       fireEvent.press(screen.getByLabelText("Set Weight unit to lb")); // edited after the queued Save
 
-      jest.mocked(getChangedPlans).mockResolvedValueOnce([fromPhoneA()]);
-      await act(async () => land(refused));
+        await act(async () => land(refused));
       await waitFor(() => expect(usePlansStore.getState().plans?.[0]?.version?.id).toBe("a4"));
       expect(screen.queryByLabelText("Plan: Push (phone A)")).toBeNull();
 

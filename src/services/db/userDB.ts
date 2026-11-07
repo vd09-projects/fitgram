@@ -19,7 +19,28 @@ import {
   where,
   type DocumentData,
   type QueryDocumentSnapshot,
+  type SnapshotMetadata,
 } from "firebase/firestore";
+
+/**
+ * A server read is the server's answer only if none of this phone's own
+ * queued writes is laid over it. The SDK lays a write still queued on top of
+ * what even `getDocFromServer` / `getDocsFromServer` return (latency
+ * compensation), and only `hasPendingWrites` says so. Found on the device
+ * (TICKET-073, 2026-11-07): two Saves queued offline; after the first was
+ * refused, the reload read the second, unsent, as the server's copy, held it
+ * and showed it. Reproduced in src/firestoreRules/firestoreRules.test.ts.
+ *
+ * Such a read is rejected, like an offline one (TICKET-070 D11): the caller
+ * keeps what it has, and the queued write brings the plan itself when it
+ * lands (`applySaved`) or is refused (`reloadRefused`). Rejected: waiting for
+ * the queued writes to settle before reading, which adds a timed wait for the
+ * same end state.
+ */
+function serverOnly<T extends { metadata: SnapshotMetadata }>(snapshot: T): T {
+  if (snapshot.metadata.hasPendingWrites) throw new Error("A Save of this plan is still queued on this phone");
+  return snapshot;
+}
 
 const plansCollection = (userId: string) =>
   collection(db, tables.users.collection, userId, tables.users.fields.workouts.collection);
@@ -70,7 +91,7 @@ export const getAllWorkoutPlans = async (
     // resolved offline with the memory cache, empty on a cold start, which
     // needed a guard to fail (TICKET-052 D5); the phone's copy of the plans is
     // the plans store now, not that cache.
-    const querySnapshot = await getDocsFromServer(plansCollection(userId));
+    const querySnapshot = serverOnly(await getDocsFromServer(plansCollection(userId)));
     const plans = querySnapshot.docs.map(planFromDoc);
 
     console.log("✅ Exercises fetched successfully:", plans);
@@ -94,8 +115,10 @@ export const getAllWorkoutPlans = async (
  */
 export const getChangedPlans = async (userId: string, after: PlanStamp): Promise<WorkoutPlan[]> => {
   if (!userId) throw new Error("Missing user");
-  const snapshot = await getDocsFromServer(
-    query(plansCollection(userId), where("updatedAt", ">", new Timestamp(after.seconds, after.nanoseconds)))
+  const snapshot = serverOnly(
+    await getDocsFromServer(
+      query(plansCollection(userId), where("updatedAt", ">", new Timestamp(after.seconds, after.nanoseconds)))
+    )
   );
   return snapshot.docs.map(planFromDoc);
 };
@@ -107,8 +130,8 @@ export const getChangedPlans = async (userId: string, after: PlanStamp): Promise
  */
 export const getPlanFromServer = async (userId: string, planId: string): Promise<WorkoutPlan | null> => {
   if (!userId) throw new Error("Missing user");
-  const snapshot = await getDocFromServer(
-    doc(db, tables.users.collection, userId, tables.users.fields.workouts.collection, planId)
+  const snapshot = serverOnly(
+    await getDocFromServer(doc(db, tables.users.collection, userId, tables.users.fields.workouts.collection, planId))
   );
   return snapshot.exists() ? planFromDoc(snapshot) : null;
 };

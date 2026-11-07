@@ -7940,7 +7940,7 @@ exercises per user.
 ### TICKET-073: Two Devices Editing One Plan
 
 **Priority:** Medium | **Effort:** Medium | **Status: IN REVIEW (PR open)** — branch
-`TICKET-073`, 2026-11-06; device test waits on the rules deploy (below). Split from
+`TICKET-073`, 2026-11-06; rules deployed and device-tested 2026-11-07 (below). Split from
 TICKET-070 stage 3 (user, 2026-11-05); decided there, 2026-11-05. **Before launch.**
 
 **Description:**
@@ -8033,12 +8033,12 @@ on two emulators.
   this build. (It was 4 during review; 3 and 4 never left this branch, so the final
   shape takes 3.)
 - **A refused save (D7):** `isRefusedSave` is `code === "permission-denied"`; every other
-  failure keeps the old handling. The store's `reloadRefused` runs a forced change check
-  (D9 joins one already running); if the plan is not then held at the refused `rev` or
-  above (`refusedPlanCameBack`), it reads that one plan (`getPlanFromServer`) and takes
-  the server's copy whatever D10 says (`withServerPlan`), which covers a `rev` lowered by
-  hand, where D10 would keep the held copy and every later Save would be refused. That
-  read does not move `lastSeen`. Absent (or `deleted`) on the server: the plan leaves the
+  failure keeps the old handling. The store's `reloadRefused` reads that one plan from
+  the server (`getPlanFromServer`) and takes the server's copy whatever D10 says
+  (`withServerPlan`), which also covers a `rev` lowered by hand, where D10 would keep the
+  held copy and every later Save would be refused. That read does not move `lastSeen`.
+  (Built first as D7 says, a forced change check with this read as fallback; changed
+  after the device run, see "Device run" below.) Absent (or `deleted`) on the server: the plan leaves the
   store and Manage closes it.
   - Online: the notice "This plan changed on another device" shows after the reload, so
     its message can say what the screen shows: "Your changes were not saved. This is
@@ -8215,16 +8215,72 @@ before this merge (`git show fde4c34:firestore.rules`).
    lines), B shows A's version; the console shows A's name and `version.id`.
 7. Record the reads, every write (plan id, field, `version`), and any console edit here.
 
+**Device run (Claude, Android emulator Pixel_9_Pro_XL, Metro on this branch, live rule
+deployed by the user, 2026-11-07).** Plan `test 070 b` (`zlmS2YQIDr1BHn1xmYWd`) only;
+the user's Firebase console edits stood in for device B (one emulator is signed in,
+and no script writes to the real project). Console edits kept `updatedAt`, so the
+change check never saw them: every reload below came from the one-plan read.
+- Passed: the format 2 copy discarded, one full reload (4 docs), every plan "no version
+  (rev 0)".
+- Passed, step 3: Save against the live rule: "Plan saved", rev 1, id `LPcm3b…`.
+- Passed, steps 4–5: console edit 1 (rev 2, name `console1`); the emulator's Save at
+  rev 2 refused online, the notice, Manage showed `console1` (server content); log
+  `refused`, `ok refusal reload (by reading it, rev 2)`; 2 reads. The next Save: "Plan
+  saved", rev 3, id `2EnQyt…`.
+- Server side of B1, passed: offline, Save #1 (rev 4) and Save #2 (rev 5, made on #1);
+  console edit 2 (rev 4, same id). Both refused late, no notice; #2 by the base check
+  alone (its rev fit). A full reload showed the server still at `console2`, rev 4.
+- **Bug 1, found and fixed: a reload read the phone's own queued Save as the server's
+  copy.** After #1's refusal the one-plan read returned #2, still queued: held as
+  `console1 · no stamp · rev 5 · id BqtwqB`, stored and shown. The SDK lays writes still
+  queued over even a `getDocFromServer` answer; only `hasPendingWrites` tells.
+  Reproduced on the Firestore emulator (rules suite, "a server read while a save is
+  still queued…"). Fix: every plans read rejects an answer flagged `hasPendingWrites`
+  (`serverOnly`, userDB), like an offline read; the queued Save's own landing or refusal
+  brings the plan. Rejected: waiting for queued writes to settle first (a timed wait,
+  same end state).
+- **Bug 2, found and fixed: the "did the plan come back?" shortcut.** With bug 1 fixed,
+  the rerun (console edit 3) logged the first reload `failed (… still queued …)` as
+  designed, then `ok refusal reload (by the check, rev 4)` while the server was at rev 5:
+  the shortcut (held id ≠ the refused Save's base) is always true for a Save chained on
+  a refused one, whose base this phone never held, so the stale copy stayed and the
+  online refusal said "This is the latest version" over it. Introduced in this ticket's
+  version refactor. Fix, user's choice (option C, 2026-11-07): **deviation from D7** —
+  no change check; the refusal reload is the one-plan read alone, always. Every app
+  Save moves `updatedAt`, so a check usually brings the plan, but misses it when it
+  joins a check started before the other Save (D9), while a Save of the plan is queued
+  here (it fails the stamp filter), or after edits outside the app; the direct read
+  covers all of them, for 1 read instead of 2.
+- Passed on the final code: offline Save #1 (rev 6), Save #2 (rev 7, made on #1), then
+  an unsaved edit (Notes → Dist); console edit 4 (rev 6, id `console4`). Both refused
+  late, no notice, the unsaved edit stayed (B1 case 2); its Save refused online at
+  rev 8, the notice, Manage showed `console4`; store `console4 · rev 6 · id consol…`,
+  by the one-plan read.
+- **Accepted gap (seen on the final run):** both late reloads failed, "client is
+  offline": the queued writes are refused the moment the phone reconnects, before reads
+  count as online. Timing: in the first run the first late reload succeeded. Effect:
+  after a late refusal the phone may keep the old copy until the next change check
+  (which, in real use, brings it: the other device's Save moved `updatedAt`) or the next
+  Save (refused once, with the notice, then correct). No data is lost: the server
+  refuses every stale write. Not fixed: a retry would add timing code for a gap that
+  heals on the next check.
+- Writes made: Saves of `test 070 b` only (rev 1, rev 3 accepted; the rest refused);
+  the user's four console edits to the same plan. Its name is now `test 070 b console4`.
+- Not tested on the device: the change check bringing the other device's version
+  (needs a second signed-in phone; unit-tested); iOS.
+
 **Acceptance Criteria:**
 - [x] Rule tests: a save with the stored `rev` passes; with an old `rev` is refused; a
       new plan and a plan with no `rev` pass; other collections behave as before
       - 21 pass, each rule line broken and seen red (above). 2026-11-06.
       - 24 pass after PR #50 review (B1: a save based on another version is refused
         even when its `rev` fits). 2026-11-07.
-- [ ] Device test: edit on device A; device B, holding the old version, saves and is
+- [x] Device test: edit on device A; device B, holding the old version, saves and is
       refused, sees the notice, and shows A's plan; B's next save goes through
-      - Not run: needs the rule live (deploy order above).
-- [ ] Rules deployed by the user after the app build is out
+      - Passed on the Android emulator with the console as the other device, after
+        two bugs found there were fixed ("Device run" above). 2026-11-07.
+- [x] Rules deployed by the user — 2026-11-07, before this build reached the tester
+      phones (the user's call): until they update, older builds cannot save plans.
 
 **Dependencies:** after TICKET-070 (its store and merge).
 

@@ -12,7 +12,6 @@ import {
   mergeFullReload,
   plansView,
   readStoredPlans,
-  refusedPlanCameBack,
   serializeStoredPlans,
   shouldSkipCheck,
   toPlanStamp,
@@ -162,15 +161,6 @@ describe("a refused save's reload (TICKET-073 D7)", () => {
     expect(isRefusedSave({ code: "permission-denied", message: "Missing or insufficient permissions." })).toBe(true);
     expect(isRefusedSave({ code: "unavailable" })).toBe(false);
     expect(isRefusedSave(new Error("permission-denied"))).toBe(false);
-  });
-
-  it("came back once the plan held is another version than the refused Save was made on, whatever its rev", () => {
-    const sent = { rev: 5, id: "b5", base: "b4" }; // made on a refused offline Save (PR #50 review, B1)
-    expect(refusedPlanCameBack({ ...plan("a"), version: { rev: 4, id: "a4", base: "v3" } }, sent)).toBe(true);
-    expect(refusedPlanCameBack({ ...plan("a"), version: { rev: 4, id: "b4", base: "v3" } }, sent)).toBe(false);
-    expect(refusedPlanCameBack(undefined, sent)).toBe(false);
-    // Made on a plan with no version, and the plan held still has none.
-    expect(refusedPlanCameBack(plan("a"), { rev: 1, id: "x", base: null })).toBe(false);
   });
 
   it("the one plan read replaces the held copy even at a lower rev; absent or deleted on the server, it goes", () => {
