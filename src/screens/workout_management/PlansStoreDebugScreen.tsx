@@ -40,11 +40,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import ScrollableScreen from "../../components/ScrollableScreen";
 import { TextBase } from "../../components/TextBase";
 import { PLANS_STORAGE_KEY, usePlansStore } from "../../stores/usePlansStore";
-import { PLANS_CHECK_SKIP_MS, PLANS_FULL_RELOAD_INTERVAL_MS } from "../../utils/planSync";
 import type { PlanStamp } from "../../types/workoutType";
 import { BORDER_RADIUS, SPACING } from "../../constants/styles";
 import { ReturnTypeUseThemeTokens } from "../../components/app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
+import { PLANS_CHECK_SKIP_MS, PLANS_FULL_RELOAD_INTERVAL_MS } from "../../config/sync";
 
 const time = (ms: number) => new Date(ms).toLocaleTimeString();
 // Seconds and nanoseconds as stored, plus a readable time: the console shows the latter.

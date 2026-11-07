@@ -10,7 +10,7 @@ import { WorkoutPlan } from "../../types/workoutType";
 import { WorkoutSessionDoc } from "../../types/workoutSession";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
 import { FREESTYLE_ID } from "../../constants/freestyle";
-import { PLANS_CHECK_SKIP_MS } from "../../utils/planSync";
+import { PLANS_CHECK_SKIP_MS } from "../../config/sync";
 
 jest.mock("../../services/db/userDB", () => ({
   ...jest.requireActual("../../services/db/userDB"),

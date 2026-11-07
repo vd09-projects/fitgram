@@ -14,13 +14,13 @@ import { getAllWorkoutPlans, getChangedPlans, getPlanFromServer, newVersionId, o
 import { useCatalogStore } from "../../stores/useCatalogStore";
 import { usePlansStore } from "../../stores/usePlansStore";
 import { loadCatalog } from "../../utils/catalog";
-import { PLANS_CHECK_SKIP_MS } from "../../utils/planSync";
 import { LayoutRoutes } from "../../constants/routes";
 import { getWorkoutSessions } from "../../services/db/workoutSessions";
 import { WorkoutPlan } from "../../types/workoutType";
 import * as planDraft from "../../utils/planDraft";
 import { EMPTY_PLAN_ERROR } from "../../utils/planDraft";
 import show from "../../utils/toastUtils";
+import { PLANS_CHECK_SKIP_MS } from "../../config/sync";
 
 jest.mock("../../services/db/userDB", () => ({
   ...jest.requireActual("../../services/db/userDB"),

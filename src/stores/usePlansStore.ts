@@ -3,7 +3,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getAllWorkoutPlans, getChangedPlans, getPlanFromServer } from "../services/db/userDB";
 import type { PlanStamp, PlanVersion, WorkoutPlan } from "../types/workoutType";
 import {
-  PLANS_CHECK_WAIT_MS,
   changeCheckAfter,
   compareStamps,
   isFullReloadDue,
@@ -19,6 +18,7 @@ import {
   withServerPlan,
 } from "../utils/planSync";
 import { versionRev } from "../utils/planVersion";
+import { PLANS_CHECK_WAIT_MS } from "../config/sync";
 
 /**
  * The signed-in user's plans on the phone (TICKET-070).

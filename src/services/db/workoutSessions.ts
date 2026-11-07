@@ -39,14 +39,14 @@ import {
   buildExerciseSessionId,
   buildSessionDocs,
 } from "../../utils/exerciseStats";
+import { IN_QUERY_CHUNK } from "../../config/sync";
 
 const USERS = tables.users.collection;
 const SESSIONS = tables.users.fields.sessions.collection;
 const EXERCISE_SESSIONS = tables.users.fields.exercise_sessions.collection;
 const EXERCISE_STATS = tables.users.fields.exercise_stats.collection;
 
-/** Firestore `in` accepts at most 30 values. */
-const IN_QUERY_CHUNK = 30;
+// IN_QUERY_CHUNK: value and reason in src/config/sync.ts.
 
 const sessionsRef = (userId: string) => collection(db, USERS, userId, SESSIONS);
 const exerciseSessionsRef = (userId: string) =>
