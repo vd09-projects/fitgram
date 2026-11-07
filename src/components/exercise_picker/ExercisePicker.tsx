@@ -36,7 +36,6 @@ import { searchExercises, type VersionPick } from "../../utils/exerciseSearch";
 import {
   hasFilters,
   matchesFilters,
-  PICKER_RESULT_LIMIT,
   preparePicker,
   withFilterPreselect,
   type PickerFilters,
@@ -49,6 +48,7 @@ import { TextBase } from "../TextBase";
 import SearchBox from "../SearchBox";
 import VersionSheet from "./VersionSheet";
 import { FilterRow, FilterSheet, type FilterMenu } from "./FilterMenus";
+import { PICKER_RESULT_LIMIT } from "../../config/display";
 
 const NO_MOVEMENTS: readonly Movement[] = [];
 const NO_FILTERS: PickerFilters = {};

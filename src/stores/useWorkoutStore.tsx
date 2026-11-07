@@ -15,6 +15,8 @@ import { useAuthStore } from "./authStore";
 import { useExerciseHistoryStore } from "./useExerciseHistoryStore";
 import { useCatalogStore } from "./useCatalogStore";
 import { exerciseDisplayName, type CatalogIndex } from "../utils/catalog";
+import { UPLOAD_GRACE_MS } from "../config/workout";
+import { ACTIVE_WORKOUT_KEY, LOCAL_DATA_VERSION, LOCAL_DATA_VERSION_KEY, PENDING_UPLOADS_KEY } from "../config/storageKeys";
 
 /**
  * In-flight uploads per session (`buildSessionId`), outside the store for the
@@ -29,26 +31,7 @@ import { exerciseDisplayName, type CatalogIndex } from "../utils/catalog";
  */
 const savesInFlight = new Map<string, Promise<boolean>>();
 
-/** AsyncStorage key of the workout in progress. Tests use the literal, to pin it. */
-const ACTIVE_WORKOUT_KEY = "activeWorkout";
-
-/** AsyncStorage key of the upload queue, separate from `activeWorkout`. */
-const PENDING_UPLOADS_KEY = "pendingUploads";
-
-/**
- * Local data written by an older build is dropped once, at the first launch of
- * a build with a higher number (TICKET-042 stage 2). Version 2: exercise ids
- * moved to the catalog's version ids and the test data was wiped, so a queued
- * upload from before would write old ids back into the wiped Firestore, and an
- * active workout would log against them. Version 3 (TICKET-055): sets moved
- * from `fields` + `splits` to `segments`, with no conversion on read. An older
- * workout would crash Today (`segments` undefined) and an older queued upload
- * would write `segments: undefined`, which Firestore rejects on every retry.
- * Rejected: converting on read; no phone holds unsent data (pre-launch). Raise
- * it only for another reset like these; bumping it discards unsent workouts.
- */
-export const LOCAL_DATA_VERSION = "3";
-export const LOCAL_DATA_VERSION_KEY = "localDataVersion";
+// ACTIVE_WORKOUT_KEY, PENDING_UPLOADS_KEY, LOCAL_DATA_VERSION and its key: value and reason in src/config/storageKeys.ts.
 
 /** Remove `activeWorkout` and the upload queue if they predate LOCAL_DATA_VERSION. */
 async function clearLocalDataFromOlderBuilds(): Promise<void> {
@@ -58,14 +41,7 @@ async function clearLocalDataFromOlderBuilds(): Promise<void> {
   console.log(`Local workout data from an older build cleared (data version ${LOCAL_DATA_VERSION}).`);
 }
 
-/**
- * How long Finish waits on the upload before telling the user it will upload
- * later. Only picks the message: the workout has already left the active slot.
- * Offline, `batch.commit()` does not reject — it stays pending until the
- * connection returns (TICKET-028 step 0) — so without a bound Finish would wait
- * as long as the user is offline.
- */
-export const UPLOAD_GRACE_MS = 3000;
+// UPLOAD_GRACE_MS: value and reason in src/config/workout.ts.
 
 /**
  * What Finish did. Callers branch on this instead of watching `activeWorkout` go

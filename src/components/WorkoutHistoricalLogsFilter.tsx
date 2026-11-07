@@ -17,9 +17,10 @@ import { useExerciseNames } from "../hooks/useExerciseNames";
 import { useCatalogStore } from "../stores/useCatalogStore";
 import { exerciseDisplayName, type CatalogIndex } from "../utils/catalog";
 import { decodeStoredSets, plannedSegment } from "../utils/storedSets";
-import { FREESTYLE_HISTORY_WINDOW, freestyleHistoryEntry } from "../utils/freestyleHistory";
+import { freestyleHistoryEntry } from "../utils/freestyleHistory";
 import { FREESTYLE_ID } from "../constants/freestyle";
 import { WorkoutSessionDoc } from "../types/workoutSession";
+import { FREESTYLE_HISTORY_WINDOW, HISTORY_FILTER_SESSION_WINDOW } from "../config/display";
 
 /**
  * Adapt stored, exercise-first sessions into the table view model. `SetLog.id`
@@ -212,7 +213,7 @@ export default function WorkoutHistoricalLogsFilter({
         const { sessions } = await getExerciseSessions(
           user.uid,
           selectedExercises.value.id,
-          50
+          HISTORY_FILTER_SESSION_WINDOW // value and reason: src/config/display.ts
         );
         // The query is cross-workout now. Narrowing to the selected plan keeps
         // this screen's existing meaning; dropping that filter would show every

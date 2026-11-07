@@ -38,7 +38,7 @@ long-lived session existed and the bug was impossible.
 - the session check is wrapped in try/catch, with `setUser` + `setInitialized`
   after it, so a Firestore failure can no longer strand the app on the splash
 
-**Note.** `INACTIVE_EXPIRY_DAYS` is a hardcoded client constant. A shipped build
+**Note.** `INACTIVE_EXPIRY_DAYS` (`src/config/auth.ts`) is a hardcoded client constant. A shipped build
 cannot be retuned remotely. Consider moving it to Remote Config or a Firestore
 config doc if this policy ever needs a kill switch.
 

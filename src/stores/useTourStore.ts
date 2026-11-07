@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SEEN_TOURS_KEY } from '../config/storageKeys';
 
-const SEEN_TOURS_KEY = 'seen_tours_key';
+// SEEN_TOURS_KEY: value and reason in src/config/storageKeys.ts.
 
 type TourStore = {
   isTourActive: boolean;

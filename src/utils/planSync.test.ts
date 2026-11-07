@@ -1,9 +1,6 @@
 // TICKET-070: the decisions behind the phone's copy of the plans.
 
 import {
-  PLANS_CHECK_SKIP_MS,
-  PLANS_FORMAT_VERSION,
-  PLANS_FULL_RELOAD_INTERVAL_MS,
   changeCheckAfter,
   isFullReloadDue,
   isRefusedSave,
@@ -20,6 +17,8 @@ import {
   type PlansState,
 } from "./planSync";
 import type { PlanStamp, PlanVersion, WorkoutPlan } from "../types/workoutType";
+import { PLANS_CHECK_SKIP_MS, PLANS_FULL_RELOAD_INTERVAL_MS } from "../config/sync";
+import { PLANS_FORMAT_VERSION } from "../config/storageKeys";
 
 const plan = (id: string, name = id): WorkoutPlan => ({ id, name, exercises: [] });
 const at = (seconds: number, nanoseconds = 0): PlanStamp => ({ seconds, nanoseconds });

@@ -10,6 +10,7 @@ import { Exercise, ExerciseField, WorkoutPlan, isArchived } from "../types/worko
 import { validateCustomFields } from "./exerciseValidations";
 import { planExerciseFromPick } from "./catalog";
 import { nextVersion, sameVersion, versionOf, type VersionBase, type VersionedPlan } from "./planVersion";
+import { PLAN_NAME_MAX, SAVE_GRACE_MS } from "../config/workout";
 
 /**
  * A field as edited. `savedName` is the name it had in the saved plan, so a
@@ -245,7 +246,7 @@ export function fieldSummary(fields: ExerciseField[]): string {
   return fields.map((field) => (field.unit ? `${field.name.trim()} ${field.unit}` : field.name.trim())).join(" · ");
 }
 
-export const PLAN_NAME_MAX = 40;
+// PLAN_NAME_MAX: value and reason in src/config/workout.ts.
 
 /** A plan name as stored and compared: trimmed, runs of whitespace as one space. */
 export const normalizePlanName = (name: string): string => name.trim().replace(/\s+/g, " ");
@@ -331,13 +332,7 @@ export function refusedSaveMessage(
   return `${nameOf(failing[0])}: ${message}`;
 }
 
-/**
- * How long Save waits for the server before saying the plan is not saved yet.
- * With `memoryLocalCache` (firebase.ts), `setDoc` resolves only on the server's
- * acknowledgement and never while offline, so an unbounded await would leave
- * Save spinning (offline rule, D4).
- */
-export const SAVE_GRACE_MS = 10_000;
+// SAVE_GRACE_MS: value and reason in src/config/workout.ts.
 
 /**
  * Race a write against `graceMs`. "saved" if it resolved in time, "pending" if

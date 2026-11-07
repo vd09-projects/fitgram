@@ -22,8 +22,9 @@ import { SEARCH_WORDS } from "../catalog/searchWords";
 import type { WorkoutSessionDoc } from "../types/workoutSession";
 import { buildCatalogIndex } from "../utils/catalog";
 import { buildSearchCatalog, searchExercises } from "../utils/exerciseSearch";
-import { matchesFilters, PICKER_RESULT_LIMIT, preparePicker } from "../utils/pickerData";
+import { matchesFilters, preparePicker } from "../utils/pickerData";
 import { buildRecentHistory } from "../utils/recents";
+import { PICKER_RESULT_LIMIT } from "../config/display";
 
 const WINDOW_MS = 20;
 const ROUNDS = 5;

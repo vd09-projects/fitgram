@@ -9,14 +9,7 @@ import { FREESTYLE_ID, FREESTYLE_NAME, isFreestyle } from "../constants/freestyl
 import { WorkoutSessionDoc } from "../types/workoutSession";
 import { Exercise, WorkoutPlan } from "../types/workoutType";
 
-/**
- * Freestyle sessions read to list its exercises: one query, the
- * `sessions (workoutId, startedAt desc)` index, newest first. Matches the 50
- * exercise sessions the filter reads per exercise. An exercise done only in
- * an older Freestyle is not offered; rejected: paging through every
- * Freestyle on each History open.
- */
-export const FREESTYLE_HISTORY_WINDOW = 50;
+// FREESTYLE_HISTORY_WINDOW: value and reason in src/config/display.ts.
 
 /**
  * The filter's Freestyle entry, or null when there is no Freestyle session

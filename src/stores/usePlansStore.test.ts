@@ -4,14 +4,11 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getAllWorkoutPlans, getChangedPlans, getPlanFromServer } from "../services/db/userDB";
-import { PLANS_STORAGE_KEY, usePlansStore } from "./usePlansStore";
-import {
-  PLANS_CHECK_SKIP_MS,
-  PLANS_CHECK_WAIT_MS,
-  PLANS_FULL_RELOAD_INTERVAL_MS,
-  serializeStoredPlans,
-} from "../utils/planSync";
+import { usePlansStore } from "./usePlansStore";
+import { serializeStoredPlans } from "../utils/planSync";
 import type { PlanStamp, WorkoutPlan } from "../types/workoutType";
+import { PLANS_CHECK_SKIP_MS, PLANS_CHECK_WAIT_MS, PLANS_FULL_RELOAD_INTERVAL_MS } from "../config/sync";
+import { PLANS_STORAGE_KEY } from "../config/storageKeys";
 
 jest.mock("../services/db/userDB", () => ({ getAllWorkoutPlans: jest.fn(), getChangedPlans: jest.fn(), getPlanFromServer: jest.fn() }));
 

@@ -11,6 +11,7 @@ import {
   type LoadedCatalog,
   type LoadedSearchWords,
 } from "../utils/catalogSync";
+import { CATALOG_CACHE_KEY, SEARCH_WORDS_CACHE_KEY } from "../config/storageKeys";
 
 /**
  * The exercise catalog on the phone (TICKET-042 stage 2).
@@ -29,15 +30,7 @@ import {
  * every catalog fix would be a new build for every tester; TICKET-042).
  */
 
-/**
- * AsyncStorage key of the cached catalog. NOT ACCOUNT DATA: sign-out must not
- * clear it (TICKET-042). When TICKET-026 adds the sign-out clear, leave this key
- * out of it; the next user needs the catalog too, and the first sign-in is the
- * only moment with a guaranteed network.
- */
-export const CATALOG_CACHE_KEY = "exerciseCatalog";
-/** AsyncStorage key of the cached search words. Not account data either, like the catalog's. */
-export const SEARCH_WORDS_CACHE_KEY = "exerciseSearchWords";
+// CATALOG_CACHE_KEY, SEARCH_WORDS_CACHE_KEY: value and reason in src/config/storageKeys.ts.
 
 type Refusal = { at: number; version: string | null; errors: string[] };
 

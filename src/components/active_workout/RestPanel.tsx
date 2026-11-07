@@ -8,7 +8,7 @@ import { Effort, EFFORTS } from "../../types/workoutSession";
 import { EFFORT_LABEL, toggleEffort } from "../../utils/effort";
 import { resolveNumericFields } from "../../utils/exerciseFields";
 import { personalBest, personalBestText } from "../../utils/personalBest";
-import { ADD_REST_MS, formatCountdown, restCountdown, RestTimer } from "../../utils/restTimer";
+import { formatCountdown, restCountdown, RestTimer } from "../../utils/restTimer";
 import { formatSessionDate } from "../../utils/setDeltas";
 import { ghostNotice, lastTimeText, resolveGhostTarget } from "../../utils/setLogger";
 import { TextBase, NumericText } from "../TextBase";
@@ -17,6 +17,7 @@ import { useThemeStyles } from "../../utils/useThemeStyles";
 import { useNow } from "../../hooks/useNow";
 import { EffortBadge } from "./EffortBadge";
 import { comparisonSegment } from "../../utils/storedSets";
+import { ADD_REST_MS } from "../../config/workout";
 
 const ACTION_HEIGHT = 48;
 

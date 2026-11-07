@@ -9,13 +9,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { User } from "firebase/auth";
 import { saveWorkoutSession } from "../services/db/workoutSessions";
 import show from "../utils/toastUtils";
-import {
-  drainPendingUploads,
-  LOCAL_DATA_VERSION,
-  LOCAL_DATA_VERSION_KEY,
-  UPLOAD_GRACE_MS,
-  useWorkoutStore,
-} from "./useWorkoutStore";
+import { drainPendingUploads, useWorkoutStore } from "./useWorkoutStore";
 import { useAuthStore } from "./authStore";
 import { resetStores } from "../test/renderScreen";
 import { buildExercise, buildWorkout, CATALOG_ROW } from "../test/fixtures";
@@ -24,6 +18,8 @@ import { loadCatalog } from "../utils/catalog";
 import { buildSessionDocs } from "../utils/exerciseStats";
 import { Effort } from "../types/workoutSession";
 import { FREESTYLE_ID, freestylePlan } from "../constants/freestyle";
+import { UPLOAD_GRACE_MS } from "../config/workout";
+import { LOCAL_DATA_VERSION, LOCAL_DATA_VERSION_KEY } from "../config/storageKeys";
 
 jest.mock("../services/db/workoutSessions", () => ({
   ...jest.requireActual("../services/db/workoutSessions"),

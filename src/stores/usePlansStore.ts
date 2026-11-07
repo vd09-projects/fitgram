@@ -3,7 +3,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getAllWorkoutPlans, getChangedPlans, getPlanFromServer } from "../services/db/userDB";
 import type { PlanStamp, PlanVersion, WorkoutPlan } from "../types/workoutType";
 import {
-  PLANS_CHECK_WAIT_MS,
   changeCheckAfter,
   compareStamps,
   isFullReloadDue,
@@ -19,6 +18,8 @@ import {
   withServerPlan,
 } from "../utils/planSync";
 import { versionRev } from "../utils/planVersion";
+import { PLANS_CHECK_WAIT_MS } from "../config/sync";
+import { PLANS_STORAGE_KEY } from "../config/storageKeys";
 
 /**
  * The signed-in user's plans on the phone (TICKET-070).
@@ -43,14 +44,7 @@ import { versionRev } from "../utils/planVersion";
  * signed out cannot refill the store for the next one.
  */
 
-/**
- * AsyncStorage key of the stored plans. ACCOUNT DATA: cleared on sign-out (D2).
- * One key, with the user id inside the value (`StoredPlans.uid`), not a key
- * per user: a missed clear would leave a per-user key on the phone for good;
- * here the next user's first check overwrites it, and it is never shown to
- * them meanwhile (`readStoredPlans`).
- */
-export const PLANS_STORAGE_KEY = "workoutPlans";
+// PLANS_STORAGE_KEY: value and reason in src/config/storageKeys.ts.
 
 export type PlansSource = "none" | "stored" | "server";
 

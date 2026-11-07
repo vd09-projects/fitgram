@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AllColorSchemas, ColorSchemaKeyType, DefaultColorSchema } from '../constants/colors';
 import show from '../utils/toastUtils';
+import { COLOR_SCHEMA_KEY } from '../config/storageKeys';
 
 interface ColorSchemaStore {
   currentColorSchema: ColorSchemaKeyType;
@@ -10,7 +11,7 @@ interface ColorSchemaStore {
   loadFromStorage: () => Promise<void>;
 }
 
-const COLOR_SCHEMA_KEY = 'color_schema_key';
+// COLOR_SCHEMA_KEY: value and reason in src/config/storageKeys.ts.
 
 export const useColorSchemaStore = create<ColorSchemaStore>((set, get) => ({
   currentColorSchema: DefaultColorSchema,

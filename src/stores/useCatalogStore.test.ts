@@ -6,9 +6,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { User } from "firebase/auth";
 import { getDoc } from "firebase/firestore";
 import { useAuthStore } from "./authStore";
-import { CATALOG_CACHE_KEY, startCatalog, useCatalogStore } from "./useCatalogStore";
+import { startCatalog, useCatalogStore } from "./useCatalogStore";
 import { CATALOG_ROW as ROW } from "../test/fixtures";
 import { SEARCH_WORDS } from "../catalog/searchWords";
+import { CATALOG_CACHE_KEY } from "../config/storageKeys";
 
 const server: Record<string, unknown> = {};
 
