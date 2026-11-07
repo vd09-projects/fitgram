@@ -4,9 +4,9 @@ import { doc, onSnapshot, setDoc, getDoc, serverTimestamp, Timestamp } from 'fir
 import { auth, db } from '../services/firebase';
 import { useAuthStore } from '../stores/authStore';
 import { usePlansStore } from '../stores/usePlansStore';
+import { FRESH_SIGNIN_WINDOW_MS, INACTIVE_EXPIRY_DAYS } from '../config/auth';
 
-const INACTIVE_EXPIRY_DAYS = 10; // sign out if no activity for 10 days
-const FRESH_SIGNIN_WINDOW_MS = 5 * 60 * 1000; // credential verified this recently is trusted
+// INACTIVE_EXPIRY_DAYS, FRESH_SIGNIN_WINDOW_MS: value and reason in src/config/auth.ts.
 
 let isInitialized = false;
 let userDocUnsubscribe: (() => void) | null = null;
