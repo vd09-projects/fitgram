@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getAllWorkoutPlans, getChangedPlans } from "../services/db/userDB";
-import type { PlanStamp, WorkoutPlan } from "../types/workoutType";
+import { getAllWorkoutPlans, getChangedPlans, getPlanFromServer } from "../services/db/userDB";
+import type { PlanStamp, PlanVersion, WorkoutPlan } from "../types/workoutType";
 import {
   PLANS_CHECK_WAIT_MS,
   changeCheckAfter,
@@ -16,7 +16,9 @@ import {
   type HeldPlans,
   shouldSkipCheck,
   withSavedPlan,
+  withServerPlan,
 } from "../utils/planSync";
+import { versionRev } from "../utils/planVersion";
 
 /**
  * The signed-in user's plans on the phone (TICKET-070).
@@ -29,11 +31,12 @@ import {
  * - change (D3): only plans with `updatedAt` after `lastSeen`. Nothing
  *   changed costs 1 read, 0 docs.
  * - full (D5): every plan, replacing the stored copy.
- * Both reject offline (D11). Answers merge by D10, newer `updatedAt` wins;
- * the merge rules are pure functions in `planSync.ts`.
+ * Both reject offline (D11). Answers merge by D10, the higher `rev` wins
+ * (TICKET-073); the merge rules are pure functions in `planSync.ts`.
  *
  * The stored copy changes only on what the server confirmed (D8): a check's
- * answer, or a Save that resolved (`applySaved`). Sign-out clears it (D2).
+ * answer, a Save that resolved (`applySaved`), or the server's copy of a plan
+ * whose Save it refused (`reloadRefused`). Sign-out clears it (D2).
  *
  * `epoch` counts clears. A check or a Save started under one epoch applies
  * only if it is still current when it lands, so a late answer for the user who
@@ -56,10 +59,17 @@ export type CheckKind = "full" | "change";
 // Debug readout, for the Plans Store debug page (TICKET-070; kept, user 2026-11-06).
 export type ReadoutEntry = {
   at: number;
-  outcome: "read" | "skipped" | "joined" | "ok" | "failed" | "dropped";
-  kind?: CheckKind | "save read-back";
+  outcome: "read" | "skipped" | "joined" | "ok" | "failed" | "dropped" | "refused";
+  kind?: CheckKind | "save read-back" | "refusal reload";
   detail?: string;
 };
+
+/**
+ * What a refused save's reload found (TICKET-073 D7), kept apart (CLAUDE.md
+ * 2.4): the plan as the server now has it; the plan gone from the server; or
+ * no answer (offline, a failed read), where the caller keeps what it has.
+ */
+export type RefusalReload = { kind: "reloaded"; plan: WorkoutPlan } | { kind: "gone" } | { kind: "failed" };
 
 interface PlansStore {
   uid: string | null;
@@ -98,11 +108,19 @@ interface PlansStore {
    * (D8). Reads its stamp back before it goes into the store.
    */
   applySaved: (uid: string, epoch: number, plan: WorkoutPlan) => Promise<void>;
+  /**
+   * The server refused a Save of `planId` as version `sent`, started under
+   * `epoch`: another device saved it since (TICKET-073 D7). Reloads that
+   * plan at once, so the phone does not keep an old version that refuses
+   * every later Save. `late`: the refusal landed from the offline queue (the
+   * readout says so; the caller shows nothing).
+   */
+  reloadRefused: (uid: string, epoch: number, planId: string, sent: PlanVersion, late: boolean) => Promise<RefusalReload>;
   /** Sign-out (D2), or another user opened a plans screen. */
   clear: () => void;
 }
 
-type State = Omit<PlansStore, "open" | "check" | "applySaved" | "clear">;
+type State = Omit<PlansStore, "open" | "check" | "applySaved" | "reloadRefused" | "clear">;
 
 const initialState = {
   uid: null,
@@ -418,6 +436,45 @@ export const usePlansStore = create<PlansStore>((set, get) => {
 
       set((s) => stateAfterSave(s, plan, docs, after));
       persist();
+    },
+
+    /**
+     * That one plan, read from the server (D7) and taken whatever D10 says
+     * (`withServerPlan`): a direct read of one document is the only answer
+     * that is certainly the server's current copy, whatever the stamps,
+     * `lastSeen` or a check already running say. 1 read. `lastSeen` is not
+     * moved: the read saw one plan, not every change before its stamp; the
+     * next change check returns the plan once more.
+     *
+     * Deviation from D7 as written ("a forced change check, then this read if
+     * the check did not bring the plan"), user 2026-11-07, after the device
+     * run. A check usually brings the plan (every app Save moves `updatedAt`),
+     * but misses it when it joins a check started before the other device's
+     * Save (D9), when a Save of the plan is still queued here (the queued write
+     * fails the stamp filter), or after edits outside the app; and the guess
+     * "did it come back?" was wrong on the device for a Save chained on a
+     * refused one. The read alone covers all of these, costs 1 read instead
+     * of 2, and other plans are refreshed by the check every screen runs.
+     * A read answered while another Save of the plan is still queued is
+     * rejected (`serverOnly`, in userDB) and returns "failed"; that queued
+     * Save's own refusal reloads.
+     */
+    reloadRefused: async (uid, epoch, planId, sent, late) => {
+      if (!isCurrent(epoch) || get().uid !== uid) return { kind: "failed" };
+      note("refused", undefined, `plan ${planId} at rev ${sent.rev}${late ? ", late from the queue" : ""}`);
+      note("read", "refusal reload", "one plan");
+      try {
+        const plan = await getPlanFromServer(uid, planId);
+        if (!isCurrent(epoch)) return { kind: "failed" };
+        set((s) => ({ plans: withServerPlan(s.plans, planId, plan) }));
+        persist();
+        const gone = plan === null || plan.deleted === true;
+        note("ok", "refusal reload", gone ? "plan gone from the server" : `by reading it, rev ${versionRev(plan)}`);
+        return gone ? { kind: "gone" } : { kind: "reloaded", plan };
+      } catch (error) {
+        note("failed", "refusal reload", errorMessage(error));
+        return { kind: "failed" };
+      }
     },
 
     clear: () => {

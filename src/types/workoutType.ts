@@ -88,12 +88,27 @@ export type WorkoutPlan = {
    */
   updatedAt?: PlanStamp;
   /**
+   * TICKET-073: which version of the plan this is, and which version its Save
+   * was made on. firestore.rules refuses a Save not made on the stored
+   * version. Absent on plans saved before 073 (no backfill). Read and built
+   * only through `src/utils/planVersion.ts`, whose header explains it.
+   */
+  version?: PlanVersion;
+  /**
    * TICKET-070 D5: the future Delete's marker. Never written by this build;
    * a plan carrying it is dropped by every merge (`planSync.ts`), so no reader
-   * ever sees it.
+   * ever sees it. Writing it is an update, so the Delete must also write the
+   * next `version` (`nextVersion`), or firestore.rules refuses it (TICKET-073).
    */
   deleted?: boolean;
 };
+
+/**
+ * TICKET-073: a plan's version, stored as one map in the plan doc. `rev`:
+ * + 1 per Save; `id`: this version, fresh per Save; `base`: the `id` it was
+ * made on (null: a plan saved before versions). See `src/utils/planVersion.ts`.
+ */
+export type PlanVersion = { rev: number; id: string; base: string | null };
 
 /**
  * A Firestore Timestamp as plain numbers, so it survives JSON in the stored
@@ -106,8 +121,3 @@ export type PlanStamp = { seconds: number; nanoseconds: number };
 /** TICKET-061: only a stored `true` archives a plan; absent or anything else does not. */
 export const isArchived = (plan: Pick<WorkoutPlan, "archived">): boolean => plan.archived === true;
 
-export type WorkoutPlanDB = {
-  id?: string;
-  name: string;
-  exercise: Exercise;
-};

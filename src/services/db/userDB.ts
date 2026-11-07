@@ -2,26 +2,45 @@
 // `src/services/db/workoutSessions.ts`, which stores it exercise-first; the old
 // workout_logs tree could only answer "what did I do last time in THIS workout".
 import { tables } from "../../constants/tables";
-import { Exercise, PlanStamp, WorkoutPlan, WorkoutPlanDB, isArchived } from "../../types/workoutType";
+import { Exercise, PlanStamp, WorkoutPlan, isArchived } from "../../types/workoutType";
 import { normalizeExerciseFields } from "../../utils/exerciseFields";
 import { toPlanStamp } from "../../utils/planSync";
+import { toPlanVersion } from "../../utils/planVersion";
 import { db } from "../firebase/firebase";
 import {
-  arrayRemove,
-  arrayUnion,
   collection,
   doc,
-  getDoc,
+  getDocFromServer,
   getDocsFromServer,
   query,
   serverTimestamp,
   setDoc,
   Timestamp,
-  updateDoc,
   where,
   type DocumentData,
   type QueryDocumentSnapshot,
+  type SnapshotMetadata,
 } from "firebase/firestore";
+
+/**
+ * A server read is the server's answer only if none of this phone's own
+ * queued writes is laid over it. The SDK lays a write still queued on top of
+ * what even `getDocFromServer` / `getDocsFromServer` return (latency
+ * compensation), and only `hasPendingWrites` says so. Found on the device
+ * (TICKET-073, 2026-11-07): two Saves queued offline; after the first was
+ * refused, the reload read the second, unsent, as the server's copy, held it
+ * and showed it. Reproduced in src/firestoreRules/firestoreRules.test.ts.
+ *
+ * Such a read is rejected, like an offline one (TICKET-070 D11): the caller
+ * keeps what it has, and the queued write brings the plan itself when it
+ * lands (`applySaved`) or is refused (`reloadRefused`). Rejected: waiting for
+ * the queued writes to settle before reading, which adds a timed wait for the
+ * same end state.
+ */
+function serverOnly<T extends { metadata: SnapshotMetadata }>(snapshot: T): T {
+  if (snapshot.metadata.hasPendingWrites) throw new Error("A Save of this plan is still queued on this phone");
+  return snapshot;
+}
 
 const plansCollection = (userId: string) =>
   collection(db, tables.users.collection, userId, tables.users.fields.workouts.collection);
@@ -29,12 +48,23 @@ const plansCollection = (userId: string) =>
 /**
  * A plan doc as the phone holds it. `updatedAt` becomes plain numbers
  * (`toPlanStamp`) or is left out: the plans store keeps it in JSON, and a
- * Timestamp instance would not survive that at full precision.
+ * Timestamp instance would not survive that at full precision. `version` is
+ * kept only whole (`toPlanVersion`, TICKET-073); anything else is left out,
+ * and the plan counts as having none.
  */
 const planFromDoc = (snapshot: QueryDocumentSnapshot<DocumentData>): WorkoutPlan => {
-  const { updatedAt, ...data } = snapshot.data();
+  const { updatedAt, version: storedVersion, ...data } = snapshot.data();
   const stamp = toPlanStamp(updatedAt);
-  const plan = { id: snapshot.id, ...data, ...(stamp ? { updatedAt: stamp } : {}) } as WorkoutPlan;
+  const version = toPlanVersion(storedVersion);
+  // Only a hand edit could write it; firestore.rules then refuses every save of this plan.
+  if (storedVersion !== undefined && version === undefined)
+    console.warn(`Plan ${snapshot.id} has an unusable version (${JSON.stringify(storedVersion)}); fix it in the console.`);
+  const plan = {
+    id: snapshot.id,
+    ...data,
+    ...(stamp ? { updatedAt: stamp } : {}),
+    ...(version ? { version } : {}),
+  } as WorkoutPlan;
   return {
     ...plan,
     exercises: (plan.exercises ?? []).map(
@@ -61,7 +91,7 @@ export const getAllWorkoutPlans = async (
     // resolved offline with the memory cache, empty on a cold start, which
     // needed a guard to fail (TICKET-052 D5); the phone's copy of the plans is
     // the plans store now, not that cache.
-    const querySnapshot = await getDocsFromServer(plansCollection(userId));
+    const querySnapshot = serverOnly(await getDocsFromServer(plansCollection(userId)));
     const plans = querySnapshot.docs.map(planFromDoc);
 
     console.log("✅ Exercises fetched successfully:", plans);
@@ -85,66 +115,25 @@ export const getAllWorkoutPlans = async (
  */
 export const getChangedPlans = async (userId: string, after: PlanStamp): Promise<WorkoutPlan[]> => {
   if (!userId) throw new Error("Missing user");
-  const snapshot = await getDocsFromServer(
-    query(plansCollection(userId), where("updatedAt", ">", new Timestamp(after.seconds, after.nanoseconds)))
+  const snapshot = serverOnly(
+    await getDocsFromServer(
+      query(plansCollection(userId), where("updatedAt", ">", new Timestamp(after.seconds, after.nanoseconds)))
+    )
   );
   return snapshot.docs.map(planFromDoc);
 };
 
-export const saveWorkoutDetails = async (
-  userId: string,
-  workout: WorkoutPlanDB
-): Promise<void> => {
-  if (!userId || !workout.id || !workout.exercise) {
-    console.error("❌ Missing required parameters");
-    return;
-  }
-
-  try {
-    const workoutRef = doc(
-      db,
-      tables.users.collection,
-      userId,
-      tables.users.fields.workouts.collection,
-      workout.id
-    );
-    const workoutSnap = await getDoc(workoutRef);
-
-    if (!workoutSnap.exists()) {
-      // Workout does not exist, create it with the new exercise
-      await setDoc(workoutRef, {
-        id: workout.id,
-        name: workout.name, // Default name, can be updated later
-        exercises: [workout.exercise],
-      });
-      console.log("✅ Workout and exercise created successfully");
-      return;
-    }
-
-    const workoutData = workoutSnap.data() as WorkoutPlan;
-    const existingExercise = workoutData.exercises.find(
-      (ex) => ex.id === workout.exercise.id
-    );
-
-    if (existingExercise) {
-      // If exercise exists, update it (remove old and add new)
-      await updateDoc(workoutRef, {
-        exercises: arrayRemove(existingExercise),
-      });
-      await updateDoc(workoutRef, {
-        exercises: arrayUnion(workout.exercise),
-      });
-      console.log("✅ Exercise updated successfully");
-    } else {
-      // If exercise does not exist, add it
-      await updateDoc(workoutRef, {
-        exercises: arrayUnion(workout.exercise),
-      });
-      console.log("✅ Exercise added successfully");
-    }
-  } catch (error) {
-    console.error("❌ Error saving workout details:", error);
-  }
+/**
+ * One plan from the server, for a refused save's reload when the change
+ * check did not bring it back (TICKET-073 D7). Null: no such doc. Rejects
+ * offline, like the reads above.
+ */
+export const getPlanFromServer = async (userId: string, planId: string): Promise<WorkoutPlan | null> => {
+  if (!userId) throw new Error("Missing user");
+  const snapshot = serverOnly(
+    await getDocFromServer(doc(db, tables.users.collection, userId, tables.users.fields.workouts.collection, planId))
+  );
+  return snapshot.exists() ? planFromDoc(snapshot) : null;
 };
 
 /**
@@ -154,6 +143,13 @@ export const saveWorkoutDetails = async (
 export const newPlanId = (userId: string): string =>
   doc(collection(db, tables.users.collection, userId, tables.users.fields.workouts.collection)).id;
 
+/**
+ * A fresh version id for one Save (TICKET-073, `planVersion.ts`): Firestore's
+ * auto id, made on the device with no read or write, so it works offline,
+ * like `newPlanId`. 20 random characters: two Saves never share one.
+ */
+export const newVersionId = (): string => doc(collection(db, "_")).id;
+
 export const overrideWorkoutDetails = async (
   userId: string,
   workout: WorkoutPlan
@@ -161,7 +157,9 @@ export const overrideWorkoutDetails = async (
   // Throws rather than logging and returning (TICKET-051 D4): the caller shows
   // "saved" only when this resolves, so a skipped or failed write must reject.
   // Offline, `setDoc` neither resolves nor rejects (memory cache); the caller
-  // bounds the wait.
+  // bounds the wait. A save the rules refuse (TICKET-073: another device saved
+  // since) rejects with `permission-denied`, online or when it lands from the
+  // queue (`isRefusedSave`).
   if (
     !userId ||
     !workout.id ||
@@ -170,6 +168,12 @@ export const overrideWorkoutDetails = async (
   ) {
     throw new Error("Missing user, plan id or exercises");
   }
+  // TICKET-073: the plan as it will be stored carries its new version
+  // (`planFromDraft`). Checked here, not trusted: without it firestore.rules
+  // refuses the write, and that refusal would read as "this plan changed on
+  // another device".
+  const version = toPlanVersion(workout.version);
+  if (!version) throw new Error(`Plan ${workout.id} has no version to save (${JSON.stringify(workout.version)})`);
 
   const workoutRef = doc(
     db,
@@ -189,6 +193,9 @@ export const overrideWorkoutDetails = async (
       // TICKET-061: a complete overwrite, so the archive state must be written
       // too or Save would unarchive the plan. `planFromDraft` carries it.
       ...(isArchived(workout) ? { archived: true } : {}),
+      // Rebuilt key by key, so nothing else rides along; firestore.rules
+      // refuses it unless `version.base` is the stored version.
+      version: { rev: version.rev, id: version.id, base: version.base },
       // TICKET-070 D3: the server's stamp, always. The fields above are picked
       // one by one, so an `updatedAt` the plan was read with (the plans store
       // holds one) can never be written back: it would hide this Save from
