@@ -913,7 +913,7 @@ where the target came from.
 
 ### TICKET-019: Today's Sets with Per-Set Deltas
 
-**Priority:** High | **Effort:** Small-Medium | **Status: OPEN** (implemented on branch `TICKET-019`)
+**Priority:** High | **Effort:** Small-Medium | **Status: MERGED** — PR #10, 2026-10-19; device run by the reviewer (PR #10)
 
 **Description:**
 Make this session's sets permanently visible under the input card, each row carrying how
@@ -1476,7 +1476,7 @@ stored rest is the same object after Save, refusals say "save".
 
 ### TICKET-021: Rest Timer, Personal-Best Banner, Next-Set Target
 
-**Priority:** Medium | **Effort:** Medium | **Status: IN PROGRESS** — built on branch `TICKET-021`, awaiting device run
+**Priority:** Medium | **Effort:** Medium | **Status: MERGED** — PR #14, 2026-10-21; Android emulator run in the PR #14 review
 
 **Description:**
 After a set is logged, the input card gives way to a rest countdown with the next set's
@@ -1561,7 +1561,7 @@ target already shown, and a set that beats the user's previous best is called ou
 
 ### TICKET-022: Start Workout Redesign and Resume Banner
 
-**Priority:** High | **Effort:** Medium | **Status: IN PROGRESS** — built on branch `TICKET-022`, awaiting device run
+**Priority:** High | **Effort:** Medium | **Status: MERGED** — PR #11, 2026-10-20; viewed on the Android emulator (PR #11)
 
 **Description:**
 Rebuild the plan picker so a plan can be judged before it is started — exercise count, when
@@ -1721,7 +1721,7 @@ not the style split, not device-tested. Applies cleanly on the TICKET-017 branch
 
 ### TICKET-024: Test Runner — Set Up Jest and Write the Example Tests
 
-**Priority:** High | **Effort:** Small-Medium | **Status: IN REVIEW** — next, ahead of TICKET-018
+**Priority:** High | **Effort:** Small-Medium | **Status: MERGED** — PR #5, 2026-10-14; no device run needed (test tooling only)
 
 **Description:**
 The repo had no test runner; TICKET-016 and TICKET-017 verified with hand-rolled
@@ -1998,7 +1998,7 @@ test is `endWorkout`, replacing it tests nothing. README now says when this appl
 
 ### TICKET-028: Offline Finish — Save on the Phone, Upload Later, Show What Is Pending
 
-**Priority:** High | **Effort:** Medium-Large | **Status: IN REVIEW — device test pending**
+**Priority:** High | **Effort:** Medium-Large | **Status: MERGED** — PR #7, 2026-10-16; device result 2026-10-17 below
 
 Sequenced next after TICKET-027 (PR #6 review). In a gym, having no signal is the
 normal case, and TICKET-027 left offline Finish with no way out.
@@ -6776,7 +6776,7 @@ Start row on the device.
 
 ### TICKET-062: Back Button on Every Screen
 
-**Priority:** Medium | **Effort:** Small | **Status: IN REVIEW** — raised and built
+**Priority:** Medium | **Effort:** Small | **Status: MERGED** — PR #38, 2026-11-01; raised and built
 2026-11-01, PR #38
 
 **Description:**
@@ -7939,8 +7939,8 @@ exercises per user.
 
 ### TICKET-073: Two Devices Editing One Plan
 
-**Priority:** Medium | **Effort:** Medium | **Status: IN REVIEW (PR open)** — branch
-`TICKET-073`, 2026-11-06; rules deployed and device-tested 2026-11-07 (below). Split from
+**Priority:** Medium | **Effort:** Medium | **Status: MERGED** — PR #50 (6da1bec),
+2026-11-07; rules deployed and device-tested 2026-11-07 (below). Split from
 TICKET-070 stage 3 (user, 2026-11-05); decided there, 2026-11-05. **Before launch.**
 
 **Description:**
