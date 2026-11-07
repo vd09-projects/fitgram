@@ -17,11 +17,9 @@ import {
 } from "../types/workoutSession";
 import { NumericFieldMap, parseSet, resolveNumericFields } from "./exerciseFields";
 import { comparisonSegment, decodeStoredSets, SegmentedSet, toStoredSets } from "./storedSets";
+import { STATS_RECENT_SESSION_CAP, STATS_VOLUME_HISTORY_CAP } from "../config/storedData";
 
-/** Sessions embedded in the rollup. Deeper history comes from exercise_sessions. */
-export const STATS_RECENT_SESSION_CAP = 10;
-/** Volume trend points kept in the rollup. */
-export const STATS_VOLUME_HISTORY_CAP = 12;
+// STATS_RECENT_SESSION_CAP, STATS_VOLUME_HISTORY_CAP: value and reason in src/config/storedData.ts.
 
 export type SessionVolume = {
   /** Sum of weight x reps, or null. Never a partial sum — see below. */

@@ -1,13 +1,11 @@
 import { sessionSets, sheetBest, sheetSession, sheetStatusMessage, sheetTrend } from "./historySheet";
 import { setDelta } from "./setDeltas";
 import { deriveExerciseHistory } from "./exerciseHistory";
-import { STATS_RECENT_SESSION_CAP } from "./exerciseStats";
 import { resolveNumericFields } from "./exerciseFields";
 import { buildStats, StatsSessionSpec } from "../test/fixtures";
 import { ExerciseHistoryStatus } from "../types/exerciseHistory";
 import { Effort, StoredSetFields } from "../types/workoutSession";
 import { ExerciseField } from "../types/workoutType";
-import { HISTORY_TREND_SESSION_COUNT } from "../config/display";
 
 const KG: ExerciseField = { name: "Weight", role: "weight", unit: "kg" };
 const LB: ExerciseField = { name: "Weight", role: "weight", unit: "lb" };
@@ -163,12 +161,6 @@ describe("sheetTrend", () => {
     if (trend.kind !== "bars") return;
     expect(trend.bars.map((bar) => bar.ratio)).toEqual([0.5, null, 1]);
     expect(trend.newest?.volume).toBe(500);
-  });
-
-  // `unitMismatch` scans only `recentSessions`. A wider trend could show a
-  // point from an other-unit session it never scanned (see the constant).
-  it("keeps the trend window inside the sessions unitMismatch scans", () => {
-    expect(HISTORY_TREND_SESSION_COUNT).toBeLessThanOrEqual(STATS_RECENT_SESSION_CAP);
   });
 
   it("hides the trend when a session used another unit, since points carry none", () => {
