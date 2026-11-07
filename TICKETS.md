@@ -47,7 +47,6 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 063 | Finish summary | Small-Med | Low. From 056's design review (2026-11-02): exercises and set counts before saving, as Finish's confirm. To decide: how 0-set exercises show, sheet or screen |
 | 068 | Drag to close: every sheet on a real phone | Small | Low. From 065's device run (2026-11-03): only `PlanCard` drags; decide drag on every sheet with a handle, or drop the handles |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
-| 074 | Config in one place | Medium | First of the history-reads track (072, decided 2026-11-08). Tuning values into `src/config/`; no behaviour change |
 | 075 | Recent workouts on the phone | Med-Large | Last 5 per plan, one shared store, change check. ~80 of ~100 reads per workout today |
 | 076 | Exercise summaries on the phone | Med-Large | Saved store, change check; history works offline after a restart |
 | 077 | Summary integrity | Medium | **Silent:** a failed summary update is repaired only by a hand-run script. Also the one rebuild path 032 needs |
@@ -8367,7 +8366,7 @@ Touches TICKET-037 (two sessions on the same day).
 
 ### TICKET-074: Config in One Place
 
-**Priority:** Medium | **Effort:** Medium | **Status: MERGED** — PR #51, 2026-11-08; Android emulator launch (hub, plan card).
+**Priority:** Medium | **Effort:** Medium | **Status: DONE** — merged in PR #51, 2026-11-08; Android emulator launch (hub, plan card).
 Raised 2026-11-08 (user), first of the history-reads track (TICKET-072 D10)
 
 **Description:**
@@ -8646,7 +8645,7 @@ before the tour pass is done; it was the order 044 → 042 → 046 → 043 → 0
 one before it.
 
 ```
-1. TICKET-074  (Config in one place)       — Values the next three add land here
+1. TICKET-074  (Config in one place)       — DONE (PR #51); the next three add their values in src/config/
 2. TICKET-075  (Recent workouts on phone)  — Biggest read saving; builds the sync core
 3. TICKET-076  (Exercise summaries)        — Reuses 075's core
 4. TICKET-077  (Summary integrity)         — Repair in the app; 032's rebuild path
