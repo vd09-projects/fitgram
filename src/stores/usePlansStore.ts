@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getAllWorkoutPlans, getChangedPlans, getPlanFromServer } from "../services/db/userDB";
-import type { PlanStamp, WorkoutPlan } from "../types/workoutType";
+import type { PlanStamp, PlanVersion, WorkoutPlan } from "../types/workoutType";
 import {
   PLANS_CHECK_WAIT_MS,
   changeCheckAfter,
@@ -11,7 +11,6 @@ import {
   lastSeenAfterFullReload,
   mergeChanges,
   mergeFullReload,
-  planRev,
   readStoredPlans,
   refusedPlanCameBack,
   serializeStoredPlans,
@@ -20,6 +19,7 @@ import {
   withSavedPlan,
   withServerPlan,
 } from "../utils/planSync";
+import { versionRev } from "../utils/planVersion";
 
 /**
  * The signed-in user's plans on the phone (TICKET-070).
@@ -110,13 +110,13 @@ interface PlansStore {
    */
   applySaved: (uid: string, epoch: number, plan: WorkoutPlan) => Promise<void>;
   /**
-   * The server refused a Save of `planId` at `sentRev`, started under
+   * The server refused a Save of `planId` as version `sent`, started under
    * `epoch`: another device saved it since (TICKET-073 D7). Reloads that
-   * plan at once, so the phone does not keep an old `rev` that refuses every
-   * later Save. `late`: the refusal landed from the offline queue (the
+   * plan at once, so the phone does not keep an old version that refuses
+   * every later Save. `late`: the refusal landed from the offline queue (the
    * readout says so; the caller shows nothing).
    */
-  reloadRefused: (uid: string, epoch: number, planId: string, sentRev: number, late: boolean) => Promise<RefusalReload>;
+  reloadRefused: (uid: string, epoch: number, planId: string, sent: PlanVersion, late: boolean) => Promise<RefusalReload>;
   /** Sign-out (D2), or another user opened a plans screen. */
   clear: () => void;
 }
@@ -445,21 +445,21 @@ export const usePlansStore = create<PlansStore>((set, get) => {
      * already runs one on opening a plan. Forced, so the 2-minute skip cannot
      * swallow it; a check already running is joined (D9), and if it started
      * too early to see the other device's Save, the read below catches it.
-     * The plan did not come back at a newer `rev` (`refusedPlanCameBack`):
+     * The plan did not come back as another version (`refusedPlanCameBack`):
      * read that one plan and take the server's copy whatever D10 says
      * (`withServerPlan`). `lastSeen` is not moved by that read: it saw one
      * plan, not every change before its stamp; the next change check returns
      * the plan once more.
      */
-    reloadRefused: async (uid, epoch, planId, sentRev, late) => {
+    reloadRefused: async (uid, epoch, planId, sent, late) => {
       if (!isCurrent(epoch) || get().uid !== uid) return { kind: "failed" };
-      note("refused", undefined, `plan ${planId} at rev ${sentRev}${late ? ", late from the queue" : ""}`);
+      note("refused", undefined, `plan ${planId} at rev ${sent.rev}${late ? ", late from the queue" : ""}`);
 
       await get().check({ force: true });
       if (!isCurrent(epoch)) return { kind: "failed" };
       const held = get().plans?.find((p) => p.id === planId);
-      if (held && refusedPlanCameBack(held, sentRev)) {
-        note("ok", "refusal reload", `by the check, rev ${planRev(held)}`);
+      if (held && refusedPlanCameBack(held, sent)) {
+        note("ok", "refusal reload", `by the check, rev ${versionRev(held)}`);
         return { kind: "reloaded", plan: held };
       }
 
@@ -470,7 +470,7 @@ export const usePlansStore = create<PlansStore>((set, get) => {
         set((s) => ({ plans: withServerPlan(s.plans, planId, plan) }));
         persist();
         const gone = plan === null || plan.deleted === true;
-        note("ok", "refusal reload", gone ? "plan gone from the server" : `by reading it, rev ${planRev(plan)}`);
+        note("ok", "refusal reload", gone ? "plan gone from the server" : `by reading it, rev ${versionRev(plan)}`);
         return gone ? { kind: "gone" } : { kind: "reloaded", plan };
       } catch (error) {
         note("failed", "refusal reload", errorMessage(error));

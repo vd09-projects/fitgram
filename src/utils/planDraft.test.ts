@@ -126,43 +126,44 @@ describe("planFromDraft", () => {
   });
 });
 
-// TICKET-073 D6: a draft holds the version it is based on (`rev`, `saveId`),
-// and Save writes the next one, based on it. Left behind when its version
-// moves, every later Save is refused.
+// TICKET-073: a draft holds the version it was made on (`basedOn`), and Save
+// writes the next one, made on it. Left behind when its version moves, every
+// later Save is refused.
 describe("a draft's version (TICKET-073)", () => {
   const atRev = (rev: number | undefined, name = "Push"): WorkoutPlan => ({
     ...plan(),
     name,
-    ...(rev === undefined ? {} : { rev, saveId: `s${rev}` }),
+    ...(rev === undefined ? {} : { version: { rev, id: `s${rev}`, base: null } }),
   });
   const edited = (rev: number) => setPendingField(draftFromPlan(atRev(rev)), BENCH, "Tempo");
 
-  it("Save writes the loaded rev + 1, its own saveId, based on the loaded one; rev is not an edit", () => {
-    expect(planFromDraft(draftFromPlan(atRev(3)), "new")).toMatchObject({ rev: 4, saveId: "new", baseSaveId: "s3" });
-    expect(planFromDraft(draftFromPlan(atRev(undefined)), "new")).toMatchObject({ rev: 1, baseSaveId: null });
+  it("Save writes the next version, made on the loaded one; the version is not an edit", () => {
+    expect(planFromDraft(draftFromPlan(atRev(3)), "new").version).toEqual({ rev: 4, id: "new", base: "s3" });
+    expect(planFromDraft(draftFromPlan(atRev(undefined)), "new").version).toEqual({ rev: 1, id: "new", base: null });
     expect(isDraftDirty(atRev(3), draftFromPlan(atRev(7)))).toBe(false);
   });
 
   it("moves to a confirmed Save's version, edited since or not", () => {
     const saved = planFromDraft(edited(3), "s4");
-    expect(draftAfterSave(edited(3), saved)).toMatchObject({ rev: 4, saveId: "s4" });
-    expect(draftAfterSave(setPendingField(edited(3), BENCH, "Tempo2"), saved)).toMatchObject({ rev: 4, saveId: "s4" });
+    expect(draftAfterSave(edited(3), saved)?.basedOn).toEqual({ rev: 4, id: "s4" });
+    expect(draftAfterSave(setPendingField(edited(3), BENCH, "Tempo2"), saved)?.basedOn).toEqual({ rev: 4, id: "s4" });
   });
 
   // PR #50 review, B1: the second Save names the first as its base, so the
   // rule refuses it if it refuses the first, whatever another device's rev.
-  it("moves to a queued Save's version, so a second Save offline is based on it; never back", () => {
+  it("moves to a queued Save's version, so a second Save offline is made on it; never back", () => {
     const first = planFromDraft(edited(3), "s4"); // queued
     const draft = draftAfterQueued(edited(3), first)!;
-    expect(planFromDraft(draft, "s5")).toMatchObject({ rev: 5, baseSaveId: "s4" });
+    expect(planFromDraft(draft, "s5").version).toEqual({ rev: 5, id: "s5", base: "s4" });
     // The first lands after a second was queued.
-    expect(draftAfterSave({ ...draft, rev: 5, saveId: "s5" }, first)).toMatchObject({ rev: 5, saveId: "s5" });
+    expect(draftAfterSave({ ...draft, basedOn: { rev: 5, id: "s5" } }, first)?.basedOn).toEqual({ rev: 5, id: "s5" });
   });
 
-  it("refresh on open: a newer version or a console edit replaces an untouched draft; typed into, it stays", () => {
+  it("refresh on open: another version or a console edit replaces an untouched draft; typed into, it stays", () => {
     const opened = atRev(3);
-    expect(openPlanRefresh(opened, atRev(4), draftFromPlan(opened))?.rev).toBe(4);
-    expect(openPlanRefresh(opened, { ...opened, saveId: "other" }, draftFromPlan(opened))?.saveId).toBe("other");
+    expect(openPlanRefresh(opened, atRev(4), draftFromPlan(opened))?.version?.rev).toBe(4);
+    const sameRevOtherId = { ...opened, version: { rev: 3, id: "other", base: null } };
+    expect(openPlanRefresh(opened, sameRevOtherId, draftFromPlan(opened))).toBe(sameRevOtherId);
     expect(openPlanRefresh(opened, atRev(3, "Push (console)"), draftFromPlan(opened))?.name).toBe("Push (console)");
     expect(openPlanRefresh(opened, atRev(3), draftFromPlan(opened))).toBeNull();
     expect(openPlanRefresh(opened, atRev(4), edited(3))).toBeNull();

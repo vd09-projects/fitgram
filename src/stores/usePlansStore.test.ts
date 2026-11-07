@@ -265,13 +265,18 @@ it("Try again on a check past its wait reads afresh; the stalled read, landing l
 // TICKET-073 D7: a refused Save reloads its plan, by a forced change check
 // first, then by reading that one plan if the check did not bring it back.
 describe("reloadRefused", () => {
-  const revved = (rev: number, name: string, stamp = at(5)): WorkoutPlan => ({ ...stamped("a", stamp, name), rev });
+  const revved = (rev: number, name: string, stamp = at(5)): WorkoutPlan => ({
+    ...stamped("a", stamp, name),
+    version: { rev, id: `v${rev}`, base: rev > 1 ? `v${rev - 1}` : null },
+  });
+  /** The refused Save: rev 4, made on "mine" (v3). */
+  const sent = { rev: 4, id: "b4", base: "v3" };
 
   it("the forced change check brings the newer version: 1 read, no one-plan read", async () => {
     reads.mockResolvedValue([revved(3, "mine")]);
     await store().open("u1");
     changes.mockResolvedValueOnce([revved(4, "other device", at(9))]);
-    const result = await store().reloadRefused("u1", store().epoch, "a", 4, false);
+    const result = await store().reloadRefused("u1", store().epoch, "a", sent, false);
     expect(result).toEqual({ kind: "reloaded", plan: revved(4, "other device", at(9)) });
     expect(changes).toHaveBeenCalledTimes(1);
     expect(onePlan).not.toHaveBeenCalled();
@@ -280,12 +285,12 @@ describe("reloadRefused", () => {
   it("not brought back (here D10 kept the held rev over a rev lowered by hand): the one plan read wins and is stored", async () => {
     reads.mockResolvedValue([revved(3, "mine")]);
     await store().open("u1");
-    changes.mockResolvedValueOnce([revved(0, "reset by hand", at(9))]);
-    onePlan.mockResolvedValueOnce(revved(0, "reset by hand", at(9)));
-    const result = await store().reloadRefused("u1", store().epoch, "a", 4, true);
-    expect(result).toEqual({ kind: "reloaded", plan: revved(0, "reset by hand", at(9)) });
-    expect(store().plans).toEqual([revved(0, "reset by hand", at(9))]);
+    changes.mockResolvedValueOnce([revved(1, "reset by hand", at(9))]);
+    onePlan.mockResolvedValueOnce(revved(1, "reset by hand", at(9)));
+    const result = await store().reloadRefused("u1", store().epoch, "a", sent, true);
+    expect(result).toEqual({ kind: "reloaded", plan: revved(1, "reset by hand", at(9)) });
+    expect(store().plans).toEqual([revved(1, "reset by hand", at(9))]);
     await tick();
-    expect((await stored()).plans).toEqual([revved(0, "reset by hand", at(9))]);
+    expect((await stored()).plans).toEqual([revved(1, "reset by hand", at(9))]);
   });
 });

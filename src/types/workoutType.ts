@@ -88,33 +88,27 @@ export type WorkoutPlan = {
    */
   updatedAt?: PlanStamp;
   /**
-   * TICKET-073 D6: the plan's revision, 1 on its first save and + 1 on every
-   * save after. Save writes the `rev` it loaded + 1, and firestore.rules
-   * refuses any other, so a save based on an old version is refused. Absent
-   * on plans saved before 073 (no backfill): counts as 0. Read it through
-   * `planRev`. Unlike `updatedAt`, the phone writes it; `updatedAt` stays
-   * for the change query, which `rev` cannot replace.
+   * TICKET-073: which version of the plan this is, and which version its Save
+   * was made on. firestore.rules refuses a Save not made on the stored
+   * version. Absent on plans saved before 073 (no backfill). Read and built
+   * only through `src/utils/planVersion.ts`, whose header explains it.
    */
-  rev?: number;
-  /**
-   * TICKET-073 (PR #50 review, B1): this version's id, fresh on every Save,
-   * and the `saveId` of the version the Save was based on. firestore.rules
-   * accepts a Save only if `baseSaveId` is the stored `saveId`: "based on the
-   * stored version", which `rev` alone cannot say (two devices' `rev`s
-   * collide, so a save chained on a refused offline save got through). Both
-   * absent on plans saved before: the base is then null. `baseSaveId` is
-   * written for the rule only; nothing reads it back (`planFromDoc` drops it).
-   */
-  saveId?: string;
-  baseSaveId?: string | null;
+  version?: PlanVersion;
   /**
    * TICKET-070 D5: the future Delete's marker. Never written by this build;
    * a plan carrying it is dropped by every merge (`planSync.ts`), so no reader
    * ever sees it. Writing it is an update, so the Delete must also write the
-   * loaded `rev` + 1, or firestore.rules refuses it (TICKET-073).
+   * next `version` (`nextVersion`), or firestore.rules refuses it (TICKET-073).
    */
   deleted?: boolean;
 };
+
+/**
+ * TICKET-073: a plan's version, stored as one map in the plan doc. `rev`:
+ * + 1 per Save; `id`: this version, fresh per Save; `base`: the `id` it was
+ * made on (null: a plan saved before versions). See `src/utils/planVersion.ts`.
+ */
+export type PlanVersion = { rev: number; id: string; base: string | null };
 
 /**
  * A Firestore Timestamp as plain numbers, so it survives JSON in the stored

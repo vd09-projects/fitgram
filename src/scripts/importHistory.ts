@@ -13,9 +13,8 @@
 // Writes, under users/{uid} (uid looked up from the file's email):
 //   workouts/{planId}                         one per plan, overwritten, with
 //                                             `updatedAt` = the server's time
-//                                             (TICKET-070 D3) and `rev` = the
-//                                             existing `rev` + 1 and a fresh
-//                                             `saveId` (TICKET-073)
+//                                             (TICKET-070 D3) and `version` =
+//                                             the next one (TICKET-073)
 //   sessions/{sessionId}                      one per session
 //   exercise_sessions/{sessionId}__{exercise} one per exercise per session
 //   exercise_stats/{exerciseId}               REBUILT from every exercise_session
@@ -34,7 +33,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { tables } from "../constants/tables";
 import type { ExerciseSessionDoc, WorkoutSessionDoc } from "../types/workoutSession";
 import { buildExerciseSessionId, rebuildStatsFromSessions } from "../utils/exerciseStats";
-import { planRev, toPlanRev } from "../utils/planSync";
+import { NO_VERSION, nextVersion, toPlanVersion, versionOf } from "../utils/planVersion";
 import { getAdminFirestore } from "./firebaseAdmin";
 import { buildImport, type ImportFile } from "./historyImport";
 import { isConfirmedRun } from "./wipe";
@@ -106,21 +105,19 @@ const run = async () => {
 
   // TICKET-070 D3: stamped by the server, so phones' change checks return the
   // overwritten plans; an unstamped write would show only on a full reload.
-  // TICKET-073: at the existing `rev` + 1 (none: 0 + 1), as a Save would
-  // write. Admin credentials skip firestore.rules, but an overwrite without
-  // `rev` would drop it to 0, and every phone's next Save of the plan would be
-  // refused once. Read in the listing above, so a phone saving between that
-  // read and this write is overwritten at the same `rev` (last write wins,
-  // as before 073): run it with the phones idle. A fresh `saveId` too (PR #50
-  // review, B1): a new version, so a phone's Save based on the old one is
-  // refused. No `baseSaveId`: only the rule reads it, and admin skips the rule.
-  const existingRev = new Map(plansSnap.docs.map((d) => [d.id, planRev({ rev: toPlanRev(d.get("rev")) })]));
+  // TICKET-073: as the next version after the existing one (`nextVersion`,
+  // none: rev 1), as a Save would write. Admin credentials skip
+  // firestore.rules, but an overwrite without `version` would leave the plan
+  // with none, and every phone's next Save of it would be refused once. A new
+  // version id, so a phone's Save made on the old version is refused. Read in
+  // the listing above, so a phone saving between that read and this write is
+  // overwritten (last write wins, as before 073): run it with the phones idle.
+  const existing = new Map(plansSnap.docs.map((d) => [d.id, versionOf({ version: toPlanVersion(d.get("version")) })]));
   for (const plan of built.plans) {
-    const rev = (existingRev.get(plan.id) ?? 0) + 1;
-    console.log(`  plan ${plan.id}: rev ${rev}`);
-    const saveId = randomUUID();
+    const version = nextVersion(existing.get(plan.id) ?? NO_VERSION, randomUUID());
+    console.log(`  plan ${plan.id}: rev ${version.rev}`);
     await queue((b) =>
-      b.set(user.collection(WORKOUTS).doc(plan.id), { ...plan, rev, saveId, updatedAt: FieldValue.serverTimestamp() })
+      b.set(user.collection(WORKOUTS).doc(plan.id), { ...plan, version, updatedAt: FieldValue.serverTimestamp() })
     );
   }
   for (const { session, exerciseSessions } of built.sessions) {

@@ -55,15 +55,16 @@ beforeEach(() => env.clearFirestore());
 
 const content = { id: "p1", name: "test plan", exercises: [] };
 
-/** A version as a Save stored it: `rev` and its `saveId` (none: a plan saved before 073). */
-const stored = (rev?: number): DocumentData => ({ ...content, ...(rev === undefined ? {} : { rev, saveId: `s${rev}` }) });
-
-/** A Save as the phone writes it: at `rev`, based on the version `base`, as the new version `saveId`. */
-const save = (rev: number | undefined, base: string | null, saveId = `new${rev}`): DocumentData => ({
+/** A plan as a Save stored it, at version `rev` with id `s<rev>` (none: a plan saved before 073). */
+const stored = (rev?: number): DocumentData => ({
   ...content,
-  ...(rev === undefined ? {} : { rev }),
-  saveId,
-  baseSaveId: base,
+  ...(rev === undefined ? {} : { version: { rev, id: `s${rev}`, base: rev > 1 ? `s${rev - 1}` : null } }),
+});
+
+/** A Save as the phone writes it: at `rev`, made on the version `base`, as the new version `id`. */
+const save = (rev: number | undefined, base: string | null, id = `new${rev}`): DocumentData => ({
+  ...content,
+  version: { ...(rev === undefined ? {} : { rev }), id, base },
 });
 
 /** A stored doc, written with the rules off (as the admin scripts write). */
@@ -74,7 +75,7 @@ const alice = () => env.authenticatedContext("alice").firestore();
 const PLAN = "users/alice/workouts/p1";
 
 describe("plans: a save must be based on the stored version (D6)", () => {
-  it("the stored rev + 1, based on the stored saveId, passes", async () => {
+  it("the stored rev + 1, made on the stored id, passes", async () => {
     await seed(PLAN, stored(3));
     await assertSucceeds(setDoc(doc(alice(), PLAN), save(4, "s3")));
   });
@@ -90,34 +91,35 @@ describe("plans: a save must be based on the stored version (D6)", () => {
     await assertFails(setDoc(doc(alice(), PLAN), save(5, "s3")));
   });
 
-  it("a save with no rev is refused (a build from before 073)", async () => {
+  it("a save with no version, or none with a rev, is refused (a build from before 073)", async () => {
     await seed(PLAN, stored(3));
+    await assertFails(setDoc(doc(alice(), PLAN), content));
     await assertFails(setDoc(doc(alice(), PLAN), save(undefined, "s3")));
   });
 
   // PR #50 review, B1: the rev fits (phone A's 4 + 1), but the save is based
   // on a write the server refused, e.g. a draft edited after a queued Save.
-  it("a save based on another version is refused, even when its rev fits", async () => {
+  it("a save made on another version is refused, even when its rev fits", async () => {
     await seed(PLAN, stored(4));
     await assertFails(setDoc(doc(alice(), PLAN), save(5, "b4")));
     await assertFails(setDoc(doc(alice(), PLAN), save(5, null)));
   });
 
-  it("a save with no saveId, or the stored one, is refused", async () => {
+  it("a save with no id, or the stored one, is refused", async () => {
     await seed(PLAN, stored(3));
-    await assertFails(setDoc(doc(alice(), PLAN), { ...content, rev: 4, baseSaveId: "s3" }));
+    await assertFails(setDoc(doc(alice(), PLAN), { ...content, version: { rev: 4, base: "s3" } }));
     await assertFails(setDoc(doc(alice(), PLAN), save(4, "s3", "s3")));
   });
 
-  it("a stored plan with no rev or saveId counts as 0, based on null: a save at 1 passes", async () => {
+  it("a stored plan with no version counts as rev 0, id null: a save at 1 made on none passes", async () => {
     await seed(PLAN, stored());
     await assertSucceeds(setDoc(doc(alice(), PLAN), save(1, null)));
   });
 
-  it("a new plan passes at rev 1 with a saveId, and only so", async () => {
-    await assertFails(setDoc(doc(alice(), PLAN), save(undefined, null)));
+  it("a new plan passes at rev 1 with an id, and only so", async () => {
+    await assertFails(setDoc(doc(alice(), PLAN), content));
     await assertFails(setDoc(doc(alice(), PLAN), save(2, null)));
-    await assertFails(setDoc(doc(alice(), PLAN), { ...content, rev: 1 }));
+    await assertFails(setDoc(doc(alice(), PLAN), { ...content, version: { rev: 1, base: null } }));
     await assertSucceeds(setDoc(doc(alice(), PLAN), save(1, null)));
   });
 
@@ -241,7 +243,7 @@ describe("queued saves refused after reconnecting (D7)", () => {
     });
     await env.withSecurityRulesDisabled(async (context) => {
       const snap = await getDoc(doc(context.firestore(), PLAN));
-      expect(snap.data()).toMatchObject({ name: "A edit", rev: 4, saveId: "a4" });
+      expect(snap.data()).toMatchObject({ name: "A edit", version: { rev: 4, id: "a4" } });
     });
   });
 });

@@ -6,14 +6,15 @@
 // screen shows, and what a refused save reloads (TICKET-073). `usePlansStore`
 // does the I/O around them.
 
-import type { PlanStamp, WorkoutPlan } from "../types/workoutType";
+import type { PlanStamp, PlanVersion, WorkoutPlan } from "../types/workoutType";
+import { compareVersions, toPlanVersion, versionOf } from "./planVersion";
 
 /**
  * Format of the stored copy. Bump it when the stored shape changes: a copy
  * written under another version is discarded and fetched again (D2), never
  * read field by field.
  */
-export const PLANS_FORMAT_VERSION = 4; // 2: `lastSeen` and `lastFullAt` (070 stage 2); 3: each plan's `rev` (073); 4: its `saveId` (073, PR #50)
+export const PLANS_FORMAT_VERSION = 3; // 2: `lastSeen` and `lastFullAt` (070 stage 2); 3: each plan's `version` (073)
 
 /** A check that succeeded this recently makes the next screen skip its own (D4). */
 export const PLANS_CHECK_SKIP_MS = 2 * 60 * 1000;
@@ -64,40 +65,17 @@ const isStamp = (value: unknown): value is PlanStamp => {
   return Number.isInteger(seconds) && Number.isInteger(nanoseconds);
 };
 
-const isRev = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 0;
-
 const isPlan = (value: unknown): value is WorkoutPlan => {
   if (typeof value !== "object" || value === null) return false;
-  const { id, name, exercises, updatedAt, rev, saveId } = value as Partial<WorkoutPlan>;
+  const { id, name, exercises, updatedAt, version } = value as Partial<WorkoutPlan>;
   return (
     typeof id === "string" &&
     typeof name === "string" &&
     Array.isArray(exercises) &&
     (updatedAt === undefined || isStamp(updatedAt)) &&
-    (rev === undefined || isRev(rev)) &&
-    (saveId === undefined || typeof saveId === "string")
+    (version === undefined || toPlanVersion(version) !== undefined)
   );
 };
-
-/**
- * A plan's `rev` as read from Firestore, or undefined for "none" (TICKET-073
- * D6). A whole number from 0 up; anything else (only a hand edit could write
- * it) is none, so the phone counts it as 0. firestore.rules cannot add 1 to a
- * stored non-number, so such a plan refuses every save until fixed in the
- * console: `planFromDoc` warns when it drops one.
- */
-export function toPlanRev(value: unknown): number | undefined {
-  return isRev(value) ? value : undefined;
-}
-
-/**
- * A plan's revision (TICKET-073 D6): a missing `rev` counts as 0, as it does
- * in firestore.rules (`resource.data.get('rev', 0)`). Plans saved before 073
- * have none and are never backfilled. 0 is a real revision here, the one
- * before the first save under `rev`, not a stand-in for "unknown"
- * (CLAUDE.md 2.4): the rule reads a missing field the same way.
- */
-export const planRev = (plan: Pick<WorkoutPlan, "rev">): number => plan.rev ?? 0;
 
 /**
  * A plan's `updatedAt` as read from Firestore, or undefined for "no stamp".
@@ -193,7 +171,7 @@ export function isFullReloadDue(input: {
  */
 const replaces = (incoming: WorkoutPlan, held: WorkoutPlan | undefined): boolean => {
   if (!held) return true;
-  const byRev = planRev(incoming) - planRev(held);
+  const byRev = compareVersions(incoming, held);
   return byRev !== 0 ? byRev > 0 : compareStamps(held.updatedAt, incoming.updatedAt) <= 0;
 };
 
@@ -314,27 +292,29 @@ export function withSavedPlan(plans: WorkoutPlan[] | null, plan: WorkoutPlan): W
 
 /**
  * Did the server refuse this save because the plan changed on another device
- * (TICKET-073 D7)? firestore.rules refuses a wrong `rev` with
- * `permission-denied`, the Firestore error code for any refused rule. Every
+ * (TICKET-073 D7)? firestore.rules refuses a Save not made on the stored
+ * version with `permission-denied`, the Firestore error code for any refused rule. Every
  * other failure (offline, quota, a bad field) keeps Save's usual handling.
  * The rule refuses another user's write the same way, but Save only ever
- * writes the signed-in user's own plans, so for Save this code means `rev`.
+ * writes the signed-in user's own plans, so for Save this code means its
+ * version was not the stored one.
  */
 export const isRefusedSave = (error: unknown): boolean =>
   typeof error === "object" && error !== null && (error as { code?: unknown }).code === "permission-denied";
 
 /**
- * After a refused save (D7) and the check that followed it: did the newer
- * version come back? The refused write carried `sentRev`, so the server
- * holds something other than `sentRev - 1`. Held at `sentRev` or above: a
- * later version, read from the server, and the next Save starts from it.
- * Lower (the check did not return the plan, or D10 kept the held copy over a
- * server copy whose `rev` was lowered by hand): read the one plan and take
- * it as the server has it (`withServerPlan`), or every later Save is refused
- * again.
+ * After a refused save (D7) and the check that followed it: did the server's
+ * version come back? The refused write was made on `sent.base`, which the
+ * server no longer holds. Held as another version: read from the server since,
+ * and the next Save starts from it. Still held as `sent.base` (the check did
+ * not return the plan, or D10 kept the held copy over a server copy whose
+ * `rev` was lowered by hand): read the one plan and take it as the server has
+ * it (`withServerPlan`), or every later Save is refused again. By id, not
+ * `rev`: a Save made on another version is refused even when its `rev` fits
+ * (PR #50 review, B1), so the server's `rev` can be below the one sent.
  */
-export const refusedPlanCameBack = (held: WorkoutPlan | undefined, sentRev: number): boolean =>
-  held !== undefined && planRev(held) >= sentRev;
+export const refusedPlanCameBack = (held: WorkoutPlan | undefined, sent: PlanVersion): boolean =>
+  held !== undefined && versionOf(held).id !== sent.base;
 
 /**
  * The plans held after reading one plan from the server for a refused save

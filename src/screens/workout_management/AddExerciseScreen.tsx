@@ -12,7 +12,7 @@ import ScrollableScreen from '../../components/ScrollableScreen';
 import { BackTitle } from '../../components/BackButton';
 import { useWorkoutPlansOnFocus } from '../../hooks/useWorkoutPlansOnFocus';
 import show from '../../utils/toastUtils';
-import { newPlanId, newSaveId, overrideWorkoutDetails } from '../../services/db/userDB';
+import { newPlanId, newVersionId, overrideWorkoutDetails } from '../../services/db/userDB';
 import { useAuthUser } from '../../hooks/useAuthUser';
 import { WorkoutScreenNavigationProp } from '../../navigation/WorkoutNavigator';
 import PlanExerciseList from '../../components/PlanExerciseList';
@@ -26,7 +26,8 @@ import { MANAGE_WOURKOUT_STEP_NAMES } from '../../tour_steps/manageWorkout';
 import { MaybeTourStep } from '../../components/guide_tour/MaybeTourStep';
 import { useCatalogStore } from '../../stores/useCatalogStore';
 import { usePlansStore } from '../../stores/usePlansStore';
-import { isRefusedSave, planRev } from '../../utils/planSync';
+import { isRefusedSave } from '../../utils/planSync';
+import type { VersionedPlan } from '../../utils/planVersion';
 import {
   DraftExercise,
   PlanDraft,
@@ -303,14 +304,14 @@ export default function AddExerciseScreen() {
    * the screen now shows. Late from the offline queue: logged only; the open
    * plan moves only if it was not edited after the queued Save (those edits
    * stay, and their Save is refused in turn, with the notice: the draft is
-   * still based on the refused write's `saveId`, PR #50 review B1).
+   * still made on the refused write's version, PR #50 review B1).
    */
-  const onRefused = (plan: WorkoutPlan, epoch: number, late: boolean) => {
-    console.warn(`Save of plan ${plan.id} at rev ${planRev(plan)} refused: changed on another device${late ? ' (late, from the offline queue)' : ''}.`);
+  const onRefused = (plan: VersionedPlan, epoch: number, late: boolean) => {
+    console.warn(`Save of plan ${plan.id} at rev ${plan.version.rev} refused: changed on another device${late ? ' (late, from the offline queue)' : ''}.`);
     if (!uid) return;
     usePlansStore
       .getState()
-      .reloadRefused(uid, epoch, plan.id, planRev(plan), late)
+      .reloadRefused(uid, epoch, plan.id, plan.version, late)
       .then((result) => {
         if (!late)
           show.alert(
@@ -344,7 +345,7 @@ export default function AddExerciseScreen() {
       return show.alert('Plan not saved', refusedSaveMessage(draft, errors, nameOf));
     }
 
-    const plan = planFromDraft(draft, newSaveId());
+    const plan = planFromDraft(draft, newVersionId());
     // A retry of the write already queued races that write again rather than
     // queueing a second one: its own handler reports the landing, so there is
     // one "Plan saved", not two (device review, round 1).

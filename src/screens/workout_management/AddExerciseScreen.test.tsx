@@ -10,7 +10,7 @@ import AddExerciseScreen from "./AddExerciseScreen";
 import { renderScreen, RenderScreenOptions, TEST_USER_ID } from "../../test/renderScreen";
 import { buildWorkout } from "../../test/fixtures";
 import { CATALOG } from "../../catalog";
-import { getAllWorkoutPlans, getChangedPlans, newSaveId, overrideWorkoutDetails } from "../../services/db/userDB";
+import { getAllWorkoutPlans, getChangedPlans, newVersionId, overrideWorkoutDetails } from "../../services/db/userDB";
 import { useCatalogStore } from "../../stores/useCatalogStore";
 import { usePlansStore } from "../../stores/usePlansStore";
 import { loadCatalog } from "../../utils/catalog";
@@ -28,7 +28,7 @@ jest.mock("../../services/db/userDB", () => ({
   getChangedPlans: jest.fn(async () => []),
   overrideWorkoutDetails: jest.fn(),
   newPlanId: jest.fn(() => "generated_id"),
-  newSaveId: jest.fn(() => "save_id"),
+  newVersionId: jest.fn(() => "version_id"),
 }));
 jest.mock("../../services/db/workoutSessions", () => ({
   ...jest.requireActual("../../services/db/workoutSessions"),
@@ -121,10 +121,8 @@ it("a collapsed row shows its fields; editing one enables Save, which writes the
   expect(save).toHaveBeenCalledWith(TEST_USER_ID, {
     ...push(),
     exercises: [{ ...push().exercises[0], fields: [{ name: "Load", role: "weight", unit: "plates" }, { name: "Reps", role: "reps" }] }],
-    // Loaded with no rev (0) and no saveId: saved at 0 + 1, based on null (TICKET-073).
-    rev: 1,
-    saveId: "save_id",
-    baseSaveId: null,
+    // Loaded with no version: saved as rev 1, made on none (TICKET-073).
+    version: { rev: 1, id: "version_id", base: null },
   });
   expect(saveButton()).toBeDisabled();
 });
@@ -512,14 +510,14 @@ describe("opening a plan checks it is current", () => {
   });
 });
 
-// TICKET-073 D7: the server refuses a Save based on an old rev.
+// TICKET-073 D7: the server refuses a Save not made on the stored version.
 describe("a Save refused because the plan changed on another device", () => {
+  const s3 = { rev: 3, id: "s3", base: null };
   const refused = Object.assign(new Error("Missing or insufficient permissions."), { code: "permission-denied" });
   const fromPhoneA = (): WorkoutPlan => ({
     ...push(),
     name: "Push (phone A)",
-    rev: 4,
-    saveId: "a4",
+    version: { rev: 4, id: "a4", base: "s3" },
     updatedAt: { seconds: 9, nanoseconds: 0 },
   });
   const editWeightUnit = () => {
@@ -528,7 +526,7 @@ describe("a Save refused because the plan changed on another device", () => {
   };
 
   it("online: the notice, the other device's version in place, and the next Save goes out at its rev + 1", async () => {
-    await openPlan([{ ...push(), rev: 3 }], "Push");
+    await openPlan([{ ...push(), version: s3 }], "Push");
     editWeightUnit();
     save.mockRejectedValueOnce(refused);
     jest.mocked(getChangedPlans).mockResolvedValueOnce([fromPhoneA()]);
@@ -545,14 +543,14 @@ describe("a Save refused because the plan changed on another device", () => {
     await act(async () => fireEvent.press(saveButton()));
     expect(save).toHaveBeenLastCalledWith(
       TEST_USER_ID,
-      expect.objectContaining({ name: "Push (phone A)", rev: 5, baseSaveId: "a4" })
+      expect.objectContaining({ name: "Push (phone A)", version: expect.objectContaining({ rev: 5, base: "a4" }) })
     );
   });
 
   it("late from the offline queue: logged with no notice, and the plan still reloads", async () => {
     const race = jest.spyOn(planDraft, "raceSave").mockResolvedValue("pending");
     try {
-      await openPlan([{ ...push(), rev: 3 }], "Push");
+      await openPlan([{ ...push(), version: s3 }], "Push");
       editWeightUnit();
       let land!: (error: unknown) => void;
       save.mockReturnValueOnce(new Promise<void>((_resolve, reject) => (land = reject)));
@@ -577,9 +575,9 @@ describe("a Save refused because the plan changed on another device", () => {
   // the rule refuses it, even though its rev (5) is phone A's 4 + 1.
   it("late, with edits since: the edits stay, and the next Save is based on the refused one", async () => {
     const race = jest.spyOn(planDraft, "raceSave").mockResolvedValueOnce("pending");
-    jest.mocked(newSaveId).mockReturnValueOnce("b4").mockReturnValueOnce("b5");
+    jest.mocked(newVersionId).mockReturnValueOnce("b4").mockReturnValueOnce("b5");
     try {
-      await openPlan([{ ...push(), rev: 3, saveId: "s3" }], "Push");
+      await openPlan([{ ...push(), version: s3 }], "Push");
       editWeightUnit();
       let land!: (error: unknown) => void;
       save.mockReturnValueOnce(new Promise<void>((_resolve, reject) => (land = reject)));
@@ -588,12 +586,12 @@ describe("a Save refused because the plan changed on another device", () => {
 
       jest.mocked(getChangedPlans).mockResolvedValueOnce([fromPhoneA()]);
       await act(async () => land(refused));
-      await waitFor(() => expect(usePlansStore.getState().plans?.[0]?.saveId).toBe("a4"));
+      await waitFor(() => expect(usePlansStore.getState().plans?.[0]?.version?.id).toBe("a4"));
       expect(screen.queryByLabelText("Plan: Push (phone A)")).toBeNull();
 
       save.mockRejectedValueOnce(refused);
       await act(async () => fireEvent.press(saveButton()));
-      expect(save).toHaveBeenLastCalledWith(TEST_USER_ID, expect.objectContaining({ rev: 5, saveId: "b5", baseSaveId: "b4" }));
+      expect(save).toHaveBeenLastCalledWith(TEST_USER_ID, expect.objectContaining({ version: { rev: 5, id: "b5", base: "b4" } }));
     } finally {
       race.mockRestore();
     }
