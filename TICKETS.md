@@ -8363,7 +8363,7 @@ Touches TICKET-037 (two sessions on the same day).
 
 ### TICKET-074: Config in One Place
 
-**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — raised 2026-11-08 (user),
+**Priority:** Medium | **Effort:** Medium | **Status: IN REVIEW** — raised 2026-11-08 (user),
 first of the history-reads track (TICKET-072 D10)
 
 **Description:**
@@ -8414,6 +8414,91 @@ behaviour changes.
 - Keep the diff reviewable: one area per commit.
 
 **Dependencies:** none. Before TICKET-075, so its new values land here.
+
+**Built (2026-11-08, branch TICKET-074):** one commit per area, each typechecks and
+passes the suite on its own. Rule and layout: `src/config/README.md`.
+
+**Inventory.** Every module-level `UPPER_CASE` constant in `src/` (exported or not)
+and every AsyncStorage call, read one by one. Moved:
+
+| Constant | Was in | Now in |
+| --- | --- | --- |
+| `PLANS_CHECK_SKIP_MS`, `PLANS_CHECK_WAIT_MS`, `PLANS_FULL_RELOAD_INTERVAL_MS` | `utils/planSync.ts` | `config/sync.ts` |
+| `IN_QUERY_CHUNK` (not exported) | `services/db/workoutSessions.ts` | `config/sync.ts` |
+| `HUB_TILE_LIMIT`, `RECENT_SESSIONS_WINDOW` | `utils/startWorkout.ts` | `config/display.ts` |
+| `RECENT_LIMIT` | `utils/recents.ts` | `config/display.ts` |
+| `PICKER_RESULT_LIMIT` | `utils/pickerData.ts` | `config/display.ts` |
+| `HISTORY_RECENT_SESSION_COUNT`, `HISTORY_TREND_SESSION_COUNT` | `utils/exerciseHistory.ts` | `config/display.ts` |
+| `FREESTYLE_HISTORY_WINDOW` | `utils/freestyleHistory.ts` | `config/display.ts` |
+| `HISTORY_FILTER_SESSION_WINDOW` (new name for an inline `50`) | `components/WorkoutHistoricalLogsFilter.tsx` | `config/display.ts` |
+| `DEFAULT_REST_MS`, `ADD_REST_MS` | `utils/restTimer.ts` | `config/workout.ts` |
+| `DEFAULT_TARGET_SETS` | `utils/workoutProgress.ts` | `config/workout.ts` |
+| `SAVE_GRACE_MS`, `PLAN_NAME_MAX` | `utils/planDraft.ts` | `config/workout.ts` |
+| `UPLOAD_GRACE_MS` | `stores/useWorkoutStore.tsx` | `config/workout.ts` |
+| `INACTIVE_EXPIRY_DAYS`, `FRESH_SIGNIN_WINDOW_MS` (not exported) | `services/initAuth.ts` | `config/auth.ts` |
+| `STATS_RECENT_SESSION_CAP`, `STATS_VOLUME_HISTORY_CAP` | `utils/exerciseStats.ts` | `config/storedData.ts` |
+| `PLANS_STORAGE_KEY` | `stores/usePlansStore.ts` | `config/storageKeys.ts` |
+| `PLANS_FORMAT_VERSION` | `utils/planSync.ts` | `config/storageKeys.ts` |
+| `ACTIVE_WORKOUT_KEY`, `PENDING_UPLOADS_KEY` (not exported), `LOCAL_DATA_VERSION`, `LOCAL_DATA_VERSION_KEY` | `stores/useWorkoutStore.tsx` | `config/storageKeys.ts` |
+| `"pendingUploads"` inline literal in `getItem` | `screens/.../PendingUploadsDebugScreen.tsx` | uses `PENDING_UPLOADS_KEY` |
+| `CATALOG_CACHE_KEY`, `SEARCH_WORDS_CACHE_KEY` | `stores/useCatalogStore.ts` | `config/storageKeys.ts` |
+| `REST_DURATION_KEY` (not exported) | `stores/restPreferenceStore.ts` | `config/storageKeys.ts` |
+| `COLOR_SCHEMA_KEY` (not exported) | `stores/colorSchemaStore.tsx` | `config/storageKeys.ts` |
+| `SEEN_TOURS_KEY` (not exported) | `stores/useTourStore.ts` | `config/storageKeys.ts` |
+
+Stays:
+
+| Constant | In | Why it stays |
+| --- | --- | --- |
+| `NO_STAMP_SEEN`, `NO_VERSION`, `PLAN_MODE` | `utils/planSync.ts`, `utils/planVersion.ts`, `ExercisePicker.tsx` | sentinel values of a type, not a knob |
+| `PREFIX_MIN`, `SCORE`, `CATEGORY_RANK` | `utils/exerciseSearch.ts` | search ranking internals, tuned together against the benchmark; splitting them from the scorer helps no one |
+| `EXERCISE_NAME_CHARACTER`, `MOVEMENT_ID` | `utils/validation.ts`, `utils/catalog.ts` | format rules (regexes), not amounts |
+| `DAY_MS` | `utils/startWorkout.ts`, `test/fixtures.ts` | a unit, not a choice |
+| `HIT`, `ROW_HEIGHT`, `SLOT_WIDTH`, `PILL_HEIGHT`, `ACTION_HEIGHT`, `MENU_HEIGHT`, `TREND_HEIGHT`, `TABLE_MIN_WIDTH`, `COLUMN_WIDTH`, `TOOLTIP_WIDTH`, `DEFAULT_WIDTH`/`HEIGHT`, `PADDING`, `MAX_DISPLAY_LENGTH` | components | layout of one component; theme/style, like the tokens |
+| `MAX_HEIGHT_SHARE`, `CLOSE_DISTANCE`, `CLOSE_VELOCITY`, `COMPACT_AFTER` | `components/start_workout/PlanCard.tsx` | gesture and layout feel of one sheet |
+| `MAX_DOTS`, `DOT_ANIMATION_DURATION`, `DOT_ANIMATION_DELAY` | `components/LoadingData.tsx` | animation of one component |
+| `SWAP_LOCKED_REASON`, `REMOVE_LOCKED_REASON`, `ALREADY_IN_WORKOUT_REASON`, `EMPTY_PLAN_ERROR`, `NOT_IN_CATALOG`, `UNKNOWN_EXERCISE`, `CATALOG_NOT_LOADED`, `INCOMPLETE_SET_TEXT`, `GENERIC_MESSAGE`, `MESSAGES`, `METHOD_LABELS`, `ROW_TITLES`, `TITLES`, `EFFORT_LABEL`, `EFFORT_LETTER`, `MONTHS` | various | copy |
+| `catalogVocabulary`, `SEARCH_WORDS`, `FIELDS`, `REPS`, catalog movement lists, `AXES`, `START`, `DEFAULT_VALUE`, `MEASURED_ROLES`, `FIELD_ROLES`, `ROLES`, `UNIT_SPECS`, `EFFORTS`, `MUSCLE_IDS`, `BROADER`, `NOT_MUSCLE_WORDS`, `FILLER`, `REGION_WORDS`, `WORD_SYNONYMS`, `UPPER_GROUPS`, `SECTIONS`, `METHOD_BY_PROVIDER_ID` | various | vocabulary |
+| `FREESTYLE_ID`, `FREESTYLE_NAME`, `CATALOG_COLLECTION`, `CATALOG_META_DOC`, `CATALOG_DOC`, `SEARCH_WORDS_DOC`, `USERS`, `SESSIONS`, `EXERCISE_SESSIONS`, `EXERCISE_STATS` | various | ids and collection names |
+| styles, `THEME_*`, tour steps and step names | `constants/`, `tour_steps/`, `ThemeContext.tsx` | theme and tour |
+| `NO_FIELDS`, `NO_SESSIONS`, `NO_PLANS`, `NO_MOVEMENTS`, `NO_FILTERS`, `NO_RECENTS` | various | stable empty references for React, not values |
+| `TEST_USER_ID`, `CATALOG_ROW` | `src/test/` | test fixtures |
+| `BATCH_LIMIT`, `DRY_RUN`, `CONFIRM`, `INSPECT`, `COLLECTION`, `ONE_MIB`, `WINDOW_MS`, `ROUNDS`, `RUNS`, `REGRESSION`, `ROOT`, `BASELINE`, `HERMES_DIR`, `REPO_ROOT`, `SESSION_HOUR`, `WIPED_USER_COLLECTIONS`, `PREDEFINED_COLLECTION`, query lists and fixtures | `src/scripts/` | hand-run script settings; the app never reads them |
+| firebase/auth session keys | `services/firebase/firebase.ts` | named and cleared by the library; noted in `storageKeys.ts` |
+
+Found and not moved (inline literals, not module constants; outside this
+inventory's definition): the rest duration bounds in `isValidRestDuration`
+(5 s to 30 min), `getExerciseSessions`'s and `getWorkoutSessions`'s default page
+sizes (20, 10; every app caller passes its own), the plan debug readout's 20-entry
+log, the 500 ms press guard in `TouchableOpacityBase`, the tour's 300 ms debounce,
+and the day thresholds (14, 60) in the "last done" labels. Candidates for a later
+pass if one of them ever needs tuning.
+
+**Deviations:**
+- **`auth.ts`, a file the proposed layout did not have.** `INACTIVE_EXPIRY_DAYS`
+  and `FRESH_SIGNIN_WINDOW_MS` are neither sync, display nor workout values.
+- **One inline literal named:** the History filter's 50 exercise sessions per
+  exercise became `HISTORY_FILTER_SESSION_WINDOW`, because
+  `FREESTYLE_HISTORY_WINDOW`'s reason is defined against it. The other inline
+  literals above were left as they are.
+- **Guard test pairs.** Checked in the code before writing each: the history
+  sheet's session window against `STATS_RECENT_SESSION_CAP` (`deriveExerciseHistory`
+  slices `recentSessions`), its trend window against `STATS_VOLUME_HISTORY_CAP`
+  (`volumeTrendFromStats` slices `volumeHistory`), and its trend window against
+  `STATS_RECENT_SESSION_CAP` (the `unitMismatch` scan, moved here from
+  historySheet.test.ts). Plus every storage key unique. Each was seen to fail
+  with its value broken. **Not written:** a "key paired with a format number"
+  test. Which stores need a format is a design call a test cannot know; the
+  pairing is shown by placement and each section's note instead.
+- **`storageKeys.ts` has 9 keys, not a list for sign-out.** No `ALL_KEYS` array
+  or account flag; TICKET-026 decides what sign-out clears. The upload queue's
+  `pendingUploads.corrupt.<ms>` keys are documented on `PENDING_UPLOADS_KEY`
+  (026 should decide whether sign-out clears them).
+
+**Proof nothing changed:** a throwaway script dumped all 34 inventory entries
+(name, old file) from their old homes before the move (exported ones by import,
+module-private and inline ones from source text) and from `src/config/` after.
+The diff is empty; changing one value makes it non-empty.
 
 ---
 
