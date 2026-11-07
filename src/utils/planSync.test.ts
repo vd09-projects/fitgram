@@ -6,15 +6,18 @@ import {
   PLANS_FULL_RELOAD_INTERVAL_MS,
   changeCheckAfter,
   isFullReloadDue,
+  isRefusedSave,
   lastSeenAfter,
   mergeChanges,
   mergeFullReload,
   plansView,
   readStoredPlans,
+  refusedPlanCameBack,
   serializeStoredPlans,
   shouldSkipCheck,
   toPlanStamp,
   withSavedPlan,
+  withServerPlan,
   type PlansState,
 } from "./planSync";
 import type { PlanStamp, WorkoutPlan } from "../types/workoutType";
@@ -107,6 +110,68 @@ describe("mergeChanges (D3, D10)", () => {
   it("deleted removes the plan; an older deleted marker does not", () => {
     expect(names(mergeChanges(before, [{ ...stamped("a", at(6)), deleted: true }]))).toEqual(["c"]);
     expect(names(mergeChanges(before, [{ ...stamped("a", at(1)), deleted: true }]))).toEqual(["a", "c"]);
+  });
+});
+
+// TICKET-073 D10: the higher rev wins a merge; updatedAt only breaks a tie.
+describe("merging by rev (TICKET-073 D10)", () => {
+  const revved = (id: string, rev: number | undefined, stamp: PlanStamp, name: string): WorkoutPlan => ({
+    ...stamped(id, stamp, name),
+    ...(rev === undefined ? {} : { rev }),
+  });
+
+  it("the higher rev wins, whatever the stamps say", () => {
+    // A Save held unstamped (read-back failed) at rev 3; a slow check returns rev 2.
+    expect(names(mergeChanges([{ ...plan("a", "saved"), rev: 3 }], [revved("a", 2, at(9), "old")]))).toEqual(["saved"]);
+    expect(names(mergeChanges([revved("a", 2, at(9), "held")], [revved("a", 3, at(5), "newer")]))).toEqual(["newer"]);
+  });
+
+  it("equal rev, a console edit that moved updatedAt or kept it: the server's copy", () => {
+    expect(names(mergeChanges([revved("a", 2, at(5), "held")], [revved("a", 2, at(6), "console")]))).toEqual(["console"]);
+    expect(names(mergeFullReload([revved("a", 2, at(5), "held")], [revved("a", 2, at(5), "console")], at(5)))).toEqual(["console"]);
+  });
+
+  it("a missing rev counts as 0: rev 1 beats it, and it ties with rev 0", () => {
+    expect(names(mergeChanges([revved("a", undefined, at(9), "pre-073")], [revved("a", 1, at(5), "saved")]))).toEqual(["saved"]);
+    expect(names(mergeChanges([revved("a", 1, at(5), "saved")], [revved("a", undefined, at(9), "pre-073")]))).toEqual(["saved"]);
+    expect(names(mergeChanges([revved("a", 0, at(5), "held")], [revved("a", undefined, at(6), "newer stamp")]))).toEqual(["newer stamp"]);
+  });
+
+  it("a full reload: a copy held from before the read loses to the server's, even at a lower rev (070 S1)", () => {
+    expect(names(mergeFullReload([revved("a", 5, at(5), "held")], [revved("a", 0, at(5), "rev lowered by hand")], at(5)))).toEqual([
+      "rev lowered by hand",
+    ]);
+  });
+
+  it("the stored copy keeps rev; a rev that is not a whole number is an unknown shape", () => {
+    const plans = [{ ...stamped("a", at(5)), rev: 4 }];
+    expect(readStoredPlans(serializeStoredPlans("u1", held(plans)), "u1").held?.plans).toEqual(plans);
+    const bad = JSON.stringify({ ...held([{ ...plan("a"), rev: "4" } as unknown as WorkoutPlan]), formatVersion: PLANS_FORMAT_VERSION, uid: "u1" });
+    expect(readStoredPlans(bad, "u1").error).toContain("unknown shape");
+  });
+});
+
+// TICKET-073 D7: after a refused save, the plan reloads to the server's version.
+describe("a refused save's reload (TICKET-073 D7)", () => {
+  it("only permission-denied is a refusal; every other failure keeps Save's usual handling", () => {
+    expect(isRefusedSave({ code: "permission-denied", message: "Missing or insufficient permissions." })).toBe(true);
+    expect(isRefusedSave({ code: "unavailable" })).toBe(false);
+    expect(isRefusedSave(new Error("permission-denied"))).toBe(false);
+  });
+
+  it("came back once the plan held is at the refused rev or above; still on the old rev, or absent, it did not", () => {
+    // The refused write carried rev 4 (based on 3); the other device's Save is also rev 4.
+    expect(refusedPlanCameBack({ ...plan("a"), rev: 4 }, 4)).toBe(true);
+    expect(refusedPlanCameBack({ ...plan("a"), rev: 3 }, 4)).toBe(false);
+    expect(refusedPlanCameBack(undefined, 4)).toBe(false);
+  });
+
+  it("the one plan read replaces the held copy even at a lower rev; absent or deleted on the server, it goes", () => {
+    const heldPlans = [{ ...plan("a", "held"), rev: 3 }, plan("b")];
+    expect(names(withServerPlan(heldPlans, "a", { ...plan("a", "server"), rev: 0 }))).toEqual(["server", "b"]);
+    expect(names(withServerPlan(heldPlans, "a", null))).toEqual(["b"]);
+    expect(names(withServerPlan(heldPlans, "a", { ...plan("a"), deleted: true }))).toEqual(["b"]);
+    expect(withServerPlan(null, "a", plan("a"))).toBeNull();
   });
 });
 

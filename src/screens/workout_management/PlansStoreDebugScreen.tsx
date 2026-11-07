@@ -25,6 +25,9 @@
 //  - offline: the check logs "failed", the stored copy stays; "dropped" is
 //    an answer set aside as older than a Save or a newer check, not a failure
 //  - sign-out: the disk line says "key absent"
+//  - TICKET-073: each plan's `rev`; a refused save logs "refused" (with
+//    "late from the queue" when it landed from the offline queue), then its
+//    reload: "ok refusal reload (by the check, rev N)", or a one-plan read
 // Leaving the hub for this page and coming back is a focus: the hub checks
 // (or skips) again, and the log shows it.
 
@@ -135,6 +138,7 @@ export default function PlansStoreDebugScreen() {
           {plan.name} · {plan.exercises.length} ex · {plan.id}
           {plan.archived ? " · archived" : ""}
           {plan.updatedAt ? ` · ${plan.updatedAt.seconds}s ${plan.updatedAt.nanoseconds}ns` : " · no stamp"}
+          {plan.rev !== undefined ? ` · rev ${plan.rev}` : " · no rev (0)"}
         </TextBase>
       ))}
     </ScrollableScreen>

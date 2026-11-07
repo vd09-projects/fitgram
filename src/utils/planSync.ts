@@ -2,8 +2,9 @@
 //
 // The decisions behind the phone's copy of the plans (TICKET-070), as pure
 // functions: whether a stored copy is usable, whether a screen opening runs a
-// check and which kind, how an answer merges into what is held, and what a
-// screen shows. `usePlansStore` does the I/O around them.
+// check and which kind, how an answer merges into what is held, what a
+// screen shows, and what a refused save reloads (TICKET-073). `usePlansStore`
+// does the I/O around them.
 
 import type { PlanStamp, WorkoutPlan } from "../types/workoutType";
 
@@ -12,7 +13,7 @@ import type { PlanStamp, WorkoutPlan } from "../types/workoutType";
  * written under another version is discarded and fetched again (D2), never
  * read field by field.
  */
-export const PLANS_FORMAT_VERSION = 2; // 2: `lastSeen` and `lastFullAt` (stage 2)
+export const PLANS_FORMAT_VERSION = 3; // 2: `lastSeen` and `lastFullAt` (070 stage 2); 3: each plan's `rev` (073)
 
 /** A check that succeeded this recently makes the next screen skip its own (D4). */
 export const PLANS_CHECK_SKIP_MS = 2 * 60 * 1000;
@@ -63,16 +64,39 @@ const isStamp = (value: unknown): value is PlanStamp => {
   return Number.isInteger(seconds) && Number.isInteger(nanoseconds);
 };
 
+const isRev = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 0;
+
 const isPlan = (value: unknown): value is WorkoutPlan => {
   if (typeof value !== "object" || value === null) return false;
-  const { id, name, exercises, updatedAt } = value as Partial<WorkoutPlan>;
+  const { id, name, exercises, updatedAt, rev } = value as Partial<WorkoutPlan>;
   return (
     typeof id === "string" &&
     typeof name === "string" &&
     Array.isArray(exercises) &&
-    (updatedAt === undefined || isStamp(updatedAt))
+    (updatedAt === undefined || isStamp(updatedAt)) &&
+    (rev === undefined || isRev(rev))
   );
 };
+
+/**
+ * A plan's `rev` as read from Firestore, or undefined for "none" (TICKET-073
+ * D6). A whole number from 0 up; anything else (only a hand edit could write
+ * it) is none, so the phone counts it as 0. firestore.rules cannot add 1 to a
+ * stored non-number, so such a plan refuses every save until fixed in the
+ * console: `planFromDoc` warns when it drops one.
+ */
+export function toPlanRev(value: unknown): number | undefined {
+  return isRev(value) ? value : undefined;
+}
+
+/**
+ * A plan's revision (TICKET-073 D6): a missing `rev` counts as 0, as it does
+ * in firestore.rules (`resource.data.get('rev', 0)`). Plans saved before 073
+ * have none and are never backfilled. 0 is a real revision here, the one
+ * before the first save under `rev`, not a stand-in for "unknown"
+ * (CLAUDE.md 2.4): the rule reads a missing field the same way.
+ */
+export const planRev = (plan: Pick<WorkoutPlan, "rev">): number => plan.rev ?? 0;
 
 /**
  * A plan's `updatedAt` as read from Firestore, or undefined for "no stamp".
@@ -154,17 +178,29 @@ export function isFullReloadDue(input: {
 }
 
 /**
- * D10: does `incoming` replace `held`? Unless `held` is strictly newer. Equal
- * stamps are the same write, and taking the server's copy then lets a full
- * reload pick up an edit made outside the app, which keeps the stamp.
+ * D10 (TICKET-073): does `incoming` replace `held`? The higher `rev` wins:
+ * the server accepts each `rev` once per plan, so a higher one is a later
+ * Save, whatever the clocks say, stamped or not (a Save whose stamp could not
+ * be read back is held unstamped, with its `rev`).
+ *
+ * Equal `rev`: the newer-or-equal `updatedAt` wins, 070's rule. One app Save
+ * makes one `rev`, so equal revs are the same Save, or an edit made outside
+ * the app, which keeps `rev`: a console edit, which may move `updatedAt` or
+ * not. Equal stamps take the server's copy, so such an edit shows on a full
+ * reload. Rejected: on equal `rev` keeping what is held, which would hide
+ * every console edit until the plan is saved again.
  */
-const replaces = (incoming: WorkoutPlan, held: WorkoutPlan | undefined): boolean =>
-  !held || compareStamps(held.updatedAt, incoming.updatedAt) <= 0;
+const replaces = (incoming: WorkoutPlan, held: WorkoutPlan | undefined): boolean => {
+  if (!held) return true;
+  const byRev = planRev(incoming) - planRev(held);
+  return byRev !== 0 ? byRev > 0 : compareStamps(held.updatedAt, incoming.updatedAt) <= 0;
+};
 
 /**
  * A change check's answer merged into the plans held (D3, D10). Each
- * incoming plan replaces the held one unless that is newer, so a check that
- * started before a Save and answers after it cannot undo the Save. A
+ * incoming plan replaces the held one unless that is newer (`replaces`), so
+ * a check that started before a Save and answers after it cannot undo the
+ * Save. A
  * `deleted` plan is removed (D5). Order as a full read would give (D13).
  */
 export function mergeChanges(held: WorkoutPlan[], incoming: WorkoutPlan[]): WorkoutPlan[] {
@@ -184,10 +220,11 @@ export function mergeChanges(held: WorkoutPlan[], incoming: WorkoutPlan[]): Work
  * stamp alone: everything held when the read started was at most
  * `lastSeenAtStart` (`lastSeen` then), so a held stamp after it arrived
  * since. Such a plan is kept if the answer lacks it (a new plan) or holds an
- * older copy (D10). Held at or before `lastSeenAtStart`: the server's answer
- * wins, even over a "newer" held stamp (PR #49 review: a stamp set in the
- * future by hand would otherwise survive every full reload). `deleted` plans
- * are left out.
+ * older copy (D10, `replaces`: higher `rev`). Held at or before
+ * `lastSeenAtStart`: the server's answer wins, even over a "newer" held copy
+ * (PR #49 review: a stamp set in the future by hand would otherwise survive
+ * every full reload; a `rev` lowered by hand likewise). `deleted` plans are
+ * left out.
  */
 export function mergeFullReload(
   held: WorkoutPlan[] | null,
@@ -272,6 +309,44 @@ function withPlan(plans: WorkoutPlan[], plan: WorkoutPlan): WorkoutPlan[] {
  */
 export function withSavedPlan(plans: WorkoutPlan[] | null, plan: WorkoutPlan): WorkoutPlan[] | null {
   return plans === null ? null : withPlan(plans, plan);
+}
+
+/**
+ * Did the server refuse this save because the plan changed on another device
+ * (TICKET-073 D7)? firestore.rules refuses a wrong `rev` with
+ * `permission-denied`, the Firestore error code for any refused rule. Every
+ * other failure (offline, quota, a bad field) keeps Save's usual handling.
+ * The rule refuses another user's write the same way, but Save only ever
+ * writes the signed-in user's own plans, so for Save this code means `rev`.
+ */
+export const isRefusedSave = (error: unknown): boolean =>
+  typeof error === "object" && error !== null && (error as { code?: unknown }).code === "permission-denied";
+
+/**
+ * After a refused save (D7) and the check that followed it: did the newer
+ * version come back? The refused write carried `sentRev`, so the server
+ * holds something other than `sentRev - 1`. Held at `sentRev` or above: a
+ * later version, read from the server, and the next Save starts from it.
+ * Lower (the check did not return the plan, or D10 kept the held copy over a
+ * server copy whose `rev` was lowered by hand): read the one plan and take
+ * it as the server has it (`withServerPlan`), or every later Save is refused
+ * again.
+ */
+export const refusedPlanCameBack = (held: WorkoutPlan | undefined, sentRev: number): boolean =>
+  held !== undefined && planRev(held) >= sentRev;
+
+/**
+ * The plans held after reading one plan from the server for a refused save
+ * (D7): the server's copy replaces the held one whatever D10 says, since the
+ * server just refused a save based on the held one. `null`: the server has
+ * no such plan (removed outside the app), so it goes, as a full reload would
+ * drop it; a `deleted` marker likewise. Nothing stored stays nothing stored
+ * (`withSavedPlan`).
+ */
+export function withServerPlan(plans: WorkoutPlan[] | null, planId: string, plan: WorkoutPlan | null): WorkoutPlan[] | null {
+  if (plans === null) return null;
+  if (plan === null || plan.deleted === true) return plans.filter((p) => p.id !== planId);
+  return withPlan(plans, plan);
 }
 
 /** One empty list for every "no plans" render, so memoised readers do not recompute. */

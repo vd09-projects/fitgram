@@ -88,9 +88,19 @@ export type WorkoutPlan = {
    */
   updatedAt?: PlanStamp;
   /**
+   * TICKET-073 D6: the plan's revision, 1 on its first save and + 1 on every
+   * save after. Save writes the `rev` it loaded + 1, and firestore.rules
+   * refuses any other, so a save based on an old version is refused. Absent
+   * on plans saved before 073 (no backfill): counts as 0. Read it through
+   * `planRev`. Unlike `updatedAt`, the phone writes it; `updatedAt` stays
+   * for the change query, which `rev` cannot replace.
+   */
+  rev?: number;
+  /**
    * TICKET-070 D5: the future Delete's marker. Never written by this build;
    * a plan carrying it is dropped by every merge (`planSync.ts`), so no reader
-   * ever sees it.
+   * ever sees it. Writing it is an update, so the Delete must also write the
+   * loaded `rev` + 1, or firestore.rules refuses it (TICKET-073).
    */
   deleted?: boolean;
 };
@@ -106,8 +116,3 @@ export type PlanStamp = { seconds: number; nanoseconds: number };
 /** TICKET-061: only a stored `true` archives a plan; absent or anything else does not. */
 export const isArchived = (plan: Pick<WorkoutPlan, "archived">): boolean => plan.archived === true;
 
-export type WorkoutPlanDB = {
-  id?: string;
-  name: string;
-  exercise: Exercise;
-};

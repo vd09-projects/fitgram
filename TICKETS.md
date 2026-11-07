@@ -5511,6 +5511,10 @@ would fail the first time it is needed.
 - Give each writing script `--dry-run`, as `uploadCatalog` and `wipeTestData` have
 - Then delete `src/scripts/firebase.ts` if nothing else uses it
 - Not in scope: what the scripts compute (`rebuildStatsFromSessions` stays)
+- **TICKET-073:** `addExerciseToUserWorkout.ts` writes a plan. Moved to the admin SDK
+  it must write `rev` = the existing `rev` + 1 and `updatedAt: serverTimestamp()`, as
+  `importHistory.ts` does; without `rev` an overwrite drops it to 0 and every phone's
+  next Save of that plan is refused once. Admin credentials skip firestore.rules.
 
 ---
 
@@ -7935,8 +7939,9 @@ exercises per user.
 
 ### TICKET-073: Two Devices Editing One Plan
 
-**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — split from TICKET-070
-stage 3 (user, 2026-11-05); decided there, 2026-11-05. **Before launch.**
+**Priority:** Medium | **Effort:** Medium | **Status: IN REVIEW (PR open)** — branch
+`TICKET-073`, 2026-11-06; device test waits on the rules deploy (below). Split from
+TICKET-070 stage 3 (user, 2026-11-05); decided there, 2026-11-05. **Before launch.**
 
 **Description:**
 Save overwrites the whole plan (`overrideWorkoutDetails`, `merge: false`), so with one
@@ -7974,11 +7979,169 @@ emulator and `@firebase/rules-unit-testing` (new dev tool, needs Java), since a 
 rule locks every user's saves. Fallback: a manual run after deploy with a "test…" plan
 on two emulators.
 
+**Facts checked before building (CLAUDE.md 2.1, 2026-11-06):**
+- Plan writers: `overrideWorkoutDetails` (Manage's Save) is the only live one.
+  `saveWorkoutDetails` had no callers (grep): deleted, with its `WorkoutPlanDB` type.
+  `importHistory.ts` (admin SDK, skips rules) now writes the existing `rev` + 1.
+  `addExerciseToUserWorkout.ts` (client SDK) never signs in, so it has been refused
+  since the open rule expired (TICKET-049): left as it is, with a header note, and
+  TICKET-049 now says it must write `rev`. The wipe scripts delete plans (admin SDK);
+  delete stays allowed anyway.
+- Offline (Firestore emulator, firebase JS SDK 11.4 on Node, signed in as the owner):
+  a `setDoc` made offline neither resolves nor rejects; after `enableNetwork` the server
+  refuses it, the promise rejects with `code: "permission-denied"`, and the local copy
+  rolls back to the server's (a listener saw the stale edit with pending writes, then
+  the server's version). Kept as a test in the rules suite. Node's SDK talks gRPC; React
+  Native's talks WebChannel over the same write queue, so device step 5 still has to
+  show it on Android.
+- Existing plans have no `rev`: the rule reads `get('rev', 0)`, the phone `planRev`
+  (missing → 0). No backfill.
+- Java 17: `firebase-tools` 15.35.0 refuses it ("firebase-tools no longer supports Java
+  version before 21"); 13.35.1 runs the emulator on it. 14.x not tried.
+
+**As built (2026-11-06; choices and deviations, CLAUDE.md 2.2):**
+- **Rule** (`firestore.rules`): the `users/{uid}/**` catch-all is split. Plans
+  (`workouts/{planId}`): read and delete as before; create only at `rev == 1`; update
+  only at `request.resource.data.rev == resource.data.get('rev', 0) + 1`. Every other
+  collection (and anything under a plan, none exists) keeps owner read/write through
+  `match /{collection}/{document=**}` with `collection != 'workouts'`.
+  - **Create without `rev`: refused** (decided at build time). Every writer of this build
+    sends it, and a plan an older build created without one would be refused on its
+    first update anyway. Rejected: also allowing it.
+  - Under a plan the rule is `/{sub}/{rest=**}`, not `/{rest=**}`: the latter also
+    matches zero segments, the plan itself, and would have allowed every write the
+    plans rule refuses (caught while writing it; a rule test fails if it comes back).
+  - A stored `rev` that is not a number (only a hand edit) makes the rule's sum an
+    error, which refuses every save of that plan until fixed in the console. The phone
+    counts it as 0 and `planFromDoc` warns.
+- **`rev` on the phone:** `WorkoutPlan.rev`, read through `planRev` (missing → 0).
+  `planFromDoc` keeps it only as a whole number. The draft holds the `rev` it was opened
+  from; `planFromDraft` writes `rev + 1`, so the plan Save sends is the plan as stored,
+  and once confirmed it is the new baseline as is. `overrideWorkoutDetails` refuses a
+  plan without a `rev` ≥ 1 rather than send one the rule would refuse. `updatedAt` is
+  unchanged and still drives the change query.
+- **D10 merge:** the higher `rev` wins (`replaces` in `planSync.ts`, used by
+  `mergeChanges` and `mergeFullReload`). **Equal `rev`: 070's rule, the newer-or-equal
+  `updatedAt` takes the server's copy**, so a console edit (keeps `rev`, may move the
+  stamp) shows on a full reload. Rejected: keeping what is held on a tie, which would
+  hide every console edit until the plan is saved again. 070 S1 kept: on a full reload,
+  a copy held from before the read started loses to the server's, even at a higher
+  `rev` (a `rev` lowered by hand). New with `rev`: a Save held unstamped (read-back
+  failed) now beats a slow check's older copy, which 070 could not order.
+- **`PLANS_FORMAT_VERSION` 3**: the stored copy carries `rev`; a version 2 copy is
+  discarded and fully reloaded once (one read per plan) on the first launch of this
+  build.
+- **A refused save (D7):** `isRefusedSave` is `code === "permission-denied"`; every other
+  failure keeps the old handling. The store's `reloadRefused` runs a forced change check
+  (D9 joins one already running); if the plan is not then held at the refused `rev` or
+  above (`refusedPlanCameBack`), it reads that one plan (`getPlanFromServer`) and takes
+  the server's copy whatever D10 says (`withServerPlan`), which covers a `rev` lowered by
+  hand, where D10 would keep the held copy and every later Save would be refused. That
+  read does not move `lastSeen`. Absent (or `deleted`) on the server: the plan leaves the
+  store and Manage closes it.
+  - Online: the notice "This plan changed on another device" shows after the reload, so
+    its message can say what the screen shows: "Your changes were not saved. This is
+    the latest version." (or that the plan is gone, or that the latest version didn't
+    load). The open plan becomes the server's version. Edits typed while it was saving
+    are lost with the refused ones (decided: not kept as a draft).
+  - Late from the offline queue: `console.warn` and a "refused … late from the queue"
+    line on the debug page, no notice. The store reloads; the open plan moves only if it
+    was not edited after the queued Save. If it was, those edits stay, and their Save is
+    refused in turn, with the notice.
+- **Scope growth, stated:** the draft's `rev` moves on more than a refresh (item 6).
+  After a confirmed Save it moves even when the draft was edited meanwhile
+  (`draftAfterSave`); before 073 an edited draft kept its base, and its next Save would
+  now repeat the saved `rev` and be refused. After a Save is queued offline it moves to
+  the queued `rev` (`draftAfterQueued`): Firestore sends queued writes in order, so a
+  second offline Save goes out after the first and needs the next `rev`. Forward only,
+  so the first landing after a second was queued does not pull it back.
+- **Manage's open-plan refresh** (`openPlanRefresh`, item 6): an untouched draft moves to
+  a version with a higher `rev`, or the same `rev` and other content (console), and its
+  `rev` moves with it. Typed into: it stays; a changed plan is then refused on Save and
+  reloads.
+- **Debug page:** each plan's `rev` ("no rev (0)" when absent); the log shows `refused`
+  (with "late from the queue") and its `refusal reload` (by the check, or a one-plan read).
+- **For the future Delete:** its `deleted: true` marker is an update, so it must write the
+  loaded `rev` + 1 or the rule refuses it. Noted on `WorkoutPlan.deleted` and in the rule.
+- **Accepted gaps:**
+  - Save tapped again on a write still queued reuses that write (TICKET-051 round 1). If
+    the server refuses it while the user watches, it is reported as late: no notice; the
+    plan still reloads.
+  - A full reload whose read predates a Save whose read-back failed (070's accepted
+    window) leaves the old `rev` held: the next Save is refused once, then reloads.
+  - `importHistory.ts` reads the existing `rev` in its listing, then writes: a phone
+    saving in between is overwritten at the same `rev` (last write wins, as before 073).
+    Run it with the phones idle (comment in the script).
+- **Rule tests:** `npm run test:rules` runs `src/firestoreRules/firestoreRules.test.ts`
+  under `firebase emulators:exec` (project `demo-fitgram`, so it cannot reach the real
+  project), with `jest.rules.config.js` (plain Node). `jest.config.js` ignores the
+  folder, so `npm test` and CI need no Java. **CI does not run the rule tests**: run them
+  before each rules deploy. A CI job would need `actions/setup-java` (17) and the
+  emulator download; not added. New dev dependencies: `firebase-tools` 13.35.1 and
+  `@firebase/rules-unit-testing` 4.0.1, pinned. Installing them moved six transitive
+  packages up a patch or minor (body-parser, qs, raw-body, side-channel,
+  side-channel-list, undici). If a run is killed, the emulator's Java process can stay
+  on port 8080 and the next run fails "port taken": kill it.
+- Not from this ticket, fixed here: in `usePlansStore.test.ts` (since b4d0d49, 070 stage
+  1), "stored writes land in order" restored its `setItem` spy with `mockRestore`; the
+  AsyncStorage mock's `setItem` is itself a `jest.fn`, so that stripped its
+  implementation and every later test in the file wrote nothing to disk. Latent until
+  this ticket's store test read the disk back; it now restores the implementation.
+
+**Verified (2026-11-06):**
+- `npx tsc --noEmit` clean. `npm test`: 50 suites, 688 tests pass.
+- `npm run test:rules`: 21 pass (9 plans cases, 11 for other paths, users doc and
+  catalog, 1 offline-queue probe).
+- Each rule line broken in a throwaway worktree, suite red each time: update accepting
+  any `rev` (3 fail), no default for a missing `rev` (1), create without `rev == 1` (1),
+  the catch-all not leaving out `workouts` (5), `/{rest=**}` under a plan (5), delete
+  refused (1), other collections read-only (3), catalog writable (1); unbroken, 21 pass.
+- Each new app test seen red against its line broken (throwaway worktree): rev ignored in
+  the merge, equal `rev` keeping the held copy, a missing `rev` not counted as 0,
+  `refusedPlanCameBack` off by one, the one-plan read merged by `rev`, the refusal code,
+  the stored `rev` unchecked, the queued and the confirmed draft `rev` not moving, the
+  refresh ignoring `rev`, Save writing the loaded `rev`, `overrideWorkoutDetails` dropping
+  `rev`, a late refusal showing the notice, the screen not taking the reloaded plan, the
+  store skipping its check.
+- Not tested by a unit test: the screen's call to `draftAfterQueued` (the function is);
+  `importHistory.ts` (I/O script, not run: it writes to the real project).
+- Not verified: anything on a device (below), iOS, the late refusal on React Native.
+
+**Deploy order (the user's to run, CLAUDE.md 1.3):**
+1. Review, commit, PR, merge.
+2. Build the app from main and install it on **every** tester phone, and open it once.
+   An installed older build cannot save plans once the rule is live (it sends no `rev`).
+3. `npm run test:rules` on the merged tree (needs Java 17+): 21 pass.
+4. `npx firebase-tools deploy --only firestore:rules --project gymexerciselogger-fb`
+   (now runs the repo's pinned firebase-tools 13.35.1; a deploy needs no Java). It
+   replaces the whole live ruleset; the only change from live is the plans rule.
+5. Then the device test below.
+Rollback, if Saves fail for everyone: redeploy the previous `firestore.rules` from main
+before this merge (`git show fde4c34:firestore.rules`).
+
+**Device test plan (run after step 4; Android emulator, a "test…" plan only):**
+1. Emulator A on the test account, Metro with `SHOW_DEBUG_SCREENS=true`; B is a second
+   emulator on the same account, or the Firebase console standing in for B's Save (set
+   `rev` to the stored value + 1 and change the name).
+2. A and B open the same "test…" plan in Manage. Debug page: note its `rev` (expected
+   "no rev (0)" for a plan saved before 073).
+3. A saves an edit: debug page shows `rev` 1.
+4. B, still holding the old version, saves: the notice "This plan changed on another
+   device", "This is the latest version.", Manage shows A's edit; debug log `refused
+   plan … at rev 1`, then `ok refusal reload (by the check, rev 1)`; server reads +1.
+5. B edits again and saves: "Plan saved", `rev` 2.
+6. Offline: B off wifi and data, edits, Save: "Not saved yet". A saves. B back online:
+   no notice; debug log `refused … late from the queue`, then the reload; B shows A's
+   version. This is the check of the offline finding above on React Native.
+7. Record the reads, every write (plan id, field, `rev`), and any console edit here.
+
 **Acceptance Criteria:**
-- [ ] Rule tests: a save with the stored `rev` passes; with an old `rev` is refused; a
+- [x] Rule tests: a save with the stored `rev` passes; with an old `rev` is refused; a
       new plan and a plan with no `rev` pass; other collections behave as before
+      - 21 pass, each rule line broken and seen red (above). 2026-11-06.
 - [ ] Device test: edit on device A; device B, holding the old version, saves and is
       refused, sees the notice, and shows A's plan; B's next save goes through
+      - Not run: needs the rule live (deploy order above).
 - [ ] Rules deployed by the user after the app build is out
 
 **Dependencies:** after TICKET-070 (its store and merge).

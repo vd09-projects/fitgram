@@ -26,13 +26,17 @@ import { MANAGE_WOURKOUT_STEP_NAMES } from '../../tour_steps/manageWorkout';
 import { MaybeTourStep } from '../../components/guide_tour/MaybeTourStep';
 import { useCatalogStore } from '../../stores/useCatalogStore';
 import { usePlansStore } from '../../stores/usePlansStore';
+import { isRefusedSave, planRev } from '../../utils/planSync';
 import {
   DraftExercise,
   PlanDraft,
   addExercise,
+  draftAfterQueued,
+  draftAfterSave,
   draftFromPlan,
   isDraftDirty,
   newPlan,
+  openPlanRefresh,
   planFromDraft,
   raceSave,
   refusedSaveMessage,
@@ -210,10 +214,11 @@ export default function AddExerciseScreen() {
    * TICKET-070 D4: opening a stored plan to edit runs a change check past the
    * 2-minute skip, so an edit from another device shows before this one is
    * built on it. Changed, and nothing typed yet: the new version replaces the
-   * draft in place. Typed: the draft stays; two devices editing one plan is
-   * TICKET-073. Rejected: a read of this one plan (the PR #48 question): the
-   * same 1 read, but it downloads the plan even when unchanged, and a check
-   * also brings every other plan changed since.
+   * draft in place, its `rev` included (`openPlanRefresh`, TICKET-073). Typed:
+   * the draft stays; if the plan did change, its Save is refused and reloads
+   * (`onRefused`). Rejected: a read of this one plan (the PR #48 question):
+   * the same 1 read, but it downloads the plan even when unchanged, and a
+   * check also brings every other plan changed since.
    */
   const refreshOpenPlan = (opened: WorkoutPlan) => {
     usePlansStore
@@ -221,11 +226,10 @@ export default function AddExerciseScreen() {
       .check({ force: true })
       .then(() => {
         const fresh = usePlansStore.getState().plans?.find((p) => p.id === opened.id);
-        const current = draftRef.current;
-        if (!fresh || !isDraftDirty(fresh, draftFromPlan(opened))) return;
-        if (current?.id !== opened.id || isDraftDirty(opened, current)) return;
-        setSaved(fresh);
-        setDraft(draftFromPlan(fresh));
+        const next = openPlanRefresh(opened, fresh, draftRef.current);
+        if (!next) return;
+        setSaved(next);
+        setDraft(draftFromPlan(next));
       });
   };
 
@@ -284,8 +288,47 @@ export default function AddExerciseScreen() {
     // was cut off on the device (round 1).
     show.success('Plan saved', `"${plan.name}" saved.`);
     setSaved((prev) => (prev?.id === plan.id ? plan : prev));
-    setDraft((prev) => (prev?.id === plan.id && !isDraftDirty(plan, prev) ? draftFromPlan(plan) : prev));
+    setDraft((prev) => draftAfterSave(prev, plan));
     if (uid) usePlansStore.getState().applySaved(uid, epoch, plan);
+  };
+
+  /**
+   * TICKET-073 D7: the server refused the Save of `plan`, because another
+   * device saved this plan since the version it was based on. The plan
+   * reloads at once (`reloadRefused`), so this phone does not keep an old
+   * `rev` that refuses every later Save, and the open plan moves to the
+   * server's version. The refused edits are not kept as a draft (MVP).
+   *
+   * Online (`late` false): the notice, after the reload so it can say what
+   * the screen now shows. Late from the offline queue: logged only; the open
+   * plan moves only if it was not edited after the queued Save (those edits
+   * stay, and their Save is refused in turn, with the notice).
+   */
+  const onRefused = (plan: WorkoutPlan, epoch: number, late: boolean) => {
+    console.warn(`Save of plan ${plan.id} at rev ${planRev(plan)} refused: changed on another device${late ? ' (late, from the offline queue)' : ''}.`);
+    if (!uid) return;
+    usePlansStore
+      .getState()
+      .reloadRefused(uid, epoch, plan.id, planRev(plan), late)
+      .then((result) => {
+        if (!late)
+          show.alert(
+            'This plan changed on another device',
+            result.kind === 'reloaded'
+              ? 'Your changes were not saved. This is the latest version.'
+              : result.kind === 'gone'
+                ? 'Your changes were not saved. The plan is no longer on your account.'
+                : "Your changes were not saved, and the latest version didn't load. Try again."
+          );
+        const current = draftRef.current;
+        if (result.kind === 'failed' || current?.id !== plan.id) return;
+        if (late && isDraftDirty(plan, current)) return;
+        const next = result.kind === 'reloaded' ? result.plan : null;
+        setSaved(next);
+        setDraft(next && draftFromPlan(next));
+        setExpandedId(null);
+        setShowErrors(false);
+      });
   };
 
   const handleSave = async () => {
@@ -315,8 +358,11 @@ export default function AddExerciseScreen() {
       // is bounded. The write stays queued and may still land; the draft stays
       // dirty until it does, so Save can be retried.
       const result = await raceSave(write);
-      if (result === 'pending')
+      if (result === 'pending') {
         show.warn('Not saved yet', 'Check your connection. Your changes are still here; tap Save changes to retry.');
+        // TICKET-073: a further Save goes out after this one, at the next rev.
+        if (!queued) setDraft((prev) => draftAfterQueued(prev, plan));
+      }
       if (queued) return;
       if (result === 'saved') {
         onSaved(plan, epoch);
@@ -327,6 +373,7 @@ export default function AddExerciseScreen() {
         .then(
           () => onSaved(plan, epoch),
           (error) => {
+            if (isRefusedSave(error)) return onRefused(plan, epoch, true);
             console.error('Could not save plan:', error);
             show.alert('Could not save plan', 'Please try again.');
           }
@@ -336,7 +383,8 @@ export default function AddExerciseScreen() {
         });
     } catch (error) {
       // A queued write's rejection is reported by its own handler, above.
-      if (!queued) {
+      if (!queued && isRefusedSave(error)) onRefused(plan, epoch, false);
+      else if (!queued) {
         console.error('Could not save plan:', error);
         show.alert('Could not save plan', 'Please try again.');
       }

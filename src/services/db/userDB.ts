@@ -2,22 +2,19 @@
 // `src/services/db/workoutSessions.ts`, which stores it exercise-first; the old
 // workout_logs tree could only answer "what did I do last time in THIS workout".
 import { tables } from "../../constants/tables";
-import { Exercise, PlanStamp, WorkoutPlan, WorkoutPlanDB, isArchived } from "../../types/workoutType";
+import { Exercise, PlanStamp, WorkoutPlan, isArchived } from "../../types/workoutType";
 import { normalizeExerciseFields } from "../../utils/exerciseFields";
-import { toPlanStamp } from "../../utils/planSync";
+import { toPlanRev, toPlanStamp } from "../../utils/planSync";
 import { db } from "../firebase/firebase";
 import {
-  arrayRemove,
-  arrayUnion,
   collection,
   doc,
-  getDoc,
+  getDocFromServer,
   getDocsFromServer,
   query,
   serverTimestamp,
   setDoc,
   Timestamp,
-  updateDoc,
   where,
   type DocumentData,
   type QueryDocumentSnapshot,
@@ -29,12 +26,23 @@ const plansCollection = (userId: string) =>
 /**
  * A plan doc as the phone holds it. `updatedAt` becomes plain numbers
  * (`toPlanStamp`) or is left out: the plans store keeps it in JSON, and a
- * Timestamp instance would not survive that at full precision.
+ * Timestamp instance would not survive that at full precision. `rev` is kept
+ * only as a whole number (`toPlanRev`, TICKET-073); anything else is left out
+ * and counts as 0.
  */
 const planFromDoc = (snapshot: QueryDocumentSnapshot<DocumentData>): WorkoutPlan => {
-  const { updatedAt, ...data } = snapshot.data();
+  const { updatedAt, rev, ...data } = snapshot.data();
   const stamp = toPlanStamp(updatedAt);
-  const plan = { id: snapshot.id, ...data, ...(stamp ? { updatedAt: stamp } : {}) } as WorkoutPlan;
+  const planRev = toPlanRev(rev);
+  // firestore.rules cannot add 1 to it, so every save of this plan is refused.
+  if (rev !== undefined && planRev === undefined)
+    console.warn(`Plan ${snapshot.id} has an unusable rev (${JSON.stringify(rev)}); fix it in the console.`);
+  const plan = {
+    id: snapshot.id,
+    ...data,
+    ...(stamp ? { updatedAt: stamp } : {}),
+    ...(planRev !== undefined ? { rev: planRev } : {}),
+  } as WorkoutPlan;
   return {
     ...plan,
     exercises: (plan.exercises ?? []).map(
@@ -91,60 +99,17 @@ export const getChangedPlans = async (userId: string, after: PlanStamp): Promise
   return snapshot.docs.map(planFromDoc);
 };
 
-export const saveWorkoutDetails = async (
-  userId: string,
-  workout: WorkoutPlanDB
-): Promise<void> => {
-  if (!userId || !workout.id || !workout.exercise) {
-    console.error("❌ Missing required parameters");
-    return;
-  }
-
-  try {
-    const workoutRef = doc(
-      db,
-      tables.users.collection,
-      userId,
-      tables.users.fields.workouts.collection,
-      workout.id
-    );
-    const workoutSnap = await getDoc(workoutRef);
-
-    if (!workoutSnap.exists()) {
-      // Workout does not exist, create it with the new exercise
-      await setDoc(workoutRef, {
-        id: workout.id,
-        name: workout.name, // Default name, can be updated later
-        exercises: [workout.exercise],
-      });
-      console.log("✅ Workout and exercise created successfully");
-      return;
-    }
-
-    const workoutData = workoutSnap.data() as WorkoutPlan;
-    const existingExercise = workoutData.exercises.find(
-      (ex) => ex.id === workout.exercise.id
-    );
-
-    if (existingExercise) {
-      // If exercise exists, update it (remove old and add new)
-      await updateDoc(workoutRef, {
-        exercises: arrayRemove(existingExercise),
-      });
-      await updateDoc(workoutRef, {
-        exercises: arrayUnion(workout.exercise),
-      });
-      console.log("✅ Exercise updated successfully");
-    } else {
-      // If exercise does not exist, add it
-      await updateDoc(workoutRef, {
-        exercises: arrayUnion(workout.exercise),
-      });
-      console.log("✅ Exercise added successfully");
-    }
-  } catch (error) {
-    console.error("❌ Error saving workout details:", error);
-  }
+/**
+ * One plan from the server, for a refused save's reload when the change
+ * check did not bring it back (TICKET-073 D7). Null: no such doc. Rejects
+ * offline, like the reads above.
+ */
+export const getPlanFromServer = async (userId: string, planId: string): Promise<WorkoutPlan | null> => {
+  if (!userId) throw new Error("Missing user");
+  const snapshot = await getDocFromServer(
+    doc(db, tables.users.collection, userId, tables.users.fields.workouts.collection, planId)
+  );
+  return snapshot.exists() ? planFromDoc(snapshot) : null;
 };
 
 /**
@@ -161,7 +126,9 @@ export const overrideWorkoutDetails = async (
   // Throws rather than logging and returning (TICKET-051 D4): the caller shows
   // "saved" only when this resolves, so a skipped or failed write must reject.
   // Offline, `setDoc` neither resolves nor rejects (memory cache); the caller
-  // bounds the wait.
+  // bounds the wait. A save the rules refuse (TICKET-073: another device saved
+  // since) rejects with `permission-denied`, online or when it lands from the
+  // queue (`isRefusedSave`).
   if (
     !userId ||
     !workout.id ||
@@ -169,6 +136,13 @@ export const overrideWorkoutDetails = async (
     workout.exercises.length === 0
   ) {
     throw new Error("Missing user, plan id or exercises");
+  }
+  // TICKET-073 D6: the plan as it will be stored carries its new `rev`, the
+  // loaded one + 1 (`planFromDraft`). Checked here, not trusted: without it
+  // firestore.rules refuses the write, and that refusal would read as "this
+  // plan changed on another device".
+  if (!Number.isInteger(workout.rev) || (workout.rev as number) < 1) {
+    throw new Error(`Plan ${workout.id} has no rev to save (${String(workout.rev)})`);
   }
 
   const workoutRef = doc(
@@ -189,6 +163,7 @@ export const overrideWorkoutDetails = async (
       // TICKET-061: a complete overwrite, so the archive state must be written
       // too or Save would unarchive the plan. `planFromDraft` carries it.
       ...(isArchived(workout) ? { archived: true } : {}),
+      rev: workout.rev,
       // TICKET-070 D3: the server's stamp, always. The fields above are picked
       // one by one, so an `updatedAt` the plan was read with (the plans store
       // holds one) can never be written back: it would hide this Save from

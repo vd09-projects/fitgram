@@ -4,9 +4,12 @@ import { Exercise, WorkoutPlan } from "../types/workoutType";
 import {
   EMPTY_PLAN_ERROR,
   addExercise,
+  draftAfterQueued,
+  draftAfterSave,
   draftFromPlan,
   isDraftDirty,
   newPlan,
+  openPlanRefresh,
   planFromDraft,
   raceSave,
   refusedSaveMessage,
@@ -120,6 +123,40 @@ describe("planFromDraft", () => {
   it("does not add pending text that repeats a field", () => {
     const draft = setPendingField(draftFromPlan(plan()), BENCH, "Reps");
     expect(planFromDraft(draft).exercises[0].fields.map((f) => f.name)).toEqual(["Weight (kg)", "Reps", "Notes"]);
+  });
+});
+
+// TICKET-073 D6: a draft holds the rev it is based on, and Save writes it + 1.
+// Left behind when its version moves, every later Save is refused.
+describe("a draft's rev (TICKET-073)", () => {
+  const atRev = (rev: number | undefined, name = "Push"): WorkoutPlan => ({ ...plan(), name, ...(rev === undefined ? {} : { rev }) });
+  const edited = (rev: number) => setPendingField(draftFromPlan(atRev(rev)), BENCH, "Tempo");
+
+  it("Save writes the loaded rev + 1; a plan with no rev saves at 1; rev is not an edit", () => {
+    expect(planFromDraft(draftFromPlan(atRev(3))).rev).toBe(4);
+    expect(planFromDraft(draftFromPlan(atRev(undefined))).rev).toBe(1);
+    expect(isDraftDirty(atRev(3), draftFromPlan(atRev(7)))).toBe(false);
+  });
+
+  it("moves to a confirmed Save's rev, edited since or not", () => {
+    const saved = planFromDraft(edited(3));
+    expect(draftAfterSave(edited(3), saved)?.rev).toBe(4);
+    expect(draftAfterSave(setPendingField(edited(3), BENCH, "Tempo2"), saved)?.rev).toBe(4);
+  });
+
+  it("moves to a queued Save's rev, so a second Save offline goes out after it; never back", () => {
+    const first = planFromDraft(edited(3)); // rev 4, queued
+    const draft = draftAfterQueued(edited(3), first)!;
+    expect(planFromDraft(draft).rev).toBe(5);
+    expect(draftAfterSave({ ...draft, rev: 5 }, first)?.rev).toBe(5); // the first lands after a second was queued
+  });
+
+  it("refresh on open: a newer rev or a console edit replaces an untouched draft; typed into, it stays", () => {
+    const opened = atRev(3);
+    expect(openPlanRefresh(opened, atRev(4), draftFromPlan(opened))?.rev).toBe(4);
+    expect(openPlanRefresh(opened, atRev(3, "Push (console)"), draftFromPlan(opened))?.name).toBe("Push (console)");
+    expect(openPlanRefresh(opened, atRev(3), draftFromPlan(opened))).toBeNull();
+    expect(openPlanRefresh(opened, atRev(4), edited(3))).toBeNull();
   });
 });
 
