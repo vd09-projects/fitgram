@@ -12,7 +12,7 @@ import ScrollableScreen from '../../components/ScrollableScreen';
 import { BackTitle } from '../../components/BackButton';
 import { useWorkoutPlansOnFocus } from '../../hooks/useWorkoutPlansOnFocus';
 import show from '../../utils/toastUtils';
-import { newPlanId, overrideWorkoutDetails } from '../../services/db/userDB';
+import { newPlanId, newSaveId, overrideWorkoutDetails } from '../../services/db/userDB';
 import { useAuthUser } from '../../hooks/useAuthUser';
 import { WorkoutScreenNavigationProp } from '../../navigation/WorkoutNavigator';
 import PlanExerciseList from '../../components/PlanExerciseList';
@@ -302,7 +302,8 @@ export default function AddExerciseScreen() {
    * Online (`late` false): the notice, after the reload so it can say what
    * the screen now shows. Late from the offline queue: logged only; the open
    * plan moves only if it was not edited after the queued Save (those edits
-   * stay, and their Save is refused in turn, with the notice).
+   * stay, and their Save is refused in turn, with the notice: the draft is
+   * still based on the refused write's `saveId`, PR #50 review B1).
    */
   const onRefused = (plan: WorkoutPlan, epoch: number, late: boolean) => {
     console.warn(`Save of plan ${plan.id} at rev ${planRev(plan)} refused: changed on another device${late ? ' (late, from the offline queue)' : ''}.`);
@@ -343,7 +344,7 @@ export default function AddExerciseScreen() {
       return show.alert('Plan not saved', refusedSaveMessage(draft, errors, nameOf));
     }
 
-    const plan = planFromDraft(draft);
+    const plan = planFromDraft(draft, newSaveId());
     // A retry of the write already queued races that write again rather than
     // queueing a second one: its own handler reports the landing, so there is
     // one "Plan saved", not two (device review, round 1).

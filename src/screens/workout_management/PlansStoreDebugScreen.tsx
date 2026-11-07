@@ -28,6 +28,8 @@
 //  - TICKET-073: each plan's `rev`; a refused save logs "refused" (with
 //    "late from the queue" when it landed from the offline queue), then its
 //    reload: "ok refusal reload (by the check, rev N)", or a one-plan read
+//  - each plan's `saveId`, first 6 characters (PR #50 review, B1): two
+//    phones showing the same rev and save are on the same version
 // Leaving the hub for this page and coming back is a focus: the hub checks
 // (or skips) again, and the log shows it.
 
@@ -139,6 +141,7 @@ export default function PlansStoreDebugScreen() {
           {plan.archived ? " · archived" : ""}
           {plan.updatedAt ? ` · ${plan.updatedAt.seconds}s ${plan.updatedAt.nanoseconds}ns` : " · no stamp"}
           {plan.rev !== undefined ? ` · rev ${plan.rev}` : " · no rev (0)"}
+          {plan.saveId ? ` · save ${plan.saveId.slice(0, 6)}` : " · no save id"}
         </TextBase>
       ))}
     </ScrollableScreen>

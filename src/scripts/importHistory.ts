@@ -14,7 +14,8 @@
 //   workouts/{planId}                         one per plan, overwritten, with
 //                                             `updatedAt` = the server's time
 //                                             (TICKET-070 D3) and `rev` = the
-//                                             existing `rev` + 1 (TICKET-073)
+//                                             existing `rev` + 1 and a fresh
+//                                             `saveId` (TICKET-073)
 //   sessions/{sessionId}                      one per session
 //   exercise_sessions/{sessionId}__{exercise} one per exercise per session
 //   exercise_stats/{exerciseId}               REBUILT from every exercise_session
@@ -26,6 +27,7 @@
 // workout or an earlier import under other ids, and both need a person.
 //
 // Admin credentials (firebaseAdmin.ts) for --inspect and --confirm.
+import { randomUUID } from "crypto";
 import { readFileSync } from "fs";
 import { getAuth } from "firebase-admin/auth";
 import { FieldValue } from "firebase-admin/firestore";
@@ -109,12 +111,17 @@ const run = async () => {
   // `rev` would drop it to 0, and every phone's next Save of the plan would be
   // refused once. Read in the listing above, so a phone saving between that
   // read and this write is overwritten at the same `rev` (last write wins,
-  // as before 073): run it with the phones idle.
+  // as before 073): run it with the phones idle. A fresh `saveId` too (PR #50
+  // review, B1): a new version, so a phone's Save based on the old one is
+  // refused. No `baseSaveId`: only the rule reads it, and admin skips the rule.
   const existingRev = new Map(plansSnap.docs.map((d) => [d.id, planRev({ rev: toPlanRev(d.get("rev")) })]));
   for (const plan of built.plans) {
     const rev = (existingRev.get(plan.id) ?? 0) + 1;
     console.log(`  plan ${plan.id}: rev ${rev}`);
-    await queue((b) => b.set(user.collection(WORKOUTS).doc(plan.id), { ...plan, rev, updatedAt: FieldValue.serverTimestamp() }));
+    const saveId = randomUUID();
+    await queue((b) =>
+      b.set(user.collection(WORKOUTS).doc(plan.id), { ...plan, rev, saveId, updatedAt: FieldValue.serverTimestamp() })
+    );
   }
   for (const { session, exerciseSessions } of built.sessions) {
     // Written settled: the rollup is rebuilt below, in this same run.

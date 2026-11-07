@@ -48,6 +48,13 @@ export type PlanDraft = {
    * reload). Left behind, every later Save is refused.
    */
   rev: number;
+  /**
+   * The `saveId` of that same version (PR #50 review, B1), null for one saved
+   * before saveId. Save writes it as `baseSaveId`, and firestore.rules refuses
+   * the Save unless it is the stored version's: a draft based on a write the
+   * server refused stays refused, whatever its `rev`. Moves with `rev`.
+   */
+  saveId: string | null;
 };
 
 export function draftFromPlan(plan: WorkoutPlan): PlanDraft {
@@ -55,6 +62,7 @@ export function draftFromPlan(plan: WorkoutPlan): PlanDraft {
     id: plan.id,
     name: plan.name,
     rev: planRev(plan),
+    saveId: plan.saveId ?? null,
     exercises: plan.exercises.map((exercise) => ({
       ...exercise,
       fields: exercise.fields.map((field) => ({ ...field, savedName: field.name })),
@@ -90,15 +98,21 @@ function fieldsToStore(exercise: DraftExercise): ExerciseField[] {
 
 /**
  * The plan document Save writes: the whole plan, as the draft now reads, at
- * the next `rev` (TICKET-073 D6): the one firestore.rules accepts if nothing
- * else saved this plan since the draft's version. The plan as it will be
- * stored, so once confirmed it is the new saved baseline as is.
+ * the next `rev` (TICKET-073 D6), as the new version `saveId`, based on the
+ * draft's version (`baseSaveId`): what firestore.rules accepts if nothing else
+ * saved this plan since that version. The plan as it will be stored, so once
+ * confirmed it is the new saved baseline as is. `saveId` comes from the
+ * caller (`newSaveId`), so this stays pure.
  */
-export function planFromDraft(draft: PlanDraft): WorkoutPlan {
+export function planFromDraft(draft: PlanDraft, saveId: string): WorkoutPlan {
+  return { ...planContent(draft), rev: draft.rev + 1, saveId, baseSaveId: draft.saveId };
+}
+
+/** The draft as a plan without its version fields: what the dirty check compares. */
+function planContent(draft: PlanDraft): WorkoutPlan {
   return {
     id: draft.id,
     name: draft.name,
-    rev: draft.rev + 1,
     exercises: draft.exercises.map((exercise) => ({
       id: exercise.id,
       name: exercise.name,
@@ -115,16 +129,19 @@ export function planFromDraft(draft: PlanDraft): WorkoutPlan {
 
 /**
  * The draft once a Save of `plan` (at its next `rev`) is queued offline
- * (TICKET-073): based on `plan.rev` from now on. Firestore sends queued writes
- * in order, so a second Save made offline goes out after the first and must
- * carry the `rev` after it; left on the old one, it would repeat the first's
- * `rev` and be refused. Only `rev` changes: the content is what the user sees.
+ * (TICKET-073): based on `plan` from now on. Firestore sends queued writes
+ * in order, so a second Save made offline goes out after the first and is
+ * based on it; left on the old version, it would repeat the first's `rev`
+ * and be refused. Only `rev` and `saveId` change: the content is what the
+ * user sees. Safe because the second Save names the first as its base
+ * (`baseSaveId`): if the server refuses the first, it refuses the second too,
+ * even when another device's Save makes its `rev` fit (PR #50 review, B1).
  * Forward only, so a first Save landing after a second was queued leaves the
  * draft on the second's. Another plan open: unchanged.
  */
 export function draftAfterQueued(draft: PlanDraft | null, plan: WorkoutPlan): PlanDraft | null {
-  if (draft?.id !== plan.id) return draft;
-  return { ...draft, rev: Math.max(draft.rev, planRev(plan)) };
+  if (draft?.id !== plan.id || planRev(plan) < draft.rev) return draft;
+  return { ...draft, rev: planRev(plan), saveId: plan.saveId ?? null };
 }
 
 /**
@@ -137,14 +154,15 @@ export function draftAfterQueued(draft: PlanDraft | null, plan: WorkoutPlan): Pl
 export function draftAfterSave(draft: PlanDraft | null, plan: WorkoutPlan): PlanDraft | null {
   const moved = draftAfterQueued(draft, plan);
   if (moved === null || moved.id !== plan.id || isDraftDirty(plan, moved)) return moved;
-  return { ...draftFromPlan(plan), rev: moved.rev };
+  return { ...draftFromPlan(plan), rev: moved.rev, saveId: moved.saveId };
 }
 
 /**
  * The version Manage's open plan moves to after the check run on opening it
  * (TICKET-070 D4, TICKET-073), or null to leave it. Moves only if `opened`
  * is still open, untouched, and `fresh` is a different version: a higher
- * `rev`, or the same `rev` with other content (a console edit keeps `rev`).
+ * `rev`, another `saveId`, or the same version with other content (a console
+ * edit keeps both).
  * The caller replaces the saved copy and the draft with `fresh`, so the draft's
  * `rev` moves with it; a draft left on the old `rev` would be refused on Save.
  * Typed into: the draft stays, and if the plan did change, its Save is refused
@@ -152,7 +170,10 @@ export function draftAfterSave(draft: PlanDraft | null, plan: WorkoutPlan): Plan
  */
 export function openPlanRefresh(opened: WorkoutPlan, fresh: WorkoutPlan | undefined, current: PlanDraft | null): WorkoutPlan | null {
   if (!fresh || current?.id !== opened.id || isDraftDirty(opened, current)) return null;
-  const changed = planRev(fresh) !== planRev(opened) || isDraftDirty(fresh, draftFromPlan(opened));
+  const changed =
+    planRev(fresh) !== planRev(opened) ||
+    (fresh.saveId ?? null) !== (opened.saveId ?? null) ||
+    isDraftDirty(fresh, draftFromPlan(opened));
   return changed ? fresh : null;
 }
 
@@ -180,7 +201,7 @@ function canonical(plan: WorkoutPlan): string {
  * not a change, and pending add-box text is.
  */
 export function isDraftDirty(saved: WorkoutPlan, draft: PlanDraft): boolean {
-  return canonical(saved) !== canonical(planFromDraft(draft));
+  return canonical(saved) !== canonical(planContent(draft));
 }
 
 const mapExercise = (
@@ -291,7 +312,7 @@ export type DraftErrors = {
  * not editable here, so a row's name is the one it was saved or picked with.
  */
 export function validateDraft(draft: PlanDraft): DraftErrors {
-  const plan = planFromDraft(draft);
+  const plan = planContent(draft);
   const rows: Record<string, string> = {};
   for (const exercise of plan.exercises) {
     const error = validateCustomFields(exercise.fields);

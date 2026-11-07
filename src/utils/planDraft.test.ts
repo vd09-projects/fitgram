@@ -111,7 +111,7 @@ describe("planFromDraft", () => {
     // Weight → time: kg is not a time unit and must not be written as one.
     draft = setExerciseFields(draft, BENCH, [{ ...weight, name: " Load " }, patchField(reps, { role: "time" })]);
     draft = setPendingField(draft, BENCH, " Tempo ");
-    const stored = planFromDraft(draft);
+    const stored = planFromDraft(draft, "s");
     expect(stored.exercises[0].fields).toStrictEqual([
       { name: "Load", role: "weight", unit: "kg" },
       { name: "Reps", role: "time" },
@@ -122,38 +122,47 @@ describe("planFromDraft", () => {
 
   it("does not add pending text that repeats a field", () => {
     const draft = setPendingField(draftFromPlan(plan()), BENCH, "Reps");
-    expect(planFromDraft(draft).exercises[0].fields.map((f) => f.name)).toEqual(["Weight (kg)", "Reps", "Notes"]);
+    expect(planFromDraft(draft, "s").exercises[0].fields.map((f) => f.name)).toEqual(["Weight (kg)", "Reps", "Notes"]);
   });
 });
 
-// TICKET-073 D6: a draft holds the rev it is based on, and Save writes it + 1.
-// Left behind when its version moves, every later Save is refused.
-describe("a draft's rev (TICKET-073)", () => {
-  const atRev = (rev: number | undefined, name = "Push"): WorkoutPlan => ({ ...plan(), name, ...(rev === undefined ? {} : { rev }) });
+// TICKET-073 D6: a draft holds the version it is based on (`rev`, `saveId`),
+// and Save writes the next one, based on it. Left behind when its version
+// moves, every later Save is refused.
+describe("a draft's version (TICKET-073)", () => {
+  const atRev = (rev: number | undefined, name = "Push"): WorkoutPlan => ({
+    ...plan(),
+    name,
+    ...(rev === undefined ? {} : { rev, saveId: `s${rev}` }),
+  });
   const edited = (rev: number) => setPendingField(draftFromPlan(atRev(rev)), BENCH, "Tempo");
 
-  it("Save writes the loaded rev + 1; a plan with no rev saves at 1; rev is not an edit", () => {
-    expect(planFromDraft(draftFromPlan(atRev(3))).rev).toBe(4);
-    expect(planFromDraft(draftFromPlan(atRev(undefined))).rev).toBe(1);
+  it("Save writes the loaded rev + 1, its own saveId, based on the loaded one; rev is not an edit", () => {
+    expect(planFromDraft(draftFromPlan(atRev(3)), "new")).toMatchObject({ rev: 4, saveId: "new", baseSaveId: "s3" });
+    expect(planFromDraft(draftFromPlan(atRev(undefined)), "new")).toMatchObject({ rev: 1, baseSaveId: null });
     expect(isDraftDirty(atRev(3), draftFromPlan(atRev(7)))).toBe(false);
   });
 
-  it("moves to a confirmed Save's rev, edited since or not", () => {
-    const saved = planFromDraft(edited(3));
-    expect(draftAfterSave(edited(3), saved)?.rev).toBe(4);
-    expect(draftAfterSave(setPendingField(edited(3), BENCH, "Tempo2"), saved)?.rev).toBe(4);
+  it("moves to a confirmed Save's version, edited since or not", () => {
+    const saved = planFromDraft(edited(3), "s4");
+    expect(draftAfterSave(edited(3), saved)).toMatchObject({ rev: 4, saveId: "s4" });
+    expect(draftAfterSave(setPendingField(edited(3), BENCH, "Tempo2"), saved)).toMatchObject({ rev: 4, saveId: "s4" });
   });
 
-  it("moves to a queued Save's rev, so a second Save offline goes out after it; never back", () => {
-    const first = planFromDraft(edited(3)); // rev 4, queued
+  // PR #50 review, B1: the second Save names the first as its base, so the
+  // rule refuses it if it refuses the first, whatever another device's rev.
+  it("moves to a queued Save's version, so a second Save offline is based on it; never back", () => {
+    const first = planFromDraft(edited(3), "s4"); // queued
     const draft = draftAfterQueued(edited(3), first)!;
-    expect(planFromDraft(draft).rev).toBe(5);
-    expect(draftAfterSave({ ...draft, rev: 5 }, first)?.rev).toBe(5); // the first lands after a second was queued
+    expect(planFromDraft(draft, "s5")).toMatchObject({ rev: 5, baseSaveId: "s4" });
+    // The first lands after a second was queued.
+    expect(draftAfterSave({ ...draft, rev: 5, saveId: "s5" }, first)).toMatchObject({ rev: 5, saveId: "s5" });
   });
 
-  it("refresh on open: a newer rev or a console edit replaces an untouched draft; typed into, it stays", () => {
+  it("refresh on open: a newer version or a console edit replaces an untouched draft; typed into, it stays", () => {
     const opened = atRev(3);
     expect(openPlanRefresh(opened, atRev(4), draftFromPlan(opened))?.rev).toBe(4);
+    expect(openPlanRefresh(opened, { ...opened, saveId: "other" }, draftFromPlan(opened))?.saveId).toBe("other");
     expect(openPlanRefresh(opened, atRev(3, "Push (console)"), draftFromPlan(opened))?.name).toBe("Push (console)");
     expect(openPlanRefresh(opened, atRev(3), draftFromPlan(opened))).toBeNull();
     expect(openPlanRefresh(opened, atRev(4), edited(3))).toBeNull();
@@ -255,17 +264,17 @@ describe("archive state through a draft", () => {
     const saved = plan();
     const archived = withArchived(draftFromPlan(saved), true);
     expect(isDraftDirty(saved, archived)).toBe(true);
-    expect(planFromDraft(archived).archived).toBe(true);
+    expect(planFromDraft(archived, "s").archived).toBe(true);
 
     const edited = addExercise(archived, pecDeck, "Pec Deck (Machine Fly)");
-    expect(planFromDraft(edited).archived).toBe(true);
+    expect(planFromDraft(edited, "s").archived).toBe(true);
     // Saved archived and reopened: nothing to save.
     expect(isDraftDirty(withArchived(saved, true), draftFromPlan(withArchived(saved, true)))).toBe(false);
   });
 
   it("drops the key when unarchived, so Save never writes undefined", () => {
     const draft = withArchived(draftFromPlan(withArchived(plan(), true)), false);
-    expect("archived" in planFromDraft(draft)).toBe(false);
+    expect("archived" in planFromDraft(draft, "s")).toBe(false);
     expect(isDraftDirty(withArchived(plan(), true), draft)).toBe(true);
   });
 });

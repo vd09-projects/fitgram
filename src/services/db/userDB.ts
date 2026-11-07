@@ -28,10 +28,12 @@ const plansCollection = (userId: string) =>
  * (`toPlanStamp`) or is left out: the plans store keeps it in JSON, and a
  * Timestamp instance would not survive that at full precision. `rev` is kept
  * only as a whole number (`toPlanRev`, TICKET-073); anything else is left out
- * and counts as 0.
+ * and counts as 0. `saveId` likewise only as a string (a base of null, as for
+ * a plan with none, refuses the next Save once, which reloads it); `baseSaveId`
+ * is dropped: the rule reads it from the write, nothing reads it back.
  */
 const planFromDoc = (snapshot: QueryDocumentSnapshot<DocumentData>): WorkoutPlan => {
-  const { updatedAt, rev, ...data } = snapshot.data();
+  const { updatedAt, rev, saveId, baseSaveId: _base, ...data } = snapshot.data();
   const stamp = toPlanStamp(updatedAt);
   const planRev = toPlanRev(rev);
   // firestore.rules cannot add 1 to it, so every save of this plan is refused.
@@ -42,6 +44,7 @@ const planFromDoc = (snapshot: QueryDocumentSnapshot<DocumentData>): WorkoutPlan
     ...data,
     ...(stamp ? { updatedAt: stamp } : {}),
     ...(planRev !== undefined ? { rev: planRev } : {}),
+    ...(typeof saveId === "string" ? { saveId } : {}),
   } as WorkoutPlan;
   return {
     ...plan,
@@ -119,6 +122,13 @@ export const getPlanFromServer = async (userId: string, planId: string): Promise
 export const newPlanId = (userId: string): string =>
   doc(collection(db, tables.users.collection, userId, tables.users.fields.workouts.collection)).id;
 
+/**
+ * A fresh `saveId` for one Save (TICKET-073, PR #50 review B1): Firestore's
+ * auto id, made on the device with no read or write, so it works offline,
+ * like `newPlanId`. 20 random characters: two Saves never share one.
+ */
+export const newSaveId = (): string => doc(collection(db, "_")).id;
+
 export const overrideWorkoutDetails = async (
   userId: string,
   workout: WorkoutPlan
@@ -144,6 +154,10 @@ export const overrideWorkoutDetails = async (
   if (!Number.isInteger(workout.rev) || (workout.rev as number) < 1) {
     throw new Error(`Plan ${workout.id} has no rev to save (${String(workout.rev)})`);
   }
+  // Likewise `saveId` (PR #50 review, B1): the rule refuses a write without one.
+  if (typeof workout.saveId !== "string" || workout.saveId === "") {
+    throw new Error(`Plan ${workout.id} has no saveId to save`);
+  }
 
   const workoutRef = doc(
     db,
@@ -164,6 +178,10 @@ export const overrideWorkoutDetails = async (
       // too or Save would unarchive the plan. `planFromDraft` carries it.
       ...(isArchived(workout) ? { archived: true } : {}),
       rev: workout.rev,
+      // The version this Save was based on (null: one saved before saveId);
+      // firestore.rules refuses it unless that is the stored version.
+      saveId: workout.saveId,
+      baseSaveId: workout.baseSaveId ?? null,
       // TICKET-070 D3: the server's stamp, always. The fields above are picked
       // one by one, so an `updatedAt` the plan was read with (the plans store
       // holds one) can never be written back: it would hide this Save from

@@ -97,6 +97,17 @@ export type WorkoutPlan = {
    */
   rev?: number;
   /**
+   * TICKET-073 (PR #50 review, B1): this version's id, fresh on every Save,
+   * and the `saveId` of the version the Save was based on. firestore.rules
+   * accepts a Save only if `baseSaveId` is the stored `saveId`: "based on the
+   * stored version", which `rev` alone cannot say (two devices' `rev`s
+   * collide, so a save chained on a refused offline save got through). Both
+   * absent on plans saved before: the base is then null. `baseSaveId` is
+   * written for the rule only; nothing reads it back (`planFromDoc` drops it).
+   */
+  saveId?: string;
+  baseSaveId?: string | null;
+  /**
    * TICKET-070 D5: the future Delete's marker. Never written by this build;
    * a plan carrying it is dropped by every merge (`planSync.ts`), so no reader
    * ever sees it. Writing it is an update, so the Delete must also write the

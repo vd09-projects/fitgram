@@ -33,6 +33,8 @@ import {
   setDoc,
   terminate,
   type DocumentData,
+  type DocumentReference,
+  type Firestore,
 } from "firebase/firestore";
 
 const PROJECT_ID = "demo-fitgram";
@@ -51,11 +53,17 @@ beforeAll(async () => {
 afterAll(() => env.cleanup());
 beforeEach(() => env.clearFirestore());
 
-const plan = (rev?: number): DocumentData => ({
-  id: "p1",
-  name: "test plan",
-  exercises: [],
+const content = { id: "p1", name: "test plan", exercises: [] };
+
+/** A version as a Save stored it: `rev` and its `saveId` (none: a plan saved before 073). */
+const stored = (rev?: number): DocumentData => ({ ...content, ...(rev === undefined ? {} : { rev, saveId: `s${rev}` }) });
+
+/** A Save as the phone writes it: at `rev`, based on the version `base`, as the new version `saveId`. */
+const save = (rev: number | undefined, base: string | null, saveId = `new${rev}`): DocumentData => ({
+  ...content,
   ...(rev === undefined ? {} : { rev }),
+  saveId,
+  baseSaveId: base,
 });
 
 /** A stored doc, written with the rules off (as the admin scripts write). */
@@ -65,57 +73,72 @@ const seed = (path: string, data: DocumentData) =>
 const alice = () => env.authenticatedContext("alice").firestore();
 const PLAN = "users/alice/workouts/p1";
 
-describe("plans: a save carries the stored rev + 1 (D6)", () => {
-  it("the stored rev + 1 passes", async () => {
-    await seed(PLAN, plan(3));
-    await assertSucceeds(setDoc(doc(alice(), PLAN), plan(4)));
+describe("plans: a save must be based on the stored version (D6)", () => {
+  it("the stored rev + 1, based on the stored saveId, passes", async () => {
+    await seed(PLAN, stored(3));
+    await assertSucceeds(setDoc(doc(alice(), PLAN), save(4, "s3")));
   });
 
   it("an old rev is refused: another device saved since", async () => {
-    await seed(PLAN, plan(4));
-    await assertFails(setDoc(doc(alice(), PLAN), plan(4)));
-    await assertFails(setDoc(doc(alice(), PLAN), plan(3)));
+    await seed(PLAN, stored(4));
+    await assertFails(setDoc(doc(alice(), PLAN), save(4, "s4")));
+    await assertFails(setDoc(doc(alice(), PLAN), save(3, "s4")));
   });
 
   it("a rev that skips a number is refused", async () => {
-    await seed(PLAN, plan(3));
-    await assertFails(setDoc(doc(alice(), PLAN), plan(5)));
+    await seed(PLAN, stored(3));
+    await assertFails(setDoc(doc(alice(), PLAN), save(5, "s3")));
   });
 
   it("a save with no rev is refused (a build from before 073)", async () => {
-    await seed(PLAN, plan(3));
-    await assertFails(setDoc(doc(alice(), PLAN), plan()));
+    await seed(PLAN, stored(3));
+    await assertFails(setDoc(doc(alice(), PLAN), save(undefined, "s3")));
   });
 
-  it("a stored plan with no rev counts as 0: a save at 1 passes", async () => {
-    await seed(PLAN, plan());
-    await assertSucceeds(setDoc(doc(alice(), PLAN), plan(1)));
+  // PR #50 review, B1: the rev fits (phone A's 4 + 1), but the save is based
+  // on a write the server refused, e.g. a draft edited after a queued Save.
+  it("a save based on another version is refused, even when its rev fits", async () => {
+    await seed(PLAN, stored(4));
+    await assertFails(setDoc(doc(alice(), PLAN), save(5, "b4")));
+    await assertFails(setDoc(doc(alice(), PLAN), save(5, null)));
   });
 
-  it("a new plan passes at rev 1, and only at 1", async () => {
-    await assertFails(setDoc(doc(alice(), PLAN), plan()));
-    await assertFails(setDoc(doc(alice(), PLAN), plan(2)));
-    await assertSucceeds(setDoc(doc(alice(), PLAN), plan(1)));
+  it("a save with no saveId, or the stored one, is refused", async () => {
+    await seed(PLAN, stored(3));
+    await assertFails(setDoc(doc(alice(), PLAN), { ...content, rev: 4, baseSaveId: "s3" }));
+    await assertFails(setDoc(doc(alice(), PLAN), save(4, "s3", "s3")));
+  });
+
+  it("a stored plan with no rev or saveId counts as 0, based on null: a save at 1 passes", async () => {
+    await seed(PLAN, stored());
+    await assertSucceeds(setDoc(doc(alice(), PLAN), save(1, null)));
+  });
+
+  it("a new plan passes at rev 1 with a saveId, and only so", async () => {
+    await assertFails(setDoc(doc(alice(), PLAN), save(undefined, null)));
+    await assertFails(setDoc(doc(alice(), PLAN), save(2, null)));
+    await assertFails(setDoc(doc(alice(), PLAN), { ...content, rev: 1 }));
+    await assertSucceeds(setDoc(doc(alice(), PLAN), save(1, null)));
   });
 
   it("delete passes, as before (wipe scripts)", async () => {
-    await seed(PLAN, plan(3));
+    await seed(PLAN, stored(3));
     await assertSucceeds(deleteDoc(doc(alice(), PLAN)));
   });
 
   it("reads pass for the owner, including the change query's list", async () => {
-    await seed(PLAN, plan(3));
+    await seed(PLAN, stored(3));
     await assertSucceeds(getDoc(doc(alice(), PLAN)));
     await assertSucceeds(getDocs(collection(alice(), "users/alice/workouts")));
   });
 
   it("another user is refused every access to the plan", async () => {
-    await seed(PLAN, plan(3));
+    await seed(PLAN, stored(3));
     const bob = env.authenticatedContext("bob").firestore();
     await assertFails(getDoc(doc(bob, PLAN)));
-    await assertFails(setDoc(doc(bob, PLAN), plan(4)));
+    await assertFails(setDoc(doc(bob, PLAN), save(4, "s3")));
     await assertFails(deleteDoc(doc(bob, PLAN)));
-    await assertFails(setDoc(doc(env.unauthenticatedContext().firestore(), PLAN), plan(4)));
+    await assertFails(setDoc(doc(env.unauthenticatedContext().firestore(), PLAN), save(4, "s3")));
   });
 });
 
@@ -155,23 +178,36 @@ describe("everything else behaves as before", () => {
 // D7's "a refusal that lands late from the queue is only logged" rests on what
 // the SDK does with a queued write the server refuses after reconnecting. The
 // same SDK as the app (firebase 11, modular, memory cache), signed in as alice.
-describe("a queued save refused after reconnecting (D7)", () => {
-  it("its promise rejects with permission-denied, and the local copy rolls back", async () => {
-    await seed(PLAN, plan(4));
-    const app = initializeApp({ projectId: PROJECT_ID, apiKey: "fake" }, "queued-save-probe");
+describe("queued saves refused after reconnecting (D7)", () => {
+  type Seen = { name: unknown; pending: boolean }[];
+
+  /** Phone B: its own client, so it can go offline while others write. */
+  async function phoneB(run: (db: Firestore, ref: DocumentReference, seen: Seen) => Promise<void>) {
+    const app = initializeApp({ projectId: PROJECT_ID, apiKey: "fake" }, `phone-b-${Date.now()}`);
     const db = getFirestore(app);
     connectFirestoreEmulator(db, host, Number(port), { mockUserToken: { sub: "alice", user_id: "alice" } });
     const ref = doc(db, PLAN);
-    const seen: { name: unknown; pending: boolean }[] = [];
+    const seen: Seen = [];
     const unsubscribe = onSnapshot(ref, { includeMetadataChanges: true }, (snap) =>
       seen.push({ name: snap.get("name"), pending: snap.metadata.hasPendingWrites })
     );
     try {
       await waitFor(() => seen.length > 0);
+      await run(db, ref, seen);
+    } finally {
+      // Always, or a failing run leaves the client connected and jest hangs.
+      unsubscribe();
+      await terminate(db);
+      await deleteApp(app);
+    }
+  }
 
+  it("its promise rejects with permission-denied, and the local copy rolls back", async () => {
+    await seed(PLAN, stored(4));
+    await phoneB(async (db, ref, seen) => {
       await disableNetwork(db);
       // Based on rev 3: another device has saved since.
-      const write = setDoc(ref, { ...plan(4), name: "stale edit" });
+      const write = setDoc(ref, { ...save(4, "s3"), name: "stale edit" });
       let settled = false;
       write.then(() => (settled = true), () => (settled = true));
       await waitFor(() => seen.some((s) => s.pending && s.name === "stale edit"));
@@ -181,12 +217,32 @@ describe("a queued save refused after reconnecting (D7)", () => {
       await expect(write).rejects.toMatchObject({ code: "permission-denied" });
       await waitFor(() => seen[seen.length - 1].pending === false);
       expect(seen[seen.length - 1]).toEqual({ name: "test plan", pending: false });
-    } finally {
-      // Always, or a failing run leaves the client connected and jest hangs.
-      unsubscribe();
-      await terminate(db);
-      await deleteApp(app);
-    }
+    });
+  });
+
+  // PR #50 review, B1 case 1: phone B queues two Saves offline, the second
+  // based on the first (`draftAfterQueued`); phone A saves once meanwhile.
+  // B's second Save has rev 5 = A's 4 + 1, so on `rev` alone it erased A's.
+  it("a second save based on a refused one is refused too, and the other device's save stays", async () => {
+    await seed(PLAN, stored(3));
+    await phoneB(async (db, ref) => {
+      await disableNetwork(db);
+      const first = setDoc(ref, { ...save(4, "s3", "b4"), name: "B edit 1" });
+      const second = setDoc(ref, { ...save(5, "b4", "b5"), name: "B edit 2" });
+      // Read now, so neither counts as an unhandled rejection meanwhile.
+      const outcomes = Promise.allSettled([first, second]);
+
+      await assertSucceeds(setDoc(doc(alice(), PLAN), { ...save(4, "s3", "a4"), name: "A edit" }));
+
+      await enableNetwork(db);
+      const [r1, r2] = await outcomes;
+      expect(r1).toMatchObject({ status: "rejected", reason: { code: "permission-denied" } });
+      expect(r2).toMatchObject({ status: "rejected", reason: { code: "permission-denied" } });
+    });
+    await env.withSecurityRulesDisabled(async (context) => {
+      const snap = await getDoc(doc(context.firestore(), PLAN));
+      expect(snap.data()).toMatchObject({ name: "A edit", rev: 4, saveId: "a4" });
+    });
   });
 });
 

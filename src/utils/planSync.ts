@@ -13,7 +13,7 @@ import type { PlanStamp, WorkoutPlan } from "../types/workoutType";
  * written under another version is discarded and fetched again (D2), never
  * read field by field.
  */
-export const PLANS_FORMAT_VERSION = 3; // 2: `lastSeen` and `lastFullAt` (070 stage 2); 3: each plan's `rev` (073)
+export const PLANS_FORMAT_VERSION = 4; // 2: `lastSeen` and `lastFullAt` (070 stage 2); 3: each plan's `rev` (073); 4: its `saveId` (073, PR #50)
 
 /** A check that succeeded this recently makes the next screen skip its own (D4). */
 export const PLANS_CHECK_SKIP_MS = 2 * 60 * 1000;
@@ -68,13 +68,14 @@ const isRev = (value: unknown): value is number => Number.isInteger(value) && (v
 
 const isPlan = (value: unknown): value is WorkoutPlan => {
   if (typeof value !== "object" || value === null) return false;
-  const { id, name, exercises, updatedAt, rev } = value as Partial<WorkoutPlan>;
+  const { id, name, exercises, updatedAt, rev, saveId } = value as Partial<WorkoutPlan>;
   return (
     typeof id === "string" &&
     typeof name === "string" &&
     Array.isArray(exercises) &&
     (updatedAt === undefined || isStamp(updatedAt)) &&
-    (rev === undefined || isRev(rev))
+    (rev === undefined || isRev(rev)) &&
+    (saveId === undefined || typeof saveId === "string")
   );
 };
 

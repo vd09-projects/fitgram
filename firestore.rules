@@ -1,5 +1,5 @@
 // Reconciled with the console 2026-10-26; this file is now the source. Deploy
-// with `npx firebase-tools deploy --only firestore:rules`; a deploy replaces the
+// with `npx firebase-tools@13.35.1 deploy --only firestore:rules`; a deploy replaces the
 // whole live ruleset, so a rule kept only in the console is lost.
 //
 // DEPLOY ORDER (TICKET-073): the plans rule below refuses any plan write without
@@ -25,33 +25,48 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if isOwner(userId);
 
-      // Plans (TICKET-073 D6): a save must be based on the stored version.
-      // Each plan carries `rev`, and a write must carry the stored `rev` + 1, so
-      // a device that saves an old version is refused, online or when its
-      // queued write lands later. A missing `rev` counts as 0 (plans saved
-      // before 073; no backfill, pre-launch).
+      // Plans (TICKET-073 D6): a save must be based on the stored version,
+      // so a device that saves an old version is refused, online or when its
+      // queued write lands later.
       //
-      // - create: `rev` must be 1. Chosen over also allowing no `rev`: every
-      //   writer of this build sends it, and a plan created without one by an
-      //   older build would then be refused on its first update anyway.
-      // - update: `rev` = stored `rev` + 1. A `rev` that is missing, not a
-      //   number, skips a number or repeats the stored one is refused. A stored
-      //   `rev` that is not a number (only a hand edit could do it) makes the
-      //   sum an error, which refuses every save of that plan until fixed in
-      //   the console.
+      // Each Save writes `rev` (stored + 1), a fresh `saveId`, and
+      // `baseSaveId`, the `saveId` of the version it was based on. `rev`
+      // alone is a counter, not an identity: two devices' counters collide,
+      // so "stored `rev` + 1" let a save chained on a refused offline save
+      // through (PR #50 review, B1). `baseSaveId` = stored `saveId` is the
+      // real check; `rev` stays for the phones' merge order (D10) and still
+      // refuses an old version. A stored plan with no `rev` counts as 0, and
+      // with no `saveId` is based on null (saved before 073; no backfill,
+      // pre-launch).
+      //
+      // - create: `rev` 1 and a `saveId`. Chosen over also allowing no `rev`:
+      //   every writer of this build sends it, and a plan created without one
+      //   by an older build would be refused on its first update anyway.
+      // - update: `rev` = stored + 1, `baseSaveId` = stored `saveId`, and a
+      //   new `saveId`, not the stored one. Left out or reused, the next Save
+      //   could match a version it never saw; left out, reading it is an
+      //   error, which refuses the write. A stored `rev` that is
+      //   not a number (only a hand edit could do it) makes the sum an error,
+      //   which refuses every save of that plan until fixed in the console.
       // - delete: allowed, as before: the wipe scripts delete plans, and there
       //   is no Delete feature yet. The future Delete writes a `deleted: true`
-      //   marker, which is an update and must bump `rev` like any Save.
+      //   marker, which is an update and must pass this rule like any Save.
       // - read: as before.
-      // Rejected: a transaction on Save (refuses every offline save); a
-      // stricter rule beside the old catch-all, which does nothing because
-      // Firestore allows a request if any matching rule does. So the catch-all
-      // below leaves `workouts` out.
+      // Rejected: a transaction on Save (refuses every offline save); `rev`
+      // only, fixed on the phone (put the draft back on a refusal, no new
+      // Save while one is queued): two client rules that must hold for good,
+      // where this check lives on the server; a stricter rule beside the old
+      // catch-all, which does nothing because Firestore allows a request if
+      // any matching rule does. So the catch-all below leaves `workouts` out.
       match /workouts/{planId} {
         allow read, delete: if isOwner(userId);
-        allow create: if isOwner(userId) && request.resource.data.rev == 1;
+        allow create: if isOwner(userId)
+          && request.resource.data.rev == 1
+          && request.resource.data.saveId is string;
         allow update: if isOwner(userId)
-          && request.resource.data.rev == resource.data.get('rev', 0) + 1;
+          && request.resource.data.rev == resource.data.get('rev', 0) + 1
+          && request.resource.data.get('baseSaveId', null) == resource.data.get('saveId', null)
+          && request.resource.data.saveId != resource.data.get('saveId', null);
 
         // Anything under a plan (none exists): today's access, unchanged.
         // `{sub}` first: `{rest=**}` alone also matches zero segments, i.e.

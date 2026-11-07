@@ -8028,9 +8028,9 @@ on two emulators.
   a copy held from before the read started loses to the server's, even at a higher
   `rev` (a `rev` lowered by hand). New with `rev`: a Save held unstamped (read-back
   failed) now beats a slow check's older copy, which 070 could not order.
-- **`PLANS_FORMAT_VERSION` 3**: the stored copy carries `rev`; a version 2 copy is
-  discarded and fully reloaded once (one read per plan) on the first launch of this
-  build.
+- **`PLANS_FORMAT_VERSION` 4** (3 for `rev`, 4 for `saveId`, PR #50 review): an older
+  copy is discarded and fully reloaded once (one read per plan) on the first launch of
+  this build.
 - **A refused save (D7):** `isRefusedSave` is `code === "permission-denied"`; every other
   failure keeps the old handling. The store's `reloadRefused` runs a forced change check
   (D9 joins one already running); if the plan is not then held at the refused `rev` or
@@ -8077,16 +8077,59 @@ on two emulators.
   project), with `jest.rules.config.js` (plain Node). `jest.config.js` ignores the
   folder, so `npm test` and CI need no Java. **CI does not run the rule tests**: run them
   before each rules deploy. A CI job would need `actions/setup-java` (17) and the
-  emulator download; not added. New dev dependencies: `firebase-tools` 13.35.1 and
-  `@firebase/rules-unit-testing` 4.0.1, pinned. Installing them moved six transitive
-  packages up a patch or minor (body-parser, qs, raw-body, side-channel,
-  side-channel-list, undici). If a run is killed, the emulator's Java process can stay
-  on port 8080 and the next run fails "port taken": kill it.
+  emulator download; not added. firebase-tools 13.35.1 through `npx` (PR #50 review,
+  S1); new dev dependency: `@firebase/rules-unit-testing` 4.0.1, pinned. If a run is
+  killed, the emulator's Java process can stay on port 8080 and the next run fails
+  "port taken": kill it.
 - Not from this ticket, fixed here: in `usePlansStore.test.ts` (since b4d0d49, 070 stage
   1), "stored writes land in order" restored its `setItem` spy with `mockRestore`; the
   AsyncStorage mock's `setItem` is itself a `jest.fn`, so that stripped its
   implementation and every later test in the file wrote nothing to disk. Latent until
   this ticket's store test read the disk back; it now restores the implementation.
+
+**PR #50 review pass 1 (2026-11-07):**
+- **B1, fixed: `rev` alone let a stale save through.** `rev` is a counter, not an
+  identity; two devices' counters collide. My `draftAfterQueued` (the scope growth
+  above) moved the draft onto a queued Save's `rev`, so with the plan stored at 3: B
+  queues 4 then 5 offline, A saves 4, B reconnects: B's 4 is refused and its 5 (= A's
+  4 + 1) accepted, erasing A's edit with "Plan saved". Same for a draft edited after a
+  queued Save that is refused late. Before `draftAfterQueued` the second Save repeated
+  4 and was refused. The reviewer proved case 1 on the emulator; the same case is now a
+  rules test.
+  - Fix, the review's option (a): each Save writes a fresh `saveId` (Firestore auto id,
+    `newSaveId`, made offline) and `baseSaveId`, the `saveId` of the version the draft
+    is based on (`PlanDraft.saveId`, moving with `rev`). The rule also requires
+    `baseSaveId` = stored `saveId` (none stored: null) and a new `saveId` (not the
+    stored one). `rev` + 1 stays, for D10's merge. A save chained on a refused one now
+    names it as its base and is refused; so is a dirty draft left after a late
+    refusal, with the notice, as the screen's comment said.
+  - Rejected: option (b), `rev` only, with the draft put back on a refusal and no new
+    Save while one is queued: two client rules that must hold for good, where (a) puts
+    "based on the stored version" in the server rule.
+  - `planFromDoc` keeps `saveId` (a string only) and drops `baseSaveId`, which only the
+    rule reads. `openPlanRefresh` also moves on another `saveId`. `importHistory`
+    writes a fresh `saveId` (admin skips the rule, so no base). Debug page shows each
+    plan's `saveId` (first 6 characters).
+  - Dropped from the rule after a break test: `saveId is string` on update; a missing
+    `saveId` already errors in the `!=` clause, which refuses. Kept on create.
+- **S1, taken:** `firebase-tools` is no longer a dev dependency (it added ~6.6k lock
+  lines, installed on every EAS build). `test:rules` runs `npx --yes
+  firebase-tools@13.35.1`; only `@firebase/rules-unit-testing` 4.0.1 stays (lock diff
+  against main: 14 lines). The six transitive bumps are gone with it.
+- **FYI, noted:** after a wipe and re-import under the same plan ids, plans restart at
+  rev 1; a phone holding rev 7 keeps its copy on change checks (higher `rev` wins)
+  until a Save (refused, then reloaded) or the next full reload. Test tooling only;
+  heals itself.
+- **Verified:** `tsc` clean; `npm test` 50 suites, 690 pass; `npm run test:rules` 24
+  pass. The two cases the review asked for (two queued saves against one remote save;
+  a save based on a refused one whose `rev` fits) fail against 5e82bd3's rules (4 tests
+  red) and pass now. Broken one at a time in a throwaway worktree, each red: the base
+  check (2), the new-`saveId` check (1), create's `saveId` (1); app: Save's
+  `baseSaveId` (4), the queued draft's `saveId` (3), the refresh on `saveId` (1), the
+  `saveId` guard (1), `baseSaveId` null not undefined (1), `draftFromPlan`'s `saveId`
+  (2), the confirmed draft keeping a later `saveId` (1), the screen's `newSaveId` (2),
+  `planFromDoc` keeping `saveId` (1, test added after it survived). Not covered by a
+  test: `isPlan`'s `saveId` check (a bad stored copy only costs a full reload).
 
 **Verified (2026-11-06):**
 - `npx tsc --noEmit` clean. `npm test`: 50 suites, 688 tests pass.
@@ -8111,9 +8154,9 @@ on two emulators.
 1. Review, commit, PR, merge.
 2. Build the app from main and install it on **every** tester phone, and open it once.
    An installed older build cannot save plans once the rule is live (it sends no `rev`).
-3. `npm run test:rules` on the merged tree (needs Java 17+): 21 pass.
-4. `npx firebase-tools deploy --only firestore:rules --project gymexerciselogger-fb`
-   (now runs the repo's pinned firebase-tools 13.35.1; a deploy needs no Java). It
+3. `npm run test:rules` on the merged tree (needs Java 17+): 24 pass.
+4. `npx firebase-tools@13.35.1 deploy --only firestore:rules --project gymexerciselogger-fb`
+   (a deploy needs no Java). It
    replaces the whole live ruleset; the only change from live is the plans rule.
 5. Then the device test below.
 Rollback, if Saves fail for everyone: redeploy the previous `firestore.rules` from main
@@ -8122,7 +8165,7 @@ before this merge (`git show fde4c34:firestore.rules`).
 **Device test plan (run after step 4; Android emulator, a "test…" plan only):**
 1. Emulator A on the test account, Metro with `SHOW_DEBUG_SCREENS=true`; B is a second
    emulator on the same account, or the Firebase console standing in for B's Save (set
-   `rev` to the stored value + 1 and change the name).
+   `rev` to the stored value + 1, `saveId` to any new text, and change the name).
 2. A and B open the same "test…" plan in Manage. Debug page: note its `rev` (expected
    "no rev (0)" for a plan saved before 073).
 3. A saves an edit: debug page shows `rev` 1.
@@ -8133,12 +8176,17 @@ before this merge (`git show fde4c34:firestore.rules`).
 6. Offline: B off wifi and data, edits, Save: "Not saved yet". A saves. B back online:
    no notice; debug log `refused … late from the queue`, then the reload; B shows A's
    version. This is the check of the offline finding above on React Native.
+6b. PR #50 review, B1: B offline, edit and Save ("Not saved yet"), edit again and Save
+   again. A saves once. B back online: both of B's Saves refused (two `refused … late`
+   lines), B shows A's version; the console shows A's name and `saveId`.
 7. Record the reads, every write (plan id, field, `rev`), and any console edit here.
 
 **Acceptance Criteria:**
 - [x] Rule tests: a save with the stored `rev` passes; with an old `rev` is refused; a
       new plan and a plan with no `rev` pass; other collections behave as before
       - 21 pass, each rule line broken and seen red (above). 2026-11-06.
+      - 24 pass after PR #50 review (B1: a save based on another version is refused
+        even when its `rev` fits). 2026-11-07.
 - [ ] Device test: edit on device A; device B, holding the old version, saves and is
       refused, sees the notice, and shows A's plan; B's next save goes through
       - Not run: needs the rule live (deploy order above).

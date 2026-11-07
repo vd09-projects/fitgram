@@ -9,7 +9,7 @@
     "web": "expo start --web",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-fitgram \"jest -c jest.rules.config.js\"",
+    "test:rules": "npx --yes firebase-tools@13.35.1 emulators:exec --only firestore --project demo-fitgram \"jest -c jest.rules.config.js\"",
     "bench:search": "tsx src/scripts/benchmarkSearch.ts --check"
   },
   "dependencies": {
@@ -45,7 +45,6 @@
     "esbuild": "^0.25.5",
     "expo": "^52.0.41",
     "firebase-admin": "^13.10.0",
-    "firebase-tools": "13.35.1",
     "jest": "^29.7.0",
     "jest-expo": "~52.0.6",
     "react-native-dropdown-picker": "^5.4.6",

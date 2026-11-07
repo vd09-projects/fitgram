@@ -45,12 +45,12 @@ describe("archive state", () => {
   const bench = { id: "bench", name: "", fields: [{ name: "Reps", role: "reps" as const }] };
 
   it("Save keeps the archived flag in the overwrite", async () => {
-    await overrideWorkoutDetails("uid", { id: "push", name: "Push", exercises: [bench], archived: true, rev: 1 });
+    await overrideWorkoutDetails("uid", { id: "push", name: "Push", exercises: [bench], archived: true, rev: 1, saveId: "s1" });
     expect((setDoc as jest.Mock).mock.calls.at(-1)?.[1]).toMatchObject({ archived: true });
   });
 
   it("Save of an unarchived plan writes no flag, which reads as not archived", async () => {
-    await overrideWorkoutDetails("uid", { id: "push", name: "Push", exercises: [bench], rev: 1 });
+    await overrideWorkoutDetails("uid", { id: "push", name: "Push", exercises: [bench], rev: 1, saveId: "s1" });
     expect("archived" in (setDoc as jest.Mock).mock.calls.at(-1)?.[1]).toBe(false);
   });
 });
@@ -61,7 +61,7 @@ describe("updatedAt", () => {
   const bench = { id: "bench", name: "", fields: [{ name: "Reps", role: "reps" as const }] };
 
   it("Save writes the server's stamp, never the one the plan was read with", async () => {
-    await overrideWorkoutDetails("uid", { id: "push", name: "Push", exercises: [bench], updatedAt: { seconds: 1, nanoseconds: 0 }, rev: 1 });
+    await overrideWorkoutDetails("uid", { id: "push", name: "Push", exercises: [bench], updatedAt: { seconds: 1, nanoseconds: 0 }, rev: 1, saveId: "s1" });
     expect((setDoc as jest.Mock).mock.calls.at(-1)?.[1].updatedAt).toBe("SERVER_TIMESTAMP");
   });
 
@@ -74,11 +74,24 @@ describe("updatedAt", () => {
   });
 });
 
-// TICKET-073 D6: Save writes the plan's new rev; without one the rules would
-// refuse it, and the refusal would read as "changed on another device".
-it("Save writes the rev it is given, and refuses a plan with none", async () => {
+// TICKET-073 D6 (and PR #50 review, B1): Save writes the plan's new version;
+// without it the rules would refuse it, and the refusal would read as
+// "changed on another device".
+it("Save writes the version it is given, and refuses a plan with no rev or saveId", async () => {
   const bench = { id: "bench", name: "", fields: [{ name: "Reps", role: "reps" as const }] };
-  await overrideWorkoutDetails("uid", { id: "push", name: "Push", exercises: [bench], rev: 4 });
-  expect((setDoc as jest.Mock).mock.calls.at(-1)?.[1].rev).toBe(4);
-  await expect(overrideWorkoutDetails("uid", { id: "push", name: "Push", exercises: [bench] })).rejects.toThrow("no rev");
+  await overrideWorkoutDetails("uid", { id: "push", name: "Push", exercises: [bench], rev: 4, saveId: "s4", baseSaveId: "s3" });
+  expect((setDoc as jest.Mock).mock.calls.at(-1)?.[1]).toMatchObject({ rev: 4, saveId: "s4", baseSaveId: "s3" });
+  // Based on a plan saved before saveId: null, never undefined (Firestore rejects it).
+  await overrideWorkoutDetails("uid", { id: "push", name: "Push", exercises: [bench], rev: 1, saveId: "s1" });
+  expect((setDoc as jest.Mock).mock.calls.at(-1)?.[1].baseSaveId).toBeNull();
+  await expect(overrideWorkoutDetails("uid", { id: "push", name: "Push", exercises: [bench], saveId: "s" })).rejects.toThrow("no rev");
+  await expect(overrideWorkoutDetails("uid", { id: "push", name: "Push", exercises: [bench], rev: 4 })).rejects.toThrow("no saveId");
+});
+
+// PR #50 review, B1: the draft's base comes from the plan as read. Dropped,
+// every draft would be based on null and its Save refused.
+it("a plan read keeps its rev and saveId, and drops the baseSaveId only the rule reads", async () => {
+  const doc = { id: "push", data: () => ({ name: "Push", exercises: [], rev: 4, saveId: "s4", baseSaveId: "s3" }) };
+  (getDocsFromServer as jest.Mock).mockResolvedValue({ docs: [doc] });
+  expect(await getAllWorkoutPlans("uid")).toEqual([{ id: "push", name: "Push", exercises: [], rev: 4, saveId: "s4" }]);
 });
