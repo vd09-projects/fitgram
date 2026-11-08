@@ -50,7 +50,7 @@ export function mergeSummaries(held: SummariesById, incoming: readonly ExerciseS
  * the stamped copies back and they replace these (no stamp is older than any
  * stamp). That costs one read per exercise finished, on purpose. Rejected: a
  * read after Finish to learn the commit stamp, so `lastSeen` could move. It
- * saves 5-9 reads a workout, worth no money at this scale, and moving
+ * saves one read per exercise finished, worth no money at this scale, and moving
  * `lastSeen` that way can skip another phone's Finish.
  */
 export function withFinishedSummaries(held: SummariesById, finished: readonly ExerciseStatsDoc[]): SummariesById {

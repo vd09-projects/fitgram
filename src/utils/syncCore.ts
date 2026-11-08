@@ -75,10 +75,11 @@ export function lastSeenAfter<T extends { updatedAt?: SyncStamp }>(lastSeen: Syn
  * everything).
  *
  * Never on a timer (TICKET-076): every app write is stamped, so a change check
- * finds it. All a timer caught was wipe scripts and hand edits, at about 5
- * reads per plan (workouts) or up to 20 (plans) each week. `lastFullAt` stays
- * in the stored copies for the debug page only. After a wipe or a console
- * edit, sign out and in, or use the debug page's full reload.
+ * finds it. All a timer caught was wipe scripts and hand edits, at up to
+ * `WORKOUTS_PER_PLAN` reads per plan (workouts) or one per plan (plans) per
+ * reload. `lastFullAt` stays in the stored copies for the debug page only.
+ * After a wipe or a console edit, sign out and in, or use the debug page's
+ * full reload.
  */
 export function fullReloadDue(input: { requested: boolean; hasStored: boolean }): boolean {
   return input.requested || !input.hasStored;

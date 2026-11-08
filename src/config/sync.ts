@@ -9,10 +9,11 @@
 
 /**
  * A check that succeeded this recently makes the next screen skip its own (D4).
- * Its job is quick back-and-forth between screens, which is seconds. 1 minute,
- * not 2 (TICKET-076): a longer window only delays what another phone wrote, and
- * the extra reads at 1 minute cost nothing. It also limits how often the stored
- * copies are rewritten: every successful check rewrites them, changed or not.
+ * Its job is quick back-and-forth between screens, which takes seconds. Keep it
+ * short (TICKET-076): a longer window only delays what another phone wrote, and
+ * the reads it saves cost nothing at this scale. It also limits how often the
+ * stored copies are rewritten: every successful check rewrites them, changed or
+ * not.
  */
 export const PLANS_CHECK_SKIP_MS = 60 * 1000;
 

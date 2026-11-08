@@ -105,8 +105,8 @@ export function workoutsLastSeenAfter(
  *
  * Archived plans are read too, once each: Start lists them with their date
  * when shown, and unarchiving one then needs no read. Archiving drops
- * nothing held. Rejected: skipping them, which saves up to 5 reads per
- * archived plan on a first load and leaves their rows undated.
+ * nothing held. Rejected: skipping them, which saves up to
+ * `WORKOUTS_PER_PLAN` reads per archived plan on a first load and leaves their rows undated.
  */
 export function planIdsToHold(plans: readonly WorkoutPlan[] | null): string[] | null {
   if (plans === null) return null;
