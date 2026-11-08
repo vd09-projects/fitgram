@@ -8547,6 +8547,125 @@ a restart. A workout finished on another device appears on the next check.
 
 **Dependencies:** TICKET-074.
 
+**Load-bearing facts, checked in code 2026-11-08 (CLAUDE.md 2.1):**
+1. **Writers of a `sessions` doc:** the four expected, no others.
+   `saveWorkoutSession` (the Finish batch `set`, and the summary transaction's
+   `{ ...session, rollupPending: false }` merge), `importHistory.ts` (`--confirm`
+   `set`), `rebuildExerciseStats.ts` (merge clearing `rollupPending`). Also
+   touching `sessions`, not writers: `wipe.ts` / `wipeTestData.ts` **delete**
+   docs (no stamp can show a delete; see stage 2's full reload), and
+   `searchBenchmark.ts` / tests build docs in memory only. No Cloud Functions.
+2. **Session fields each reader uses:**
+   - `buildPlanRows` (hub, Start, Manage's plan order): per plan, the newest
+     session's `workoutId`, `startedAt`, `endedAt`, `volume`. The last N per plan
+     gives this for **every** plan, where the 20-window dropped plans not done
+     lately ("not in recent workouts"): more, never less.
+   - `buildRecentHistory` (picker's Recent and last-used version, in Manage and
+     mid-workout): `exerciseIds` and `startedAt`, newest first across all
+     sessions, first `RECENT_LIMIT` (10) movements. The union of every plan's
+     last 5 always contains the 5 globally newest sessions, and adds every
+     plan's last 5 the 20-window missed. **Gives less in one case:** a movement
+     whose newest use is in a plan's 6th-or-older session that was inside the
+     global newest 20, i.e. the movement left that plan (removed, swapped, or
+     skipped 5 times running), or a Freestyle-only movement when the user did
+     more than 5 Freestyles among the last 20. Then it is missing from Recent
+     and its sheet preselects no version (the same "only as deep as" gap
+     `recents.ts` already documents, at a different depth). Accepted per D2: the
+     picker's search still finds it.
+3. **Plans code to generalise:** stamps (`PlanStamp`, `toPlanStamp`,
+   `compareStamps`, `NO_STAMP_SEEN`, `changeCheckAfter`), `lastSeenAfter`,
+   `isFullReloadDue`, `shouldSkipCheck`, the stored envelope in
+   `readStoredPlans` (`planSync.ts`); in `usePlansStore.ts` the stored load,
+   join (D9) with its wait, `seq`/`newestApplied`, `epoch`, the persist chain
+   and the readout. Plans-only: the `rev` merge (D10), `mergeFullReload` and
+   its S1 rule, Save read-back, refused-save reload. `serverOnly` (userDB) is
+   a 6-line guard on a snapshot; the sessions reads in stage 2 use the same
+   rule.
+- **Rules:** no change. `sessions` falls under the catch-all
+  `match /{collection}/{document=**}` (owner only, not `workouts`), which
+  allows any field. `npm run test:rules` green, 25/25.
+- **Indexes:** the change query is a range on one field (automatic index); the
+  per-plan first load uses the existing `sessions (workoutId, startedAt desc)`.
+
+**Suspected bug, confirmed on the emulator 2026-11-08 (before stage 2):**
+Pixel 9 Pro XL emulator, Metro on this branch (readers unchanged from main),
+account "Vikrant Dhawan". Online, the hub showed Chest workout AJ "6d", Test WK
+"4d", two plans "not in recent workouts". Airplane mode on, app force-stopped
+and relaunched, hub opened: **all four tiles "— not in recent workouts"**.
+`getDocs` answered from the empty memory cache instead of rejecting, so
+`useRecentSessions` held `[]`, and the hub stated "not in recent workouts"
+instead of "last session unknown": a plausible wrong answer (CLAUDE.md 2.4).
+Present since `useRecentSessions` was added (19ea49d, TICKET-022; `git log -S`).
+Stage 2 removes the hook; its replacement refuses cached answers (`serverOnly`).
+
+**Stage 1 as built (2026-11-08, branch `TICKET-075-stage-1`, uncommitted):**
+- **Server stamp:** `updatedAt: serverTimestamp()` on the Finish batch, the
+  summary merge, `importHistory.ts` (`FieldValue.serverTimestamp()`) and
+  `rebuildExerciseStats.ts`. `WorkoutSessionDoc.updatedAt?: SyncStamp`; reads
+  convert it to plain numbers (`sessionFromDoc` in `workoutSessions.ts`).
+  Sessions written before 075 have none; stage 2's first load reads by
+  `startedAt` (per plan), not by stamp, so it gets them; only an edit of such a
+  doc would go unseen, and nothing edits one except the scripts above, which
+  now stamp. No backfill (pre-launch).
+- **The sync core is two files:** `src/utils/syncCore.ts` (pure: `SyncStamp`,
+  `toStamp`, `compareStamps`, `NO_STAMP_SEEN`, `changeCheckAfter`,
+  `lastSeenAfter`, `fullReloadDue`, `withinSkipWindow`, `openEnvelope`) and
+  `src/stores/syncRunner.ts` (`createSyncRunner`: stored load, join and wait,
+  skip, `seq` drop, `epoch`, persist chain, readout). A store supplies
+  `readStored`/`writeStored`, `read(run)`, `apply(state, run, answer)`, and a
+  `plan(state, skipped)` that picks the run or skips. Rejected: one generic
+  zustand store with per-collection config, which would bend the plans' Save
+  and refusal paths into it; the runner leaves those in `usePlansStore` on
+  `isCurrent`/`persist`/`note`.
+- **Plans on the core, behaviour unchanged:** `usePlansStore` builds on the
+  runner; `planSync.ts` keeps its plans-only rules and binds the plans'
+  constants (`isFullReloadDue`, `shouldSkipCheck`), and re-exports the moved
+  stamp names under their old names, so **no plans test was changed**: 56/56
+  green unmodified. Each runner rule was broken once and a plans test went red
+  (join, epoch, `seq` drop, persist chain).
+- **Checked against TICKET-076** (not built): whole-collection full read,
+  stamp change check, own Finish applied with no read, a stored copy in several
+  AsyncStorage keys (`readStored`/`writeStored` own the layout), sign-out
+  clear: all fit the runner as is.
+- `PlanStamp` is now an alias of `SyncStamp`.
+- Tests: `workoutSessions.test.ts` +2 (both Finish writes stamped; read gives
+  plain numbers, none for pre-075 docs), each seen red by removing its line.
+
+**Stage 2 design (proposed; to build after PR 1 merges):**
+- **Store** `useWorkoutsStore` on the runner: `byPlan: Record<planId,
+  WorkoutSessionDoc[]>` (newest N by `startedAt`, ties by `sessionId` desc as
+  Firestore orders them, deduped by `sessionId`, the stamped/newer copy wins),
+  `loaded: planId[]`, `lastSeen`, `lastFullAt`, `n`. Key and format number in
+  `storageKeys.ts`; `WORKOUTS_PER_PLAN = 5` in `config/sync.ts`. A copy with
+  another `n` is discarded and refilled (both directions: one rule, and a
+  refill costs one first load).
+- **First load / full reload:** first one baseline read, `orderBy(updatedAt
+  desc) limit 1` (1 read), whose stamp becomes `lastSeen`; *then* one query per
+  plan in parallel. 070's single-query rule ("one read sees every commit before
+  it") does not hold across ~N queries, so `lastSeen` cannot come from their
+  answers: a write landing between two plan queries would be missed for good
+  (070 S1's case). Any write after the baseline has a later stamp and the next
+  change check returns it; a duplicate merges away. All-or-nothing: one failed
+  query fails the load (no partial list).
+- **Plans loaded:** the plans store's plans, archived included (one read each,
+  once; keeps Start's archived rows dated, and unarchiving needs no reload),
+  plus `FREESTYLE_ID`. A plan id not yet loaded (new plan, plans arrived after
+  the first load) is loaded on the next trigger, past the skip window. Plans
+  store empty (nothing stored): no load; readers show "last session unknown".
+  Archive does not drop held workouts.
+- **Change check:** `updatedAt > lastSeen` from the server, `serverOnly`,
+  merged per plan. A late upload (old `startedAt`, new stamp) is found.
+- **Full reload every 7 days** (own constant): catches deletes (wipe scripts)
+  and heals a hand-set future stamp, as plans' D5.
+- **Own Finish, 0 reads:** after `saveWorkoutSession` resolves, the session goes
+  into the store unstamped; ordering is by `startedAt`, so it needs no stamp;
+  `lastSeen` does not move, so the next change check returns it once (1 doc)
+  and the stamped copy replaces it.
+- **Readers:** hub, Start, Manage and the picker read the store and check on
+  focus with the plans' 2-minute skip; pending uploads still merged by
+  `buildPlanRows`/`buildRecentHistory`. `useRecentSessions` and
+  `RECENT_SESSIONS_WINDOW` go. Sign-out clears it (`initAuth`).
+
 ---
 
 ### TICKET-076: Exercise Summaries on the Phone
