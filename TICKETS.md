@@ -8675,9 +8675,8 @@ Stage 2 removes the hook; its replacement refuses cached answers (`serverOnly`).
 
 **Stage 2 as built (2026-11-08, branch `TICKET-075-stage-2`):**
 - **Files:** `utils/workoutsSync.ts` (pure: `compareSessions`,
-  `mergePlanSessions`, `mergeIntoPlans`, `fullReloadPlans`,
-  `stillOwnFinished`, `workoutsLastSeenAfter`, `planIdsToHold`,
-  `heldSessions`, the stored copy), `stores/useRecentWorkoutsStore.ts` (on the
+  `mergePlanSessions`, `mergeIntoPlans`, `workoutsLastSeenAfter`,
+  `planIdsToHold`, `heldSessions`, the stored copy), `stores/useRecentWorkoutsStore.ts` (on the
   runner), `hooks/useRecentWorkouts.ts` (the readers' hook), three server
   reads in `workoutSessions.ts` (`getNewestSessionStamp`,
   `getPlanSessionsFromServer`, `getChangedSessions`, each `serverOnly`).
@@ -8705,8 +8704,11 @@ Stage 2 removes the hook; its replacement refuses cached answers (`serverOnly`).
     next check bills 1 read with or without the doc), and the race stays.
   - The "new plans" check kind (only the missing per-plan queries, run inside
     the skip). A plan from another device arriving within 2 minutes of a
-    check: its sessions since `lastSeen` came with that change check, so it
-    is dated already; only its older ones wait for the next check.
+    check: if done since `lastSeen`, those sessions came with that change
+    check and it is dated. If all its sessions predate `lastSeen` (done on
+    the other phone before this phone's last full load), it shows "— not in
+    recent workouts" until the next check after the skip, which needs a
+    focus or foreground once the 2 minutes are up. Accepted (PR #53 pass 2).
   - With it, `followPlans`' second check and its PR #53 re-call: both run
     inside the skip window, where nothing is read now. Ids arriving mid-check
     wait for the next check, as above.
@@ -8814,7 +8816,8 @@ account "Vikrant Dhawan"; writes: two Finishes on "Test WK"):**
 - **Own Finish during a full reload:** shown with the plan's older date until
   the next check (see "Cut after PR #53 review"). Accepted.
 - **Copy:** "not in recent workouts" now means never done (or a plan whose
-  workouts are not loaded yet, for a moment). Changing it to "never done"
+  workouts are not loaded yet, until the next check after the 2-minute
+  skip). Changing it to "never done"
   is a UI change outside this ticket; left, comment in `hubTileFace`.
 - **A hand-set future `updatedAt` on a session** pins `lastSeen` while that
   doc holds it: sessions are not rewritten, so unlike plans it does not heal

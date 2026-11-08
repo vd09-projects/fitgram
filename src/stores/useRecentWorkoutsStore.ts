@@ -41,7 +41,9 @@ import { WORKOUTS_STORAGE_KEY } from "../config/storageKeys";
  *   nothing changed), plus a per-plan query for any plan not loaded yet.
  * Inside the 2-minute skip nothing is read, plans not loaded yet included:
  * a plan's sessions written since `lastSeen` already came with the change
- * check, so only its older ones wait, for the next check.
+ * check. Its older ones wait for the next check after the skip (a focus or
+ * foreground once the 2 minutes are up); until then a plan with only older
+ * sessions shows "not in recent workouts". Accepted (PR #53 pass 2).
  * Every read is from the server (`serverOnly` in workoutSessions.ts).
  *
  * Plans arriving later (PR #52 review): on a first launch the plans store may

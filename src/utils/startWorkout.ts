@@ -225,7 +225,8 @@ export type HubTileFace = {
  * card's `sessionsKnown` rule:
  * - sessions read, plan not among them → "—" "not in recent workouts". Not
  *   "never done": kept from the 20-session window, though since TICKET-075 it
- *   is never done but for a plan not loaded yet. A copy change is a
+ *   is never done but for a plan not loaded yet (until the next check after
+ *   the 2-minute skip). A copy change is a
  *   follow-up (TICKET-075 known gaps), not part of this ticket
  * - nothing held yet, or the first load failed (`useRecentWorkouts` is null) →
  *   "—" "last session unknown", the card's own words
