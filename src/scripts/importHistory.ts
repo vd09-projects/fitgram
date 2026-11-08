@@ -22,7 +22,9 @@
 //                                             next check)
 //   exercise_sessions/{sessionId}__{exercise} one per exercise per session
 //   exercise_stats/{exerciseId}               REBUILT from every exercise_session
-//                                             the user has, imported or not
+//                                             the user has, imported or not,
+//                                             with `updatedAt` = the server's
+//                                             time (TICKET-076)
 //
 // Ids are deterministic (plan id + start time), so a re-run overwrites the same
 // docs instead of duplicating them. Refuses when the user already has a session
@@ -140,7 +142,7 @@ const run = async () => {
   const statsBatch = firestore.batch();
   for (const exerciseId of exerciseIds) {
     const stats = rebuildStatsFromSessions(exerciseId, all);
-    if (stats) statsBatch.set(user.collection(EXERCISE_STATS).doc(exerciseId), stats);
+    if (stats) statsBatch.set(user.collection(EXERCISE_STATS).doc(exerciseId), { ...stats, updatedAt: FieldValue.serverTimestamp() });
   }
   await statsBatch.commit();
   console.log(`Rebuilt ${exerciseIds.size} exercise_stats docs from ${all.length} exercise_sessions.`);

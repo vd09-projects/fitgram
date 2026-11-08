@@ -19,7 +19,7 @@ describe("lastTopSet", () => {
   const historyFor = (fields: ExerciseField[], sets: Record<string, string>[], currentFields?: ExerciseField[]) => {
     const stats = buildStats("Bench Press", [{ fields, sets }]);
     return deriveExerciseHistory(
-      { exerciseId: stats.exerciseId, status: "ready", stats, fetchedAt: 0, error: null },
+      { exerciseId: stats.exerciseId, status: "ready", stats, error: null },
       currentFields
     );
   };

@@ -28,7 +28,6 @@ const historyOf = (
       exerciseId: "bench-press",
       status,
       stats: sessions ? buildStats("Bench Press", sessions) : null,
-      fetchedAt: 0,
       error: null,
     },
     fields

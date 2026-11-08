@@ -4,7 +4,7 @@ import StartWorkoutScreen from "./StartWorkoutScreen";
 import { renderScreen, TEST_USER_ID } from "../../test/renderScreen";
 import { buildExercise, buildStats, buildWorkout } from "../../test/fixtures";
 import { getAllWorkoutPlans } from "../../services/db/userDB";
-import { getExerciseStats, getNewestSessionStamp, getPlanSessionsFromServer } from "../../services/db/workoutSessions";
+import { getAllExerciseStats, getNewestSessionStamp, getPlanSessionsFromServer } from "../../services/db/workoutSessions";
 import { serveRecentWorkouts } from "../../test/recentWorkouts";
 import { LayoutRoutes } from "../../constants/routes";
 import { WorkoutPlan } from "../../types/workoutType";
@@ -23,12 +23,13 @@ jest.mock("../../services/db/workoutSessions", () => ({
   getNewestSessionStamp: jest.fn(),
   getPlanSessionsFromServer: jest.fn(),
   getChangedSessions: jest.fn(),
-  getExerciseStats: jest.fn(),
+  getAllExerciseStats: jest.fn(),
+  getChangedExerciseStats: jest.fn(async () => []),
 }));
 
 const mockPlans = getAllWorkoutPlans as jest.Mock;
 const mockSessions = getPlanSessionsFromServer as jest.Mock;
-const mockStats = getExerciseStats as jest.Mock;
+const mockStats = getAllExerciseStats as jest.Mock;
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -142,7 +143,7 @@ describe("StartWorkoutScreen", () => {
     };
     mockPlans.mockResolvedValue([plan]);
     serveRecentWorkouts([]);
-    mockStats.mockResolvedValue({});
+    mockStats.mockResolvedValue([]);
     renderScreen(StartWorkoutScreen, { route: LayoutRoutes.Home });
     const load = loadCatalog([CATALOG_ROW]);
     if (load.kind !== "ok") throw new Error("fixture catalog refused");
@@ -170,7 +171,7 @@ describe("StartWorkoutScreen, archived plans", () => {
   const OLD_PUSH: WorkoutPlan = { ...plan("old_push", "Push v1", ["Bench Press"]), archived: true };
 
   async function renderWith(plans: WorkoutPlan[], options: Parameters<typeof renderScreen>[1] = {}) {
-    mockStats.mockResolvedValue({});
+    mockStats.mockResolvedValue([]);
     mockPlans.mockResolvedValue(plans);
     serveRecentWorkouts([]);
     renderScreen(StartWorkoutScreen, { route: LayoutRoutes.Home, ...options });
@@ -235,10 +236,11 @@ describe("StartWorkoutScreen, plan card", () => {
     expect(screen.getByTestId("plan-card-since")).toHaveTextContent("9days since last");
     expect(screen.getByTestId("plan-card-meta")).toHaveTextContent("2 exercises · about 50 min last time");
     expect(screen.getByTestId("last-time-bench-press")).toHaveTextContent("…");
-    expect(mockStats).toHaveBeenCalledWith(TEST_USER_ID, ["bench-press", "squat"]);
+    // After the stored copy is read: there is none, so a first load.
+    await waitFor(() => expect(mockStats).toHaveBeenCalledWith(TEST_USER_ID));
 
     const bench = buildStats("Bench Press", [{ sets: [{ Weight: "65", Reps: "8" }, { Weight: "60", Reps: "10" }] }]);
-    await act(async () => resolveStats({ "bench-press": bench, squat: null }));
+    await act(async () => resolveStats([bench]));
     expect(screen.getByTestId("last-time-bench-press")).toHaveTextContent("2 sets · top 65 kg × 8");
     expect(screen.getByTestId("last-time-squat")).toHaveTextContent("new");
 
@@ -248,7 +250,7 @@ describe("StartWorkoutScreen, plan card", () => {
   });
 
   it("closes from the X, the dim area and Android back without starting anything", async () => {
-    mockStats.mockResolvedValue({});
+    mockStats.mockResolvedValue([]);
     const startWorkout = jest.fn();
     await renderStart({ workoutActions: { startWorkout } });
 
@@ -276,7 +278,7 @@ describe("StartWorkoutScreen, plan card", () => {
   // PR #44 review: the card stays mounted with the screen, so its clock must be
   // read on each open, not once at mount, or a later open counts from the past.
   it("counts days since from the moment it opens, not from when the screen mounted", async () => {
-    mockStats.mockResolvedValue({});
+    mockStats.mockResolvedValue([]);
     const mounted = Date.now();
     const clock = jest.spyOn(Date, "now").mockReturnValue(mounted);
     try {
@@ -295,7 +297,7 @@ describe("StartWorkoutScreen, plan card", () => {
   });
 
   it("collapses the header to one line while the list is scrolled, keeping Start", async () => {
-    mockStats.mockResolvedValue({});
+    mockStats.mockResolvedValue([]);
     await renderStart({}, [session("push", Date.now() - 9 * DAY, 100)]);
     await waitFor(() => expect(summary("push")).toHaveTextContent(/last done 9 days ago/));
     fireEvent.press(screen.getByRole("button", { name: "Push" }));
@@ -308,7 +310,7 @@ describe("StartWorkoutScreen, plan card", () => {
   });
 
   it("offers Resume, with the live timer, for the plan that is running", async () => {
-    mockStats.mockResolvedValue({});
+    mockStats.mockResolvedValue([]);
     const startWorkout = jest.fn();
     const workout = buildWorkout(["Bench Press"], { id: "push", name: "Push", startTime: Date.now() - 90_000 });
     await renderStart({ workout, workoutActions: { startWorkout } });
@@ -325,7 +327,7 @@ describe("StartWorkoutScreen, plan card", () => {
   // The running workout is no plan on this screen: its name and timer must come
   // from activeWorkout itself, as a Freestyle will in TICKET-067.
   it("blocks Start while another workout runs, naming it from the active workout", async () => {
-    mockStats.mockResolvedValue({});
+    mockStats.mockResolvedValue([]);
     const startWorkout = jest.fn();
     const workout = buildWorkout(["Row"], { id: "not-a-plan", name: "Legs", startTime: Date.now() - 90_000 });
     await renderStart({ workout, workoutActions: { startWorkout } });

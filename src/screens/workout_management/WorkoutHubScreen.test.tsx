@@ -4,7 +4,7 @@ import WorkoutHubScreen from "./WorkoutHubScreen";
 import { renderScreen, TEST_USER_ID } from "../../test/renderScreen";
 import { buildExercise, buildWorkout } from "../../test/fixtures";
 import { getAllWorkoutPlans, getChangedPlans } from "../../services/db/userDB";
-import { getExerciseStats, getNewestSessionStamp, getPlanSessionsFromServer } from "../../services/db/workoutSessions";
+import { getAllExerciseStats, getNewestSessionStamp, getPlanSessionsFromServer } from "../../services/db/workoutSessions";
 import { failRecentWorkouts, serveRecentWorkouts } from "../../test/recentWorkouts";
 import { WorkoutRoutes } from "../../constants/routes";
 import { WorkoutPlan } from "../../types/workoutType";
@@ -23,12 +23,13 @@ jest.mock("../../services/db/workoutSessions", () => ({
   getNewestSessionStamp: jest.fn(),
   getPlanSessionsFromServer: jest.fn(),
   getChangedSessions: jest.fn(),
-  getExerciseStats: jest.fn(),
+  getAllExerciseStats: jest.fn(),
+  getChangedExerciseStats: jest.fn(async () => []),
 }));
 
 const mockPlans = getAllWorkoutPlans as jest.Mock;
 const mockSessions = getPlanSessionsFromServer as jest.Mock;
-const mockStats = getExerciseStats as jest.Mock;
+const mockStats = getAllExerciseStats as jest.Mock;
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -68,7 +69,7 @@ const tile = (id: string) => screen.getByTestId(`hub-tile-${id}`);
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockStats.mockResolvedValue({});
+  mockStats.mockResolvedValue([]);
 });
 
 describe("WorkoutHubScreen", () => {

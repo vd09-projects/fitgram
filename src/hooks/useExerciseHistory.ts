@@ -6,6 +6,7 @@ import { useWorkoutStore } from "../stores/useWorkoutStore";
 import { ExerciseHistory } from "../types/exerciseHistory";
 import { ExerciseField } from "../types/workoutType";
 import { deriveExerciseHistory } from "../utils/exerciseHistory";
+import { summaryEntry } from "../utils/exerciseSummariesSync";
 
 type UseExerciseHistoryOptions = {
   /**
@@ -25,16 +26,17 @@ type UseExerciseHistoryOptions = {
  * label or filter without the data being partitioned by plan.
  *
  * Read-only. This hook issues no network reads at any point — not on mount, not
- * on an exercise switch, not on a cache miss. It selects from the per-exercise
- * cache in `useExerciseHistoryStore` and derives everything with pure functions.
- * Filling that cache is a separate, explicit call,
- * `useExerciseHistoryStore.getState().prefetchExerciseHistory(uid, ids)`, which
- * `startWorkout` already makes for the whole plan. That split is the point:
- * logging a set never waits on the network, and no number of readers costs a read.
+ * on an exercise switch, not on a miss. It selects from the saved summaries in
+ * `useExerciseHistoryStore` and derives everything with pure functions. Keeping
+ * those fresh is a separate, explicit call,
+ * `useExerciseHistoryStore.getState().open(uid)`, which `startWorkout` already
+ * makes. That split is the point: logging a set never waits on the network, and
+ * no number of readers costs a read.
  *
- * Before any prefetch the result is `status: "idle"` with `hasHistory: false` —
- * distinguishable from `"ready"` with no history, which is a brand-new exercise.
- * Neither is an error and both render.
+ * Before any check the result is `status: "idle"` with `hasHistory: false` —
+ * distinguishable from `"ready"` with no history, which is a brand-new exercise
+ * (`summaryEntry` says when that may be claimed). Neither is an error and both
+ * render.
  *
  * Two flags consumers must branch on rather than render numbers from:
  * - `numericComparisonAvailable` false — the exercise has no weight+reps pair at
@@ -48,8 +50,20 @@ export function useExerciseHistory(
   exerciseId: string | undefined,
   options?: UseExerciseHistoryOptions
 ): ExerciseHistory {
-  const entry = useExerciseHistoryStore((state) =>
-    exerciseId ? state.entries[exerciseId] : undefined
+  // Field by field: an object built in a selector is new on every store change.
+  const stats = useExerciseHistoryStore((state) =>
+    exerciseId ? state.byId?.[exerciseId] : undefined
+  );
+  const checking = useExerciseHistoryStore((state) => state.checking);
+  const waitOver = useExerciseHistoryStore((state) => state.waitOver);
+  const lastResult = useExerciseHistoryStore((state) => state.lastResult);
+  const lastError = useExerciseHistoryStore((state) => state.lastError);
+  const entry = useMemo(
+    () =>
+      exerciseId
+        ? summaryEntry({ exerciseId, stats, checking, waitOver, lastResult, lastError })
+        : undefined,
+    [exerciseId, stats, checking, waitOver, lastResult, lastError]
   );
 
   // The live definitions, only when this is the exercise currently being logged.

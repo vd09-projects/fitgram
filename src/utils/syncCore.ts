@@ -7,9 +7,9 @@
 // half is `stores/syncRunner.ts`.
 //
 // Users: the plans (`planSync.ts`, TICKET-070), the recent workouts
-// (TICKET-075). Exercise summaries (TICKET-076) are meant to be the third.
-// What differs per store stays with it: how an answer merges (plans by `rev`,
-// workouts by `startedAt`), and what the stored body holds.
+// (TICKET-075), the exercise summaries (TICKET-076). What differs per store
+// stays with it: how an answer merges (plans by `rev`, workouts by `startedAt`,
+// summaries by stamp), and what the stored body holds.
 
 /**
  * A Firestore server timestamp as the phone holds it: plain numbers, so it

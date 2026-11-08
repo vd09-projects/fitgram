@@ -30,7 +30,8 @@ describe("renderScreen history option", () => {
       history: { [stats.exerciseId]: stats },
     });
     expect(screen.getByText("bench:ready:true:60x8")).toBeOnTheScreen();
-    expect(screen.getByText("squat:idle:false")).toBeOnTheScreen();
+    // TICKET-076: the store holds every exercise done, so no doc is never done.
+    expect(screen.getByText("squat:ready:false")).toBeOnTheScreen();
   });
 
   it("seeds null as fetched-and-never-done, not idle", () => {

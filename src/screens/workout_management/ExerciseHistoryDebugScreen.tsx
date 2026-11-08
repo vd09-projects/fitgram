@@ -59,11 +59,10 @@ export default function ExerciseHistoryDebugScreen() {
     [planExercises, exerciseNames]
   );
 
-  // The one number that matters: every Firestore history fetch this app session.
-  const fetchCount = useExerciseHistoryStore((s) => s.fetchCount);
-  // Whole-plan prefetching is only observable through cache state, so show it.
-  const entries = useExerciseHistoryStore((s) => s.entries);
-  const prefetch = useExerciseHistoryStore((s) => s.prefetchExerciseHistory);
+  // The one number that matters: every server check this app run (TICKET-076).
+  const fetchCount = useExerciseHistoryStore((s) => s.readout.reads);
+  const byId = useExerciseHistoryStore((s) => s.byId);
+  const open = useExerciseHistoryStore((s) => s.open);
   const invalidate = useExerciseHistoryStore((s) => s.invalidateExercises);
 
   // Reading. This never fetches.
@@ -125,43 +124,22 @@ export default function ExerciseHistoryDebugScreen() {
       />
 
       <View style={styles.buttonRow}>
-        <Button
-          label="Prefetch this exercise"
-          onPress={() => prefetch(user?.uid, exercise?.value ? [exercise.value.id] : [])}
-        />
-        <Button
-          label="Prefetch whole plan"
-          onPress={() =>
-            prefetch(user?.uid, (plan?.value?.exercises ?? []).map((e) => e.id))
-          }
-        />
-        <Button
-          label="Invalidate"
-          onPress={() => invalidate(exercise?.value ? [exercise.value.id] : [])}
-        />
+        <Button label="Check (force)" onPress={() => open(user?.uid, { force: true })} />
+        <Button label="Full load" onPress={() => open(user?.uid, { force: true, full: true })} />
+        <Button label="Expire skip" onPress={invalidate} />
       </View>
 
-      <TextBase style={styles.section}>
-        Plan cache state — what each button actually did
-      </TextBase>
-      <TextBase style={styles.counterHint}>
-        "This exercise" caches one row. "Whole plan" caches every row in one
-        batched query, and a second tap caches nothing because they are already
-        ready. Rows sharing a Fetched time came from the same batch.
-      </TextBase>
+      <TextBase style={styles.section}>Held summaries for this plan</TextBase>
       {(plan?.value?.exercises ?? []).length === 0 ? (
         <TextBase style={styles.empty}>Pick a plan.</TextBase>
       ) : (
         planExercises.map((ex, i) => {
-          const entry = entries[ex.id];
-          const sessions = entry?.stats?.recentSessions?.length ?? 0;
+          const held = byId?.[ex.id];
           return (
             <Row
               key={ex.id}
               label={exerciseNames[i].title}
-              value={`${entry?.status ?? "idle"} · ${sessions} sessions · ${
-                entry?.fetchedAt ? when(entry.fetchedAt) : "never fetched"
-              }`}
+              value={held ? `${held.recentSessions.length} sessions` : "none held"}
             />
           );
         })

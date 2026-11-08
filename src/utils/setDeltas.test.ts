@@ -16,7 +16,7 @@ const PLANK: ExerciseField[] = [
 
 const historyOf = (stats: ExerciseStatsDoc | null, fields: ExerciseField[] = BENCH) =>
   deriveExerciseHistory(
-    { exerciseId: "bench-press", status: "ready", stats, fetchedAt: 0, error: null },
+    { exerciseId: "bench-press", status: "ready", stats, error: null },
     fields
   );
 

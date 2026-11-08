@@ -3,7 +3,7 @@ import ActiveWorkoutScreen from "./ActiveWorkoutScreen";
 import { renderScreen } from "../../test/renderScreen";
 import { buildExercise, buildStats, buildWorkout, CATALOG_ROW } from "../../test/fixtures";
 import { EndWorkoutResult, useWorkoutStore } from "../../stores/useWorkoutStore";
-import { getExerciseStats, saveWorkoutSession } from "../../services/db/workoutSessions";
+import { getAllExerciseStats, saveWorkoutSession } from "../../services/db/workoutSessions";
 import { useCatalogStore } from "../../stores/useCatalogStore";
 import { loadCatalog } from "../../utils/catalog";
 import show from "../../utils/toastUtils";
@@ -15,7 +15,8 @@ import { FREESTYLE_ID } from "../../constants/freestyle";
 jest.mock("../../services/db/workoutSessions", () => ({
   ...jest.requireActual("../../services/db/workoutSessions"),
   saveWorkoutSession: jest.fn(),
-  getExerciseStats: jest.fn(async () => ({})),
+  getAllExerciseStats: jest.fn(async () => []),
+  getChangedExerciseStats: jest.fn(async () => []),
   getWorkoutSessions: jest.fn(async () => ({ sessions: [], lastDoc: null })),
 }));
 jest.mock("../../services/db/userDB", () => ({
@@ -222,7 +223,7 @@ describe("swap exercise", () => {
   });
 
   it("a failed fetch for the new exercise reads HISTORY with its mark, and the sheet's Reload refetches it", async () => {
-    const stats = getExerciseStats as jest.Mock;
+    const stats = getAllExerciseStats as jest.Mock;
     const log = jest.spyOn(console, "log").mockImplementation(() => {});
     stats.mockRejectedValueOnce(new Error("offline"));
     renderScreen(ActiveWorkoutScreen, { workout: buildWorkout([], { exercises: [plank()] }) });
@@ -237,14 +238,14 @@ describe("swap exercise", () => {
     expect(screen.getByRole("button", { name: "History not loaded. Show history" })).toHaveTextContent(/HISTORY/);
 
     const rowStats = buildStats("row__barbell", [{ sets: [{ Weight: 60, Reps: 8 }] }]);
-    stats.mockResolvedValueOnce({ row__barbell: rowStats });
+    stats.mockResolvedValueOnce([rowStats]);
     fireEvent.press(screen.getByRole("button", { name: "History not loaded. Show history" }));
     expect(screen.getByText("Couldn't load history")).toBeOnTheScreen();
     await act(async () => {
       fireEvent.press(screen.getByRole("button", { name: "Reload history" }));
     });
 
-    expect(stats).toHaveBeenLastCalledWith("test-user", ["row__barbell"]);
+    expect(stats).toHaveBeenLastCalledWith("test-user");
     expect(screen.getByRole("button", { name: /^Last time 60 by 8/ })).toBeOnTheScreen();
     log.mockRestore();
   });

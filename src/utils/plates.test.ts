@@ -22,7 +22,7 @@ const set = (weight: string, reps: string) => ({ Weight: weight, Reps: reps });
 /** Today\'s live sets, one segment each (TICKET-055). */
 const live = (sets: StoredSetFields[]) => sets.map((values) => ({ segments: [values] }));
 const historyOf = (stats: ExerciseStatsDoc | null, fields: ExerciseField[]) =>
-  deriveExerciseHistory({ exerciseId: "pec-deck", status: "ready", stats, fetchedAt: 0, error: null }, fields);
+  deriveExerciseHistory({ exerciseId: "pec-deck", status: "ready", stats, error: null }, fields);
 
 describe("plates against kg", () => {
   it("a plates session after a kg session is a unit change on every path", () => {

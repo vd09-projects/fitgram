@@ -13,7 +13,6 @@
 import {
   collection,
   doc,
-  documentId,
   getDoc,
   getDocs,
   getDocsFromServer,
@@ -44,14 +43,11 @@ import {
   buildSessionDocs,
 } from "../../utils/exerciseStats";
 import { toStamp, type SyncStamp } from "../../utils/syncCore";
-import { IN_QUERY_CHUNK } from "../../config/sync";
 
 const USERS = tables.users.collection;
 const SESSIONS = tables.users.fields.sessions.collection;
 const EXERCISE_SESSIONS = tables.users.fields.exercise_sessions.collection;
 const EXERCISE_STATS = tables.users.fields.exercise_stats.collection;
-
-// IN_QUERY_CHUNK: value and reason in src/config/sync.ts.
 
 const sessionsRef = (userId: string) => collection(db, USERS, userId, SESSIONS);
 const exerciseSessionsRef = (userId: string) =>
@@ -93,7 +89,9 @@ const sessionFromDoc = (snapshot: QueryDocumentSnapshot<DocumentData>): WorkoutS
  * (TICKET-075, TICKET-072 D8), so another phone's change check finds this
  * workout whatever its `startedAt`: an upload hours late from the offline
  * queue has an old start time but a new stamp. Every other writer of
- * `sessions` stamps too: importHistory.ts, rebuildExerciseStats.ts.
+ * `sessions` stamps too: importHistory.ts, rebuildExerciseStats.ts. The same
+ * three stamp every write of `exercise_stats` (TICKET-076); a writer that does
+ * not is invisible to the summaries' change check.
  */
 export const saveWorkoutSession = async (
   userId: string,
@@ -139,7 +137,7 @@ export const saveWorkoutSession = async (
         const existing = snapshots[index].exists()
           ? (snapshots[index].data() as ExerciseStatsDoc)
           : null;
-        tx.set(refs[index], applySessionToStats(existing, exerciseSession));
+        tx.set(refs[index], { ...applySessionToStats(existing, exerciseSession), updatedAt: serverTimestamp() });
       });
 
       tx.set(
@@ -162,61 +160,6 @@ export const saveWorkoutSession = async (
 // ---------------------------------------------------------------------------
 // Read
 // ---------------------------------------------------------------------------
-
-const chunk = <T,>(items: T[], size: number): T[][] => {
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
-  return out;
-};
-
-/**
- * The hot read path: every exercise's history for a whole plan.
- *
- * One query per 30 exercises, one document read per exercise. A plan of six
- * exercises costs six document reads in a single round trip, and each doc already
- * carries recent sessions, all-time bests and the volume trend — so nothing
- * downstream needs a second read.
- *
- * An exercise that has never been performed is returned as `null`, which is the
- * no-history path and not an error.
- *
- * Rejects when any answer came from the cache (TICKET-047, device 2026-10-31):
- * offline, `getDocs` resolves from the memory cache instead of rejecting, and
- * on a cold start that cache is empty, so every id read as `null` — "First time
- * on this exercise" in airplane mode, a plausible wrong answer. The same trap
- * `getAllWorkoutPlans` guards (TICKET-052 D5). Unlike plans, a non-empty cached
- * answer is refused too: an id missing from it is unknown, not never done. The
- * history store keeps stats it already holds (`ready`, `error` set), so a
- * rejection costs nothing already shown.
- */
-export const getExerciseStats = async (
-  userId: string,
-  exerciseIds: string[]
-): Promise<Record<string, ExerciseStatsDoc | null>> => {
-  const result: Record<string, ExerciseStatsDoc | null> = {};
-  const unique = [...new Set(exerciseIds.filter(Boolean))];
-  if (!userId || unique.length === 0) return result;
-
-  for (const id of unique) result[id] = null;
-
-  const snapshots = await Promise.all(
-    chunk(unique, IN_QUERY_CHUNK).map((ids) =>
-      getDocs(query(exerciseStatsRef(userId), where(documentId(), "in", ids)))
-    )
-  );
-
-  if (snapshots.some((snapshot) => snapshot.metadata.fromCache)) {
-    throw new Error("History unavailable offline");
-  }
-
-  for (const snapshot of snapshots) {
-    for (const docSnap of snapshot.docs) {
-      result[docSnap.id] = docSnap.data() as ExerciseStatsDoc;
-    }
-  }
-
-  return result;
-};
 
 /**
  * History deeper than the rollup keeps — the exercise history sheet. Cross
@@ -356,6 +299,43 @@ export const getChangedSessions = async (userId: string, after: SyncStamp): Prom
     )
   );
   return snapshot.docs.map(sessionFromDoc);
+};
+
+// ---------------------------------------------------------------------------
+// The exercise summaries store's reads (TICKET-076)
+// ---------------------------------------------------------------------------
+//
+// From the server, as above: offline these reject, so a failed check is never
+// read as "never done" (TICKET-047: "First time" in airplane mode, from the
+// empty memory cache).
+
+/**
+ * A summary as the phone holds it. `updatedAt` becomes plain numbers, or is
+ * left out for a doc written before 076, whose value is a phone-clock number
+ * (`toStamp` refuses it). A `>` on a Timestamp never returns those docs
+ * (Firestore compares within one type), so only a full read sees them.
+ */
+const summaryFromDoc = (snapshot: QueryDocumentSnapshot<DocumentData>): ExerciseStatsDoc => {
+  const { updatedAt, ...data } = snapshot.data();
+  const stamp = toStamp(updatedAt);
+  return { ...(data as ExerciseStatsDoc), ...(stamp ? { updatedAt: stamp } : {}) };
+};
+
+/** Every summary the user has: one query, one read per doc (1 when there are none). */
+export const getAllExerciseStats = async (userId: string): Promise<ExerciseStatsDoc[]> => {
+  if (!userId) throw new Error("Missing user");
+  return serverOnly(await getDocsFromServer(exerciseStatsRef(userId))).docs.map(summaryFromDoc);
+};
+
+/** Summaries written after `after`. Nothing changed: no docs, billed 1 read. */
+export const getChangedExerciseStats = async (userId: string, after: SyncStamp): Promise<ExerciseStatsDoc[]> => {
+  if (!userId) throw new Error("Missing user");
+  const snapshot = serverOnly(
+    await getDocsFromServer(
+      query(exerciseStatsRef(userId), where("updatedAt", ">", new Timestamp(after.seconds, after.nanoseconds)))
+    )
+  );
+  return snapshot.docs.map(summaryFromDoc);
 };
 
 /** Every exercise performed in one session. */
