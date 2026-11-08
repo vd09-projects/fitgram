@@ -96,12 +96,21 @@ export function fullReloadPlans(
 
 /**
  * Own Finishes still waiting for their stamped copy: those not among
- * `returned` with a stamp. Once a check returns one stamped, it is the
- * server's like any other.
+ * `returned` with a stamp, and still held in `byPlan`. Once a check returns
+ * one stamped, it is the server's like any other. One no longer held (a late
+ * upload pushed past its plan's newest N) goes too: no check may ever return
+ * it (outside the plan's top N, stamp at or before `lastSeen`), and
+ * `fullReloadPlans` keeps only held ids anyway, so keeping it would only grow
+ * the stored list (PR #53 review).
  */
-export function stillOwnFinished(ownFinished: readonly string[], returned: readonly WorkoutSessionDoc[]): string[] {
+export function stillOwnFinished(
+  ownFinished: readonly string[],
+  returned: readonly WorkoutSessionDoc[],
+  byPlan: WorkoutsByPlan
+): string[] {
   const stamped = new Set(returned.filter((s) => s.updatedAt).map((s) => s.sessionId));
-  return ownFinished.filter((id) => !stamped.has(id));
+  const held = new Set(Object.values(byPlan).flat().map((s) => s.sessionId));
+  return ownFinished.filter((id) => !stamped.has(id) && held.has(id));
 }
 
 /**

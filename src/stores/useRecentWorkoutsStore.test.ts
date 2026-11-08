@@ -51,6 +51,25 @@ it("first launch: nothing to load until the plans arrive, then their workouts lo
   expect(planQueries()).toEqual(["freestyle", "push"]);
 });
 
+it("plan ids that arrive while a follow check runs are still loaded, with no focus", async () => {
+  usePlansStore.setState({ uid: UID, plans: null, storedRead: true });
+  await useRecentWorkoutsStore.getState().open(UID); // no plans yet: nothing to load
+  let answerBaseline: (stamp: { seconds: number; nanoseconds: number }) => void = () => {};
+  jest.mocked(getNewestSessionStamp).mockReturnValue(new Promise((resolve) => (answerBaseline = resolve)));
+
+  usePlansStore.setState({ plans: [{ id: "push", name: "Push", exercises: [] }] }); // follow starts
+  usePlansStore.setState({
+    plans: [
+      { id: "push", name: "Push", exercises: [] },
+      { id: "pull", name: "Pull", exercises: [] },
+    ],
+  }); // lands mid-follow
+  answerBaseline({ seconds: 10, nanoseconds: 0 });
+
+  await waitFor(() => expect(useRecentWorkoutsStore.getState().loaded).toContain("pull"));
+  expect(planQueries()).toEqual(["freestyle", "pull", "push"]);
+});
+
 it("own Finish: held at once with no read; the next check brings the stamped copy once, in its place", async () => {
   usePlansStore.setState({ uid: UID, plans: [{ id: "push", name: "Push", exercises: [] }], storedRead: true });
   await useRecentWorkoutsStore.getState().open(UID);

@@ -4,6 +4,7 @@ import {
   mergePlanSessions,
   readStoredWorkouts,
   serializeStoredWorkouts,
+  stillOwnFinished,
   workoutsLastSeenAfter,
   type HeldWorkouts,
 } from "./workoutsSync";
@@ -61,6 +62,14 @@ describe("mergeIntoPlans and fullReloadPlans", () => {
     const held = { push: [session("own", 500), session("wiped", 400), session("p1", 100)] };
     const result = fullReloadPlans({ push: [session("p1", 100, { updatedAt: stamp(1) })] }, held, ["own"], 5);
     expect(ids(result.push)).toEqual(["own", "p1"]);
+  });
+});
+
+describe("stillOwnFinished", () => {
+  it("drops an own Finish once returned stamped, or once no longer held (pushed past N), so the list cannot grow", () => {
+    const held = { push: [session("kept", 300), session("back", 200)] };
+    const returned = [session("back", 200, { updatedAt: stamp(5) })];
+    expect(stillOwnFinished(["kept", "back", "pushedOut"], returned, held)).toEqual(["kept"]);
   });
 });
 

@@ -8631,7 +8631,7 @@ Stage 2 removes the hook; its replacement refuses cached answers (`serverOnly`).
 - Tests: `workoutSessions.test.ts` +2 (both Finish writes stamped; read gives
   plain numbers, none for pre-075 docs), each seen red by removing its line.
 
-**Stage 2 design (proposed; to build after PR 1 merges):**
+**Stage 2 design (as designed before building; what was built, and where it differs, is "Stage 2 as built" below):**
 - **Store** `useRecentWorkoutsStore` on the runner: `byPlan: Record<planId,
   WorkoutSessionDoc[]>` (newest N by `startedAt`, ties by `sessionId` desc as
   Firestore orders them, deduped by `sessionId`, the stamped/newer copy wins),
@@ -8763,7 +8763,14 @@ account "Vikrant Dhawan"; writes: two Finishes on "Test WK"):**
    hub opened once → dated on first open; debug: `skipped` (no plans yet),
    then `read full` / `ok full (6 queries, 12 docs)` with no second focus.
    **Pass.**
-5. **A workout from another device:** not run yet; see below.
+5. **A workout from another device:** not run (it needs a console write or a
+   second signed-in device). Counted as covered by its two parts, each shown
+   (PR #53 review): run 2 showed the change query return a stamped doc from a
+   real write by `updatedAt > lastSeen`, and to that query a write from
+   another phone is the same doc; the late-upload merge test shows a doc the
+   store did not hold going in at its `startedAt`. What remains unshown is
+   only the two together on a device. Run it with a console doc on a "test…"
+   plan if wanted.
 
 **Known gaps:**
 - **Copy:** "not in recent workouts" now means never done (or a plan whose

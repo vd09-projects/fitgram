@@ -56,8 +56,10 @@ export const WORKOUTS_CHECK_WAIT_MS = PLANS_CHECK_WAIT_MS;
  * A check is a full reload of the workouts when this long has passed since the
  * last one: one read per plan, plus 1. What only a full reload catches: a
  * workout deleted on the server (the wipe scripts; nothing in the app deletes
- * one), and a hand-set future `updatedAt` that pins `lastSeen` (070 S1).
- * 7 days, as plans: both are hand edits.
+ * one). It also keeps dates right (per-plan reads) while a hand-set future
+ * `updatedAt` pins `lastSeen`, but does not unpin it: the baseline is that
+ * doc while it exists, so it unpins only once the doc is fixed or gone
+ * (070 S1, `workoutsLastSeenAfter`). 7 days, as plans: both are hand edits.
  */
 export const WORKOUTS_FULL_RELOAD_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 

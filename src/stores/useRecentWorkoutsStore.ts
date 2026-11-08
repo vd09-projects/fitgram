@@ -209,13 +209,13 @@ export function workoutsRunFor(
 /** After a check's answer. The runner adds what every success sets. */
 function stateAfterAnswer(state: State, run: CheckRun, answer: Answer, now: number): Partial<State> {
   const returned = [...Object.values(answer.perPlan).flat(), ...answer.changed];
-  const ownFinished = stillOwnFinished(state.ownFinished, returned);
   const lastSeen = workoutsLastSeenAfter(run.kind, state.lastSeen, answer);
   if (run.kind === "full") {
+    const byPlan = fullReloadPlans(answer.perPlan, state.byPlan, state.ownFinished, WORKOUTS_PER_PLAN);
     return {
-      byPlan: fullReloadPlans(answer.perPlan, state.byPlan, state.ownFinished, WORKOUTS_PER_PLAN),
+      byPlan,
       loaded: run.planIds,
-      ownFinished,
+      ownFinished: stillOwnFinished(state.ownFinished, returned, byPlan),
       lastSeen,
       lastFullAt: now,
     };
@@ -223,10 +223,11 @@ function stateAfterAnswer(state: State, run: CheckRun, answer: Answer, now: numb
   const withPlans = mergeIntoPlans(state.byPlan ?? {}, Object.values(answer.perPlan).flat(), WORKOUTS_PER_PLAN);
   // A plan never done answers no docs: it is still loaded, with an empty list.
   for (const planId of run.planIds) withPlans[planId] ??= [];
+  const byPlan = mergeIntoPlans(withPlans, answer.changed, WORKOUTS_PER_PLAN);
   return {
-    byPlan: mergeIntoPlans(withPlans, answer.changed, WORKOUTS_PER_PLAN),
+    byPlan,
     loaded: [...new Set([...state.loaded, ...run.planIds])],
-    ownFinished,
+    ownFinished: stillOwnFinished(state.ownFinished, returned, byPlan),
     lastSeen,
   };
 }
@@ -305,6 +306,8 @@ let following: Promise<void> | null = null;
  * Ids appeared that are not loaded: check now. Twice at most: the first may
  * join a check that started before the ids arrived and so did not read them.
  * Not a loop: a check that fails leaves the next trigger to try again.
+ * Ids that change while a follow runs are not dropped: it calls itself again
+ * when done, a no-op unless the key moved (PR #53 review).
  */
 function followPlans() {
   const plans = usePlansStore.getState();
@@ -324,6 +327,7 @@ function followPlans() {
     if (missing()) await useRecentWorkoutsStore.getState().check();
   })().finally(() => {
     following = null;
+    followPlans();
   });
 }
 
