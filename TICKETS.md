@@ -8632,7 +8632,7 @@ Stage 2 removes the hook; its replacement refuses cached answers (`serverOnly`).
   plain numbers, none for pre-075 docs), each seen red by removing its line.
 
 **Stage 2 design (proposed; to build after PR 1 merges):**
-- **Store** `useWorkoutsStore` on the runner: `byPlan: Record<planId,
+- **Store** `useRecentWorkoutsStore` on the runner: `byPlan: Record<planId,
   WorkoutSessionDoc[]>` (newest N by `startedAt`, ties by `sessionId` desc as
   Firestore orders them, deduped by `sessionId`, the stamped/newer copy wins),
   `loaded: planId[]`, `lastSeen`, `lastFullAt`, `n`. Key and format number in
@@ -8672,6 +8672,113 @@ Stage 2 removes the hook; its replacement refuses cached answers (`serverOnly`).
   focus with the plans' 2-minute skip; pending uploads still merged by
   `buildPlanRows`/`buildRecentHistory`. `useRecentSessions` and
   `RECENT_SESSIONS_WINDOW` go. Sign-out clears it (`initAuth`).
+
+**Stage 2 as built (2026-11-08, branch `TICKET-075-stage-2`):**
+- **Files:** `utils/workoutsSync.ts` (pure: `compareSessions`,
+  `mergePlanSessions`, `mergeIntoPlans`, `fullReloadPlans`,
+  `stillOwnFinished`, `workoutsLastSeenAfter`, `planIdsToHold`,
+  `heldSessions`, the stored copy), `stores/useRecentWorkoutsStore.ts` (on the
+  runner), `hooks/useRecentWorkouts.ts` (the readers' hook), three server
+  reads in `workoutSessions.ts` (`getNewestSessionStamp`,
+  `getPlanSessionsFromServer`, `getChangedSessions`, each `serverOnly`).
+  `WORKOUTS_PER_PLAN = 5`, skip/wait and `WORKOUTS_FULL_RELOAD_INTERVAL_MS`
+  in `config/sync.ts`; `WORKOUTS_STORAGE_KEY = "recentWorkouts"` and
+  `WORKOUTS_FORMAT_VERSION = 1` in `storageKeys.ts`. `useRecentSessions` and
+  `RECENT_SESSIONS_WINDOW` deleted.
+- **Check kinds:** full (baseline, then per plan), change (`updatedAt >
+  lastSeen`, plus per-plan queries for any plan not loaded yet), and **new
+  plans** (only those per-plan queries; runs inside the 2-minute skip, since
+  an undated plan is what it fixes). Inside the skip a due 7-day reload waits;
+  with nothing held it does not.
+- **Own Finishes through a full reload** (not in the design): a Finish applied
+  while a full reload was out is missing from the answer, and the reload
+  replaces what is held, so its plan's "Today" would go back to an older date
+  until the next check. The store keeps `ownFinished` (session ids applied
+  with no read and not yet seen stamped), stored with the copy; a full reload
+  keeps those (`fullReloadPlans`). Rejected: keeping every unstamped held
+  session, which would also keep a pre-075 session deleted by a wipe.
+- **Plans arriving later:** `usePlansStore.subscribe` → `followPlans`: when
+  the plan-id set changes and an id is not loaded, check, then once more if
+  the first joined a check that predates the ids. Keyed on uid, epoch and ids,
+  so other plans store changes cost nothing.
+- **Own Finish:** `attemptUpload` calls `applyFinished` right after
+  `saveWorkoutSession` resolves and before the queue entry is removed, so no
+  render sees the plan without it. Nothing held: not applied (one workout is
+  not the history; the next check loads all).
+- **Readers:** the four call `useRecentWorkouts(uid)` (focus + foreground,
+  as `useWorkoutPlansOnFocus`). The pending-count refetch is gone: the upload
+  puts the workout in the store. The picker's Recent comes from every held
+  workout, newest first.
+- **Debug page** (Plans Store, kept like 070's): a "Recent workouts store"
+  section with per-plan held count, newest date and unstamped count; `lastSeen`;
+  last full reload; own Finishes waiting; each check with queries and docs;
+  **reads billed** this app run (docs, 1 per empty query); buttons to force a
+  check, expire the skip, full reload, zero the counters.
+- **Tests:** `workoutsSync.test.ts` (10: late upload and more than N,
+  duplicates and stamp precedence, ties, own Finish through a full reload,
+  `lastSeen` change/full (S1)/new plans, stored copy round trip, another N
+  either way, bad shape), `useRecentWorkoutsStore.test.ts` (3: plans arriving
+  later, own Finish 0 reads then stamped once, offline restart keeps the copy
+  and sign-out removes it). Each of the 13 seen red by breaking its line.
+- **Changed existing tests, with reason:** Hub, Start and Manage screen tests
+  mocked `getWorkoutSessions`, which the screens no longer call; they now
+  serve sessions through the store's reads (`test/recentWorkouts.ts`). Their
+  read-count assertions now name the first load (baseline once, one query per
+  plan). Manage's Recent test moved its session from plan "push" (not held in
+  that test) to "pull": a session of a plan the user does not hold is only
+  read by a change check, not by the first load. `renderScreen` resets the new
+  store.
+
+**Measured (Pixel 9 Pro XL emulator, real project, account with 10 sessions,
+2026-11-08).** One workout, hub → All plans → plan card → Start → picker →
+Finish → hub:
+- **Before (main, temporary log in `getWorkoutSessions`): 5 queries, 47 docs
+  billed** (hub 9, Start 9, picker 9, hub after Finish 10 + 10). Each query
+  bills min(sessions, 20), so an account with 20+ sessions pays 100.
+- **After (stage 2, debug page "Reads billed"): 3**, with real gaps over the
+  2-minute skip: hub 1 (change, 0 docs), Start skipped, picker 1, hub after
+  Finish 1. The Finish itself 0; the next check then returns it once (1 doc,
+  billed 1). Inside one 2-minute window the same flow costs 1.
+- **First load (nothing stored): 6 queries, 13–14 billed** (baseline 1 + 4
+  plans + Freestyle; empty plans bill 1 each). Grows with plans: about plans +
+  1 + held docs, once per install, sign-in, N change or 7 days.
+
+**Device run (Pixel 9 Pro XL emulator, Metro on this branch, real project,
+account "Vikrant Dhawan"; writes: two Finishes on "Test WK"):**
+1. **First load:** cold start with no stored workouts → hub dated (AJ 6d,
+   Test WK Today); debug: `ok full (6 queries, 11 docs)`; per plan held 3/3/0/0,
+   Freestyle 4. **Pass.**
+2. **Finish with no read:** Finish on Test WK → hub "Today"; debug: own Finish
+   held unstamped, "not yet stamped: 6RkzE…_1794115308959"; the hub's check
+   right after read 0 docs (it ran before the upload committed); the next
+   check: `ok change (1 queries, 1 docs)`, waiting list "none", `lastSeen`
+   moved to the Finish's stamp. **Pass.** This also confirms stage 1's stamp
+   on a real Firestore write.
+3. **Airplane mode after a restart:** airplane on, force-stop, relaunch, hub →
+   tiles keep "6d" and "Today" (main showed all four "not in recent
+   workouts"); debug: `failed change`, stored copy kept. **Pass: the
+   confirmed bug is fixed.**
+4. **Fresh sign-in (PR #52 review case):** both stored copies removed from
+   AsyncStorage (`workoutPlans`, `recentWorkouts`; sign-in kept), relaunch,
+   hub opened once → dated on first open; debug: `skipped` (no plans yet),
+   then `read full` / `ok full (6 queries, 12 docs)` with no second focus.
+   **Pass.**
+5. **A workout from another device:** not run yet; see below.
+
+**Known gaps:**
+- **Copy:** "not in recent workouts" now means never done (or a plan whose
+  workouts are not loaded yet, for a moment). Changing it to "never done"
+  is a UI change outside this ticket; left, comment in `hubTileFace`.
+- **A hand-set future `updatedAt` on a session** pins `lastSeen` while that
+  doc holds it: sessions are not rewritten, so unlike plans it does not heal
+  by itself. Only a console edit can cause it; the 7-day full reload keeps
+  dates right meanwhile (per-plan reads), only change checks go blind.
+- **Not unit-tested:** the `serverOnly` refusal in the three new reads
+  (same 2-line rule as userDB's, tested there), the sign-out clear line in
+  `initAuth`, and the `applyFinished` call in `attemptUpload` (device run 2
+  covers it).
+- **Offline "Hi, Guest"** on the home screen after an airplane restart:
+  the user-info read, not this ticket.
 
 ---
 
