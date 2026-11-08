@@ -13,12 +13,12 @@ import {
   readStoredPlans,
   serializeStoredPlans,
   type HeldPlans,
-  shouldSkipCheck,
   withSavedPlan,
   withServerPlan,
 } from "../utils/planSync";
 import { versionRev } from "../utils/planVersion";
-import { PLANS_CHECK_WAIT_MS } from "../config/sync";
+import { createSyncRunner, type CheckRun as RunBase, type ReadoutEntry as SyncReadoutEntry, type SyncFields } from "./syncRunner";
+import { PLANS_CHECK_SKIP_MS, PLANS_CHECK_WAIT_MS } from "../config/sync";
 import { PLANS_STORAGE_KEY } from "../config/storageKeys";
 
 /**
@@ -42,6 +42,10 @@ import { PLANS_STORAGE_KEY } from "../config/storageKeys";
  * `epoch` counts clears. A check or a Save started under one epoch applies
  * only if it is still current when it lands, so a late answer for the user who
  * signed out cannot refill the store for the next one.
+ *
+ * The check machinery (stored load, join, wait, skip, `epoch`, the write
+ * chain, the readout) is the shared sync runner, `syncRunner.ts`
+ * (TICKET-075); this file keeps what is the plans' own.
  */
 
 // PLANS_STORAGE_KEY: value and reason in src/config/storageKeys.ts.
@@ -51,12 +55,8 @@ export type PlansSource = "none" | "stored" | "server";
 export type CheckKind = "full" | "change";
 
 // Debug readout, for the Plans Store debug page (TICKET-070; kept, user 2026-11-06).
-export type ReadoutEntry = {
-  at: number;
-  outcome: "read" | "skipped" | "joined" | "ok" | "failed" | "dropped" | "refused";
-  kind?: CheckKind | "save read-back" | "refusal reload";
-  detail?: string;
-};
+type ReadoutKind = CheckKind | "save read-back" | "refusal reload";
+export type ReadoutEntry = SyncReadoutEntry<ReadoutKind>;
 
 /**
  * What a refused save's reload found (TICKET-073 D7), kept apart (CLAUDE.md
@@ -65,18 +65,10 @@ export type ReadoutEntry = {
  */
 export type RefusalReload = { kind: "reloaded"; plan: WorkoutPlan } | { kind: "gone" } | { kind: "failed" };
 
-interface PlansStore {
-  uid: string | null;
+interface PlansStore extends SyncFields<ReadoutKind> {
   /** Null: nothing stored for `uid` (D11). `[]`: stored, no plans. */
   plans: WorkoutPlan[] | null;
   source: PlansSource;
-  storedRead: boolean;
-  checking: boolean;
-  waitOver: boolean;
-  lastResult: "ok" | "failed" | null;
-  lastError: string | null;
-  /** When a check last succeeded. Memory only (D4): every app start checks. */
-  lastOkAt: number | null;
   /**
    * The newest `updatedAt` the server has returned (D3), the server's clock;
    * null: none yet (`changeCheckAfter`). Stored with the plans.
@@ -84,9 +76,6 @@ interface PlansStore {
   lastSeen: PlanStamp | null;
   /** When the last full reload answered, the phone's clock (D5). Stored with the plans. */
   lastFullAt: number | null;
-  epoch: number;
-  // Debug readout (Plans Store page). Server reads issued this app run, and the last few checks.
-  readout: { reads: number; log: ReadoutEntry[] };
 
   /** A plans screen opened: load the stored copy for `uid`, then check unless `check` is false. */
   open: (uid: string, options?: { check?: boolean }) => Promise<void>;
@@ -131,36 +120,8 @@ const initialState = {
   readout: { reads: 0, log: [] }, // debug readout (Plans Store page)
 };
 
-// ---------------------------------------------------------------------------
-// Module state. Not in the store: nothing renders from it.
-// ---------------------------------------------------------------------------
-
-/** The running check, joined by any trigger while it runs (D9). */
-let checkInFlight: Promise<void> | null = null;
-
-/** The stored copy being read for the current user. */
-let storedLoad: Promise<void> | null = null;
-
-/**
- * AsyncStorage writes run one after another, each writing the state as it is
- * when its turn comes. So an older write cannot land last: the last write in
- * the chain always holds the latest state.
- */
-let persistChain: Promise<void> = Promise.resolve();
-
-/**
- * Checks started, and the newest one whose answer was applied. A forced check
- * can start while a stalled one still runs (`check`); if the stalled one
- * answers last, its plans are older and are dropped. Kept beside D10's merge
- * because it also covers plans with no stamp, which D10 cannot order.
- * (Stage 1's `savesApplied`, which dropped any answer older than a Save, went:
- * D10 covers that case, `usePlansStore.test.ts`.)
- */
-let checksStarted = 0;
-let newestApplied = 0;
-
 /** One check, from start to answer. */
-type CheckRun = { uid: string; epoch: number; seq: number; kind: CheckKind; seenAtStart: PlanStamp | null };
+type CheckRun = RunBase<CheckKind> & { seenAtStart: PlanStamp | null };
 
 // ---------------------------------------------------------------------------
 // Server and disk reads. No store access.
@@ -168,11 +129,8 @@ type CheckRun = { uid: string; epoch: number; seq: number; kind: CheckKind; seen
 
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-/**
- * The server read for a check. `async` so that even a call that throws at
- * once becomes a rejection, and the check reports it as failed.
- */
-async function readFromServer(run: CheckRun): Promise<WorkoutPlan[]> {
+/** The server read for a check. */
+function readFromServer(run: CheckRun): Promise<WorkoutPlan[]> {
   if (run.kind === "full") return getAllWorkoutPlans(run.uid);
   return getChangedPlans(run.uid, changeCheckAfter(run.seenAtStart));
 }
@@ -208,25 +166,15 @@ function checkKindNow(state: State, fullRequested: boolean): CheckKind {
  * After a check's answer (D3, D5). D10 is in both merges: a Save that landed
  * while the read was out is newer than anything the read returned, so it
  * stays. A full reload resets `lastSeen` from what it now holds
- * (`lastSeenAfterFullReload`); a change check only moves it forward.
+ * (`lastSeenAfterFullReload`); a change check only moves it forward. The
+ * runner adds what every success sets (`lastResult`, `lastOkAt`).
  */
-function stateAfterAnswer(state: State, run: CheckRun, docs: WorkoutPlan[]): Partial<State> {
-  const now = Date.now();
+function stateAfterAnswer(state: State, run: CheckRun, docs: WorkoutPlan[], now: number): Partial<State> {
   if (run.kind === "full") {
     const plans = mergeFullReload(state.plans, docs, run.seenAtStart);
-    return { ...answered(now), plans, lastSeen: lastSeenAfterFullReload(plans), lastFullAt: now };
+    return { source: "server", plans, lastSeen: lastSeenAfterFullReload(plans), lastFullAt: now };
   }
-  return { ...answered(now), plans: mergeChanges(state.plans ?? [], docs), lastSeen: lastSeenAfter(state.lastSeen, docs) };
-}
-
-/** What every successful check sets, whatever its kind. */
-function answered(now: number): Partial<State> {
-  return {
-    source: "server",
-    lastResult: "ok",
-    lastError: null,
-    lastOkAt: now,
-  };
+  return { source: "server", plans: mergeChanges(state.plans ?? [], docs), lastSeen: lastSeenAfter(state.lastSeen, docs) };
 }
 
 /**
@@ -255,94 +203,30 @@ function stateAfterSave(state: State, plan: WorkoutPlan, docs: WorkoutPlan[] | n
 // ---------------------------------------------------------------------------
 
 export const usePlansStore = create<PlansStore>((set, get) => {
-  // Debug readout (Plans Store page): logs each check and counts server reads.
-  const note = (outcome: ReadoutEntry["outcome"], kind?: ReadoutEntry["kind"], detail?: string) =>
-    set((s) => ({
-      readout: {
-        reads: s.readout.reads + (outcome === "read" ? 1 : 0),
-        log: [{ at: Date.now(), outcome, kind, detail }, ...s.readout.log].slice(0, 20),
-      },
-    }));
-
-  /** Is work started under `epoch` still for the signed-in user (D2)? */
-  const isCurrent = (epoch: number) => get().epoch === epoch;
-
-  /** Queue a write of the state as it is when the write's turn comes. */
-  const persist = () => {
-    persistChain = persistChain
-      .then(async () => {
-        const { uid, plans, lastSeen, lastFullAt } = get();
-        if (uid === null) {
-          await AsyncStorage.removeItem(PLANS_STORAGE_KEY);
-        } else if (plans !== null) {
-          await AsyncStorage.setItem(PLANS_STORAGE_KEY, serializeStoredPlans(uid, { plans, lastSeen, lastFullAt }));
-        }
-      })
-      .catch((error) => console.warn("Could not store plans:", error));
-  };
-
-  const loadStored = async (uid: string, epoch: number) => {
-    const held = await readStoredCopy(uid);
-    if (!isCurrent(epoch)) return;
-    // A check that answered first (network beat the disk) wins. `open` waits
-    // for this before it checks, so that is only a Try again tapped first,
-    // and Try again shows only after this has run.
-    set((s) => (s.plans === null && held !== null ? { ...held, source: "stored", storedRead: true } : { storedRead: true }));
-  };
-
-  // --- One check: start, answer, failure --------------------------------
-
-  const onAnswer = (run: CheckRun, docs: WorkoutPlan[]) => {
-    if (!isCurrent(run.epoch)) return;
-    if (run.seq < newestApplied) {
-      note("dropped", run.kind, "answer older than a newer check's");
-      return;
-    }
-    newestApplied = run.seq;
-    set((s) => stateAfterAnswer(s, run, docs));
-    note("ok", run.kind, `${docs.length} docs`);
-    persist();
-  };
-
-  const onFailure = (run: CheckRun, error: unknown) => {
-    if (!isCurrent(run.epoch)) return;
-    // A read superseded by a forced one: its failure says nothing about the
-    // read now running, which owns the result.
-    if (run.seq < checksStarted) {
-      note("dropped", run.kind, "failed after a newer check started");
-      return;
-    }
-    // D11: a failure moves nothing but these two fields; the stored copy,
-    // `lastSeen`, the 2-minute skip and the full-reload time stay as they were.
-    const message = errorMessage(error);
-    set({ lastResult: "failed", lastError: message });
-    note("failed", run.kind, message);
-  };
-
-  const startCheck = (run: CheckRun): Promise<void> => {
-    set({ checking: true, waitOver: false });
-
-    const running: Promise<void> = readFromServer(run)
-      .then((docs) => onAnswer(run, docs))
-      .catch((error) => onFailure(run, error))
-      .finally(() => {
-        clearTimeout(waitTimer);
-        if (checkInFlight === running) {
-          checkInFlight = null;
-          set({ checking: false, waitOver: false });
-        }
-      });
-
-    // D9: the wait is bounded for the screen, not for the read. Past it, a
-    // screen with nothing stored shows "Couldn't load plans", and the answer
-    // still applies when it arrives.
-    const waitTimer = setTimeout(() => {
-      if (checkInFlight === running) set({ waitOver: true });
-    }, PLANS_CHECK_WAIT_MS);
-
-    checkInFlight = running;
-    return running;
-  };
+  const runner = createSyncRunner<PlansStore, ReadoutKind, CheckRun, WorkoutPlan[]>({
+    get,
+    set,
+    initialState,
+    waitMs: PLANS_CHECK_WAIT_MS,
+    skipMs: PLANS_CHECK_SKIP_MS,
+    readStored: async (uid) => {
+      const held = await readStoredCopy(uid);
+      return held === null ? null : { ...held, source: "stored" };
+    },
+    holdsData: (s) => s.plans !== null,
+    writeStored: async ({ uid, plans, lastSeen, lastFullAt }) => {
+      if (uid === null) {
+        await AsyncStorage.removeItem(PLANS_STORAGE_KEY);
+      } else if (plans !== null) {
+        await AsyncStorage.setItem(PLANS_STORAGE_KEY, serializeStoredPlans(uid, { plans, lastSeen, lastFullAt }));
+      }
+    },
+    read: readFromServer,
+    apply: stateAfterAnswer,
+    describe: (docs) => `${docs.length} docs`,
+    label: "plans",
+  });
+  const { note, isCurrent, persist } = runner;
 
   // --- A Save's read-back ----------------------------------------------
 
@@ -379,44 +263,14 @@ export const usePlansStore = create<PlansStore>((set, get) => {
     epoch: 0,
 
     open: async (uid, { check = true } = {}) => {
-      if (get().uid !== uid) {
-        if (get().uid !== null) get().clear();
-        set({ uid });
-        storedLoad = loadStored(uid, get().epoch);
-      }
-      await storedLoad;
+      await runner.open(uid);
       if (check) await get().check();
     },
 
-    check: ({ force = false, full = false } = {}) => {
-      const state = get();
-      if (state.uid === null) return Promise.resolve();
-
-      // D9: a trigger joins the running check. Except Try again on a check
-      // past its wait: the screen already says "Couldn't load plans", and
-      // joining a stalled read would make the tap do nothing (PR #48 review).
-      // The stalled read is left to land; `newestApplied` drops it if late.
-      const restartStalled = force && state.waitOver;
-      if (checkInFlight && !restartStalled) {
-        note("joined");
-        return checkInFlight;
-      }
-
-      if (shouldSkipCheck(state.lastOkAt, Date.now(), force)) {
-        note("skipped");
-        return Promise.resolve();
-      }
-
-      const run: CheckRun = {
-        uid: state.uid,
-        epoch: state.epoch,
-        seq: ++checksStarted,
-        kind: checkKindNow(state, full),
-        seenAtStart: state.lastSeen,
-      };
-      note("read", run.kind, force ? "forced" : undefined);
-      return startCheck(run);
-    },
+    check: ({ force = false, full = false } = {}) =>
+      runner.check({ force }, (state, skipped) =>
+        skipped ? null : { kind: checkKindNow(state, full), seenAtStart: state.lastSeen }
+      ),
 
     applySaved: async (uid, epoch, plan) => {
       const state = get();
@@ -471,12 +325,6 @@ export const usePlansStore = create<PlansStore>((set, get) => {
       }
     },
 
-    clear: () => {
-      checkInFlight = null;
-      storedLoad = null;
-      // Debug readout: `readout` counts the whole app run, so it survives a clear.
-      set((s) => ({ ...initialState, epoch: s.epoch + 1, readout: s.readout }));
-      persist();
-    },
+    clear: runner.clear,
   };
 });

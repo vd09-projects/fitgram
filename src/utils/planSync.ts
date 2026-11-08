@@ -4,12 +4,24 @@
 // functions: whether a stored copy is usable, whether a screen opening runs a
 // check and which kind, how an answer merges into what is held, what a
 // screen shows, and what a refused save reloads (TICKET-073). `usePlansStore`
-// does the I/O around them.
+// does the I/O around them, on the shared sync runner.
+//
+// The rules every synced store shares (stamps, `lastSeen`, the skip window,
+// the full-reload schedule, the stored envelope) moved to the sync core,
+// `syncCore.ts` (TICKET-075, TICKET-072 D9). What stays here is the plans'
+// own: the `rev` merge (TICKET-073), the full reload's S1 rule, the plan
+// shape, and the plans' constants bound into the shared rules. The names the
+// plans code and tests already use are kept (re-exported below), so the
+// move changed no plans caller or test.
 
 import type { PlanStamp, WorkoutPlan } from "../types/workoutType";
 import { compareVersions, toPlanVersion } from "./planVersion";
+import { compareStamps, fullReloadDue, isStamp, lastSeenAfter, openEnvelope, withinSkipWindow } from "./syncCore";
 import { PLANS_CHECK_SKIP_MS, PLANS_FULL_RELOAD_INTERVAL_MS } from "../config/sync";
 import { PLANS_FORMAT_VERSION } from "../config/storageKeys";
+
+// The plans' names for the core's stamp rules (TICKET-070 D3); the reasons are in syncCore.ts.
+export { changeCheckAfter, compareStamps, lastSeenAfter, NO_STAMP_SEEN, toStamp as toPlanStamp } from "./syncCore";
 
 // PLANS_FORMAT_VERSION: value and reason in src/config/storageKeys.ts.
 
@@ -34,12 +46,6 @@ export type HeldPlans = Pick<StoredPlans, "plans" | "lastSeen" | "lastFullAt">;
 export const serializeStoredPlans = (uid: string, held: HeldPlans): string =>
   JSON.stringify({ formatVersion: PLANS_FORMAT_VERSION, uid, ...held } satisfies StoredPlans);
 
-const isStamp = (value: unknown): value is PlanStamp => {
-  if (typeof value !== "object" || value === null) return false;
-  const { seconds, nanoseconds } = value as Partial<PlanStamp>;
-  return Number.isInteger(seconds) && Number.isInteger(nanoseconds);
-};
-
 const isPlan = (value: unknown): value is WorkoutPlan => {
   if (typeof value !== "object" || value === null) return false;
   const { id, name, exercises, updatedAt, version } = value as Partial<WorkoutPlan>;
@@ -51,50 +57,6 @@ const isPlan = (value: unknown): value is WorkoutPlan => {
     (version === undefined || toPlanVersion(version) !== undefined)
   );
 };
-
-/**
- * A plan's `updatedAt` as read from Firestore, or undefined for "no stamp".
- * A Firestore Timestamp has `seconds` and `nanoseconds`; anything else (a
- * pre-070 plan has nothing, a console edit could leave a string) is no stamp,
- * never a made-up one: such a plan is seen only by full reloads (D5).
- */
-export function toPlanStamp(value: unknown): PlanStamp | undefined {
-  return isStamp(value) ? { seconds: value.seconds, nanoseconds: value.nanoseconds } : undefined;
-}
-
-/**
- * Orders two stamps. No stamp is older than any stamp: a pre-070 plan has
- * never been saved by this build, so any stamped version of it is newer.
- */
-export function compareStamps(a: PlanStamp | null | undefined, b: PlanStamp | null | undefined): number {
-  if (!a || !b) return (a ? 1 : 0) - (b ? 1 : 0);
-  return a.seconds - b.seconds || a.nanoseconds - b.nanoseconds;
-}
-
-/**
- * Where a change check starts: `updatedAt > this`. With no `lastSeen` (no
- * stamped plan has come back yet, e.g. every plan predates 070) it is the
- * Unix epoch, chosen and named, not a 0 that slipped in (CLAUDE.md 2.4):
- * every server stamp is after it, so the check returns every stamped plan,
- * which is none until one is saved. Rejected: a full read instead, which
- * would cost one read per plan on every check until the first Save.
- */
-export const NO_STAMP_SEEN: PlanStamp = { seconds: 0, nanoseconds: 0 };
-export const changeCheckAfter = (lastSeen: PlanStamp | null): PlanStamp => lastSeen ?? NO_STAMP_SEEN;
-
-/**
- * `lastSeen` after a change check or a Save's read-back: the newest stamp
- * held before or returned now, deleted plans included (their marker was seen;
- * leaving it out would return it on every check). Never moves back, and never
- * past what the server sent. A full reload resets it instead
- * (`lastSeenAfterFullReload`).
- */
-export function lastSeenAfter(lastSeen: PlanStamp | null, incoming: WorkoutPlan[]): PlanStamp | null {
-  return incoming.reduce<PlanStamp | null>(
-    (newest, plan) => (plan.updatedAt && compareStamps(plan.updatedAt, newest) > 0 ? plan.updatedAt : newest),
-    lastSeen
-  );
-}
 
 /**
  * `lastSeen` after a full reload: the newest stamp among the plans held once
@@ -113,11 +75,8 @@ export function lastSeenAfterFullReload(held: WorkoutPlan[]): PlanStamp | null {
 }
 
 /**
- * Is the next check a full reload (D5)? Asked for (Try again, Reload);
- * nothing stored (the first load: "nothing stored", not "app launch", or every
- * cold start would read every plan); never reloaded fully; or the interval
- * has passed. A `lastFullAt` in the future means the clock moved back since:
- * due, rather than waiting for the clock to catch up.
+ * Is the next plans check a full reload (D5)? The core's rule
+ * (`fullReloadDue`) on the plans' interval, `PLANS_FULL_RELOAD_INTERVAL_MS`.
  */
 export function isFullReloadDue(input: {
   requested: boolean;
@@ -125,10 +84,7 @@ export function isFullReloadDue(input: {
   lastFullAt: number | null;
   now: number;
 }): boolean {
-  const { requested, hasStored, lastFullAt, now } = input;
-  if (requested || !hasStored || lastFullAt === null) return true;
-  const since = now - lastFullAt;
-  return since < 0 || since >= PLANS_FULL_RELOAD_INTERVAL_MS;
+  return fullReloadDue({ ...input, intervalMs: PLANS_FULL_RELOAD_INTERVAL_MS });
 }
 
 /**
@@ -209,17 +165,9 @@ export function mergeFullReload(
  * (the app was killed mid sign-out); it is never shown.
  */
 export function readStoredPlans(raw: string | null, uid: string): { held: HeldPlans | null; error: string | null } {
-  if (raw === null) return { held: null, error: null };
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (error) {
-    return { held: null, error: `unreadable JSON (${String(error)})` };
-  }
-  const stored = (typeof parsed === "object" && parsed !== null ? parsed : {}) as Partial<StoredPlans>;
-  if (stored.formatVersion !== PLANS_FORMAT_VERSION)
-    return { held: null, error: `format version ${String(stored.formatVersion)}, this build reads ${PLANS_FORMAT_VERSION}` };
-  if (stored.uid !== uid) return { held: null, error: "stored for another user" };
+  const { body, error } = openEnvelope(raw, uid, PLANS_FORMAT_VERSION);
+  if (body === null) return { held: null, error };
+  const stored = body as Partial<StoredPlans>;
   if (!Array.isArray(stored.plans) || !stored.plans.every(isPlan)) return { held: null, error: "plans in an unknown shape" };
   const { lastSeen, lastFullAt } = stored;
   if ((lastSeen !== null && !isStamp(lastSeen)) || (lastFullAt !== null && typeof lastFullAt !== "number"))
@@ -228,13 +176,11 @@ export function readStoredPlans(raw: string | null, uid: string): { held: HeldPl
 }
 
 /**
- * Whether a screen opening skips its check (D4): a check succeeded less than
- * `PLANS_CHECK_SKIP_MS` ago. Only a success counts (D11): after a failure the
- * next screen tries again. Try again and Reload pass `force`.
+ * Whether a plans screen opening skips its check (D4): the core's rule
+ * (`withinSkipWindow`) on `PLANS_CHECK_SKIP_MS`.
  */
 export function shouldSkipCheck(lastOkAt: number | null, now: number, force = false): boolean {
-  if (force || lastOkAt === null) return false;
-  return now - lastOkAt < PLANS_CHECK_SKIP_MS;
+  return withinSkipWindow(lastOkAt, now, PLANS_CHECK_SKIP_MS, force);
 }
 
 /**
