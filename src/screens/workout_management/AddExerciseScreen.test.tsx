@@ -1,6 +1,6 @@
 // TICKET-051: Manage Workout edits the plan's exercises as a list, in a draft,
 // with one Save changes for the whole plan.
-// TICKET-050: Recent comes from one recent-sessions query per open.
+// TICKET-050: Recent comes from the recent workouts store, checked once per open (TICKET-075).
 // TICKET-052: plans are chosen and created in a sheet; a first plan without one.
 
 import { StyleSheet, TextInput } from "react-native";
@@ -15,7 +15,8 @@ import { useCatalogStore } from "../../stores/useCatalogStore";
 import { usePlansStore } from "../../stores/usePlansStore";
 import { loadCatalog } from "../../utils/catalog";
 import { LayoutRoutes } from "../../constants/routes";
-import { getWorkoutSessions } from "../../services/db/workoutSessions";
+import { getChangedSessions, getNewestSessionStamp, getPlanSessionsFromServer } from "../../services/db/workoutSessions";
+import { serveRecentWorkouts } from "../../test/recentWorkouts";
 import { WorkoutPlan } from "../../types/workoutType";
 import * as planDraft from "../../utils/planDraft";
 import { EMPTY_PLAN_ERROR } from "../../utils/planDraft";
@@ -33,7 +34,9 @@ jest.mock("../../services/db/userDB", () => ({
 }));
 jest.mock("../../services/db/workoutSessions", () => ({
   ...jest.requireActual("../../services/db/workoutSessions"),
-  getWorkoutSessions: jest.fn(async () => ({ sessions: [], lastDoc: null })),
+  getNewestSessionStamp: jest.fn(async () => null),
+  getPlanSessionsFromServer: jest.fn(async () => []),
+  getChangedSessions: jest.fn(async () => []),
 }));
 // Manage Workout checks the catalog's hash on focus; nothing uploaded here.
 jest.mock("../../services/db/catalog", () => ({
@@ -267,14 +270,11 @@ it("Save changes keeps its fill and centring on the button itself, not on the to
   });
 });
 
-it("Recent comes from one recent-sessions query per open, none per picker open or keystroke", async () => {
-  const mockSessions = getWorkoutSessions as jest.Mock;
-  mockSessions.mockClear();
-  mockSessions.mockResolvedValue({
-    sessions: [{ sessionId: "s1", workoutId: "push", workoutName: "Push", startedAt: Date.now(), endedAt: Date.now(),
-      exerciseIds: ["bench_press__barbell__close_grip"], rollupPending: false }],
-    lastDoc: null,
-  });
+it("Recent comes from the recent workouts' check on open, none per picker open or keystroke", async () => {
+  // TICKET-075: served through the store's reads; the plan held is Pull, so the session is Pull's.
+  [getNewestSessionStamp, getPlanSessionsFromServer, getChangedSessions].forEach((read) => jest.mocked(read).mockClear());
+  serveRecentWorkouts([{ sessionId: "s1", workoutId: "pull", workoutName: "Pull", startedAt: Date.now(), endedAt: Date.now(),
+    exerciseIds: ["bench_press__barbell__close_grip"], rollupPending: false }]);
   await openPlan([pull()], "Pull");
 
   fireEvent.press(await screen.findByLabelText("Add exercise"));
@@ -285,8 +285,13 @@ it("Recent comes from one recent-sessions query per open, none per picker open o
   fireEvent.press(within(picker).getByLabelText("Back"));
   fireEvent.press(screen.getByLabelText("Add exercise"));
 
-  expect(mockSessions).toHaveBeenCalledTimes(1);
-  expect(mockSessions).toHaveBeenCalledWith(TEST_USER_ID, { pageSize: 20 });
+  // One first load: the baseline, then Pull's and Freestyle's queries. No change check followed.
+  expect(getNewestSessionStamp).toHaveBeenCalledTimes(1);
+  expect(jest.mocked(getPlanSessionsFromServer).mock.calls.map(([uid, planId]) => [uid, planId]).sort()).toEqual([
+    [TEST_USER_ID, "freestyle"],
+    [TEST_USER_ID, "pull"],
+  ]);
+  expect(getChangedSessions).not.toHaveBeenCalled();
 });
 
 // TICKET-052: New plan and first plan.

@@ -51,7 +51,7 @@ import { customExercisesFromPlans } from '../../utils/exerciseSearch';
 import { exerciseDisplayName } from '../../utils/catalog';
 import ExercisePicker from '../../components/exercise_picker/ExercisePicker';
 import { preparePicker } from '../../utils/pickerData';
-import { useRecentSessions } from '../../hooks/useRecentSessions';
+import { useRecentWorkouts } from '../../hooks/useRecentWorkouts';
 import { useWorkoutStore } from '../../stores/useWorkoutStore';
 import { buildRecentHistory } from '../../utils/recents';
 import { TouchableOpacityBase } from '../../components/TouchableOpacityBase';
@@ -118,16 +118,15 @@ export default function AddExerciseScreen() {
   const dirty = useMemo(() => (saved && draft ? isDraftDirty(saved, draft) : false), [saved, draft]);
   const errors = useMemo(() => (draft ? validateDraft(draft) : null), [draft]);
 
-  // The picker's Recent and last-used versions (TICKET-050). The same hook as
-  // Start: one recent-sessions query each time Manage Workout comes into view
-  // or an upload lands, none per picker open or keystroke. Rejected (after
-  // approval, 2026-10-27): sharing Start's result through a store, which went
-  // stale when a workout uploaded while Start was not mounted, so Recent
-  // missed it. Null until the query returns, or after it fails: no Recent.
+  // The picker's Recent and last-used versions (TICKET-050), from the shared
+  // workouts store (TICKET-075), checked when Manage Workout comes into view,
+  // never per picker open or keystroke. The 2026-10-27 objection to a shared
+  // store (it went stale when a workout uploaded while Start was not mounted)
+  // no longer holds: the upload itself puts the workout in the store
+  // (`applyFinished`). Null while nothing is held: no Recent.
   const uid = user?.uid;
   const pendingUploads = useWorkoutStore((s) => s.pendingUploads);
-  const myPendingCount = pendingUploads.filter((entry) => entry.uid === uid).length;
-  const sessions = useRecentSessions(uid, myPendingCount);
+  const sessions = useRecentWorkouts(uid);
   // TICKET-061: the plan sheet lists plans in Start's order, last done first.
   // Rejected: a lighter sort of Manage's own (PR #37 review): last done needs
   // the same sessions-plus-pending-uploads merge, and two copies would drift.

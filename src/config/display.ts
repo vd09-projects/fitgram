@@ -6,9 +6,6 @@
 /** Most tiles the Workout hub shows (TICKET-066). The rest are under All plans. */
 export const HUB_TILE_LIMIT = 6;
 
-/** Recent sessions read on open. Plans not done within this window show no date. */
-export const RECENT_SESSIONS_WINDOW = 20;
-
 /** Recent rows shown in the exercise picker (user, 2026-10-27, D5). */
 export const RECENT_LIMIT = 10;
 

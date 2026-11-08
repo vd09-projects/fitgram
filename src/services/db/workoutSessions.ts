@@ -16,16 +16,19 @@ import {
   documentId,
   getDoc,
   getDocs,
+  getDocsFromServer,
   limit as limitFn,
   orderBy,
   query,
   runTransaction,
   serverTimestamp,
   startAfter,
+  Timestamp,
   where,
   writeBatch,
   DocumentData,
   QueryDocumentSnapshot,
+  QuerySnapshot,
 } from "firebase/firestore";
 import { tables } from "../../constants/tables";
 import { db } from "../firebase/firebase";
@@ -40,7 +43,7 @@ import {
   buildExerciseSessionId,
   buildSessionDocs,
 } from "../../utils/exerciseStats";
-import { toStamp } from "../../utils/syncCore";
+import { toStamp, type SyncStamp } from "../../utils/syncCore";
 import { IN_QUERY_CHUNK } from "../../config/sync";
 
 const USERS = tables.users.collection;
@@ -283,6 +286,76 @@ export const getWorkoutSessions = async (
     sessions: snapshot.docs.map(sessionFromDoc),
     lastDoc: snapshot.docs[snapshot.docs.length - 1] ?? null,
   };
+};
+
+// ---------------------------------------------------------------------------
+// The recent workouts store's reads (TICKET-075 stage 2)
+// ---------------------------------------------------------------------------
+//
+// From the server, never Firestore's cache, as the plans reads (TICKET-070
+// D11): offline these reject, so a failed check is never read as "nothing
+// changed" or "never done". `getDocs` here answered offline from the empty
+// memory cache, and every plan showed "not in recent workouts" (TICKET-075,
+// confirmed on the emulator 2026-11-08).
+
+/**
+ * Refuses an answer that includes this phone's own writes not yet confirmed
+ * (`hasPendingWrites`), as the plans reads do (`serverOnly` in userDB): such a
+ * doc's `updatedAt` reads null, so it would sit unstamped and could not move
+ * `lastSeen`. The check fails and the next one asks again.
+ */
+function serverOnly(snapshot: QuerySnapshot<DocumentData>): QuerySnapshot<DocumentData> {
+  if (snapshot.metadata.hasPendingWrites) throw new Error("A workout upload is still queued on this phone");
+  return snapshot;
+}
+
+/**
+ * The newest `updatedAt` among all sessions, or null when none has one: the
+ * full reload's baseline (`workoutsLastSeenAfter`). 1 read. Sessions with no
+ * `updatedAt` are not in an `orderBy` on it, so a user with only pre-075
+ * sessions gets null, and the next change check starts at the epoch.
+ */
+export const getNewestSessionStamp = async (userId: string): Promise<SyncStamp | null> => {
+  if (!userId) throw new Error("Missing user");
+  const snapshot = serverOnly(
+    await getDocsFromServer(query(sessionsRef(userId), orderBy("updatedAt", "desc"), limitFn(1)))
+  );
+  return snapshot.empty ? null : (toStamp(snapshot.docs[0].data().updatedAt) ?? null);
+};
+
+/**
+ * One plan's newest `count` sessions by `startedAt`, the first load's read
+ * per plan. Uses the index `sessions (workoutId, startedAt desc)`. A plan never
+ * done: no docs, billed 1 read.
+ */
+export const getPlanSessionsFromServer = async (
+  userId: string,
+  planId: string,
+  count: number
+): Promise<WorkoutSessionDoc[]> => {
+  if (!userId) throw new Error("Missing user");
+  const snapshot = serverOnly(
+    await getDocsFromServer(
+      query(sessionsRef(userId), where("workoutId", "==", planId), orderBy("startedAt", "desc"), limitFn(count))
+    )
+  );
+  return snapshot.docs.map(sessionFromDoc);
+};
+
+/**
+ * Sessions written after `after`: `updatedAt > after`, every plan. Nothing
+ * changed: no docs, billed 1 read. `>` and a Timestamp rebuilt from seconds
+ * and nanoseconds, as `getChangedPlans`. A range on one field needs no index
+ * of ours.
+ */
+export const getChangedSessions = async (userId: string, after: SyncStamp): Promise<WorkoutSessionDoc[]> => {
+  if (!userId) throw new Error("Missing user");
+  const snapshot = serverOnly(
+    await getDocsFromServer(
+      query(sessionsRef(userId), where("updatedAt", ">", new Timestamp(after.seconds, after.nanoseconds)))
+    )
+  );
+  return snapshot.docs.map(sessionFromDoc);
 };
 
 /** Every exercise performed in one session. */

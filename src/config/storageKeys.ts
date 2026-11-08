@@ -32,6 +32,25 @@ export const PLANS_STORAGE_KEY = "workoutPlans";
  */
 export const PLANS_FORMAT_VERSION = 3;
 
+// --- Recent workouts (useRecentWorkoutsStore, TICKET-075) ---
+
+/**
+ * AsyncStorage key of the recent workouts: the newest `WORKOUTS_PER_PLAN` per
+ * plan. ACCOUNT DATA: cleared on sign-out. One key with the user id inside,
+ * as the plans' (`PLANS_STORAGE_KEY`).
+ */
+export const WORKOUTS_STORAGE_KEY = "recentWorkouts";
+
+/**
+ * Format of the stored recent workouts, written inside the value. Bump it when
+ * `StoredWorkouts` (utils/workoutsSync.ts) or the session shape it holds
+ * changes. `WORKOUTS_PER_PLAN` is not part of it: the copy records its own N.
+ *
+ * Changes stored data: bumping it discards every phone's stored workouts on
+ * the next launch; each refills with one first load (one read per plan, plus 1).
+ */
+export const WORKOUTS_FORMAT_VERSION = 1;
+
 // --- The workout in progress and the upload queue (useWorkoutStore) ---
 
 /** AsyncStorage key of the workout in progress. Tests use the literal, to pin it. */

@@ -23,7 +23,7 @@ import { useWorkoutStore } from "../../stores/useWorkoutStore";
 import { isFreestyle } from "../../constants/freestyle";
 import { useAuthUser } from "../../hooks/useAuthUser";
 import useWorkoutPlans from "../../hooks/useWorkoutPlans";
-import { useRecentSessions } from "../../hooks/useRecentSessions";
+import { useRecentWorkouts } from "../../hooks/useRecentWorkouts";
 import { customExercisesFromPlans } from "../../utils/exerciseSearch";
 import { buildRecentHistory } from "../../utils/recents";
 import { exerciseDisplayName } from "../../utils/catalog";
@@ -53,8 +53,7 @@ export default function WorkoutExercisePicker({ exercises, purpose, onClose }: P
 
   const { workoutPlans } = useWorkoutPlans({ check: "none" });
   const customExercises = useMemo(() => customExercisesFromPlans(workoutPlans), [workoutPlans]);
-  const myPendingCount = pendingUploads.filter((entry) => entry.uid === uid).length;
-  const sessions = useRecentSessions(uid, myPendingCount);
+  const sessions = useRecentWorkouts(uid);
   const recentHistory = useMemo(
     () => (catalog ? buildRecentHistory(sessions, pendingUploads, uid, catalog.index, customExercises) : null),
     [catalog, sessions, pendingUploads, uid, customExercises]

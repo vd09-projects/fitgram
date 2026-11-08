@@ -11,7 +11,7 @@ import { formatElapsed } from "../../utils/workoutProgress";
 
 type Props = {
   row: PlanRow;
-  /** False while the recent-sessions read is pending or failed (`hubTileFace`). */
+  /** False while no recent workouts are held: not loaded yet, or the first load failed (`hubTileFace`). */
   sessionsKnown: boolean;
   /** The screen's clock, read on focus: days since are counted from it. */
   now: number;

@@ -3,7 +3,7 @@ import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useWorkoutPlansOnFocus } from "../../hooks/useWorkoutPlansOnFocus";
 import { useAuthUser } from "../../hooks/useAuthUser";
-import { useRecentSessions } from "../../hooks/useRecentSessions";
+import { useRecentWorkouts } from "../../hooks/useRecentWorkouts";
 import { SPACING } from "../../constants/styles";
 import ScrollableScreen from "../../components/ScrollableScreen";
 import { BackTitle } from "../../components/BackButton";
@@ -49,10 +49,7 @@ export default function StartWorkoutScreen() {
   const [showArchived, setShowArchived] = useState(false);
   useFocusEffect(useCallback(() => setShowArchived(false), []));
 
-  const myPendingCount = pendingUploads.filter(
-    (entry) => entry.uid === uid,
-  ).length;
-  const sessions = useRecentSessions(uid, myPendingCount);
+  const sessions = useRecentWorkouts(uid);
 
   const rows = useMemo(
     () =>

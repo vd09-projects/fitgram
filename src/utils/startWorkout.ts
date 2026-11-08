@@ -1,8 +1,8 @@
 // src/utils/startWorkout.ts
 //
-// View models for the Start Workout screen (TICKET-022). Pure: the screen issues
-// one recent-sessions query and one batched history prefetch on selection, and
-// everything it shows is derived here from those results plus local state.
+// View models for the Start Workout screen (TICKET-022). Pure: the screen reads
+// the recent workouts store (TICKET-075) and one batched history prefetch on
+// selection, and everything it shows is derived here from those plus local state.
 //
 // What an exercise did last time ("3 sets · top 40 kg × 8") is not here: it
 // lives in `src/utils/setSummary/` (TICKET-065), the one place that summarises
@@ -15,7 +15,8 @@ import { unitLabel } from "./exerciseFields";
 import { buildSessionDocs, computeSessionTotalVolume } from "./exerciseStats";
 import { HUB_TILE_LIMIT } from "../config/display";
 
-// RECENT_SESSIONS_WINDOW: value and reason in src/config/display.ts.
+// What `sessions` holds: each plan's newest `WORKOUTS_PER_PLAN`, value and
+// reason in src/config/sync.ts (TICKET-075; it was the newest 20 overall).
 
 export type PlanRow = {
   id: string;
@@ -137,16 +138,17 @@ export function buildPlanRows(
 
 /**
  * TICKET-061's list order: **last done first**, newest at the top. A plan with
- * no known date (never done, or not within `RECENT_SESSIONS_WINDOW`) comes
+ * no known date (never done, or its plan's workouts not loaded yet) comes
  * after every dated one; those, and ties, go A–Z so the order never depends on
  * Firestore's document order, which is what the list showed before.
  *
- * Known limit: "no date" mixes never-done with done-long-ago, because only the
- * window is read. Rejected: reading every session to date old plans, a full
- * history read on each Start open for an order nobody can see past the top few.
+ * Since TICKET-075 "no date" is never done, or a plan whose workouts are not
+ * loaded yet (they load as soon as the plan is held); it no longer mixes in
+ * plans done long ago, which the old 20-session window dropped.
  *
- * Known limit: until the sessions query returns, no plan has a date, so the list
- * is A–Z and then reorders; a tap in that moment can select another row.
+ * Known limit: until the recent workouts' first load answers (a fresh install
+ * or sign-in; otherwise the stored copy shows at once), no plan has a date, so
+ * the list is A–Z and then reorders; a tap in that moment can select another row.
  * Accepted (PR #37 review): Start names the plan on its button before starting.
  * Rejected: holding the list until sessions load, because `null` also means the
  * query failed, and the list would then never show.
@@ -169,7 +171,7 @@ const compareNames = (a: PlanRow, b: PlanRow) =>
  * The Workout hub's tiles (TICKET-066), from `buildPlanRows(…, "")`.
  *
  * - **Recent** = a non-archived plan with a known last-done date, i.e. a session
- *   in the last `RECENT_SESSIONS_WINDOW` sessions or one of this user's pending
+ *   among its plan's held workouts (TICKET-075) or one of this user's pending
  *   uploads (both via `buildPlanRows`). These come first, **longest since done
  *   first** (oldest `lastDoneAt` at the top), the reverse of All plans' order:
  *   the hub suggests what is due, All plans finds what was just done.
@@ -191,7 +193,7 @@ const compareNames = (a: PlanRow, b: PlanRow) =>
  * you abandoned (user, 2026-11-02).
  *
  * A Freestyle session (TICKET-067) matches no plan id in `buildPlanRows`, so it
- * never becomes a tile; it still uses one of the window's 20 places.
+ * never becomes a tile; its workouts are held under `FREESTYLE_ID`, apart from the plans'.
  */
 export function chooseHubTiles(rows: PlanRow[]): PlanRow[] {
   const active = rows.filter((row) => !row.archived);
@@ -217,13 +219,16 @@ export type HubTileFace = {
  * **Nd** = `daysSince`, the plan card's count, so a tile and the card it opens
  * never disagree. Always in days, even past two weeks where the card switches
  * to weeks: a tile is half a row wide, and "3 weeks" does not fit its big
- * number. Rarely reached anyway: a tile is a plan within the last 20 sessions.
+ * number.
  *
  * No date is an explicit absence, never "new" or 0 (CLAUDE.md 2.4), with the
  * card's `sessionsKnown` rule:
  * - sessions read, plan not among them → "—" "not in recent workouts". Not
- *   "never done": the window cannot tell never from long ago
- * - sessions loading, or the read failed (`useRecentSessions` stays null) →
+ *   "never done": kept from the 20-session window, though since TICKET-075 it
+ *   is never done but for a plan not loaded yet (until the next check after
+ *   the 2-minute skip). A copy change is a
+ *   follow-up (TICKET-075 known gaps), not part of this ticket
+ * - nothing held yet, or the first load failed (`useRecentWorkouts` is null) →
  *   "—" "last session unknown", the card's own words
  */
 export function hubTileFace(

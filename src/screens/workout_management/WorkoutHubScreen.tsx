@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AppState, StyleSheet, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useAuthUser } from "../../hooks/useAuthUser";
-import { useRecentSessions } from "../../hooks/useRecentSessions";
+import { useRecentWorkouts } from "../../hooks/useRecentWorkouts";
 import { useWorkoutPlansOnFocus } from "../../hooks/useWorkoutPlansOnFocus";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
 import { SPACING } from "../../constants/styles";
@@ -38,8 +38,9 @@ type NavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.WorkoutHo
  * Reads the same two things as All plans (StartWorkoutScreen), with the same
  * hooks: the plans from the plans store, checked on focus because this screen
  * stays mounted under the tab (`useWorkoutPlansOnFocus`, TICKET-070), and the
- * one recent-sessions query (`useRecentSessions`), joined with pending uploads
- * by `buildPlanRows`. No read of its own.
+ * recent workouts from the workouts store, checked on focus too
+ * (`useRecentWorkouts`, TICKET-075), joined with pending uploads by
+ * `buildPlanRows`. No read of its own.
  *
  * While a workout runs: a Resume bar on top, the running plan's tile shows the
  * live timer, and every tile still opens the card, which shows Resume for the
@@ -64,8 +65,7 @@ export default function WorkoutHubScreen() {
   const pendingUploads = useWorkoutStore((state) => state.pendingUploads);
 
   const { workoutPlans, loadingWorkoutPlans, failedToLoad, retry } = useWorkoutPlansOnFocus();
-  const myPendingCount = pendingUploads.filter((entry) => entry.uid === uid).length;
-  const sessions = useRecentSessions(uid, myPendingCount);
+  const sessions = useRecentWorkouts(uid);
   const sessionsKnown = sessions !== null;
 
   const rows = useMemo(

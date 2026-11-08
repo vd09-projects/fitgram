@@ -32,6 +32,13 @@
 //    phones showing the same rev and id are on the same version
 // Leaving the hub for this page and coming back is a focus: the hub checks
 // (or skips) again, and the log shows it.
+//
+// The recent workouts store (TICKET-075) has its own section under the plans
+// (`WorkoutsSection`): per plan, the workouts held and the newest date;
+// `lastSeen`; each check with its queries and docs; and the reads Firestore
+// bills this app run, which is the ticket's measure (a query that returns
+// nothing bills 1). Remove with the page: the section, and in
+// useRecentWorkoutsStore the `billedReads` field and `bill` (marked "debug readout").
 
 import React, { useCallback, useState } from "react";
 import { View, StyleSheet, TouchableOpacity } from "react-native";
@@ -40,12 +47,20 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import ScrollableScreen from "../../components/ScrollableScreen";
 import { TextBase } from "../../components/TextBase";
 import { usePlansStore } from "../../stores/usePlansStore";
+import { useRecentWorkoutsStore } from "../../stores/useRecentWorkoutsStore";
+import { FREESTYLE_ID } from "../../constants/freestyle";
 import type { PlanStamp } from "../../types/workoutType";
 import { BORDER_RADIUS, SPACING } from "../../constants/styles";
 import { ReturnTypeUseThemeTokens } from "../../components/app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
-import { PLANS_CHECK_SKIP_MS, PLANS_FULL_RELOAD_INTERVAL_MS } from "../../config/sync";
-import { PLANS_STORAGE_KEY } from "../../config/storageKeys";
+import {
+  PLANS_CHECK_SKIP_MS,
+  PLANS_FULL_RELOAD_INTERVAL_MS,
+  WORKOUTS_CHECK_SKIP_MS,
+  WORKOUTS_FULL_RELOAD_INTERVAL_MS,
+  WORKOUTS_PER_PLAN,
+} from "../../config/sync";
+import { PLANS_STORAGE_KEY, WORKOUTS_STORAGE_KEY } from "../../config/storageKeys";
 
 const time = (ms: number) => new Date(ms).toLocaleTimeString();
 // Seconds and nanoseconds as stored, plus a readable time: the console shows the latter.
@@ -144,7 +159,104 @@ export default function PlansStoreDebugScreen() {
           {plan.version ? ` · rev ${plan.version.rev} · id ${plan.version.id.slice(0, 6)}` : " · no version (rev 0)"}
         </TextBase>
       ))}
+
+      <WorkoutsSection planNames={new Map((s.plans ?? []).map((plan) => [plan.id, plan.name]))} />
     </ScrollableScreen>
+  );
+}
+
+/** The stored workouts, read directly, as `readDisk` for the plans. */
+async function readWorkoutsDisk(): Promise<string> {
+  try {
+    const raw = await AsyncStorage.getItem(WORKOUTS_STORAGE_KEY);
+    if (raw === null) return "key absent";
+    const parsed = JSON.parse(raw);
+    const plans = parsed?.byPlan ? Object.keys(parsed.byPlan).length : "?";
+    return `${plans} plans · N ${parsed?.n} · format ${parsed?.formatVersion} · user ${String(parsed?.uid).slice(0, 6)} · ${raw.length} chars`;
+  } catch (error) {
+    return `unreadable: ${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+/** The recent workouts store (TICKET-075). Same buttons and log as the plans, for this store. */
+function WorkoutsSection({ planNames }: { planNames: Map<string, string> }) {
+  const { styles } = useThemeStyles(createStyles);
+  const w = useRecentWorkoutsStore();
+  const [disk, setDisk] = useState("…");
+  const refreshDisk = useCallback(() => {
+    readWorkoutsDisk().then(setDisk);
+  }, []);
+  useFocusEffect(refreshDisk);
+  React.useEffect(() => {
+    const timer = setTimeout(refreshDisk, 300);
+    return () => clearTimeout(timer);
+  }, [w.byPlan, w.uid, refreshDisk]);
+
+  const rows: [string, string][] = [
+    ["Holds", w.byPlan === null ? "nothing (readers say last session unknown)" : `${Object.keys(w.byPlan).length} plans · newest ${WORKOUTS_PER_PLAN} each · ${w.loaded.length} loaded`],
+    ["On disk", disk],
+    ["Check", w.checking ? (w.waitOver ? "running, wait over" : "running") : "idle"],
+    ["Last result", w.lastResult ?? "none"],
+    ["Last ok", w.lastOkAt ? `${time(w.lastOkAt)} · checks skipped until ${time(w.lastOkAt + WORKOUTS_CHECK_SKIP_MS)}` : "never"],
+    ["Last seen", w.lastSeen ? stamp(w.lastSeen) : "none (a change check starts at the epoch)"],
+    [
+      "Last full reload",
+      w.lastFullAt
+        ? `${new Date(w.lastFullAt).toLocaleString()} · next due ${new Date(w.lastFullAt + WORKOUTS_FULL_RELOAD_INTERVAL_MS).toLocaleString()}`
+        : "never (the next check is full)",
+    ],
+    ["Checks", `${w.readout.reads} this app run`],
+    ["Reads billed", `${w.billedReads} this app run (session docs, 1 per empty query)`],
+  ];
+
+  const button = (label: string, onPress: () => void) => (
+    <TouchableOpacity style={styles.button} onPress={onPress}>
+      <TextBase style={styles.buttonText}>{label}</TextBase>
+    </TouchableOpacity>
+  );
+
+  return (
+    <>
+      <TextBase style={styles.section}>Recent workouts store (TICKET-075)</TextBase>
+      <View style={styles.card}>
+        {rows.map(([label, value]) => (
+          <TextBase key={label} style={styles.line}>
+            <TextBase style={styles.label}>{label}: </TextBase>
+            {value}
+          </TextBase>
+        ))}
+        {w.lastError && <TextBase style={styles.warn}>Error: {w.lastError}</TextBase>}
+      </View>
+
+      {button("Workouts: force check now", () => useRecentWorkoutsStore.getState().check({ force: true }))}
+      {button("Workouts: expire the 2-minute skip", () => useRecentWorkoutsStore.setState({ lastOkAt: null }))}
+      {button("Workouts: full reload now", () => useRecentWorkoutsStore.getState().check({ force: true, full: true }))}
+      {button("Workouts: zero the read counters", () =>
+        useRecentWorkoutsStore.setState({ billedReads: 0, readout: { reads: 0, log: [] } })
+      )}
+
+      <TextBase style={styles.section}>Workout checks, newest first</TextBase>
+      {w.readout.log.length === 0 ? (
+        <TextBase style={styles.line}>None yet.</TextBase>
+      ) : (
+        w.readout.log.map((entry, index) => (
+          <TextBase key={index} style={styles.line}>
+            {time(entry.at)} {entry.outcome}
+            {entry.kind ? ` ${entry.kind}` : ""}
+            {entry.detail ? ` (${entry.detail})` : ""}
+          </TextBase>
+        ))
+      )}
+
+      <TextBase style={styles.section}>Workouts held, per plan</TextBase>
+      {Object.entries(w.byPlan ?? {}).map(([planId, sessions]) => (
+        <TextBase key={planId} style={styles.line}>
+          {planId === FREESTYLE_ID ? "Freestyle" : (planNames.get(planId) ?? `${planId} (not a held plan)`)} · {sessions.length} held
+          {sessions[0] ? ` · newest ${new Date(sessions[0].startedAt).toLocaleString()}` : " · never done"}
+          {sessions.some((session) => !session.updatedAt) ? ` · ${sessions.filter((session) => !session.updatedAt).length} unstamped` : ""}
+        </TextBase>
+      ))}
+    </>
   );
 }
 

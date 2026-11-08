@@ -40,6 +40,7 @@ import { useAuthStore } from "../stores/authStore";
 import { useRestPreferenceStore } from "../stores/restPreferenceStore";
 import { useCatalogStore } from "../stores/useCatalogStore";
 import { usePlansStore } from "../stores/usePlansStore";
+import { useRecentWorkoutsStore } from "../stores/useRecentWorkoutsStore";
 import { ActiveWorkout } from "../types/zustandWorkoutType";
 import { ExerciseStatsDoc } from "../types/workoutSession";
 
@@ -98,6 +99,8 @@ export function resetStores() {
   // stored-copy read), which `setState` cannot reach.
   usePlansStore.getState().clear();
   usePlansStore.setState({ readout: { reads: 0, log: [] } }); // debug readout (Plans Store page)
+  useRecentWorkoutsStore.getState().clear();
+  useRecentWorkoutsStore.setState({ readout: { reads: 0, log: [] }, billedReads: 0 }); // debug readout
   AsyncStorage.clear();
 }
 
