@@ -14,6 +14,7 @@
 //     history is one query. Rebuildable from exercise_sessions at any time.
 
 import { ExerciseField } from "./workoutType";
+import type { SyncStamp } from "../utils/syncCore";
 
 /**
  * How one set felt, marked by the user (TICKET-034).
@@ -127,6 +128,13 @@ export type WorkoutSessionDoc = {
    * lack it; readers treat absence as unavailable, never as 0.
    */
   volume?: SessionTotalVolume;
+  /**
+   * The server's time of the doc's last write (TICKET-075), as plain numbers:
+   * `serverTimestamp()` on every write of `sessions`. What a change check
+   * filters on. Absent on sessions written before 075 (no backfill), and on a
+   * session this phone just uploaded, until a check brings its stamp back.
+   */
+  updatedAt?: SyncStamp;
 };
 
 /**

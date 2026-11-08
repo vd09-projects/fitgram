@@ -20,6 +20,7 @@ import {
   orderBy,
   query,
   runTransaction,
+  serverTimestamp,
   startAfter,
   where,
   writeBatch,
@@ -39,6 +40,7 @@ import {
   buildExerciseSessionId,
   buildSessionDocs,
 } from "../../utils/exerciseStats";
+import { toStamp } from "../../utils/syncCore";
 import { IN_QUERY_CHUNK } from "../../config/sync";
 
 const USERS = tables.users.collection;
@@ -54,6 +56,18 @@ const exerciseSessionsRef = (userId: string) =>
 const exerciseStatsRef = (userId: string) =>
   collection(db, USERS, userId, EXERCISE_STATS);
 
+/**
+ * A `sessions` doc as the phone holds it (TICKET-075): `updatedAt` becomes
+ * plain numbers (`toStamp`) or is left out, as plans do, so it survives the
+ * stored copy's JSON at full precision. A session written before 075 has no
+ * stamp; the workouts store's first load reads it by `startedAt` instead.
+ */
+const sessionFromDoc = (snapshot: QueryDocumentSnapshot<DocumentData>): WorkoutSessionDoc => {
+  const { updatedAt, ...data } = snapshot.data();
+  const stamp = toStamp(updatedAt);
+  return { ...(data as WorkoutSessionDoc), ...(stamp ? { updatedAt: stamp } : {}) };
+};
+
 // ---------------------------------------------------------------------------
 // Write
 // ---------------------------------------------------------------------------
@@ -67,6 +81,12 @@ const exerciseStatsRef = (userId: string) =>
  *     writes queue in Firestore's offline cache and sync later, so finishing a
  *     workout without a connection still saves.
  *  2. A transaction that folds those sessions into the exercise_stats rollup.
+ *
+ * Both writes of the session doc carry `updatedAt: serverTimestamp()`
+ * (TICKET-075, TICKET-072 D8), so another phone's change check finds this
+ * workout whatever its `startedAt`: an upload hours late from the offline
+ * queue has an old start time but a new stamp. Every other writer of
+ * `sessions` stamps too: importHistory.ts, rebuildExerciseStats.ts.
  *     Transactions need a server round trip, so this is the part that can fail
  *     offline — and it is allowed to. The rollup is derived; `rollupPending`
  *     stays true on the session doc and `rebuildExerciseStats` can repair it.
@@ -92,7 +112,7 @@ export const saveWorkoutSession = async (
 
   // Phase 1 — canonical data. Offline-safe.
   const batch = writeBatch(db);
-  batch.set(doc(sessionsRef(userId), session.sessionId), session);
+  batch.set(doc(sessionsRef(userId), session.sessionId), { ...session, updatedAt: serverTimestamp() });
   for (const exerciseSession of exerciseSessions) {
     const id = buildExerciseSessionId(
       exerciseSession.sessionId,
@@ -121,7 +141,7 @@ export const saveWorkoutSession = async (
 
       tx.set(
         doc(sessionsRef(userId), session.sessionId),
-        { ...session, rollupPending: false },
+        { ...session, rollupPending: false, updatedAt: serverTimestamp() },
         { merge: true }
       );
     });
@@ -260,7 +280,7 @@ export const getWorkoutSessions = async (
 
   const snapshot = await getDocs(q);
   return {
-    sessions: snapshot.docs.map((d) => d.data() as WorkoutSessionDoc),
+    sessions: snapshot.docs.map(sessionFromDoc),
     lastDoc: snapshot.docs[snapshot.docs.length - 1] ?? null,
   };
 };

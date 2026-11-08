@@ -14,7 +14,7 @@
 //
 // Safe to re-run: it writes a value derived purely from the sessions it reads.
 
-import { collection, doc, getDocs, query, where, writeBatch } from "firebase/firestore";
+import { collection, doc, getDocs, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
 import { db } from "./firebase";
 import { ExerciseSessionDoc } from "../types/workoutSession";
 import { rebuildStatsFromSessions } from "../utils/exerciseStats";
@@ -71,8 +71,10 @@ const rebuild = async (userId: string, onlyExerciseIds: string[]) => {
   );
   if (pendingSnap.size > 0 && onlyExerciseIds.length === 0) {
     const clear = writeBatch(db);
+    // `updatedAt` on every sessions write (TICKET-075): a phone holding this
+    // session sees the cleared flag on its next change check.
     pendingSnap.docs.forEach((d) =>
-      clear.set(d.ref, { rollupPending: false }, { merge: true })
+      clear.set(d.ref, { rollupPending: false, updatedAt: serverTimestamp() }, { merge: true })
     );
     await clear.commit();
     console.log(`Cleared rollupPending on ${pendingSnap.size} session(s).`);

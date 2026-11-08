@@ -15,7 +15,11 @@
 //                                             `updatedAt` = the server's time
 //                                             (TICKET-070 D3) and `version` =
 //                                             the next one (TICKET-073)
-//   sessions/{sessionId}                      one per session
+//   sessions/{sessionId}                      one per session, with
+//                                             `updatedAt` = the server's time
+//                                             (TICKET-075: phones holding recent
+//                                             workouts see the import on their
+//                                             next check)
 //   exercise_sessions/{sessionId}__{exercise} one per exercise per session
 //   exercise_stats/{exerciseId}               REBUILT from every exercise_session
 //                                             the user has, imported or not
@@ -122,7 +126,7 @@ const run = async () => {
   }
   for (const { session, exerciseSessions } of built.sessions) {
     // Written settled: the rollup is rebuilt below, in this same run.
-    await queue((b) => b.set(user.collection(SESSIONS).doc(session.sessionId), { ...session, rollupPending: false }));
+    await queue((b) => b.set(user.collection(SESSIONS).doc(session.sessionId), { ...session, rollupPending: false, updatedAt: FieldValue.serverTimestamp() }));
     for (const e of exerciseSessions) {
       await queue((b) => b.set(user.collection(EXERCISE_SESSIONS).doc(buildExerciseSessionId(e.sessionId, e.exerciseId)), e));
     }
