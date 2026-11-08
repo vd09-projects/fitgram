@@ -20,9 +20,9 @@ import { UPLOAD_GRACE_MS } from "../config/workout";
 import { ACTIVE_WORKOUT_KEY, LOCAL_DATA_VERSION, LOCAL_DATA_VERSION_KEY, PENDING_UPLOADS_KEY } from "../config/storageKeys";
 
 /**
- * In-flight uploads per session (`buildSessionId`), outside the store for the
- * same reason as `useExerciseHistoryStore`'s `inFlight`: a zustand update is not
- * visible to a second caller in the same frame (TICKET-027). A Map lookup is
+ * In-flight uploads per session (`buildSessionId`), outside the store because
+ * a zustand update is not visible to a second caller in the same frame
+ * (TICKET-027). A Map lookup is
  * synchronous, so Finish, a queue drain, or any later caller joins the running
  * upload instead of starting one. Resolves true if the upload succeeded.
  *
@@ -914,8 +914,8 @@ function uploadPendingWorkout(entry: PendingUpload): Promise<boolean> {
     // Identity check: only remove our own entry, never a later upload's.
     // Unreachable today, since the join above allows one upload per session, so
     // no test covers it. Kept deliberately: it is what stays correct if a
-    // `force` path that bypasses the join is ever added, as the history
-    // store's prefetch has.
+    // `force` path that bypasses the join is ever added, as the sync
+    // runner's `check` has.
     if (savesInFlight.get(entry.sessionId) === run) savesInFlight.delete(entry.sessionId);
   });
   savesInFlight.set(entry.sessionId, run);

@@ -23,10 +23,9 @@
 // check (a Save, a Finish) stay in the store, on `isCurrent`, `persist` and
 // `note`.
 //
-// Checked against TICKET-076 (exercise summaries, not built): a full read of
-// one collection, a change check on a stamp, an own write applied without a
-// read, a stored copy in several AsyncStorage entries (`readStored` and
-// `writeStored` own the key layout), cleared on sign-out. All fit.
+// Exercise summaries (TICKET-076) run on it too: a full read of one collection,
+// a change check on a stamp, a stored copy in several AsyncStorage entries
+// (`readStored` and `writeStored` own the key layout), cleared on sign-out.
 
 import { withinSkipWindow } from "../utils/syncCore";
 

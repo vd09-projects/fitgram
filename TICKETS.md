@@ -8959,6 +8959,11 @@ About 3 reads per workout, but not "own Finish, zero reads", and it saves about 
 reads a workout for more race-prone code. The claim to measure becomes ~12 → ~6–7.
 
 **Known gaps (stage 1):**
+- **A just-finished, never-done exercise can read "First time"** until the next
+  check answers (about a second), up to the 2-minute skip if a check was already
+  running when the upload finished: that check's answer sets `lastOkAt` again.
+  On main it showed "…". PR #54 review, finding 1. Stage 2 closes it when the
+  summaries are applied at Finish; not fixed here as stage 1 does not ship alone.
 - **Deleted summaries** stay on phones until sign-out (wipe scripts only).
 - **A hand-set future stamp** pins `lastSeen` until that doc is fixed and a full
   load runs (sign-out). Console edits only.

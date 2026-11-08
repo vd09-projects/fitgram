@@ -101,7 +101,7 @@ export type VolumePoint = {
 
 export type ExerciseHistory = {
   status: ExerciseHistoryStatus;
-  /** House convention. True only while a prefetch is in flight. */
+  /** House convention. True only while a check runs and nothing is known about this exercise. */
   loading: boolean;
   /** True when at least one session recorded this exercise. */
   hasHistory: boolean;

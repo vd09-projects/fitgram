@@ -58,9 +58,10 @@ export type RenderScreenOptions = {
    */
   workoutActions?: Partial<Omit<WorkoutState, "activeWorkout">>;
   /**
-   * Cached history per exercise id, seeded as `status: "ready"`. `null` means
-   * fetched and the exercise has never been done. An exercise not listed is
-   * `idle` (never prefetched), which is the default for every exercise.
+   * Saved summary per exercise id, seeded as after a successful check. `null`
+   * means the exercise has never been done, and so does not listing it: both
+   * are "ready, none". Leave `history` out for an unloaded store, where every
+   * exercise is `idle`.
    */
   history?: Record<string, ExerciseStatsDoc | null>;
   /** Signed-in user. Default `{ uid: "test-user" }`; null for signed out. */

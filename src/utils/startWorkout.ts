@@ -1,8 +1,8 @@
 // src/utils/startWorkout.ts
 //
 // View models for the Start Workout screen (TICKET-022). Pure: the screen reads
-// the recent workouts store (TICKET-075) and one batched history prefetch on
-// selection, and everything it shows is derived here from those plus local state.
+// the recent workouts store (TICKET-075) and the saved exercise summaries
+// (TICKET-076), and everything it shows is derived here from those plus local state.
 //
 // What an exercise did last time ("3 sets · top 40 kg × 8") is not here: it
 // lives in `src/utils/setSummary/` (TICKET-065), the one place that summarises

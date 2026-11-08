@@ -8,8 +8,8 @@
 // What it is for:
 //  - prove the lookup is cross-workout: pick an exercise that appears in two
 //    plans and check `lastSession` names whichever plan was most recent
-//  - prove the cache: watch the fetch counter while switching exercises and
-//    reading values. It must not move.
+//  - prove readers cost nothing: watch the check counter while switching
+//    exercises and reading values. It must not move.
 
 import React, { useMemo, useState } from "react";
 import { View, StyleSheet, TouchableOpacity } from "react-native";
@@ -60,7 +60,7 @@ export default function ExerciseHistoryDebugScreen() {
   );
 
   // The one number that matters: every server check this app run (TICKET-076).
-  const fetchCount = useExerciseHistoryStore((s) => s.readout.reads);
+  const checkCount = useExerciseHistoryStore((s) => s.readout.reads);
   const byId = useExerciseHistoryStore((s) => s.byId);
   const open = useExerciseHistoryStore((s) => s.open);
   const invalidate = useExerciseHistoryStore((s) => s.invalidateExercises);
@@ -93,8 +93,8 @@ export default function ExerciseHistoryDebugScreen() {
       title={<TextBase style={styles.heading}>History Debug (temporary)</TextBase>}
     >
       <View style={styles.counterCard}>
-        <TextBase style={styles.counterLabel}>Firestore history fetches</TextBase>
-        <TextBase style={styles.counter}>{fetchCount}</TextBase>
+        <TextBase style={styles.counterLabel}>Server checks this run (not docs)</TextBase>
+        <TextBase style={styles.counter}>{checkCount}</TextBase>
         <TextBase style={styles.counterHint}>
           Switching exercises and reading values below must not move this.
         </TextBase>

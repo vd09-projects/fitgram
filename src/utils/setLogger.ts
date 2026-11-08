@@ -85,9 +85,9 @@ export function stepFieldValue(
  * logged. Every case renders and every case can log a set; only `available`
  * carries numbers.
  *
- * - `notLoaded` — history never prefetched, still loading, or failed with
- *   nothing cached. Not "first time": we do not know.
- * - `firstTime` — fetched, and this exercise has never been done.
+ * - `notLoaded` — no summary held and no successful check this app run: not
+ *   checked yet, still loading, or failed. Not "first time": we do not know.
+ * - `firstTime` — a check succeeded, and this exercise has never been done.
  * - `noComparison` — no weight+reps pair (a plank), so no numbers to target.
  * - `unitChanged` — last session used another weight unit. Units are never
  *   converted, so its numbers are not shown as targets. It carries last time's

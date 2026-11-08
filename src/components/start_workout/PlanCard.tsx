@@ -357,7 +357,8 @@ function RunningProgress({ workout }: { workout: ActiveWorkout }) {
 
 /**
  * One exercise: its position, name, and last time (`lastTimeSummary`). The
- * history is cache-only here; the card's prefetch on open fills it.
+ * history is the saved summaries, read no further; the card's check on open
+ * refreshes them.
  */
 function ExerciseRow({ exercise, position }: { exercise: Exercise; position: number }) {
   const { styles } = useThemeStyles(createStyles);

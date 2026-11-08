@@ -73,7 +73,7 @@ export default function StartWorkoutScreen() {
   const selectedRow = visible.find((row) => row.id === selectedId) ?? null;
   const selectedPlan = selectedRow ? (plansById.get(selectedRow.id) ?? null) : null;
 
-  // The card prefetches its own exercise history on open (PlanCard).
+  // The card runs the exercise summaries check on open (PlanCard).
   const openCard = (planId: string) => setSelectedId(planId);
 
   const renderRow = (row: PlanRowModel) => (

@@ -23,8 +23,8 @@ export const FREESTYLE_NAME = "Freestyle";
 
 /**
  * The plan-shaped object `startWorkout` takes: no exercises, so the logger
- * opens empty and they come from ⋯ → Add exercise (TICKET-056). Its prefetch
- * gets an empty list and reads nothing. A new object per call, so a caller
+ * opens empty and they come from ⋯ → Add exercise (TICKET-056). With no
+ * exercises, `startWorkout` runs no summaries check for it. A new object per call, so a caller
  * cannot change the next one.
  */
 export const freestylePlan = (): WorkoutPlan => ({ id: FREESTYLE_ID, name: FREESTYLE_NAME, exercises: [] });
