@@ -27,8 +27,9 @@ export type SummariesCheckKind = "full" | "change";
 /**
  * Summaries after `incoming` arrives. A held summary is replaced by the copy
  * with the newer stamp, and by the incoming one on a tie: an unstamped copy
- * (written before 076) loses to a stamped one (`compareStamps`). Ordered by
- * stamp, not `lastPerformedAt`: a rebuild can rewrite a summary with no newer
+ * (written before 076, or this phone's own Finish until the next check brings
+ * it back) loses to a stamped one (`compareStamps`). Ordered by stamp, not
+ * `lastPerformedAt`: a rebuild can rewrite a summary with no newer
  * session in it, and lower its bests.
  */
 export function mergeSummaries(held: SummariesById, incoming: readonly ExerciseStatsDoc[]): SummariesById {

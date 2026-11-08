@@ -3,7 +3,7 @@ import { waitFor } from "@testing-library/react-native";
 import { useExerciseHistoryStore } from "./useExerciseHistoryStore";
 import { getAllExerciseStats, getChangedExerciseStats } from "../services/db/workoutSessions";
 import type { ExerciseStatsDoc } from "../types/workoutSession";
-import { storedSummariesKeys } from "../utils/exerciseSummariesSync";
+import { readStoredSummaries, storedSummariesKeys } from "../utils/exerciseSummariesSync";
 import { EXERCISE_SUMMARIES_STORAGE_KEY } from "../config/storageKeys";
 import { EXERCISE_SUMMARIES_SHARDS } from "../config/sync";
 
@@ -81,4 +81,18 @@ it("own Finish: held at once with no read, lastSeen unmoved; the next check's st
   expect(getChangedExerciseStats).toHaveBeenCalledWith(UID, { seconds: 5, nanoseconds: 0 });
   expect(store().byId?.bench.updatedAt).toEqual({ seconds: 9, nanoseconds: 0 });
   expect(store().lastSeen).toEqual({ seconds: 9, nanoseconds: 0 });
+});
+
+it("own Finish with nothing held holds nothing: a partial copy would stop the first load", () => {
+  useExerciseHistoryStore.setState({ uid: UID, byId: null, storedRead: true });
+  store().applyFinished(UID, [unstamped(summary("bench", 0), 2)]);
+  expect(store().byId).toBeNull();
+});
+
+it("own Finish reaches the saved copy", async () => {
+  await store().open(UID);
+  store().applyFinished(UID, [unstamped(summary("bench", 0), 2)]);
+  await waitFor(async () =>
+    expect(readStoredSummaries(await stored(), UID, EXERCISE_SUMMARIES_SHARDS).held?.byId.bench.lastPerformedAt).toBe(2)
+  );
 });

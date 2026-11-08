@@ -9024,8 +9024,9 @@ Finish, and can skip another phone's Finish.
   Kept at all because every successful check rewrites the stored copy, changed or
   not. Comment on `PLANS_CHECK_SKIP_MS`.
 - **No "offline · as of <date>" on the sheet.** Its rows are dated, and an own
-  Finish is always in the copy, so a stale copy can only lack a workout finished on
-  another phone. "As of" has no good date: `lastOkAt` is memory-only (blank after
+  Finish that uploaded and rolled up is in the copy, so a stale copy lacks only a
+  workout from another phone, one still queued, or one whose rollup failed; an "as
+  of" date would explain none of those (PR #55 review). And it has no good date: `lastOkAt` is memory-only (blank after
   a restart), and `lastSeen` is the newest write, not the last refresh. A label would
   need a new stored field for a case an MVP with one phone per user does not have;
   ghosts agree, and `ExerciseHistory.error` stays set for a future reader.
@@ -9057,8 +9058,9 @@ Finish, and can skip another phone's Finish.
   lines (`useWorkoutStore`, `ActiveWorkoutScreen`, `ExerciseLogger`) now return
   `summaries: []`, the field's replacement; the plans interval tests as above. The
   `invalidateExercises` call in stage 1's store test became a `setState`.
-- **Tests:** own Finish then stamped copy (`lastSeen` unmoved, no read), failed
-  rollup leaves the store alone, a Finish with no summary read,
+- **Tests:** own Finish then stamped copy (`lastSeen` unmoved, no read), own Finish
+  with nothing held stays nothing held, own Finish reaches the saved copy (both PR
+  #55 review), failed rollup leaves the store alone, a Finish with no summary read,
   `saveWorkoutSession`'s return, held copy with an old `lastFullAt` (plans and
   workouts). Each seen red by breaking its line.
 
@@ -9115,6 +9117,9 @@ on the branch, one on main for the baseline; a third workout discarded. iOS not 
 - **Nothing held, and a first load running as the upload lands:** the Finish is not
   applied and that answer may lack it, so a never-done exercise can read "First
   time" until the next check, up to the skip later. Needs both at once.
+- **A hand-set future `updatedAt` on a plan** blinds the plans' change checks until
+  sign-out or the debug page's full reload, even after the doc is fixed: the timed
+  full reload was what reset plans' `lastSeen`. Console edits only (PR #55 review).
 - **Another phone's Finish** shows at this phone's next check past the skip, so a
   never-done exercise can read "First time" here until then. Knowing sooner needs a
   live listener (rejected, TICKET-070 D3).
