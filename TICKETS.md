@@ -8534,7 +8534,7 @@ saved on the phone, and fetch only what changed.
   still merge in on the phone, as today.
 - **Fixes on the way:** `useRecentSessions` does not refuse a cached answer, so
   offline after a restart it may read an empty list and show every plan as never
-  done (seen in the code, not yet on a device; confirm first).
+  done (confirmed on the emulator 2026-11-08; see below).
 
 **To decide in the ticket:** which screens check on focus (plans' rule: every
 reader on focus, 2-minute skip); whether a plan's archive drops its held workouts.
@@ -8598,7 +8598,7 @@ instead of "last session unknown": a plausible wrong answer (CLAUDE.md 2.4).
 Present since `useRecentSessions` was added (19ea49d, TICKET-022; `git log -S`).
 Stage 2 removes the hook; its replacement refuses cached answers (`serverOnly`).
 
-**Stage 1 as built (2026-11-08, branch `TICKET-075-stage-1`, uncommitted):**
+**Stage 1 as built (2026-11-08, branch `TICKET-075-stage-1`, PR #52):**
 - **Server stamp:** `updatedAt: serverTimestamp()` on the Finish batch, the
   summary merge, `importHistory.ts` (`FieldValue.serverTimestamp()`) and
   `rebuildExerciseStats.ts`. `WorkoutSessionDoc.updatedAt?: SyncStamp`; reads
@@ -8649,10 +8649,17 @@ Stage 2 removes the hook; its replacement refuses cached answers (`serverOnly`).
   query fails the load (no partial list).
 - **Plans loaded:** the plans store's plans, archived included (one read each,
   once; keeps Start's archived rows dated, and unarchiving needs no reload),
-  plus `FREESTYLE_ID`. A plan id not yet loaded (new plan, plans arrived after
-  the first load) is loaded on the next trigger, past the skip window. Plans
-  store empty (nothing stored): no load; readers show "last session unknown".
-  Archive does not drop held workouts.
+  plus `FREESTYLE_ID`. Archive does not drop held workouts.
+- **Plans arriving later (PR #52 review):** the workouts store subscribes to the
+  plans store's plan ids (zustand `subscribe`). When ids appear that are not yet
+  loaded, it loads just those, past the skip window, with no focus needed.
+  Rejected: waiting for the next trigger. On a first launch or fresh sign-in the
+  hub's focus runs both checks at once, the workouts one finds no plans, and every
+  tile said "last session unknown" until the user left the hub and came back,
+  worse than `useRecentSessions`, which does not depend on plans. The same path
+  covers a plan created on another phone. While the plans store holds nothing,
+  readers show "last session unknown". Device run: a fresh sign-in, with the hub
+  dated on first open.
 - **Change check:** `updatedAt > lastSeen` from the server, `serverOnly`,
   merged per plan. A late upload (old `startedAt`, new stamp) is found.
 - **Full reload every 7 days** (own constant): catches deletes (wipe scripts)

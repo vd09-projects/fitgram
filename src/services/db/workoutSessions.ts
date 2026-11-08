@@ -81,16 +81,16 @@ const sessionFromDoc = (snapshot: QueryDocumentSnapshot<DocumentData>): WorkoutS
  *     writes queue in Firestore's offline cache and sync later, so finishing a
  *     workout without a connection still saves.
  *  2. A transaction that folds those sessions into the exercise_stats rollup.
+ *     Transactions need a server round trip, so this is the part that can fail
+ *     offline — and it is allowed to. The rollup is derived; `rollupPending`
+ *     stays true on the session doc and `rebuildExerciseStats` can repair it.
+ *     Logging data is never lost to a failed rollup.
  *
  * Both writes of the session doc carry `updatedAt: serverTimestamp()`
  * (TICKET-075, TICKET-072 D8), so another phone's change check finds this
  * workout whatever its `startedAt`: an upload hours late from the offline
  * queue has an old start time but a new stamp. Every other writer of
  * `sessions` stamps too: importHistory.ts, rebuildExerciseStats.ts.
- *     Transactions need a server round trip, so this is the part that can fail
- *     offline — and it is allowed to. The rollup is derived; `rollupPending`
- *     stays true on the session doc and `rebuildExerciseStats` can repair it.
- *     Logging data is never lost to a failed rollup.
  */
 export const saveWorkoutSession = async (
   userId: string,
