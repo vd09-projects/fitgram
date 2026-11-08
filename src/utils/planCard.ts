@@ -30,9 +30,11 @@ const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
  * weeks under 60 days, then 30-day months: the same steps as `formatSince`, so
  * the card and the row it was opened from read the same "3 weeks".
  *
- * No date is an explicit absence, never "new" or 0 (CLAUDE.md 2.4). The
- * window (`RECENT_SESSIONS_WINDOW`) cannot tell never-done from done-long-ago,
- * so "new" would be a guess:
+ * No date is an explicit absence, never "new" or 0 (CLAUDE.md 2.4). Since
+ * TICKET-075 every held plan's newest workouts are loaded, so "no recent
+ * session" is now never done, except for a plan whose workouts are not loaded
+ * yet (created a moment ago, or on another phone); "new" would still be a
+ * guess there:
  * - sessions read, plan not among them → "—" "no recent session"
  * - sessions not read yet, or the read failed (`sessionsKnown` false) →
  *   "—" "last session unknown"; "no recent session" would be a claim

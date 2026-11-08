@@ -13,6 +13,7 @@ import { extendRest, RestTimer } from "../utils/restTimer";
 import { buildSessionDocs, buildSessionId } from "../utils/exerciseStats";
 import { useAuthStore } from "./authStore";
 import { useExerciseHistoryStore } from "./useExerciseHistoryStore";
+import { useRecentWorkoutsStore } from "./useRecentWorkoutsStore";
 import { useCatalogStore } from "./useCatalogStore";
 import { exerciseDisplayName, type CatalogIndex } from "../utils/catalog";
 import { UPLOAD_GRACE_MS } from "../config/workout";
@@ -929,6 +930,10 @@ async function attemptUpload(entry: PendingUpload): Promise<boolean> {
   try {
     console.log("Uploading workout to database:", entry.sessionId);
     const { rollupApplied } = await saveWorkoutSession(entry.uid, entry.workout, entry.endedAt);
+    // TICKET-075: the recent workouts hold it at once, 0 reads. Before the
+    // entry leaves the queue below, so no screen shows its plan without it
+    // between the two (`buildPlanRows` merges the queue).
+    useRecentWorkoutsStore.getState().applyFinished(entry.uid, buildSessionDocs(entry.workout, entry.endedAt).session);
     // Cached history predates the session just saved. Drop it so the next
     // read refetches.
     useExerciseHistoryStore

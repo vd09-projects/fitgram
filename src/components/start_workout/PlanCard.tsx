@@ -52,7 +52,7 @@ type Props = {
   plan: WorkoutPlan | null;
   /** That plan's row from `buildPlanRows`, for its last-done session. */
   row: PlanRow | null;
-  /** False while the recent-sessions read is pending or failed. */
+  /** False while no recent workouts are held: not loaded yet, or the first load failed. */
   sessionsKnown: boolean;
   onClose: () => void;
 };

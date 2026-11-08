@@ -4,7 +4,8 @@ import StartWorkoutScreen from "./StartWorkoutScreen";
 import { renderScreen, TEST_USER_ID } from "../../test/renderScreen";
 import { buildExercise, buildStats, buildWorkout } from "../../test/fixtures";
 import { getAllWorkoutPlans } from "../../services/db/userDB";
-import { getExerciseStats, getWorkoutSessions } from "../../services/db/workoutSessions";
+import { getExerciseStats, getNewestSessionStamp, getPlanSessionsFromServer } from "../../services/db/workoutSessions";
+import { serveRecentWorkouts } from "../../test/recentWorkouts";
 import { LayoutRoutes } from "../../constants/routes";
 import { WorkoutPlan } from "../../types/workoutType";
 import { WorkoutSessionDoc } from "../../types/workoutSession";
@@ -19,12 +20,14 @@ jest.mock("../../services/db/userDB", () => ({
 }));
 jest.mock("../../services/db/workoutSessions", () => ({
   ...jest.requireActual("../../services/db/workoutSessions"),
-  getWorkoutSessions: jest.fn(),
+  getNewestSessionStamp: jest.fn(),
+  getPlanSessionsFromServer: jest.fn(),
+  getChangedSessions: jest.fn(),
   getExerciseStats: jest.fn(),
 }));
 
 const mockPlans = getAllWorkoutPlans as jest.Mock;
-const mockSessions = getWorkoutSessions as jest.Mock;
+const mockSessions = getPlanSessionsFromServer as jest.Mock;
 const mockStats = getExerciseStats as jest.Mock;
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -60,7 +63,7 @@ async function renderStart(
   sessions: WorkoutSessionDoc[] = []
 ) {
   mockPlans.mockResolvedValue([PUSH, PULL]);
-  mockSessions.mockResolvedValue({ sessions, lastDoc: null });
+  serveRecentWorkouts(sessions);
   const result = renderScreen(StartWorkoutScreen, { route: LayoutRoutes.Home, ...options });
   await screen.findByText("Push");
   await waitFor(() => expect(mockSessions).toHaveBeenCalled());
@@ -74,7 +77,7 @@ const card = () => screen.queryByTestId("plan-card");
 beforeEach(() => jest.clearAllMocks());
 
 describe("StartWorkoutScreen", () => {
-  it("shows each plan's last-done from one recent-sessions query, a pending upload winning", async () => {
+  it("shows each plan's last-done from the recent workouts' first load, a pending upload winning", async () => {
     const pending: PendingUpload = {
       sessionId: "pull_pending",
       uid: TEST_USER_ID,
@@ -96,8 +99,9 @@ describe("StartWorkoutScreen", () => {
     expect(summary("pull")).toHaveTextContent(
       "1 exercise · last done yesterday · 500 kg · not uploaded yet"
     );
-    expect(mockSessions).toHaveBeenCalledTimes(1);
-    expect(mockSessions).toHaveBeenCalledWith(TEST_USER_ID, { pageSize: 20 });
+    // TICKET-075's first load: the baseline, then one query per plan.
+    expect(getNewestSessionStamp).toHaveBeenCalledTimes(1);
+    expect(new Set(mockSessions.mock.calls.map(([, planId]) => planId))).toEqual(new Set(["push", "pull", "freestyle"]));
     // Nothing is prefetched on mount.
     expect(mockStats).not.toHaveBeenCalled();
   });
@@ -137,7 +141,7 @@ describe("StartWorkoutScreen", () => {
       ],
     };
     mockPlans.mockResolvedValue([plan]);
-    mockSessions.mockResolvedValue({ sessions: [], lastDoc: null });
+    serveRecentWorkouts([]);
     mockStats.mockResolvedValue({});
     renderScreen(StartWorkoutScreen, { route: LayoutRoutes.Home });
     const load = loadCatalog([CATALOG_ROW]);
@@ -168,7 +172,7 @@ describe("StartWorkoutScreen, archived plans", () => {
   async function renderWith(plans: WorkoutPlan[], options: Parameters<typeof renderScreen>[1] = {}) {
     mockStats.mockResolvedValue({});
     mockPlans.mockResolvedValue(plans);
-    mockSessions.mockResolvedValue({ sessions: [], lastDoc: null });
+    serveRecentWorkouts([]);
     renderScreen(StartWorkoutScreen, { route: LayoutRoutes.Home, ...options });
     await waitFor(() => expect(mockSessions).toHaveBeenCalled());
     await waitFor(() => expect(screen.queryByText("YOUR PLANS")).toBeOnTheScreen());

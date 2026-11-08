@@ -2,8 +2,8 @@
 //
 // What the picker remembers (TICKET-050, board A1): the movements the user has
 // logged, newest first, and the version each was last logged as. Pure: built
-// from the recent-sessions query the Start screen already makes, plus the
-// workouts finished on this phone and not uploaded yet. No read of its own.
+// from the recent workouts store (TICKET-075), plus the workouts finished on
+// this phone and not uploaded yet. No read of its own.
 
 import type { Movement, MovementVersion } from "../types/catalog";
 import type { WorkoutSessionDoc } from "../types/workoutSession";
@@ -38,9 +38,11 @@ export type RecentHistory = {
  * versions of one movement in the same session (bench and close-grip bench):
  * the first one listed wins; either was used that day.
  *
- * **KNOWN GAP: only as deep as `sessions`**, the newest 20 uploaded sessions
- * (`RECENT_SESSIONS_WINDOW`). A movement last logged before them is not
- * recent and its sheet preselects nothing. Accepted for the MVP (user,
+ * **KNOWN GAP: only as deep as `sessions`**, the newest `WORKOUTS_PER_PLAN`
+ * (5) uploaded sessions of each plan (TICKET-075; it was the newest 20 across
+ * all plans). A movement last logged before them is not recent and its sheet
+ * preselects nothing: one dropped from a plan more than 5 workouts ago, or
+ * logged only in a Freestyle older than the last 5. Accepted for the MVP (user,
  * 2026-10-27, D0); `exercise_stats` ordered by `lastPerformedAt` is the
  * deeper source if it matters.
  *

@@ -4,7 +4,8 @@ import WorkoutHubScreen from "./WorkoutHubScreen";
 import { renderScreen, TEST_USER_ID } from "../../test/renderScreen";
 import { buildExercise, buildWorkout } from "../../test/fixtures";
 import { getAllWorkoutPlans, getChangedPlans } from "../../services/db/userDB";
-import { getExerciseStats, getWorkoutSessions } from "../../services/db/workoutSessions";
+import { getExerciseStats, getNewestSessionStamp, getPlanSessionsFromServer } from "../../services/db/workoutSessions";
+import { failRecentWorkouts, serveRecentWorkouts } from "../../test/recentWorkouts";
 import { WorkoutRoutes } from "../../constants/routes";
 import { WorkoutPlan } from "../../types/workoutType";
 import { WorkoutSessionDoc } from "../../types/workoutSession";
@@ -19,12 +20,14 @@ jest.mock("../../services/db/userDB", () => ({
 }));
 jest.mock("../../services/db/workoutSessions", () => ({
   ...jest.requireActual("../../services/db/workoutSessions"),
-  getWorkoutSessions: jest.fn(),
+  getNewestSessionStamp: jest.fn(),
+  getPlanSessionsFromServer: jest.fn(),
+  getChangedSessions: jest.fn(),
   getExerciseStats: jest.fn(),
 }));
 
 const mockPlans = getAllWorkoutPlans as jest.Mock;
-const mockSessions = getWorkoutSessions as jest.Mock;
+const mockSessions = getPlanSessionsFromServer as jest.Mock;
 const mockStats = getExerciseStats as jest.Mock;
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -54,7 +57,7 @@ async function renderHub(
   options: Parameters<typeof renderScreen>[1] = {}
 ) {
   mockPlans.mockResolvedValue(plans);
-  mockSessions.mockResolvedValue({ sessions, lastDoc: null });
+  serveRecentWorkouts(sessions);
   renderScreen(WorkoutHubScreen, { workoutRoute: WorkoutRoutes.WorkoutHome, ...options });
   await waitFor(() => expect(mockPlans).toHaveBeenCalled());
   await waitFor(() => expect(mockSessions).toHaveBeenCalled());
@@ -69,7 +72,7 @@ beforeEach(() => {
 });
 
 describe("WorkoutHubScreen", () => {
-  it("shows the chosen tiles from one recent-sessions read, All plans counting archived plans", async () => {
+  it("shows the chosen tiles from the recent workouts' first load, All plans counting archived plans", async () => {
     const archived = { ...plan("old", "Old Push"), archived: true };
     await renderHub(
       [PUSH, PULL, LEGS, archived],
@@ -82,22 +85,26 @@ describe("WorkoutHubScreen", () => {
     expect(tile("legs")).toHaveTextContent("Legs—not in recent workouts · 2 exercises");
     expect(screen.getByRole("button", { name: "All plans, 4" })).toBeOnTheScreen();
 
-    expect(mockSessions).toHaveBeenCalledTimes(1);
-    expect(mockSessions).toHaveBeenCalledWith(TEST_USER_ID, { pageSize: 20 });
+    // TICKET-075's first load: the baseline, then one query per plan, archived
+    // and Freestyle included.
+    expect(getNewestSessionStamp).toHaveBeenCalledTimes(1);
+    expect(mockSessions.mock.calls.map(([uid, planId, count]) => [uid, planId, count]).sort()).toEqual(
+      ["freestyle", "legs", "old", "pull", "push"].map((id) => [TEST_USER_ID, id, 5])
+    );
     expect(mockPlans).toHaveBeenCalledTimes(1);
     // Nothing is prefetched until a card opens.
     expect(mockStats).not.toHaveBeenCalled();
   });
 
-  // useRecentSessions stays null after a failed read: no tile may claim the
-  // plan is "not in recent workouts" when the sessions were never read.
+  // Nothing held after a failed first load: no tile may claim the plan is
+  // "not in recent workouts" when the sessions were never read.
   it("says the last session is unknown, not 'not in recent workouts', when sessions did not load", async () => {
     mockPlans.mockResolvedValue([PUSH]);
-    mockSessions.mockRejectedValue(new Error("offline"));
+    failRecentWorkouts();
     renderScreen(WorkoutHubScreen, { workoutRoute: WorkoutRoutes.WorkoutHome });
 
     expect(await screen.findByTestId("hub-tile-push")).toHaveTextContent("Push—last session unknown · 2 exercises");
-    await waitFor(() => expect(mockSessions).toHaveBeenCalled());
+    await waitFor(() => expect(getNewestSessionStamp).toHaveBeenCalled());
     expect(tile("push")).toHaveTextContent("Push—last session unknown · 2 exercises");
   });
 
@@ -142,18 +149,18 @@ describe("WorkoutHubScreen", () => {
   // because its plan left the six.
   it("keeps a card open when its plan drops out of the tiles as sessions land", async () => {
     const plans = ["a", "b", "c", "d", "e", "f", "g"].map((id) => plan(id, `Plan ${id.toUpperCase()}`));
-    let resolveSessions: (value: { sessions: WorkoutSessionDoc[]; lastDoc: null }) => void = () => {};
+    let resolveSessions: () => void = () => {};
+    const landed = new Promise<void>((resolve) => (resolveSessions = resolve));
     mockPlans.mockResolvedValue(plans);
-    mockSessions.mockReturnValue(new Promise((resolve) => (resolveSessions = resolve)));
+    serveRecentWorkouts(plans.map((p, i) => session(p.id, Date.now() - (i + 1) * DAY)));
+    jest.mocked(getNewestSessionStamp).mockReturnValue(landed.then(() => null));
     renderScreen(WorkoutHubScreen, { workoutRoute: WorkoutRoutes.WorkoutHome });
 
     fireEvent.press(await screen.findByTestId("hub-tile-a"));
     expect(within(screen.getByTestId("plan-card")).getByRole("header", { name: "Plan A" })).toBeOnTheScreen();
 
     // Plan A is the most recent of seven, so it is the one left out of the six.
-    await act(async () =>
-      resolveSessions({ sessions: plans.map((p, i) => session(p.id, Date.now() - (i + 1) * DAY)), lastDoc: null })
-    );
+    await act(async () => resolveSessions());
     await waitFor(() => expect(screen.queryByTestId("hub-tile-a")).toBeNull());
     expect(within(screen.getByTestId("plan-card")).getByRole("header", { name: "Plan A" })).toBeOnTheScreen();
   });
@@ -197,7 +204,7 @@ describe("WorkoutHubScreen", () => {
 
     jest.clearAllMocks();
     mockPlans.mockRejectedValue(new Error("offline"));
-    mockSessions.mockResolvedValue({ sessions: [], lastDoc: null });
+    serveRecentWorkouts([]);
     screen.unmount();
     renderScreen(WorkoutHubScreen, { workoutRoute: WorkoutRoutes.WorkoutHome });
     expect(await screen.findByText("Your plans did not load")).toBeOnTheScreen();

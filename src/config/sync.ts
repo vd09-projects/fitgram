@@ -29,6 +29,39 @@ export const PLANS_CHECK_WAIT_MS = 10_000;
 export const PLANS_FULL_RELOAD_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
+ * How many workouts the phone keeps per plan (TICKET-075), Freestyle counted
+ * as one plan. What it feeds: each plan's last-done date, time and volume
+ * (needs 1), and the picker's Recent, newest 10 movements across every held
+ * workout. 5, not 1: Recent needs a few workouts per plan to find 10
+ * movements, and a plan's last 5 cover a movement swapped out of it lately.
+ * Not 20 (the old window across all plans): the first load reads N per plan,
+ * so 20 would cost up to 20 × plans reads on a fresh install. A movement whose
+ * newest use is in a plan's 6th-or-older workout is not in Recent (TICKET-075
+ * fact 2); search still finds it.
+ *
+ * Changes stored data: the stored copy records the N it was built with, and a
+ * copy with another N is discarded and refilled at the next check (one first
+ * load: one read per plan, plus 1).
+ */
+export const WORKOUTS_PER_PLAN = 5;
+
+/**
+ * The workouts' check skip and wait: the plans' values (D4, D9), own names so
+ * either can be tuned alone. One hub → Start → Manage visit costs one check.
+ */
+export const WORKOUTS_CHECK_SKIP_MS = PLANS_CHECK_SKIP_MS;
+export const WORKOUTS_CHECK_WAIT_MS = PLANS_CHECK_WAIT_MS;
+
+/**
+ * A check is a full reload of the workouts when this long has passed since the
+ * last one: one read per plan, plus 1. What only a full reload catches: a
+ * workout deleted on the server (the wipe scripts; nothing in the app deletes
+ * one), and a hand-set future `updatedAt` that pins `lastSeen` (070 S1).
+ * 7 days, as plans: both are hand edits.
+ */
+export const WORKOUTS_FULL_RELOAD_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
  * Ids per Firestore `in` query; reads of more ids are split into chunks of
  * this size. Firestore `in` accepts at most 30 values, so this is a ceiling
  * set by Firestore, not a free knob: lower is allowed (more queries), higher

@@ -4,6 +4,7 @@ import { doc, onSnapshot, setDoc, getDoc, serverTimestamp, Timestamp } from 'fir
 import { auth, db } from '../services/firebase';
 import { useAuthStore } from '../stores/authStore';
 import { usePlansStore } from '../stores/usePlansStore';
+import { useRecentWorkoutsStore } from '../stores/useRecentWorkoutsStore';
 import { FRESH_SIGNIN_WINDOW_MS, INACTIVE_EXPIRY_DAYS } from '../config/auth';
 
 // INACTIVE_EXPIRY_DAYS, FRESH_SIGNIN_WINDOW_MS: value and reason in src/config/auth.ts.
@@ -61,8 +62,10 @@ export const initAuthIfNeeded = () => {
     if (!firebaseUser) {
       // TICKET-070 D2: the stored plans are account data. Cleared before the
       // user is, so no screen renders them for nobody; the clear also drops
-      // any check or Save still in flight. TICKET-026 clears the rest.
+      // any check or Save still in flight. The recent workouts likewise
+      // (TICKET-075). TICKET-026 clears the rest.
       usePlansStore.getState().clear();
+      useRecentWorkoutsStore.getState().clear();
       store.setUser(null);
       store.setUserInfo(null);
       store.setInitialized(true); // no user — show auth screen
