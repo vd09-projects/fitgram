@@ -47,7 +47,6 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 063 | Finish summary | Small-Med | Low. From 056's design review (2026-11-02): exercises and set counts before saving, as Finish's confirm. To decide: how 0-set exercises show, sheet or screen |
 | 068 | Drag to close: every sheet on a real phone | Small | Low. From 065's device run (2026-11-03): only `PlanCard` drags; decide drag on every sheet with a handle, or drop the handles |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
-| 075 | Recent workouts on the phone | Med-Large | Last 5 per plan, one shared store, change check. ~80 of ~100 reads per workout today |
 | 076 | Exercise summaries on the phone | Med-Large | Saved store, change check; history works offline after a restart |
 | 077 | Summary integrity | Medium | **Silent:** a failed summary update is repaired only by a hand-run script. Also the one rebuild path 032 needs |
 | 071 | History page redesign | Medium-Large | Raised 2026-11-05 (user). Design on the Drafts canvas first; 070 is merged |
@@ -8507,7 +8506,7 @@ The diff is empty; changing one value makes it non-empty.
 
 ### TICKET-075: Recent Workouts on the Phone
 
-**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN** — raised 2026-11-08,
+**Priority:** Medium | **Effort:** Medium-Large | **Status: DONE** — merged in PR #52 (stage 1) and PR #53 (stage 2), 2026-11-08; Android emulator device runs (see below). Raised 2026-11-08,
 decided in TICKET-072 (D2, D3, D8, D9)
 
 **Description:**
@@ -8929,7 +8928,7 @@ one before it.
 
 ```
 1. TICKET-074  (Config in one place)       — DONE (PR #51); the next three add their values in src/config/
-2. TICKET-075  (Recent workouts on phone)  — Biggest read saving; builds the sync core
+2. TICKET-075  (Recent workouts on phone)  — DONE (PR #52, #53); the sync core is src/utils/syncCore.ts + src/stores/syncRunner.ts
 3. TICKET-076  (Exercise summaries)        — Reuses 075's core
 4. TICKET-077  (Summary integrity)         — Repair in the app; 032's rebuild path
 ```
