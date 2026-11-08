@@ -8782,6 +8782,34 @@ account "Vikrant Dhawan"; writes: two Finishes on "Test WK"):**
    only the two together on a device. Run it with a console doc on a "test…"
    plan if wanted.
 
+**Device run after the PR #53 cuts (same emulator and account, 9509814,
+2026-11-08; writes: one Finish on "Test WK"):**
+- **A. Old saved copy:** the copy written by the earlier build (with
+  `ownFinished`) loaded with no "discarded" warning: `lastSeen` and the last
+  full reload came from disk, no full reload ran. **Pass.**
+- **C. Plan not loaded:** "Chest Test" removed from the saved `loaded` before
+  the restart → first check `ok change (2 queries, 0 docs)`, 2 reads, "5
+  loaded" after. **Pass.**
+- **B. Skip window:** hub → Start → hub within 2 minutes: three `skipped`, 0
+  reads (no "new plans" kind any more). **Pass.**
+- **D. Full reload:** forced → `ok full (6 queries, 12 docs)`, 14 reads, same
+  held counts. **Pass.** (A second forced full reload in the log was a
+  mis-tap of mine on the debug button, not the app.)
+- **E. Own Finish:** Finish on Test WK → hub "Today", the hub's check
+  `skipped`, read count unchanged (0 reads); Test WK held 5, unstamped 2 → 3.
+  Forced check → `ok change (1 queries, 1 docs)`, 1 read. Saved copy read off
+  the phone: the Finish now carries its server stamp, `lastSeen` is that
+  stamp, and there is no `ownFinished` key. **Pass.**
+- **F. Airplane mode after a cold restart:** tiles keep "6d" and "Today";
+  debug `failed` (server-only read), copy kept, 0 reads. **Pass.**
+- **G. Fresh sign-in:** both saved copies deleted (sign-in kept), relaunch,
+  hub opened once → dated on first open; log `skipped` (no plans), then
+  `read full` / `ok full (6 queries, 13 docs)` with no second visit, 15
+  reads. **Pass.**
+- **Not run:** a workout from another device (item 5 above), and the own
+  Finish racing a full reload (the accepted gap; it needs an upload to land
+  inside a reload's second or so).
+
 **Known gaps:**
 - **Own Finish during a full reload:** shown with the plan's older date until
   the next check (see "Cut after PR #53 review"). Accepted.
