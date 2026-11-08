@@ -41,6 +41,23 @@ export function mergeSummaries(held: SummariesById, incoming: readonly ExerciseS
 }
 
 /**
+ * A Finish's summaries, as its transaction computed them, put into what is
+ * held (TICKET-076): "last time" updates at once and offline, with no read.
+ *
+ * They replace what is held whatever its stamp: through `mergeSummaries` an
+ * unstamped copy loses to the stamped one held, and the Finish would not show.
+ * They go in unstamped, and `lastSeen` does not move, so the next check brings
+ * the stamped copies back and they replace these (no stamp is older than any
+ * stamp). That costs one read per exercise finished, on purpose. Rejected: a
+ * read after Finish to learn the commit stamp, so `lastSeen` could move. It
+ * saves 5-9 reads a workout, worth no money at this scale, and moving
+ * `lastSeen` that way can skip another phone's Finish.
+ */
+export function withFinishedSummaries(held: SummariesById, finished: readonly ExerciseStatsDoc[]): SummariesById {
+  return { ...held, ...Object.fromEntries(finished.map((doc) => [doc.exerciseId, doc])) };
+}
+
+/**
  * `lastSeen` after a check.
  * - change check: forward only, over every doc returned (`lastSeenAfter`).
  * - full load: the newest stamp in the answer, whatever was held, so it may
@@ -65,11 +82,13 @@ export function summariesLastSeenAfter(
  * The run a trigger starts, or null to skip. A full load only when nothing is
  * held, or when asked for (the debug page).
  *
- * No timed full reload, unlike plans and workouts. All it would catch is a
- * deleted summary, and only the wipe scripts delete one. At 7 days it would
- * read every summary weekly: 48 reads over ~4 workouts is +12 per workout,
- * the whole cost this ticket removes, and it grows with exercises done.
- * After a wipe, sign out and in (the clear makes the next check a first load).
+ * No timed full reload, as plans and workouts (TICKET-076 stage 2): every
+ * write of a summary is stamped, so a change check finds it. All a timer would
+ * catch is a deleted summary, and only the wipe scripts delete one; it would
+ * read every summary each time, and that grows with exercises done. After a
+ * wipe, sign out and in (the clear makes the next check a first load). The
+ * first feature that can make a summary disappear writes a `deleted` marker
+ * instead of deleting the doc (recorded on TICKET-032).
  */
 export function summariesRunFor(
   state: { byId: SummariesById | null; lastSeen: SyncStamp | null },

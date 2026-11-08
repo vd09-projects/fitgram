@@ -48,6 +48,30 @@ describe("the server stamp on sessions", () => {
     expect(summaryWrite.updatedAt).toBe("SERVER_STAMP");
   });
 
+  it("a Finish returns what its transaction computed, unstamped; a failed one returns none (TICKET-076)", async () => {
+    (writeBatch as jest.Mock).mockReturnValue({ set: jest.fn(), commit: jest.fn().mockResolvedValue(undefined) });
+    const workout = buildWorkout([], {
+      id: "plan-a",
+      startTime: 1_000,
+      exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: 60, Reps: 5 }] }] })],
+    });
+    const tx = { get: jest.fn().mockResolvedValue({ exists: () => false }), set: jest.fn() };
+    // A conflict re-runs the function: the last run is what committed.
+    (runTransaction as jest.Mock).mockImplementation(async (_db, fn) => {
+      await fn(tx);
+      return fn(tx);
+    });
+
+    const { summaries } = await saveWorkoutSession("u1", workout, 2_000);
+    expect(summaries).toHaveLength(1);
+    expect(summaries?.[0].lastPerformedAt).toBe(1_000);
+    expect(summaries?.[0].updatedAt).toBeUndefined();
+
+    (runTransaction as jest.Mock).mockRejectedValue(new Error("offline"));
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    expect((await saveWorkoutSession("u1", workout, 2_000)).summaries).toBeNull();
+  });
+
   it("a read gives the stamp as plain numbers, nanoseconds kept, and none for a session written before 075", async () => {
     const docOf = (data: object) => ({ data: () => data });
     (getDocs as jest.Mock).mockResolvedValue({

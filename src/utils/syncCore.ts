@@ -69,25 +69,19 @@ export function lastSeenAfter<T extends { updatedAt?: SyncStamp }>(lastSeen: Syn
 }
 
 /**
- * Is the next check a full reload? Asked for (Try again, Reload); nothing
- * stored (the first load: "nothing stored", not "app launch", or every cold
- * start would read everything); never reloaded fully; or `intervalMs` has
- * passed. A `lastFullAt` in the future means the clock moved back since: due,
- * rather than waiting for the clock to catch up. Timed by the phone's clock:
- * it is only a schedule, and a wrong clock costs a reload early or late,
- * never a missed change.
+ * Is the next check a full reload? Asked for (Try again, Reload, the debug
+ * page), or nothing stored (the first load, or a stored copy discarded:
+ * "nothing stored", not "app launch", or every cold start would read
+ * everything).
+ *
+ * Never on a timer (TICKET-076): every app write is stamped, so a change check
+ * finds it. All a timer caught was wipe scripts and hand edits, at about 5
+ * reads per plan (workouts) or up to 20 (plans) each week. `lastFullAt` stays
+ * in the stored copies for the debug page only. After a wipe or a console
+ * edit, sign out and in, or use the debug page's full reload.
  */
-export function fullReloadDue(input: {
-  requested: boolean;
-  hasStored: boolean;
-  lastFullAt: number | null;
-  now: number;
-  intervalMs: number;
-}): boolean {
-  const { requested, hasStored, lastFullAt, now, intervalMs } = input;
-  if (requested || !hasStored || lastFullAt === null) return true;
-  const since = now - lastFullAt;
-  return since < 0 || since >= intervalMs;
+export function fullReloadDue(input: { requested: boolean; hasStored: boolean }): boolean {
+  return input.requested || !input.hasStored;
 }
 
 /**

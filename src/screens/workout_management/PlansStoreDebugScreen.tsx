@@ -39,6 +39,12 @@
 // bills this app run, which is the ticket's measure (a query that returns
 // nothing bills 1). Remove with the page: the section, and in
 // useRecentWorkoutsStore the `billedReads` field and `bill` (marked "debug readout").
+//
+// TEMPORARY: `SummariesSection` (TICKET-076, CLAUDE.md 3.3): the exercise
+// summaries store's held count, `lastSeen`, last full load, last checks and
+// reads billed. Remove once TICKET-076 is accepted: the component and its one
+// use below, and in useExerciseHistoryStore the `billedReads` field, `billed`,
+// and the own-Finish `note`.
 
 import React, { useCallback, useState } from "react";
 import { View, StyleSheet, TouchableOpacity } from "react-native";
@@ -48,19 +54,21 @@ import ScrollableScreen from "../../components/ScrollableScreen";
 import { TextBase } from "../../components/TextBase";
 import { usePlansStore } from "../../stores/usePlansStore";
 import { useRecentWorkoutsStore } from "../../stores/useRecentWorkoutsStore";
+import { useExerciseHistoryStore } from "../../stores/useExerciseHistoryStore";
 import { FREESTYLE_ID } from "../../constants/freestyle";
 import type { PlanStamp } from "../../types/workoutType";
+import { storedSummariesKeys } from "../../utils/exerciseSummariesSync";
 import { BORDER_RADIUS, SPACING } from "../../constants/styles";
 import { ReturnTypeUseThemeTokens } from "../../components/app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 import {
+  EXERCISE_SUMMARIES_CHECK_SKIP_MS,
+  EXERCISE_SUMMARIES_SHARDS,
   PLANS_CHECK_SKIP_MS,
-  PLANS_FULL_RELOAD_INTERVAL_MS,
   WORKOUTS_CHECK_SKIP_MS,
-  WORKOUTS_FULL_RELOAD_INTERVAL_MS,
   WORKOUTS_PER_PLAN,
 } from "../../config/sync";
-import { PLANS_STORAGE_KEY, WORKOUTS_STORAGE_KEY } from "../../config/storageKeys";
+import { EXERCISE_SUMMARIES_STORAGE_KEY, PLANS_STORAGE_KEY, WORKOUTS_STORAGE_KEY } from "../../config/storageKeys";
 
 const time = (ms: number) => new Date(ms).toLocaleTimeString();
 // Seconds and nanoseconds as stored, plus a readable time: the console shows the latter.
@@ -103,12 +111,7 @@ export default function PlansStoreDebugScreen() {
     ["Last result", s.lastResult ?? "none"],
     ["Last ok", s.lastOkAt ? `${time(s.lastOkAt)} · checks skipped until ${time(s.lastOkAt + PLANS_CHECK_SKIP_MS)}` : "never"],
     ["Last seen", s.lastSeen ? stamp(s.lastSeen) : "none (a change check starts at the epoch)"],
-    [
-      "Last full reload",
-      s.lastFullAt
-        ? `${new Date(s.lastFullAt).toLocaleString()} · next due ${new Date(s.lastFullAt + PLANS_FULL_RELOAD_INTERVAL_MS).toLocaleString()}`
-        : "never (the next check is full)",
-    ],
+    ["Last full reload", s.lastFullAt ? new Date(s.lastFullAt).toLocaleString() : "not recorded"],
     ["Server reads", `${s.readout.reads} this app run`],
   ];
 
@@ -161,6 +164,7 @@ export default function PlansStoreDebugScreen() {
       ))}
 
       <WorkoutsSection planNames={new Map((s.plans ?? []).map((plan) => [plan.id, plan.name]))} />
+      <SummariesSection />
     </ScrollableScreen>
   );
 }
@@ -199,12 +203,7 @@ function WorkoutsSection({ planNames }: { planNames: Map<string, string> }) {
     ["Last result", w.lastResult ?? "none"],
     ["Last ok", w.lastOkAt ? `${time(w.lastOkAt)} · checks skipped until ${time(w.lastOkAt + WORKOUTS_CHECK_SKIP_MS)}` : "never"],
     ["Last seen", w.lastSeen ? stamp(w.lastSeen) : "none (a change check starts at the epoch)"],
-    [
-      "Last full reload",
-      w.lastFullAt
-        ? `${new Date(w.lastFullAt).toLocaleString()} · next due ${new Date(w.lastFullAt + WORKOUTS_FULL_RELOAD_INTERVAL_MS).toLocaleString()}`
-        : "never (the next check is full)",
-    ],
+    ["Last full reload", w.lastFullAt ? new Date(w.lastFullAt).toLocaleString() : "not recorded"],
     ["Checks", `${w.readout.reads} this app run`],
     ["Reads billed", `${w.billedReads} this app run (session docs, 1 per empty query)`],
   ];
@@ -256,6 +255,90 @@ function WorkoutsSection({ planNames }: { planNames: Map<string, string> }) {
           {sessions.some((session) => !session.updatedAt) ? ` · ${sessions.filter((session) => !session.updatedAt).length} unstamped` : ""}
         </TextBase>
       ))}
+    </>
+  );
+}
+
+/** The stored summaries' head key, read directly. TEMPORARY, with `SummariesSection`. */
+async function readSummariesDisk(): Promise<string> {
+  try {
+    const keys = storedSummariesKeys(EXERCISE_SUMMARIES_SHARDS);
+    const rows = await AsyncStorage.multiGet(keys);
+    const present = rows.filter(([, value]) => value !== null);
+    if (present.length === 0) return "no keys";
+    const head = JSON.parse(rows.find(([key]) => key === EXERCISE_SUMMARIES_STORAGE_KEY)?.[1] ?? "null");
+    const chars = present.reduce((sum, [, value]) => sum + (value?.length ?? 0), 0);
+    return `${present.length} of ${keys.length} keys · format ${head?.formatVersion} · user ${String(head?.uid).slice(0, 6)} · ${chars} chars`;
+  } catch (error) {
+    return `unreadable: ${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+/** TEMPORARY (TICKET-076): the exercise summaries store, as the two sections above. */
+function SummariesSection() {
+  const { styles } = useThemeStyles(createStyles);
+  const h = useExerciseHistoryStore();
+  const [disk, setDisk] = useState("…");
+  const refreshDisk = useCallback(() => {
+    readSummariesDisk().then(setDisk);
+  }, []);
+  useFocusEffect(refreshDisk);
+  React.useEffect(() => {
+    const timer = setTimeout(refreshDisk, 300);
+    return () => clearTimeout(timer);
+  }, [h.byId, h.uid, refreshDisk]);
+
+  const docs = Object.values(h.byId ?? {});
+  const rows: [string, string][] = [
+    ["Holds", h.byId === null ? "nothing (the next check is a first load)" : `${docs.length} summaries · ${docs.filter((doc) => !doc.updatedAt).length} not yet stamped`],
+    ["On disk", disk],
+    ["Check", h.checking ? (h.waitOver ? "running, wait over" : "running") : "idle"],
+    ["Last result", h.lastResult ?? "none"],
+    ["Last ok", h.lastOkAt ? `${time(h.lastOkAt)} · checks skipped until ${time(h.lastOkAt + EXERCISE_SUMMARIES_CHECK_SKIP_MS)}` : "never, or expired"],
+    ["Last seen", h.lastSeen ? stamp(h.lastSeen) : "none (a change check starts at the epoch)"],
+    ["Last full load", h.lastFullAt ? new Date(h.lastFullAt).toLocaleString() : "not recorded"],
+    ["Checks", `${h.readout.reads} this app run`],
+    ["Reads billed", `${h.billedReads} this app run (summary docs, 1 per empty query; a Finish's tx.get not counted)`],
+  ];
+
+  const button = (label: string, onPress: () => void) => (
+    <TouchableOpacity style={styles.button} onPress={onPress}>
+      <TextBase style={styles.buttonText}>{label}</TextBase>
+    </TouchableOpacity>
+  );
+
+  return (
+    <>
+      <TextBase style={styles.section}>Exercise summaries store (TICKET-076, temporary)</TextBase>
+      <View style={styles.card}>
+        {rows.map(([label, value]) => (
+          <TextBase key={label} style={styles.line}>
+            <TextBase style={styles.label}>{label}: </TextBase>
+            {value}
+          </TextBase>
+        ))}
+        {h.lastError && <TextBase style={styles.warn}>Error: {h.lastError}</TextBase>}
+      </View>
+
+      {button("Summaries: force check now", () => useExerciseHistoryStore.getState().check({ force: true }))}
+      {button("Summaries: expire the 2-minute skip", () => useExerciseHistoryStore.setState({ lastOkAt: null }))}
+      {button("Summaries: full load now", () => useExerciseHistoryStore.getState().check({ force: true, full: true }))}
+      {button("Summaries: zero the read counters", () =>
+        useExerciseHistoryStore.setState({ billedReads: 0, readout: { reads: 0, log: [] } })
+      )}
+
+      <TextBase style={styles.section}>Summary checks, newest first</TextBase>
+      {h.readout.log.length === 0 ? (
+        <TextBase style={styles.line}>None yet.</TextBase>
+      ) : (
+        h.readout.log.map((entry, index) => (
+          <TextBase key={index} style={styles.line}>
+            {time(entry.at)} {entry.outcome}
+            {entry.kind ? ` ${entry.kind}` : ""}
+            {entry.detail ? ` (${entry.detail})` : ""}
+          </TextBase>
+        ))
+      )}
     </>
   );
 }

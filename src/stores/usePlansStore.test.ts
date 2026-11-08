@@ -7,7 +7,7 @@ import { getAllWorkoutPlans, getChangedPlans, getPlanFromServer } from "../servi
 import { usePlansStore } from "./usePlansStore";
 import { serializeStoredPlans } from "../utils/planSync";
 import type { PlanStamp, WorkoutPlan } from "../types/workoutType";
-import { PLANS_CHECK_SKIP_MS, PLANS_CHECK_WAIT_MS, PLANS_FULL_RELOAD_INTERVAL_MS } from "../config/sync";
+import { PLANS_CHECK_WAIT_MS } from "../config/sync";
 import { PLANS_STORAGE_KEY } from "../config/storageKeys";
 
 jest.mock("../services/db/userDB", () => ({ getAllWorkoutPlans: jest.fn(), getChangedPlans: jest.fn(), getPlanFromServer: jest.fn() }));
@@ -76,15 +76,23 @@ it("a change check merges what changed and moves lastSeen; the next one starts t
   expect(changes).toHaveBeenLastCalledWith("u1", at(7, 300));
 });
 
-it("a full reload is due after the interval, and replaces the stored copy whole (D5)", async () => {
+// TICKET-076: was "due after the interval"; no timer now. A full reload is what
+// is asked for, and it still replaces the copy whole.
+it("a copy held with an old lastFullAt gets a change check, not a full read (TICKET-076)", async () => {
+  await AsyncStorage.setItem(
+    PLANS_STORAGE_KEY,
+    serializeStoredPlans("u1", { plans: [stamped("a", at(5))], lastSeen: at(5), lastFullAt: 0 })
+  );
+  await store().open("u1");
+  expect(reads).not.toHaveBeenCalled();
+  expect(changes).toHaveBeenCalledTimes(1);
+});
+
+it("a full reload asked for replaces the stored copy whole (D5)", async () => {
   reads.mockResolvedValueOnce([stamped("a", at(5)), stamped("gone", at(4))]);
   await store().open("u1");
-  await jest.advanceTimersByTimeAsync(PLANS_FULL_RELOAD_INTERVAL_MS - 1);
-  await store().open("u1");
-  expect(reads).toHaveBeenCalledTimes(1);
-  await jest.advanceTimersByTimeAsync(PLANS_CHECK_SKIP_MS);
   reads.mockResolvedValueOnce([stamped("a", at(5))]);
-  await store().open("u1");
+  await store().check({ force: true, full: true });
   expect(reads).toHaveBeenCalledTimes(2);
   expect(store().plans?.map((p) => p.id)).toEqual(["a"]);
 });

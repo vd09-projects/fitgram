@@ -7,7 +7,9 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { User } from "firebase/auth";
-import { saveWorkoutSession } from "../services/db/workoutSessions";
+import { getAllExerciseStats, getChangedExerciseStats, saveWorkoutSession } from "../services/db/workoutSessions";
+import { useExerciseHistoryStore } from "./useExerciseHistoryStore";
+import type { ExerciseStatsDoc } from "../types/workoutSession";
 import show from "../utils/toastUtils";
 import { drainPendingUploads, useWorkoutStore } from "./useWorkoutStore";
 import { useAuthStore } from "./authStore";
@@ -24,6 +26,8 @@ import { LOCAL_DATA_VERSION, LOCAL_DATA_VERSION_KEY } from "../config/storageKey
 jest.mock("../services/db/workoutSessions", () => ({
   ...jest.requireActual("../services/db/workoutSessions"),
   saveWorkoutSession: jest.fn(),
+  getAllExerciseStats: jest.fn(),
+  getChangedExerciseStats: jest.fn(),
 }));
 jest.mock("../utils/toastUtils", () => ({
   __esModule: true,
@@ -32,7 +36,7 @@ jest.mock("../utils/toastUtils", () => ({
 
 const save = saveWorkoutSession as jest.MockedFunction<typeof saveWorkoutSession>;
 const toast = show as jest.Mocked<typeof show>;
-const saved = { sessionId: "s", rollupApplied: true };
+const saved = { sessionId: "s", summaries: [] };
 
 /** A save the test settles by hand, so it can act while the save is in flight. */
 function deferredSave() {
@@ -78,6 +82,35 @@ beforeEach(() => {
   jest.spyOn(console, "log").mockImplementation(() => {});
 });
 afterEach(() => jest.restoreAllMocks());
+
+describe("a Finish and the saved summaries (TICKET-076)", () => {
+  const held = () => useExerciseHistoryStore.getState();
+  const summary = (exerciseId: string) =>
+    ({ exerciseId, exerciseName: exerciseId, lastPerformedAt: 1, fields: [], recentSessions: [], bestByReps: {}, volumeHistory: [] }) as ExerciseStatsDoc;
+  beforeEach(() => useExerciseHistoryStore.setState({ uid: "u1", byId: {}, storedRead: true, lastOkAt: 123 }));
+
+  it("the transaction's summaries reach the store, with no summary read at that moment", async () => {
+    seedWorkout();
+    save.mockResolvedValueOnce({ sessionId: "s", summaries: [summary("bench")] });
+
+    await store().endWorkout("u1");
+
+    expect(held().byId?.bench).toEqual(summary("bench"));
+    expect(getAllExerciseStats).not.toHaveBeenCalled();
+    expect(getChangedExerciseStats).not.toHaveBeenCalled();
+  });
+
+  it("a failed rollup changes nothing in the store", async () => {
+    seedWorkout();
+    const before = held().byId;
+    save.mockResolvedValueOnce({ sessionId: "s", summaries: null });
+
+    await store().endWorkout("u1");
+
+    expect(held().byId).toBe(before);
+    expect(held().lastOkAt).toBe(123);
+  });
+});
 
 describe("useWorkoutStore.endWorkout", () => {
   it("two calls without awaiting run one save and show one success toast, naming the workout", async () => {

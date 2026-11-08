@@ -17,7 +17,6 @@ import { usePlansStore } from "./usePlansStore";
 import {
   WORKOUTS_CHECK_SKIP_MS,
   WORKOUTS_CHECK_WAIT_MS,
-  WORKOUTS_FULL_RELOAD_INTERVAL_MS,
   WORKOUTS_PER_PLAN,
 } from "../config/sync";
 import { WORKOUTS_STORAGE_KEY } from "../config/storageKeys";
@@ -34,9 +33,9 @@ import { WORKOUTS_STORAGE_KEY } from "../config/storageKeys";
  * functions in `workoutsSync.ts`):
  * - full: a baseline read (the newest stamp, 1 read), then one query per
  *   plan, newest N by `startedAt`. Replaces what is held, so a session
- *   deleted on the server goes. On the first load, every
- *   `WORKOUTS_FULL_RELOAD_INTERVAL_MS`, and after a copy with another N was
- *   discarded. All or nothing: one failed query fails the check.
+ *   deleted on the server goes. On the first load, after a copy with another
+ *   N was discarded, and when asked for; never on a timer (`fullReloadDue`).
+ *   All or nothing: one failed query fails the check.
  * - change: sessions with `updatedAt > lastSeen`, any plan (1 read when
  *   nothing changed), plus a per-plan query for any plan not loaded yet.
  * Inside the 2-minute skip nothing is read, plans not loaded yet included:
@@ -57,8 +56,9 @@ import { WORKOUTS_STORAGE_KEY } from "../config/storageKeys";
  * replaces it. Known gap, accepted: a Finish uploaded while a full reload's
  * query for its plan has already run is missing from that answer, and the
  * replace drops it until the next check, which returns it (its stamp is past
- * the baseline). Only when a Finish lands inside a weekly reload; it costs a
- * date shown as older for a few minutes, never a lost workout. Rejected:
+ * the baseline). Only when a Finish lands inside a first load or an explicit
+ * reload; it costs a date shown as older for a few minutes, never a lost
+ * workout. Rejected:
  * tracking own Finishes through a reload (an id list kept and stored), and a
  * read back after the upload (+1 read per workout, and the race stays).
  *
@@ -75,7 +75,7 @@ interface WorkoutsStore extends SyncFields<WorkoutsCheckKind> {
   loaded: string[];
   /** The newest `updatedAt` a change check or baseline returned (server clock); null: none yet. */
   lastSeen: SyncStamp | null;
-  /** When the last full reload answered (phone clock). */
+  /** When the last full reload answered (phone clock). Debug page only; nothing is scheduled on it. */
   lastFullAt: number | null;
   /** Debug readout: Firestore reads billed this app run (a query that returns nothing bills 1). */
   billedReads: number;
@@ -185,26 +185,19 @@ async function readStoredCopy(uid: string): Promise<HeldWorkouts | null> {
 
 /**
  * The run a trigger starts, or null to skip. Nothing while the plans store
- * holds nothing (`planIdsToHold`). A full reload when due, except inside the
- * skip window with something held (the 7-day schedule can wait 2 minutes).
+ * holds nothing (`planIdsToHold`). A full reload when due (`fullReloadDue`),
+ * except inside the skip window with something held.
  */
 export function workoutsRunFor(
-  state: Pick<State, "byPlan" | "loaded" | "lastFullAt" | "lastSeen">,
+  state: Pick<State, "byPlan" | "loaded" | "lastSeen">,
   planIds: string[] | null,
   skipped: boolean,
-  fullRequested: boolean,
-  now: number
+  fullRequested: boolean
 ): Omit<CheckRun, "uid" | "epoch" | "seq"> | null {
   if (planIds === null) return null;
   const seenAtStart = state.lastSeen;
   const held = state.byPlan !== null;
-  const due = fullReloadDue({
-    requested: fullRequested,
-    hasStored: held,
-    lastFullAt: state.lastFullAt,
-    now,
-    intervalMs: WORKOUTS_FULL_RELOAD_INTERVAL_MS,
-  });
+  const due = fullReloadDue({ requested: fullRequested, hasStored: held });
   if (due && (!skipped || !held)) return { kind: "full", planIds, seenAtStart };
   if (skipped) return null;
   const loaded = new Set(state.loaded);
@@ -269,7 +262,7 @@ export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
       runner.check({ force }, (state, skipped) => {
         const plans = usePlansStore.getState();
         const planIds = plans.uid === state.uid ? planIdsToHold(plans.plans) : null;
-        return workoutsRunFor(state, planIds, skipped, full, Date.now());
+        return workoutsRunFor(state, planIds, skipped, full);
       }),
 
     applyFinished: (uid, session) => {

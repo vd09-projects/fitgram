@@ -7,7 +7,7 @@
 // does the I/O around them, on the shared sync runner.
 //
 // The rules every synced store shares (stamps, `lastSeen`, the skip window,
-// the full-reload schedule, the stored envelope) moved to the sync core,
+// when a full reload runs, the stored envelope) moved to the sync core,
 // `syncCore.ts` (TICKET-075, TICKET-072 D9). What stays here is the plans'
 // own: the `rev` merge (TICKET-073), the full reload's S1 rule, the plan
 // shape, and the plans' constants bound into the shared rules. The names the
@@ -16,22 +16,22 @@
 
 import type { PlanStamp, WorkoutPlan } from "../types/workoutType";
 import { compareVersions, toPlanVersion } from "./planVersion";
-import { compareStamps, fullReloadDue, isStamp, lastSeenAfter, openEnvelope, withinSkipWindow } from "./syncCore";
-import { PLANS_CHECK_SKIP_MS, PLANS_FULL_RELOAD_INTERVAL_MS } from "../config/sync";
+import { compareStamps, isStamp, lastSeenAfter, openEnvelope, withinSkipWindow } from "./syncCore";
+import { PLANS_CHECK_SKIP_MS } from "../config/sync";
 import { PLANS_FORMAT_VERSION } from "../config/storageKeys";
 
 // The plans' names for the core's stamp rules (TICKET-070 D3); the reasons are in syncCore.ts.
-export { changeCheckAfter, compareStamps, lastSeenAfter, NO_STAMP_SEEN, toStamp as toPlanStamp } from "./syncCore";
+export { changeCheckAfter, compareStamps, fullReloadDue as isFullReloadDue, lastSeenAfter, NO_STAMP_SEEN, toStamp as toPlanStamp } from "./syncCore";
 
 // PLANS_FORMAT_VERSION: value and reason in src/config/storageKeys.ts.
 
-// Check skip, check wait and full-reload interval: value and reason in src/config/sync.ts.
+// Check skip and check wait: value and reason in src/config/sync.ts.
 
 /**
  * What AsyncStorage holds: whose plans, in which format, and where the next
  * check starts. `lastSeen`: the newest `updatedAt` the server has returned,
  * null before any stamped plan came back. `lastFullAt`: when the last full
- * reload answered (phone's clock).
+ * reload answered (phone's clock), for the debug page only (`fullReloadDue`).
  */
 export type StoredPlans = {
   formatVersion: number;
@@ -72,19 +72,6 @@ const isPlan = (value: unknown): value is WorkoutPlan => {
  */
 export function lastSeenAfterFullReload(held: WorkoutPlan[]): PlanStamp | null {
   return lastSeenAfter(null, held);
-}
-
-/**
- * Is the next plans check a full reload (D5)? The core's rule
- * (`fullReloadDue`) on the plans' interval, `PLANS_FULL_RELOAD_INTERVAL_MS`.
- */
-export function isFullReloadDue(input: {
-  requested: boolean;
-  hasStored: boolean;
-  lastFullAt: number | null;
-  now: number;
-}): boolean {
-  return fullReloadDue({ ...input, intervalMs: PLANS_FULL_RELOAD_INTERVAL_MS });
 }
 
 /**

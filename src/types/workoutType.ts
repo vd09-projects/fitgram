@@ -100,6 +100,9 @@ export type WorkoutPlan = {
    * a plan carrying it is dropped by every merge (`planSync.ts`), so no reader
    * ever sees it. Writing it is an update, so the Delete must also write the
    * next `version` (`nextVersion`), or firestore.rules refuses it (TICKET-073).
+   * Markers never expire (TICKET-076): a phone away longer than any TTL would
+   * miss one, and no timed full reload covers that. If a TTL is ever wanted,
+   * full-read only when a phone's `lastSeen` is older than the window.
    */
   deleted?: boolean;
 };

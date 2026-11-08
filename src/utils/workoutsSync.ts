@@ -4,7 +4,7 @@
 // sessions per plan are kept and merged, how `lastSeen` moves, which plans
 // are held, and the stored copy. Pure: the store (`useRecentWorkoutsStore`) does
 // the reads and the writes. The rules every synced store shares (stamps,
-// skip window, full reload schedule, envelope) are `syncCore.ts`.
+// skip window, when a full reload runs, envelope) are `syncCore.ts`.
 
 import type { WorkoutPlan } from "../types/workoutType";
 import type { WorkoutSessionDoc } from "../types/workoutSession";
@@ -105,8 +105,8 @@ export function workoutsLastSeenAfter(
  *
  * Archived plans are read too, once each: Start lists them with their date
  * when shown, and unarchiving one then needs no read. Archiving drops
- * nothing held. Rejected: skipping them, which saves one read per archived
- * plan on a first load or a weekly full reload and leaves their rows undated.
+ * nothing held. Rejected: skipping them, which saves up to 5 reads per
+ * archived plan on a first load and leaves their rows undated.
  */
 export function planIdsToHold(plans: readonly WorkoutPlan[] | null): string[] | null {
   if (plans === null) return null;
