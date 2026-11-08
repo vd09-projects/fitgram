@@ -8833,7 +8833,7 @@ account "Vikrant Dhawan"; writes: two Finishes on "Test WK"):**
 
 ### TICKET-076: Exercise Summaries on the Phone
 
-**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN** — raised 2026-11-08,
+**Priority:** Medium | **Effort:** Medium-Large | **Status: IN PROGRESS** (stage 1 built, awaiting review) — raised 2026-11-08,
 decided in TICKET-072 (D4, D5, D8)
 
 **Description:**
@@ -8866,6 +8866,109 @@ target does no harm).
 ghosts and the PR banner work in airplane mode after a restart.
 
 **Dependencies:** TICKET-075 (the sync core).
+
+**Load-bearing facts, checked in code 2026-11-08 (CLAUDE.md 2.1):**
+1. **Writers of `exercise_stats`:** the three expected, no others.
+   `saveWorkoutSession` (the Finish transaction, `tx.set`), `rebuildExerciseStats.ts`
+   (`batch.set`), `importHistory.ts` (`statsBatch.set`). All three now stamp.
+   `wipe.ts` / `wipeTestData.ts` delete only. No Cloud Functions.
+2. **`updatedAt` today:** a phone-clock number set only by `applySessionToStats`.
+   Readers: none on a screen. `rebuildStatsFromSessions` took it as a `now`
+   argument (used by `fixtures.ts` and `verifyHistoryReads.ts`, to make two
+   folds byte-equal). **Decision: reuse the name** for the server stamp, as
+   plans and sessions do, so `lastSeenAfter` and the query work unchanged. The
+   phone-clock value is gone from the code (`now` removed). Rejected: a second
+   field, which leaves a dead `updatedAt` beside the real one. Docs written
+   before the stamp keep a number in Firestore until rewritten; a read drops it
+   (`toStamp`), so the app has one meaning. The first load reads the whole
+   collection, so they are covered. A `>` on a Timestamp does not return
+   number values (Firestore compares within one type), so they are never billed
+   by a change check. No backfill (pre-launch).
+3. **Readers of the store, when data is missing or failed, and what changes:**
+   | Reader | Today, missing/failed | With the saved store |
+   | --- | --- | --- |
+   | Plan card (`lastTimeSummary`) | idle/loading "…", error "unavailable", none "new" | Check, not fetch. Held rows show at once, offline too |
+   | Workout start / resume / add / swap | one fetch per unknown id | Check (skip window). Empty Freestyle: none, as today |
+   | Logger "last time" / "First time" (`setLogger`, `ghostNotice`) | not ready: "not loaded"; ready, none: "First time" | "First time" needs a successful check this run (`summaryEntry`) |
+   | Ghosts, progress target (`setDeltas`) | not ready: none | Held summary is ready, so they work offline |
+   | PR banner (`personalBest`) | not ready: none | As ghosts |
+   | History sheet (`sheetStatusMessage`) | error: "Couldn't load" + Reload | Same; Reload is a forced check. Offline label: stage 2 |
+4. **The whole collection is one query** (`getDocsFromServer(collection)`, no
+   `in` chunks). So 070's rule holds and `lastSeen` comes from the answer: a
+   write the query missed committed after it, so its stamp is later than
+   anything returned, and the next change check finds it. No baseline read: 075
+   needed one only for its one query per plan.
+5. **AsyncStorage on Android, installed 1.24.0:** the default SQLite path
+   (`AsyncStorage_useNextStorage` unset). `multiGet` reads rows through a plain
+   `Cursor` with no splitting of a value (`AsyncStorageModule.java`); the
+   library's docs give ~2 MB per entry, the size of Android's cursor window. So
+   the ticket's number holds. Also found: the database is capped at **6 MB** by
+   default (`config.gradle`, not overridden in `android/gradle.properties`).
+   **Sized at 10×:** 480 docs × ~6 KB ≈ 2.9 MB: over one entry's limit, under
+   the total. **Decision: 8 shards plus a head key**, ~360 KB each, by a hash of
+   the exercise id, written in one `multiSet` (one transaction on Android,
+   `beginTransaction` in `AsyncStorageModule`). Not measured on a device.
+6. **`rollupPending` (TICKET-077):** a failed transaction writes no summary doc,
+   so no check returns anything and the store keeps the server's last summary.
+   The store does not read the flag: it neither hides the gap nor depends on it.
+
+**Decisions (stage 1):**
+- **No timed full reload.** Only a deleted summary needs one, and only the wipe
+  scripts delete. At 7 days it reads every summary weekly: 48 docs over ~4
+  workouts is +12 reads per workout, the whole cost this ticket removes. After
+  a wipe: sign out and in. Comment on `summariesRunFor`.
+- **"First time" needs a successful check in this app run,** not just a loaded
+  copy. An exercise missing from a stored copy the check could not refresh is
+  unknown (done on another phone since), so it reads as failed. Comment on
+  `summaryEntry`.
+- **Stage 1's bridge:** `invalidateExercises` now only expires the skip, so the
+  next trigger checks. Stage 2 replaces it.
+
+**Stage 1 as built (2026-11-08, branch `TICKET-076-stage-1`):**
+- **Files:** `utils/exerciseSummariesSync.ts` (pure rules and stored copy),
+  `stores/useExerciseHistoryStore.ts` rewritten on the runner, two server reads
+  in `workoutSessions.ts` (`getAllExerciseStats`, `getChangedExerciseStats`).
+  The core is unchanged (one comment line); plans and workouts tests untouched.
+- **Readers:** `useExerciseHistory` returns the same shape.
+  `prefetchExerciseHistory(uid, ids)` became `open(uid)`, since ids mean nothing
+  when everything is held; `getExerciseStats` and `IN_QUERY_CHUNK` lost their
+  last user and went. `ExerciseHistoryEntry.fetchedAt` went too.
+- **Removed, scope growth stated first (CLAUDE.md 2.7):**
+  `src/scripts/verifyHistoryReads.ts`. It did not run on main (`npx tsx` fails
+  with a TransformError importing react-native) and was built on the removed
+  API. Its pure-fold checks were not ported.
+- **Changed existing tests, with reason:** Hub, Start and ActiveWorkout mock the
+  new reads. `renderScreen`'s `history` seeds the store as after a successful
+  check, so an unseeded exercise is "ready, none" and not "idle"
+  (`renderScreen.test`). The plan-card test waits for the read, which now
+  follows the stored-copy read. `getExerciseStats`' cached-answer test went with
+  it (`getDocsFromServer` cannot answer from the cache).
+- **Tests:** `exerciseSummariesSync.test.ts` (7), `useExerciseHistoryStore.test.ts`
+  (2), `workoutSessions.test.ts` (+1, and the summary write's stamp). 20 lines
+  broken one at a time, each seen red.
+
+**Risk to the ticket's claim (for stage 2's measurement):** under 075's
+own-Finish rule `lastSeen` does not move, so the next check returns that Finish's
+summaries: one read per exercise, ~6. Steady state is about 6–7 reads per workout,
+not ~1. Sessions cost 1 doc for this; summaries cost one per exercise.
+
+**Decision (2026-11-09, user): keep 075's own-Finish rule.** Stage 2 accepts the
+read-back and measures it. Rejected: at Finish, count changed docs and read the
+commit stamp (~2 reads) so `lastSeen` can move and the next check finds nothing.
+About 3 reads per workout, but not "own Finish, zero reads", and it saves about 3
+reads a workout for more race-prone code. The claim to measure becomes ~12 → ~6–7.
+
+**Known gaps (stage 1):**
+- **Deleted summaries** stay on phones until sign-out (wipe scripts only).
+- **A hand-set future stamp** pins `lastSeen` until that doc is fixed and a full
+  load runs (sign-out). Console edits only.
+- **Every successful check rewrites the copy,** changed or not: ~100 KB today,
+  ~2.9 MB at 10×. Not worth a diff at today's size.
+- **iOS:** `multiSet` atomicity was checked on Android only.
+- **Not unit-tested:** the stamps in `rebuildExerciseStats.ts` and
+  `importHistory.ts` (no harness for scripts), the `initAuth` clear line.
+- **Not run on a device yet** (planned after stage 2): the Firestore round trip,
+  the number-vs-Timestamp query behaviour, the stored copy on real Android.
 
 ---
 
