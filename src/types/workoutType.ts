@@ -2,6 +2,7 @@
 
 // Units, and all that is known about each, live in one table: constants/units.ts.
 import type { FieldUnit } from "../constants/units";
+import type { SyncStamp } from "../utils/syncCore";
 export type { FieldUnit };
 
 /**
@@ -114,9 +115,10 @@ export type PlanVersion = { rev: number; id: string; base: string | null };
  * A Firestore Timestamp as plain numbers, so it survives JSON in the stored
  * copy at full precision. Not milliseconds: the server stamps to the
  * microsecond, and a value rounded down to the millisecond would make
- * `updatedAt > lastSeen` return the newest plan on every check.
+ * `updatedAt > lastSeen` return the newest plan on every check. The sync
+ * core's stamp (TICKET-075), under the name the plans code already uses.
  */
-export type PlanStamp = { seconds: number; nanoseconds: number };
+export type PlanStamp = SyncStamp;
 
 /** TICKET-061: only a stored `true` archives a plan; absent or anything else does not. */
 export const isArchived = (plan: Pick<WorkoutPlan, "archived">): boolean => plan.archived === true;
