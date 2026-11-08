@@ -9165,6 +9165,68 @@ the admin SDK) still matters for the hand-run script.
 
 ---
 
+### TICKET-078: Simplify the Sync Code
+
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — raised 2026-11-09, from
+the review of TICKET-076 stage 2 (PR #55)
+
+**Description:**
+TICKET-075 and TICKET-076 removed the timed full reloads and added an own-Finish path.
+A review of `syncRunner.ts`, `syncCore.ts`, `planSync.ts` and the three stores found
+code that no longer solves a real problem, or never did. Removing `expireSkip` on
+PR #55 showed the pattern: a guard can look necessary until you ask when it runs.
+
+**Analyse first. No code until the analysis is written here and the user has agreed
+it.** Together these changes would make one PR too big to review, and each candidate
+below is a hypothesis from one review pass, not a decision (CLAUDE.md 2.2).
+
+**Stage 0, the analysis (the only deliverable until agreed).** For each candidate,
+write under this ticket:
+1. **Is the claim true?** Every caller and trigger, from the code, with `file:line`.
+2. **What real scenario does it serve?** Named as something a user does, or "none".
+3. **What removal loses,** with the cost in reads, time shown stale, or wrong data.
+4. **What it touches:** files, tests that change and why, stored shape, device run.
+5. **Verdict:** cut, keep or defer, with the reason. Keep is a fine answer.
+
+Then propose the stages: which candidates go together, in what order, each its own
+small PR that typechecks and can be tested alone (CLAUDE.md 3.4).
+
+**Candidates:**
+| # | Code | Hypothesis | Check especially |
+| --- | --- | --- | --- |
+| 1 | `mergeFullReload`'s keep-held logic (`arrivedSince`, `keep`, `newSince`), `planSync.ts` | It protects a Save landing during a full reload with plans held. With no timer, Try again shows only when nothing is stored, so only the debug button reaches it. Could be the server's list minus `deleted` | A stalled first load answering before Try again's read, so plans are held when that answer lands. That `lastSeen` still heals a hand-set future stamp (070 S1) |
+| 2 | `readBackSave`, `stateAfterSave`, `usePlansStore.ts` | Save spends 1 read fetching its stamp. `rev` already orders plans without one, so it could go in unstamped through `withSavedPlan`, with the echo at the next check, as own Finish does. Its comment predates `rev` | What the read-back gives besides the stamp: it moves `lastSeen` and brings other plans changed since. Two quick Saves, a Save chained on a refused one (073), a check answering around a Save. Biggest item: changes the Save path, needs a device run |
+| 3 | `due && (!skipped \|\| !held)` in `workoutsRunFor` | Leftover from the timer. `full` always comes with `force`, so the condition is `due` | No caller passes `full` without `force` |
+| 4 | `fullReloadDue` and its alias `isFullReloadDue` | A one-liner under two names; summaries do not use it. Inline it, or make all three stores use it | Which reads better across three stores |
+| 5 | `holdsData` in `SyncConfig`, all three stores | Guards a check answering before the stored copy loads. Its own comment says only a Try again could do that, and Try again shows only after the load. Looks reachable only from debug buttons | Every path that can start a check while `storedRead` is false |
+| 6 | `shouldSkipCheck`, `planSync.ts` | No caller outside tests | |
+| 7 | Plans `source` field | Only the debug page reads it, and it is not marked debug | Mark it or remove it |
+| 8 | 8 shards plus head key for the summaries | Solves a future size only: one key holds about 340 full summaries. The ticket asked for it and it passed on the device | Cutting needs a format bump and a new device run. Probably keep; decide it explicitly |
+
+Out of this ticket: `getSessionExercises` and `getExerciseSession` have no callers, but
+removing them is already on TICKET-077.
+
+**Looked at and kept in the review** (reopen only with new evidence): `epoch` (a late
+answer cannot refill the store after sign-out); the check join and the persist chain;
+`seq`, `newestApplied` and `restartStalled` (Try again and the sheet's Reload on a
+stalled read); the `followPlans` key (without it a failed check re-reads on every plans
+store change); the workouts' baseline read (one query per plan cannot set `lastSeen`);
+`lastFullAt` (debug only, until the debug pages go).
+
+**Rules for the build:**
+- Behaviour unchanged unless the analysis says otherwise and the user agreed.
+- A test changes only with its reason stated; a test of removed code goes with it.
+- Comments name constants, never their values.
+- Follow the "Keep it lean" rule from PR #53: a case that does not happen in real use
+  becomes a named known gap with its cost, not code.
+
+**Proof:** the analysis, agreed. Then for each stage: `tsc`, jest, `test:rules`, the
+lines removed, and a device run for any stage that changes a read or write path.
+
+**Dependencies:** TICKET-076 stage 2 (PR #55), which removes the timers these rest on.
+
+---
+
 ## Recommended Execution Order
 
 Finished tickets have been removed — they are not blockers for anything.
@@ -9194,6 +9256,7 @@ one before it.
 2. TICKET-075  (Recent workouts on phone)  — DONE (PR #52, #53); the sync core is src/utils/syncCore.ts + src/stores/syncRunner.ts
 3. TICKET-076  (Exercise summaries)        — Reuses 075's core
 4. TICKET-077  (Summary integrity)         — Repair in the app; 032's rebuild path
+5. TICKET-078  (Simplify the sync code)    — Analysis first, then small PRs; after 076
 ```
 
 **Next after that:** TICKET-012 Phase 2 (account linking), the user's pick
