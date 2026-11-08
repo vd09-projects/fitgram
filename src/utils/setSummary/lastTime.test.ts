@@ -23,7 +23,7 @@ const set = (weight: string, reps: string) => ({ Weight: weight, Reps: reps });
 
 const summaryOf = (stats: ExerciseStatsDoc | null, status: "ready" | "error" = "ready", fields?: ExerciseField[]) =>
   partsToString(
-    lastTimeSummary(deriveExerciseHistory({ exerciseId: "x", status, stats, fetchedAt: 0, error: null }, fields))
+    lastTimeSummary(deriveExerciseHistory({ exerciseId: "x", status, stats, error: null }, fields))
   );
 const summary = (fields: ExerciseField[], sets: Record<string, string>[], currentFields?: ExerciseField[]) =>
   summaryOf(buildStats("Overhead Press", [{ fields, sets }]), "ready", currentFields);

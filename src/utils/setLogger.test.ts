@@ -26,7 +26,7 @@ const PLANK: ExerciseField[] = [
 /** What the hook returns once `stats` is cached, logged today with `fields`. */
 const historyOf = (stats: ExerciseStatsDoc | null, fields: ExerciseField[] = [KG, REPS]) =>
   deriveExerciseHistory(
-    { exerciseId: "bench-press", status: "ready", stats, fetchedAt: 0, error: null },
+    { exerciseId: "bench-press", status: "ready", stats, error: null },
     fields
   );
 

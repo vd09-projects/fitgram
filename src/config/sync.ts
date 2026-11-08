@@ -64,9 +64,25 @@ export const WORKOUTS_CHECK_WAIT_MS = PLANS_CHECK_WAIT_MS;
 export const WORKOUTS_FULL_RELOAD_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * Ids per Firestore `in` query; reads of more ids are split into chunks of
- * this size. Firestore `in` accepts at most 30 values, so this is a ceiling
- * set by Firestore, not a free knob: lower is allowed (more queries), higher
- * makes every chunked read fail.
+ * The exercise summaries' check skip and wait (TICKET-076): the plans' values
+ * (D4, D9), own names so either can be tuned alone. One plan card → Start costs
+ * one check.
  */
-export const IN_QUERY_CHUNK = 30;
+export const EXERCISE_SUMMARIES_CHECK_SKIP_MS = PLANS_CHECK_SKIP_MS;
+export const EXERCISE_SUMMARIES_CHECK_WAIT_MS = PLANS_CHECK_WAIT_MS;
+
+/**
+ * How many AsyncStorage entries the saved exercise summaries are split across
+ * (TICKET-076), besides the head entry. Sized at 10× today's data: 480 exercises
+ * × ~6 KB full ≈ 2.9 MB. One entry would not survive that: Android's AsyncStorage
+ * reads through a plain SQLite cursor, whose window holds about 2 MB per row. 8
+ * gives ~360 KB each, with room for an uneven split. Not 1 per exercise: the
+ * key list would have to be stored and kept right to remove them on sign-out.
+ *
+ * Total limit: the library caps its database at 6 MB by default, shared with
+ * every other key, so 10× fits and much more would not.
+ *
+ * Changes stored data: the stored copy records the count, and a copy with
+ * another count is discarded and refilled (one first load: one read per doc).
+ */
+export const EXERCISE_SUMMARIES_SHARDS = 8;

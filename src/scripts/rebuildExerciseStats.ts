@@ -51,7 +51,8 @@ const rebuild = async (userId: string, onlyExerciseIds: string[]) => {
       console.warn(`  skip ${exerciseId} — no sessions for it`);
       continue;
     }
-    batch.set(doc(db, "users", userId, "exercise_stats", exerciseId), stats);
+    // The stamp is what phones' change checks find (TICKET-076).
+    batch.set(doc(db, "users", userId, "exercise_stats", exerciseId), { ...stats, updatedAt: serverTimestamp() });
     pending += 1;
     written += 1;
     if (pending >= BATCH_LIMIT) {

@@ -13,23 +13,22 @@ import { SessionVolume } from "../utils/exerciseStats";
 export type { NumericFieldMap, SessionVolume };
 
 /**
- * Cache entry lifecycle.
- * - `idle`    never prefetched for this exercise (not the same as "no history")
- * - `loading` a prefetch is in flight
- * - `ready`   data present and authoritative for this app session
- * - `error`   the only fetch attempt failed and there is nothing cached to serve
+ * What is known about one exercise (`summaryEntry`).
+ * - `idle`    nothing held for it and no check has run (not the same as "no history")
+ * - `loading` nothing held for it and a check is running
+ * - `ready`   a summary is held, or a check succeeded and there is none: never done
+ * - `error`   nothing held for it and the check failed, so it is unknown
  */
 export type ExerciseHistoryStatus = "idle" | "loading" | "ready" | "error";
 
 export type ExerciseHistoryEntry = {
   exerciseId: string;
   status: ExerciseHistoryStatus;
-  /** null when the exercise has never been performed, or nothing was fetched. */
+  /** null when the exercise has never been performed, or nothing is known. */
   stats: ExerciseStatsDoc | null;
-  fetchedAt: number | null;
   /**
-   * Last fetch failure. Stays set alongside `status: "ready"` when a refetch
-   * failed but older cached data is still being served.
+   * Last check failure. Stays set alongside `status: "ready"` when a check
+   * failed but a saved summary is still being served.
    */
   error: string | null;
 };
@@ -102,7 +101,7 @@ export type VolumePoint = {
 
 export type ExerciseHistory = {
   status: ExerciseHistoryStatus;
-  /** House convention. True only while a prefetch is in flight. */
+  /** House convention. True only while a check runs and nothing is known about this exercise. */
   loading: boolean;
   /** True when at least one session recorded this exercise. */
   hasHistory: boolean;

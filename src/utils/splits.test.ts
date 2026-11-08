@@ -80,7 +80,6 @@ describe("reading stored rows back", () => {
       exerciseId: "bench-press",
       status: "ready",
       stats: rebuildStatsFromSessions("bench-press", exerciseSessions),
-      fetchedAt: 0,
       error: null,
     });
     expect(history.lastSession?.volume.value).toBe(152.5);

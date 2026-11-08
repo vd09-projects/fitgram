@@ -105,7 +105,7 @@ export function buildStats(name: string, sessions: StatsSessionSpec[]): Exercise
     };
   });
 
-  const stats = rebuildStatsFromSessions(exerciseId, docs, now);
+  const stats = rebuildStatsFromSessions(exerciseId, docs);
   if (!stats) {
     throw new Error("buildStats needs at least one session; seed `null` for never-done");
   }

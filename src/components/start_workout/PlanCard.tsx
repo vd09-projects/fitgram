@@ -115,22 +115,16 @@ export function PlanCard({ plan, row, sessionsKnown, onClose }: Props) {
     return () => clearInterval(id);
   }, [visible, activeWorkout]);
 
-  // The one history read for this plan, made by the card itself so every
-  // opener (Start today, the hub in TICKET-066) gets filled rows without
-  // having to remember it (PR #44 review): a batched query, one doc per
-  // exercise. The same prefetch `startWorkout` makes, so a plan started from
-  // the card begins with its ghost targets warm. Never for a closed card:
-  // warming every plan is a large read for a screen the user may pass through.
-  // Keyed on the exercise ids, so a plan edited in Manage reads its new ones.
+  // The summaries' check, made by the card itself so every opener (Start today,
+  // the hub in TICKET-066) gets filled rows without having to remember it (PR
+  // #44 review). The same check `startWorkout` makes. Never for a closed card.
+  // Keyed on the exercise ids, so a plan edited in Manage checks again.
   const { user } = useAuthUser();
   const uid = user?.uid;
   const exerciseIds = plan?.exercises.map((exercise) => exercise.id).join(",") ?? "";
   useEffect(() => {
     if (!exerciseIds) return;
-    useExerciseHistoryStore
-      .getState()
-      .prefetchExerciseHistory(uid, exerciseIds.split(","))
-      .catch(() => {});
+    void useExerciseHistoryStore.getState().open(uid);
   }, [uid, exerciseIds]);
 
   // Each opening starts from the top, with the full header.
@@ -363,7 +357,8 @@ function RunningProgress({ workout }: { workout: ActiveWorkout }) {
 
 /**
  * One exercise: its position, name, and last time (`lastTimeSummary`). The
- * history is cache-only here; the card's prefetch on open fills it.
+ * history is the saved summaries, read no further; the card's check on open
+ * refreshes them.
  */
 function ExerciseRow({ exercise, position }: { exercise: Exercise; position: number }) {
   const { styles } = useThemeStyles(createStyles);

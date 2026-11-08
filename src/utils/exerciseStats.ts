@@ -224,8 +224,7 @@ const newestFirst = (a: { performedAt: number }, b: { performedAt: number }) =>
  */
 export function applySessionToStats(
   previous: ExerciseStatsDoc | null,
-  doc: ExerciseSessionDoc,
-  now: number = Date.now()
+  doc: ExerciseSessionDoc
 ): ExerciseStatsDoc {
   const entry = buildStatsSessionEntry(doc);
 
@@ -260,7 +259,6 @@ export function applySessionToStats(
     recentSessions,
     bestByReps: applyBest(previous?.bestByReps ?? {}, doc),
     volumeHistory,
-    updatedAt: now,
   };
 }
 
@@ -270,8 +268,7 @@ export function applySessionToStats(
  */
 export function rebuildStatsFromSessions(
   exerciseId: string,
-  docs: ExerciseSessionDoc[],
-  now: number = Date.now()
+  docs: ExerciseSessionDoc[]
 ): ExerciseStatsDoc | null {
   const relevant = docs
     .filter((doc) => doc.exerciseId === exerciseId)
@@ -281,7 +278,7 @@ export function rebuildStatsFromSessions(
 
   let stats: ExerciseStatsDoc | null = null;
   for (const doc of relevant) {
-    stats = applySessionToStats(stats, doc, now);
+    stats = applySessionToStats(stats, doc);
   }
   return stats;
 }

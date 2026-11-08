@@ -1,38 +1,24 @@
-// TICKET-047 (device, 2026-10-31): offline, getDocs resolves from the memory
-// cache, empty on a cold start, instead of rejecting. Read as an answer, every
-// exercise was "never done" and the logger said "First time".
-
-import { Timestamp, getDocs, runTransaction, serverTimestamp, writeBatch } from "firebase/firestore";
-import { getExerciseStats, getWorkoutSessions, saveWorkoutSession } from "./workoutSessions";
+import { Timestamp, getDocs, getDocsFromServer, runTransaction, serverTimestamp, writeBatch } from "firebase/firestore";
+import { getAllExerciseStats, getWorkoutSessions, saveWorkoutSession } from "./workoutSessions";
 import { buildExercise, buildWorkout } from "../../test/fixtures";
 
 jest.mock("../firebase/firebase", () => ({ db: {} }));
 jest.mock("firebase/firestore", () => ({
   ...jest.requireActual("firebase/firestore"),
   collection: jest.fn(),
-  documentId: jest.fn(),
   query: jest.fn(),
   where: jest.fn(),
   orderBy: jest.fn(),
   limit: jest.fn(),
   doc: jest.fn((_ref: unknown, id: string) => id),
   getDocs: jest.fn(),
+  getDocsFromServer: jest.fn(),
   writeBatch: jest.fn(),
   runTransaction: jest.fn(),
   serverTimestamp: jest.fn(() => "SERVER_STAMP"),
 }));
 
 const snapshot = (fromCache: boolean) => ({ metadata: { fromCache }, empty: true, docs: [] });
-
-describe("getExerciseStats", () => {
-  it("rejects an answer from the cache, and reads a server answer with no doc as never done", async () => {
-    (getDocs as jest.Mock).mockResolvedValue(snapshot(true));
-    await expect(getExerciseStats("u1", ["bench"])).rejects.toThrow();
-
-    (getDocs as jest.Mock).mockResolvedValue(snapshot(false));
-    await expect(getExerciseStats("u1", ["bench"])).resolves.toEqual({ bench: null });
-  });
-});
 
 // TICKET-075: the workouts store's change check filters on `updatedAt`, so a
 // write of a `sessions` doc without it is invisible to every other phone.
@@ -57,6 +43,9 @@ describe("the server stamp on sessions", () => {
     expect(serverTimestamp).toHaveBeenCalled();
     expect(sessionWrite.updatedAt).toBe("SERVER_STAMP");
     expect(summaryMerge.updatedAt).toBe("SERVER_STAMP");
+    // TICKET-076: the summary itself, or the change check never finds it.
+    const summaryWrite = txSet.mock.calls.find(([, data]) => data.exerciseId !== undefined)![1];
+    expect(summaryWrite.updatedAt).toBe("SERVER_STAMP");
   });
 
   it("a read gives the stamp as plain numbers, nanoseconds kept, and none for a session written before 075", async () => {
@@ -68,4 +57,18 @@ describe("the server stamp on sessions", () => {
     expect(sessions).toEqual([{ sessionId: "new", updatedAt: { seconds: 5, nanoseconds: 400 } }, { sessionId: "old" }]);
     expect(sessions[0].updatedAt).not.toBeInstanceOf(Timestamp);
   });
+});
+
+// TICKET-076: one name, one meaning. A summary written before the server stamp
+// holds a phone-clock number under `updatedAt`.
+it("a summary read keeps a server stamp as plain numbers and drops a phone-clock number", async () => {
+  const docOf = (data: object) => ({ data: () => data });
+  (getDocsFromServer as jest.Mock).mockResolvedValue({
+    metadata: { hasPendingWrites: false },
+    docs: [docOf({ exerciseId: "new", updatedAt: new Timestamp(5, 400) }), docOf({ exerciseId: "old", updatedAt: 1_700_000_000_000 })],
+  });
+  await expect(getAllExerciseStats("u1")).resolves.toEqual([
+    { exerciseId: "new", updatedAt: { seconds: 5, nanoseconds: 400 } },
+    { exerciseId: "old" },
+  ]);
 });

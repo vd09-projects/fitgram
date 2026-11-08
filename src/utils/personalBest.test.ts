@@ -13,7 +13,7 @@ const KG_NUMERIC = resolveNumericFields(KG);
 
 // The real hook derivation, so `bestAtReps` is the definition the sheet uses.
 const historyFrom = (stats: ExerciseStatsDoc | null, fields: ExerciseField[] = KG) =>
-  deriveExerciseHistory({ exerciseId: "bench-press", status: "ready", stats, fetchedAt: 0, error: null }, fields);
+  deriveExerciseHistory({ exerciseId: "bench-press", status: "ready", stats, error: null }, fields);
 
 const set = (weight: string, reps: string): StoredSetFields => ({ Weight: weight, Reps: reps });
 

@@ -51,6 +51,26 @@ export const WORKOUTS_STORAGE_KEY = "recentWorkouts";
  */
 export const WORKOUTS_FORMAT_VERSION = 1;
 
+// --- Exercise summaries (useExerciseHistoryStore, TICKET-076) ---
+
+/**
+ * AsyncStorage key of the stored exercise summaries' head: format, user id and
+ * check times. ACCOUNT DATA: cleared on sign-out. The summaries themselves are
+ * in `EXERCISE_SUMMARIES_SHARDS` keys named by `exerciseSummariesShardKey`.
+ */
+export const EXERCISE_SUMMARIES_STORAGE_KEY = "exerciseSummaries";
+export const exerciseSummariesShardKey = (shard: number) => `${EXERCISE_SUMMARIES_STORAGE_KEY}.${shard}`;
+
+/**
+ * Format of the stored exercise summaries, written in the head. Bump it when
+ * `StoredSummariesHead` (utils/exerciseSummariesSync.ts) or the summary shape
+ * changes.
+ *
+ * Changes stored data: bumping it discards every phone's stored summaries on
+ * the next launch; each refills with one first load (one read per exercise done).
+ */
+export const EXERCISE_SUMMARIES_FORMAT_VERSION = 1;
+
 // --- The workout in progress and the upload queue (useWorkoutStore) ---
 
 /** AsyncStorage key of the workout in progress. Tests use the literal, to pin it. */

@@ -20,9 +20,9 @@ import { UPLOAD_GRACE_MS } from "../config/workout";
 import { ACTIVE_WORKOUT_KEY, LOCAL_DATA_VERSION, LOCAL_DATA_VERSION_KEY, PENDING_UPLOADS_KEY } from "../config/storageKeys";
 
 /**
- * In-flight uploads per session (`buildSessionId`), outside the store for the
- * same reason as `useExerciseHistoryStore`'s `inFlight`: a zustand update is not
- * visible to a second caller in the same frame (TICKET-027). A Map lookup is
+ * In-flight uploads per session (`buildSessionId`), outside the store because
+ * a zustand update is not visible to a second caller in the same frame
+ * (TICKET-027). A Map lookup is
  * synchronous, so Finish, a queue drain, or any later caller joins the running
  * upload instead of starting one. Resolves true if the upload succeeded.
  *
@@ -124,15 +124,12 @@ const catalogIndexNow = () => useCatalogStore.getState().catalog?.index ?? null;
 const ALREADY_IN_WORKOUT_REASON = "That exercise is already in today's workout.";
 
 /**
- * Fetch history for exercises entering the workout (start, swap, add). Not
- * awaited and never rejects: history is an enhancement, so a slow or failed
- * fetch must not delay or block the action that triggered it.
+ * Check the saved summaries as exercises enter the workout (start, swap, add).
+ * Not awaited and never rejects: history is an enhancement, so a slow or failed
+ * check must not delay or block the action that triggered it.
  */
-const prefetchHistory = (exerciseIds: string[]) => {
-  useExerciseHistoryStore
-    .getState()
-    .prefetchExerciseHistory(useAuthStore.getState().user?.uid, exerciseIds)
-    .catch(() => {});
+const prefetchHistory = () => {
+  void useExerciseHistoryStore.getState().open(useAuthStore.getState().user?.uid);
 };
 
 /**
@@ -230,10 +227,9 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       };
     }
 
-    // Prefetch history for every exercise in the plan, first, so it overlaps the
-    // local writes below and the first set is logged against a warm cache. One
-    // batched query, one document per exercise.
-    prefetchHistory(workout.exercises.map((exercise) => exercise.id));
+    // Check the saved summaries first, so it overlaps the local writes below.
+    // Not for an empty Freestyle: its first added exercise checks.
+    if (workout.exercises.length > 0) prefetchHistory();
 
     const startTime = Date.now();
     const catalogIndex = catalogIndexNow();
@@ -494,7 +490,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
    * rest still counting (log set 1, then delete it), and a rest keyed to the old
    * id would hide behind the new exercise and come back on a swap back.
    *
-   * History for the new id is fetched here, a session moment like start and
+   * History for the new id is checked here, a session moment like start and
    * resume, never by a screen (`prefetchHistory`).
    */
   swapExercise: async (exerciseId, exercise) => {
@@ -534,7 +530,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
 
     await saveActiveWorkout(updatedWorkout, rest?.exerciseId === exerciseId ? { rest: null } : {});
 
-    prefetchHistory([exercise.id]);
+    prefetchHistory();
     return { status: "swapped" };
   },
 
@@ -554,7 +550,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
    * A wrong pick is taken out with `removeExercise` (TICKET-069), which
    * reversed 056's "no remove": Swap cannot make an exercise go away.
    *
-   * History for the new id is fetched here, as for a swap.
+   * History for the new id is checked here, as for a swap.
    */
   addExercise: async (exercise) => {
     const { activeWorkout } = get();
@@ -573,7 +569,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
 
     await saveActiveWorkout(updatedWorkout);
 
-    prefetchHistory([exercise.id]);
+    prefetchHistory();
     return { status: "added" };
   },
 
@@ -810,7 +806,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     }));
     set({ activeWorkout: { ...parsed, exercises } });
 
-    prefetchHistoryOnResume(exercises.map((exercise) => exercise.id));
+    prefetchHistoryOnResume(exercises.length);
   },
 
   /**
@@ -918,8 +914,8 @@ function uploadPendingWorkout(entry: PendingUpload): Promise<boolean> {
     // Identity check: only remove our own entry, never a later upload's.
     // Unreachable today, since the join above allows one upload per session, so
     // no test covers it. Kept deliberately: it is what stays correct if a
-    // `force` path that bypasses the join is ever added, as the history
-    // store's prefetch has.
+    // `force` path that bypasses the join is ever added, as the sync
+    // runner's `check` has.
     if (savesInFlight.get(entry.sessionId) === run) savesInFlight.delete(entry.sessionId);
   });
   savesInFlight.set(entry.sessionId, run);
@@ -934,11 +930,9 @@ async function attemptUpload(entry: PendingUpload): Promise<boolean> {
     // entry leaves the queue below, so no screen shows its plan without it
     // between the two (`buildPlanRows` merges the queue).
     useRecentWorkoutsStore.getState().applyFinished(entry.uid, buildSessionDocs(entry.workout, entry.endedAt).session);
-    // Cached history predates the session just saved. Drop it so the next
-    // read refetches.
-    useExerciseHistoryStore
-      .getState()
-      .invalidateExercises(entry.workout.exercises.map((e) => e.id));
+    // The saved summaries predate the session just uploaded: the next
+    // trigger checks, past the skip window.
+    useExerciseHistoryStore.getState().invalidateExercises();
     if (!rollupApplied) {
       // Session data is safe; only the derived exercise_stats rollup is
       // behind. src/scripts/rebuildExerciseStats.ts repairs it.
@@ -1042,26 +1036,22 @@ function watchSignInForUploads() {
 let stopResumePrefetchWatch: (() => void) | null = null;
 
 /**
- * Warm the history cache for a resumed session, as `startWorkout` does for a
- * new one. History is only ever fetched at session moments, never by a screen.
+ * Load the saved summaries and check them for a resumed session, as
+ * `startWorkout` does for a new one. History is only ever checked at session
+ * moments, never by a screen.
  *
  * Restore runs once at app start, before auth has settled: `initAuth` sets the
- * user only after a session check and a server write. Prefetching there would
- * see no uid and silently return. So fetch now if the user is known, otherwise
- * on the first user to appear. Repeat calls are free — the history store skips
- * ready entries and joins in-flight requests — and a failure is swallowed,
- * leaving the progress bar on its default target, as on start.
+ * user only after a session check and a server write. Checking there would
+ * see no uid and silently return. So check now if the user is known, otherwise
+ * on the first user to appear. Repeat calls are free — the store skips a recent
+ * check and joins one running — and a failure leaves the saved copy in place.
  */
-function prefetchHistoryOnResume(exerciseIds: string[]) {
+function prefetchHistoryOnResume(exerciseCount: number) {
   stopResumePrefetchWatch?.();
   stopResumePrefetchWatch = null;
-  if (exerciseIds.length === 0) return;
+  if (exerciseCount === 0) return;
 
-  const prefetch = (uid: string) =>
-    useExerciseHistoryStore
-      .getState()
-      .prefetchExerciseHistory(uid, exerciseIds)
-      .catch(() => {});
+  const prefetch = (uid: string) => void useExerciseHistoryStore.getState().open(uid);
 
   const uid = useAuthStore.getState().user?.uid;
   if (uid) {

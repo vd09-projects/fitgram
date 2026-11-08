@@ -449,10 +449,7 @@ export default function ExerciseLogger({
   const pillState = pillText !== null ? "value" : history.status === "loading" ? "loading" : history.status === "error" ? "failed" : "empty";
 
   const reloadHistory = () => {
-    useExerciseHistoryStore
-      .getState()
-      .prefetchExerciseHistory(useAuthStore.getState().user?.uid, [exercise.id])
-      .catch(() => {});
+    void useExerciseHistoryStore.getState().open(useAuthStore.getState().user?.uid, { force: true });
   };
 
   return (

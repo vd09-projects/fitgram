@@ -58,9 +58,10 @@ export type RenderScreenOptions = {
    */
   workoutActions?: Partial<Omit<WorkoutState, "activeWorkout">>;
   /**
-   * Cached history per exercise id, seeded as `status: "ready"`. `null` means
-   * fetched and the exercise has never been done. An exercise not listed is
-   * `idle` (never prefetched), which is the default for every exercise.
+   * Saved summary per exercise id, seeded as after a successful check. `null`
+   * means the exercise has never been done, and so does not listing it: both
+   * are "ready, none". Leave `history` out for an unloaded store, where every
+   * exercise is `idle`.
    */
   history?: Record<string, ExerciseStatsDoc | null>;
   /** Signed-in user. Default `{ uid: "test-user" }`; null for signed out. */
@@ -79,7 +80,6 @@ export type RenderScreenOptions = {
 export const TEST_USER_ID = "test-user";
 
 const workoutInitial = useWorkoutStore.getInitialState();
-const historyInitial = useExerciseHistoryStore.getInitialState();
 const authInitial = useAuthStore.getInitialState();
 const restPreferenceInitial = useRestPreferenceStore.getInitialState();
 const catalogInitial = useCatalogStore.getInitialState();
@@ -91,7 +91,6 @@ const catalogInitial = useCatalogStore.getInitialState();
  */
 export function resetStores() {
   useWorkoutStore.setState(workoutInitial, true);
-  useExerciseHistoryStore.setState(historyInitial, true);
   useAuthStore.setState(authInitial, true);
   useRestPreferenceStore.setState(restPreferenceInitial, true);
   useCatalogStore.setState(catalogInitial, true);
@@ -101,6 +100,8 @@ export function resetStores() {
   usePlansStore.setState({ readout: { reads: 0, log: [] } }); // debug readout (Plans Store page)
   useRecentWorkoutsStore.getState().clear();
   useRecentWorkoutsStore.setState({ readout: { reads: 0, log: [] }, billedReads: 0 }); // debug readout
+  useExerciseHistoryStore.getState().clear();
+  useExerciseHistoryStore.setState({ readout: { reads: 0, log: [] } }); // debug readout
   AsyncStorage.clear();
 }
 
@@ -157,12 +158,15 @@ export function renderScreen(
     initialized: true,
   });
   if (history) {
+    // As after a successful check: loaded, so an exercise with no doc (or seeded
+    // null) is never done, and a recent check, so a screen's trigger is skipped.
     useExerciseHistoryStore.setState({
-      entries: Object.fromEntries(
-        Object.entries(history).map(([exerciseId, stats]) => [
-          exerciseId,
-          { exerciseId, status: "ready" as const, stats, fetchedAt: 0, error: null },
-        ])
+      uid: user === undefined ? TEST_USER_ID : (user?.uid ?? null),
+      storedRead: true,
+      lastResult: "ok",
+      lastOkAt: Date.now(),
+      byId: Object.fromEntries(
+        Object.entries(history).flatMap(([exerciseId, stats]) => (stats ? [[exerciseId, stats]] : []))
       ),
     });
   }

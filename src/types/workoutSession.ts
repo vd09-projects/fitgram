@@ -213,5 +213,12 @@ export type ExerciseStatsDoc = {
   bestByReps: Record<string, StatsBestEntry>;
   /** Oldest first, capped at STATS_VOLUME_HISTORY_CAP. */
   volumeHistory: StatsVolumePoint[];
-  updatedAt: number;
+  /**
+   * When the server last wrote this doc (TICKET-076): `serverTimestamp()` on
+   * every writer, plain numbers on the phone. Absent on a doc written before
+   * 076, whose `updatedAt` is a phone-clock number: reads drop that value
+   * (`toStamp`), so the name has one meaning in the app. Also absent on what
+   * `applySessionToStats` returns: the writer adds the stamp.
+   */
+  updatedAt?: SyncStamp;
 };

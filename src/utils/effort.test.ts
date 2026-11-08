@@ -33,7 +33,6 @@ const historyOf = (docs: ExerciseSessionDoc[]) =>
     exerciseId: docs[0].exerciseId,
     status: "ready",
     stats: rebuildStatsFromSessions(docs[0].exerciseId, docs),
-    fetchedAt: 0,
     error: null,
   });
 

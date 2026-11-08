@@ -1,169 +1,146 @@
 // src/stores/useExerciseHistoryStore.ts
 //
-// Session-lifetime cache of exercise history, keyed by **exerciseId**.
+// The signed-in user's exercise summaries on the phone (TICKET-076): one
+// `exercise_stats` doc for every exercise done, saved to AsyncStorage, so "last
+// time", ghosts, the PR banner and the history sheet work offline after a
+// restart. Keyed by exercise, not workout: the last bench press is the last
+// bench press in any plan.
 //
-// Keyed by exercise, not workout, because that is the question being asked: the
-// last bench press is the last bench press in any plan. A plan's whole history
-// is one batched query of one document per exercise, so one prefetch at workout
-// start serves every reader and nothing a reader does can trigger a read.
+// On the sync core (`syncRunner.ts`, `syncCore.ts`). A check is one of two kinds
+// (rules in `exerciseSummariesSync.ts`):
+// - full: the whole collection in one query, when nothing is held;
+// - change: summaries with `updatedAt > lastSeen` (1 read when nothing changed).
+// Every read is from the server (`serverOnly` in workoutSessions.ts).
 //
-// Writers: `prefetchExerciseHistory` (called from `startWorkout`) and
-// `invalidateExercises` (called after a workout is saved).
-// Readers: `useExerciseHistory`, which only selects state.
+// Triggers: a plan card opening, a workout starting or resuming, an exercise
+// added or swapped, the sheet's Reload. Readers (`useExerciseHistory`) only
+// select state, so no number of them costs a read.
+//
+// A failed Finish summary (`rollupPending` stays true, TICKET-077) writes no
+// doc, so a check finds nothing and the store keeps the last summary the server
+// has. This store neither hides that nor depends on it.
+//
+// Sign-out clears it (`initAuth`), as the plans and the recent workouts.
 
 import { create } from "zustand";
-import { getExerciseStats } from "../services/db/workoutSessions";
-import { ExerciseHistoryEntry } from "../types/exerciseHistory";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getAllExerciseStats, getChangedExerciseStats } from "../services/db/workoutSessions";
+import type { ExerciseStatsDoc } from "../types/workoutSession";
+import { changeCheckAfter, type SyncStamp } from "../utils/syncCore";
+import {
+  mergeSummaries,
+  readStoredSummaries,
+  serializeStoredSummaries,
+  storedSummariesKeys,
+  summariesLastSeenAfter,
+  summariesRunFor,
+  type HeldSummaries,
+  type SummariesById,
+  type SummariesCheckKind,
+} from "../utils/exerciseSummariesSync";
+import { createSyncRunner, type CheckRun as RunBase, type SyncFields } from "./syncRunner";
+import { EXERCISE_SUMMARIES_CHECK_SKIP_MS, EXERCISE_SUMMARIES_CHECK_WAIT_MS, EXERCISE_SUMMARIES_SHARDS } from "../config/sync";
 
-type PrefetchOptions = {
-  /** Refetch even for exercises already cached as ready. Default false. */
+type CheckOptions = {
+  /** Past the skip window. */
   force?: boolean;
+  /** A full load, for the debug page. */
+  full?: boolean;
 };
 
-interface ExerciseHistoryStoreState {
-  /** exerciseId -> cached rollup. */
-  entries: Record<string, ExerciseHistoryEntry>;
-  /**
-   * Firestore history fetches issued this app session. Instrumentation for the
-   * one claim this cache exists to make: starting a workout costs one fetch and
-   * no reader costs another. `src/scripts/verifyHistoryReads.ts` asserts on it.
-   */
-  fetchCount: number;
+interface ExerciseHistoryStoreState extends SyncFields<SummariesCheckKind> {
+  /** Null: nothing stored for `uid` and no answer yet. */
+  byId: SummariesById | null;
+  /** The newest `updatedAt` an answer returned (server clock); null: none yet. */
+  lastSeen: SyncStamp | null;
+  /** When the last full load answered (phone clock). Debug only: nothing is scheduled on it. */
+  lastFullAt: number | null;
 
-  prefetchExerciseHistory: (
-    userId: string | undefined,
-    exerciseIds: string[] | undefined,
-    options?: PrefetchOptions
-  ) => Promise<void>;
-  invalidateExercises: (exerciseIds: string[] | undefined) => void;
-  clearExerciseHistory: () => void;
+  /** A trigger: load the stored copy for `uid`, then check. Never rejects. */
+  open: (uid: string | undefined, options?: CheckOptions) => Promise<void>;
+  check: (options?: CheckOptions) => Promise<void>;
+  /**
+   * An upload changed some summaries: the next trigger checks, past the skip.
+   * Stage 2 replaces this with the summaries the upload computed.
+   */
+  invalidateExercises: () => void;
+  /** Sign-out. */
+  clear: () => void;
 }
 
-const emptyEntry = (exerciseId: string): ExerciseHistoryEntry => ({
-  exerciseId,
-  status: "idle",
-  stats: null,
-  fetchedAt: null,
-  error: null,
+const initialState = {
+  uid: null,
+  byId: null,
+  storedRead: false,
+  checking: false,
+  waitOver: false,
+  lastResult: null,
+  lastError: null,
+  lastOkAt: null,
+  lastSeen: null,
+  lastFullAt: null,
+  readout: { reads: 0, log: [] }, // debug readout
+};
+
+type CheckRun = RunBase<SummariesCheckKind> & { seenAtStart: SyncStamp | null };
+
+async function readStoredCopy(uid: string): Promise<HeldSummaries | null> {
+  try {
+    const rows = await AsyncStorage.multiGet(storedSummariesKeys(EXERCISE_SUMMARIES_SHARDS));
+    const read = readStoredSummaries(rows, uid, EXERCISE_SUMMARIES_SHARDS);
+    if (read.error) console.warn("Stored exercise summaries discarded; will fetch:", read.error);
+    return read.held;
+  } catch (error) {
+    console.warn("Stored exercise summaries unreadable; will fetch:", error);
+    return null;
+  }
+}
+
+export const useExerciseHistoryStore = create<ExerciseHistoryStoreState>((set, get) => {
+  const runner = createSyncRunner<ExerciseHistoryStoreState, SummariesCheckKind, CheckRun, ExerciseStatsDoc[]>({
+    get,
+    set,
+    initialState,
+    waitMs: EXERCISE_SUMMARIES_CHECK_WAIT_MS,
+    skipMs: EXERCISE_SUMMARIES_CHECK_SKIP_MS,
+    readStored: readStoredCopy,
+    holdsData: (s) => s.byId !== null,
+    writeStored: async ({ uid, byId, lastSeen, lastFullAt }) => {
+      if (uid === null) {
+        await AsyncStorage.multiRemove(storedSummariesKeys(EXERCISE_SUMMARIES_SHARDS));
+      } else if (byId !== null) {
+        await AsyncStorage.multiSet(serializeStoredSummaries(uid, EXERCISE_SUMMARIES_SHARDS, { byId, lastSeen, lastFullAt }));
+      }
+    },
+    read: (run) =>
+      run.kind === "full"
+        ? getAllExerciseStats(run.uid)
+        : getChangedExerciseStats(run.uid, changeCheckAfter(run.seenAtStart)),
+    apply: (state, run, docs, now) => ({
+      // A full load starts from nothing, so a summary deleted on the server goes.
+      byId: mergeSummaries(run.kind === "full" ? {} : (state.byId ?? {}), docs),
+      lastSeen: summariesLastSeenAfter(run.kind, state.lastSeen, docs),
+      ...(run.kind === "full" && { lastFullAt: now }),
+    }),
+    describe: (docs) => `${docs.length} docs`,
+    label: "exercise summaries",
+  });
+
+  return {
+    ...initialState,
+    epoch: 0,
+
+    open: async (uid, options) => {
+      if (!uid) return;
+      await runner.open(uid);
+      await get().check(options);
+    },
+
+    check: ({ force = false, full = false } = {}) =>
+      runner.check({ force }, (state, skipped) => summariesRunFor(state, skipped, full)),
+
+    invalidateExercises: () => set({ lastOkAt: null }),
+
+    clear: runner.clear,
+  };
 });
-
-/**
- * In-flight fetches per exercise, outside the store so overlapping callers await
- * the existing promise instead of issuing a second read.
- */
-const inFlight = new Map<string, Promise<void>>();
-
-export const useExerciseHistoryStore = create<ExerciseHistoryStoreState>(
-  (set, get) => ({
-    entries: {},
-    fetchCount: 0,
-
-    /**
-     * Fetch history for a batch of exercises once. Never throws and never
-     * rejects: history is an enhancement on the logging flow, so a failure must
-     * not surface as a rejection to a caller that is mid-`startWorkout`.
-     */
-    prefetchExerciseHistory: async (userId, exerciseIds, options) => {
-      if (!userId || !exerciseIds || exerciseIds.length === 0) return;
-
-      const force = options?.force ?? false;
-      const unique = [...new Set(exerciseIds.filter(Boolean))];
-      const entries = get().entries;
-
-      const awaited: Promise<void>[] = [];
-      const toFetch: string[] = [];
-
-      for (const id of unique) {
-        const pending = inFlight.get(id);
-        if (pending && !force) {
-          awaited.push(pending);
-          continue;
-        }
-        // Cached for the app session. `error` and `idle` are retried.
-        if (!force && entries[id]?.status === "ready") continue;
-        toFetch.push(id);
-      }
-
-      if (toFetch.length === 0) {
-        await Promise.all(awaited);
-        return;
-      }
-
-      const run = (async () => {
-        set((state) => {
-          const next = { ...state.entries };
-          for (const id of toFetch) {
-            next[id] = { ...(next[id] ?? emptyEntry(id)), status: "loading" };
-          }
-          return { entries: next, fetchCount: state.fetchCount + 1 };
-        });
-
-        try {
-          const stats = await getExerciseStats(userId, toFetch);
-          const fetchedAt = Date.now();
-          set((state) => {
-            const next = { ...state.entries };
-            for (const id of toFetch) {
-              next[id] = {
-                exerciseId: id,
-                status: "ready",
-                // null is the no-history path: never performed, not an error.
-                stats: stats[id] ?? null,
-                fetchedAt,
-                error: null,
-              };
-            }
-            return { entries: next };
-          });
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
-          set((state) => {
-            const next = { ...state.entries };
-            for (const id of toFetch) {
-              const base = next[id] ?? emptyEntry(id);
-              next[id] = {
-                ...base,
-                // Offline: keep serving whatever was already cached.
-                status: base.stats ? "ready" : "error",
-                error: message,
-              };
-            }
-            return { entries: next };
-          });
-        }
-      })();
-
-      for (const id of toFetch) inFlight.set(id, run);
-      try {
-        await Promise.all([run, ...awaited]);
-      } finally {
-        for (const id of toFetch) {
-          if (inFlight.get(id) === run) inFlight.delete(id);
-        }
-      }
-    },
-
-    /** Drop cached history so the next prefetch refetches it. */
-    invalidateExercises: (exerciseIds) => {
-      if (!exerciseIds || exerciseIds.length === 0) return;
-      for (const id of exerciseIds) inFlight.delete(id);
-      set((state) => {
-        const next = { ...state.entries };
-        let changed = false;
-        for (const id of exerciseIds) {
-          if (next[id]) {
-            delete next[id];
-            changed = true;
-          }
-        }
-        return changed ? { entries: next } : state;
-      });
-    },
-
-    clearExerciseHistory: () => {
-      inFlight.clear();
-      set({ entries: {} });
-    },
-  })
-);
