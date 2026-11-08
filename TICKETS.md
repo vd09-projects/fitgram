@@ -1154,6 +1154,14 @@ only repair is running `rebuildExerciseStats.ts` by hand.
 Editing a set in the *active* workout, before Finish, is TICKET-040 — no rollup
 involved there.
 
+**Rules to follow, recorded by TICKET-076 (2026-11-09):** when a delete removes an
+exercise's last session, write `deleted: true` with a server-stamped `updatedAt` on the
+`exercise_stats` doc, never a hard delete (a change check cannot see one), and make
+`mergeSummaries` drop marked docs in the same change, as plans do (`mergeChanges`).
+The exercise then reads "First time" again. Markers never expire (see TICKET-070 D5).
+The same rule applies to any future delete of a workout: a server-stamped `deleted`
+marker on the `sessions` doc, dropped by the merge, never a hard delete.
+
 **Dependencies:** TICKET-019, TICKET-020 (the history sheet is where a past set
 is visible).
 
@@ -7662,17 +7670,18 @@ most; one Firestore doc may be 1 MB, AsyncStorage on Android allows ~6 MB by def
   - Rejected for now: a live listener. Always current, but it holds a connection open
     and React Native can drop it quietly in the background. Revisit if "edited on one
     device, stale on the other" shows up in feedback.
-- **D5 Full reload** of every plan on Reload / Try again, the first load, and the first
-  check after `FULL_RELOAD_INTERVAL` with no full reload. It replaces the stored copy
-  whole, which is what catches plans removed outside the app (console, scripts): they
-  leave no doc for D3 to return.
-  - **Decided for the future Delete feature, not built here:** Delete sets
-    `deleted: true`, `updatedAt` and an `expireAt` of `REMOVAL_WINDOW` ahead, and a
-    Firestore TTL policy removes the doc after it (TTL setup is the user's to trigger;
-    check whether it needs the Blaze plan). `FULL_RELOAD_INTERVAL ≤ REMOVAL_WINDOW`,
-    so a phone that missed the marker reloads fully before it is gone. Both are
-    constants (e.g. 2 and 3 days, or 7 and 7), with a test that fails if the interval
-    is set above the window. Whether History still names a removed plan's sessions is
+- **D5 Full reload** of every plan on Reload / Try again and the first load. It
+  replaces the stored copy whole, which is what catches plans removed outside the app
+  (console, scripts): they leave no doc for D3 to return. Superseded in TICKET-076:
+  the timed full reload (`FULL_RELOAD_INTERVAL`) is gone. After a wipe or a console
+  edit, sign out and in, or use the debug page's full reload.
+  - **Decided for the future Delete feature, not built here (replaced 2026-11-09,
+    TICKET-076):** Delete sets `deleted: true` and a server-stamped `updatedAt` on the
+    doc, never a hard delete, and **markers never expire.** The plan's `expireAt` /
+    `REMOVAL_WINDOW` / TTL, and `FULL_RELOAD_INTERVAL ≤ REMOVAL_WINDOW`, are withdrawn:
+    a phone away longer than a TTL would miss the marker, and the timer that covered
+    that is gone. If a TTL is ever wanted, full-read only when a phone's `lastSeen` is
+    older than the window. Whether History still names a removed plan's sessions is
     for TICKET-071 or the Delete ticket.
   - **Built here:** every reader hides a plan with `deleted: true`, and a check that
     returns one removes it from the store.
@@ -7823,7 +7832,8 @@ offline start appears (user, 2026-11-05).
   constants (D5's `FULL_RELOAD_INTERVAL`): nothing in the app removes a plan yet, so a
   full reload only catches hand edits, and it costs up to 20 reads against 1. Timed by
   the phone's clock (a schedule, not a change marker); a last full reload in the future
-  counts as due. `REMOVAL_WINDOW`, TTL and the interval ≤ window test are left to Delete.
+  counts as due. `REMOVAL_WINDOW`, TTL and the interval ≤ window test were left to
+  Delete. All withdrawn by TICKET-076: no timer, and markers never expire (D5).
 - **Full reload** on: Try again / Retry (`retry` passes `full`), nothing stored, no
   `lastFullAt`, or the interval passed. Not on each cold start: `lastFullAt` is stored.
   Try again and Retry show only with nothing stored, which is a full reload anyway, so
@@ -8813,15 +8823,19 @@ account "Vikrant Dhawan"; writes: two Finishes on "Test WK"):**
 
 **Known gaps:**
 - **Own Finish during a full reload:** shown with the plan's older date until
-  the next check (see "Cut after PR #53 review"). Accepted.
+  the next check (see "Cut after PR #53 review"). Accepted. Since TICKET-076
+  there is no weekly reload, so it can now only happen on a first load or an
+  explicit reload.
 - **Copy:** "not in recent workouts" now means never done (or a plan whose
   workouts are not loaded yet, until the next check after the 2-minute
   skip). Changing it to "never done"
   is a UI change outside this ticket; left, comment in `hubTileFace`.
 - **A hand-set future `updatedAt` on a session** pins `lastSeen` while that
   doc holds it: sessions are not rewritten, so unlike plans it does not heal
-  by itself. Only a console edit can cause it; the 7-day full reload keeps
-  dates right meanwhile (per-plan reads), only change checks go blind.
+  by itself. Only a console edit can cause it; change checks go blind until
+  that doc is fixed and a full reload runs (sign out and in, or the debug
+  page). The weekly full reload that kept dates right meanwhile went in
+  TICKET-076.
 - **Not unit-tested:** the `serverOnly` refusal in the three new reads
   (same 2-line rule as userDB's, tested there), the sign-out clear line in
   `initAuth`, and the `applyFinished` call in `attemptUpload` (device run 2
@@ -8833,7 +8847,7 @@ account "Vikrant Dhawan"; writes: two Finishes on "Test WK"):**
 
 ### TICKET-076: Exercise Summaries on the Phone
 
-**Priority:** Medium | **Effort:** Medium-Large | **Status: IN PROGRESS** (stage 1 built, awaiting review) — raised 2026-11-08,
+**Priority:** Medium | **Effort:** Medium-Large | **Status: IN PROGRESS** (stage 1 merged, PR #54; stage 2 built, awaiting review) — raised 2026-11-08,
 decided in TICKET-072 (D4, D5, D8)
 
 **Description:**
@@ -8862,8 +8876,9 @@ the phone for every exercise done, and fetch only what changed.
 <date>" when it shows a copy the check could not refresh (ghosts would not: an old
 target does no harm).
 
-**Proof:** summary reads per workout, before and after (target: ~12 → ~1). History,
-ghosts and the PR banner work in airplane mode after a restart.
+**Proof:** last time, ghosts, the PR banner and the history sheet work in airplane
+mode after a cold restart, and a Finish updates "last time" at once with no read.
+Summary reads are reported, not targeted (decision below).
 
 **Dependencies:** TICKET-075 (the sync core).
 
@@ -8947,24 +8962,18 @@ ghosts and the PR banner work in airplane mode after a restart.
   (2), `workoutSessions.test.ts` (+1, and the summary write's stamp). 20 lines
   broken one at a time, each seen red.
 
-**Risk to the ticket's claim (for stage 2's measurement):** under 075's
+**Decision (2026-11-09, user): the echo is accepted; the claim is the offline and
+instant-Finish behaviour, and reads are reported, not targeted.** Under 075's
 own-Finish rule `lastSeen` does not move, so the next check returns that Finish's
-summaries: one read per exercise, ~6. Steady state is about 6–7 reads per workout,
-not ~1. Sessions cost 1 doc for this; summaries cost one per exercise.
-
-**Decision (2026-11-09, user): keep 075's own-Finish rule.** Stage 2 accepts the
-read-back and measures it. Rejected: at Finish, count changed docs and read the
-commit stamp (~2 reads) so `lastSeen` can move and the next check finds nothing.
-About 3 reads per workout, but not "own Finish, zero reads", and it saves about 3
-reads a workout for more race-prone code. The claim to measure becomes ~12 → ~6–7.
+summaries, one read per exercise. That is not a known gap and no code exists to
+avoid it. Rejected: at Finish, a read to learn the commit stamp so `lastSeen` could
+move. It saves 5-9 reads a workout, worth no money at this scale, adds a read at
+Finish, and can skip another phone's Finish.
 
 **Known gaps (stage 1):**
-- **A just-finished, never-done exercise can read "First time"** until the next
-  check answers (about a second), up to the 2-minute skip if a check was already
-  running when the upload finished: that check's answer sets `lastOkAt` again.
-  On main it showed "…". PR #54 review, finding 1. Stage 2 closes it when the
-  summaries are applied at Finish; not fixed here as stage 1 does not ship alone.
-- **Deleted summaries** stay on phones until sign-out (wipe scripts only).
+- **Deleted summaries** stay on phones until sign-out: only the dev wipe scripts
+  delete today (sign out and in to refresh); the delete feature brings the marker
+  (rule on TICKET-032).
 - **A hand-set future stamp** pins `lastSeen` until that doc is fixed and a full
   load runs (sign-out). Console edits only.
 - **Every successful check rewrites the copy,** changed or not: ~100 KB today,
@@ -8972,8 +8981,136 @@ reads a workout for more race-prone code. The claim to measure becomes ~12 → ~
 - **iOS:** `multiSet` atomicity was checked on Android only.
 - **Not unit-tested:** the stamps in `rebuildExerciseStats.ts` and
   `importHistory.ts` (no harness for scripts), the `initAuth` clear line.
-- **Not run on a device yet** (planned after stage 2): the Firestore round trip,
-  the number-vs-Timestamp query behaviour, the stored copy on real Android.
+
+**Load-bearing facts for stage 2, checked in code 2026-11-09 (CLAUDE.md 2.1):**
+1. **What the Finish transaction computes:** `applySessionToStats(existing, session)`
+   per exercise with sets, from `tx.get` of each doc; the result carries no
+   `updatedAt`, so it is unstamped and needs no stripping. `saveWorkoutSession`'s
+   return replaces `rollupApplied` with `summaries`:
+   - rollup succeeds: `runTransaction` resolves with what the winning attempt's
+     function returned, so a retry after a conflict returns its own fold;
+   - rollup fails: `null` (the catch), nothing written, nothing held;
+   - upload retried from the queue: the fold of the server's current docs, by
+     replacement of `sessionId`, so the same answer whatever was committed before.
+2. **Users of the timer symbols:** `fullReloadDue` (`usePlansStore` via
+   `isFullReloadDue`, `workoutsRunFor`), the two interval constants (only those,
+   `planSync.test`, and the debug page's "next due" lines), `lastFullAt` (stored
+   copies, debug page). Nothing but the timer read `lastFullAt`, and a held copy with
+   a null one cannot occur: a copy exists only after a full read. Trigger removed.
+3. **Every app write of plans and sessions stamps `updatedAt`:** plans have one
+   writer, `overrideWorkoutDetails` (Save and archive; `serverTimestamp()` set
+   explicitly); sessions have `saveWorkoutSession`'s batch and transaction merge. The
+   import and rebuild scripts stamp too. The only unstamped writer is
+   `addExerciseToUserWorkout.ts`, a script that has not run since the open rule
+   expired (its header says it must add the stamp in TICKET-049). Not an app write.
+
+**Decisions (stage 2):**
+- **Own Finish:** `applyFinished` (store) replaces what is held for those exercises,
+  not through `mergeSummaries`, where an unstamped copy loses to the stamped one held.
+  `lastSeen` does not move; the next check brings the stamped copies, and they win
+  (`compareStamps`: no stamp is older than any stamp). Nothing held (`byId` null):
+  not applied (2.4), the next check is a first load. Comment on
+  `withFinishedSummaries`.
+- **Skip window:** the runner's `expireSkip` lifts the skip, and any check started
+  before it does not start a new one (`skipExpiredAt`), including one running as the
+  upload finishes. Called even when nothing is held. Rejected: `lastOkAt: null` in
+  the store alone, which the running check's answer overwrites (`onAnswer`).
+- **No "offline · as of <date>" on the sheet.** Its rows are dated, and an own
+  Finish is always in the copy, so a stale copy can only lack a workout finished on
+  another phone. "As of" has no good date: `lastOkAt` is memory-only (blank after
+  a restart), and `lastSeen` is the newest write, not the last refresh. A label would
+  need a new stored field for a case an MVP with one phone per user does not have;
+  ghosts agree, and `ExerciseHistory.error` stays set for a future reader.
+- **A failed rollup:** the store keeps the old summary; the logger shows the
+  previous session as "last time" (with its real date), ghosts and the PR banner
+  use it, and the numbers are older, not wrong. An exercise with no summary reads
+  "First time", with no ghost, target or banner: an absence, no number. Only
+  TICKET-077's repair fixes the data.
+- **No timed full reload anywhere.** Every app write is stamped, so a change check
+  finds it; the timer only caught wipe scripts and hand edits, at about 5 reads per
+  plan (workouts) or up to 20 (plans) each week. `lastFullAt` stays debug-only: no
+  stored format bump, no forced reload. Tests of the interval went with it
+  (`isFullReloadDue`'s interval and clock cases, plans' "due after the interval");
+  rewritten as a held copy with an old `lastFullAt` getting a change check.
+- **Deletes:** no marker code here (no writer yet). Rules on TICKET-032; markers
+  never expire (TICKET-070 D5 replaced).
+
+**Stage 2 as built (2026-11-09, branch `TICKET-076-stage-2`):**
+- `saveWorkoutSession` returns `summaries` (`ExerciseStatsDoc[] | null`);
+  `attemptUpload` calls `applyFinished` when non-null. `invalidateExercises` gone.
+- `expireSkip` in `syncRunner.ts`; `withFinishedSummaries` in
+  `exerciseSummariesSync.ts`; a fold is one write and one summary entry, unchanged.
+- Timer code removed from `syncCore.ts`, `planSync.ts`, `usePlansStore.ts`,
+  `useRecentWorkoutsStore.ts`, `config/sync.ts`, the debug page and the comments
+  (the workouts' "one read per plan" fixed to up to N).
+- **Debug page (TEMPORARY, removal notes in the header):** `SummariesSection` on the
+  Plans Store page: held and unstamped counts, disk, `lastSeen`, last full load,
+  each check with docs, reads billed; own-Finish line in the log.
+- **Changed existing tests, with reason:** the three mock `{ rollupApplied: true }`
+  lines (`useWorkoutStore`, `ActiveWorkoutScreen`, `ExerciseLogger`) now return
+  `summaries: []`, the field's replacement; the plans interval tests as above. The
+  `invalidateExercises` call in stage 1's store test became a `setState`.
+- **Tests:** own Finish then stamped copy (`lastSeen` unmoved, no read), a running
+  check not hiding the Finish, failed rollup leaves the store alone, a Finish with no
+  summary read, `saveWorkoutSession`'s return, held copy with an old `lastFullAt`
+  (plans and workouts). 14 lines broken one at a time, each seen red.
+
+**Measured (2026-11-09, Pixel 9 Pro XL emulator, real project, account with 10 then
+11 summaries, N = 2 exercises in a workout):** hub → plan card → start → log →
+Finish → hub → next plan card, summary reads and the Finish's `tx.get` counted apart.
+| | Card, start | Finish | Next card | Total | tx.get |
+| --- | --- | --- | --- | --- | --- |
+| Main (temporary log, throwaway worktree) | 1 (change, 0 docs) | 0 | 2 (change, 2 docs) | 3 | 2 |
+| Branch (debug page) | 1 (change, 0 docs) | 0 | 2 (change, 2 docs) | 3 | 2 |
+Equal, as decided: the echo is accepted (main's stage 1 already has it). The next
+check after that: 1 read, 0 docs. Reported, not a target. What changes is when
+"last time" updates: at Finish (branch), with no read and offline.
+
+**Device run (Pixel 9 Pro XL emulator, Metro on this branch, real project, account
+"Vikrant Dhawan"; first run of all of TICKET-076. Writes: two Finishes on "Test WK"
+on the branch, one on main for the baseline; a third workout discarded. iOS not run):**
+- **First load and stored copy:** stored keys removed, card opened: `ok full (11 docs)`;
+  9 of 9 keys on disk (head + 8 shards). Cold restart: `change (0 docs)`, 1 read, 8
+  pre-076 docs held. **Pass.**
+- **Pre-076 summaries:** a first load held 8 of 11 with no stamp (`toStamp` dropped
+  their value; the page does not show whether it was a number or absent, and the
+  docs were not read with the admin SDK, so the number case is inferred from stage
+  1's fact 2). Every change check from a Timestamp `lastSeen` returned 0 docs with
+  those 8 held, on main and on the branch. **Pass, as inferred.**
+- **A Finish with no read, never-done exercise included:** after Finish the log shows
+  `own Finish: 2 summaries, 0 reads`, billed unchanged. "LAST TIME 20 × 12" on the
+  next card; a Zottman Curl never done before, Finish, then airplane on: logger
+  showed "LAST TIME 10 × 8". **Pass.**
+- **Airplane mode after a cold restart:** hub tiles, plan card last time, logger
+  ghosts 20 × 12, history sheet, and the PR banner ("Heaviest 12-rep set yet, 25 kg,
+  beat 20 kg from 9 Nov") all show; `failed change`, reads billed 0. **Pass.**
+- **Echo once, then 1 read:** next card `change (2 docs)`, then a forced check
+  `change (0 docs)`, billed 3 → 4. **Pass.**
+- **Sign-out and fresh sign-in:** Logout: 0 summary keys on disk (`exerciseSummaries%`).
+  Signed in with Google, card: `ok full (11 docs)`, 12 billed. **Pass.**
+- **Date moved forward 8 days:** plans `ok change (0 docs)`; workouts `ok change
+  (1 queries, 1 docs)`, the last Finish's echo; `Last full reload` unchanged, no
+  full read. Date restored. **Pass.**
+- **Not run:** the rollup failing for real (needs the transaction to fail after the
+  batch; unit-tested); a Finish racing a running check (unit-tested); `multiSet`
+  atomicity on a kill.
+
+**Known gaps (stage 2):**
+- **A running check can put an older copy over a Finish's:** only if that check
+  returns the exercise (another phone's Finish, or an earlier Finish not yet echoed)
+  while the upload lands. Shown as the older session until the next check, which
+  the skip no longer hides. Too rare to order.
+- **A check that answers with the echo before the upload resolves:** the own-Finish
+  copy goes in over the stamped one and stays unstamped (`lastSeen` is already
+  past it). Same data, so no visible cost; if another phone finished that exercise
+  in the same instant, its copy is stale until the next change to it.
+- **A failed rollup:** "First time" for a never-done exercise that was done, until
+  TICKET-077 repairs it. Unchanged from main; no number shown.
+- **A workout queued offline** is not in the summaries until it uploads: TICKET-028's
+  accepted gap, unchanged.
+- **Debug page summaries section** is TEMPORARY; removal notes in its header.
+- **Not unit-tested:** the `attemptUpload` wiring beyond the two tests; device run
+  covers the path. **iOS:** untested.
 
 ---
 
