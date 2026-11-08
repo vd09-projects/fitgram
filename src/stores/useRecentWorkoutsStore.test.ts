@@ -5,7 +5,9 @@ import { usePlansStore } from "./usePlansStore";
 import { getChangedSessions, getNewestSessionStamp, getPlanSessionsFromServer } from "../services/db/workoutSessions";
 import { getAllWorkoutPlans } from "../services/db/userDB";
 import type { WorkoutSessionDoc } from "../types/workoutSession";
+import { serializeStoredWorkouts } from "../utils/workoutsSync";
 import { WORKOUTS_STORAGE_KEY } from "../config/storageKeys";
+import { WORKOUTS_PER_PLAN } from "../config/sync";
 
 jest.mock("../services/firebase/firebase", () => ({ db: {} }));
 jest.mock("../services/db/workoutSessions", () => ({
@@ -49,6 +51,27 @@ it("first launch: nothing to load until the plans arrive, then their workouts lo
 
   await waitFor(() => expect(useRecentWorkoutsStore.getState().byPlan?.push).toHaveLength(1));
   expect(planQueries()).toEqual(["freestyle", "push"]);
+});
+
+it("a copy held with an old lastFullAt gets a change check; nothing held still gets a full read (TICKET-076)", async () => {
+  usePlansStore.setState({ uid: UID, plans: [{ id: "push", name: "Push", exercises: [] }], storedRead: true });
+  await AsyncStorage.setItem(
+    WORKOUTS_STORAGE_KEY,
+    serializeStoredWorkouts(UID, WORKOUTS_PER_PLAN, {
+      byPlan: { push: [session("s1", "push", 100)], freestyle: [] },
+      loaded: ["push", "freestyle"],
+      lastSeen: { seconds: 5, nanoseconds: 0 },
+      lastFullAt: 0,
+    })
+  );
+  await useRecentWorkoutsStore.getState().open(UID);
+  expect(getNewestSessionStamp).not.toHaveBeenCalled();
+  expect(getChangedSessions).toHaveBeenCalledTimes(1);
+
+  useRecentWorkoutsStore.getState().clear();
+  await AsyncStorage.clear();
+  await useRecentWorkoutsStore.getState().open(UID);
+  expect(getNewestSessionStamp).toHaveBeenCalled();
 });
 
 it("a full reload replaces what is held: a session deleted on the server goes", async () => {

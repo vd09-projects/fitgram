@@ -925,17 +925,18 @@ function uploadPendingWorkout(entry: PendingUpload): Promise<boolean> {
 async function attemptUpload(entry: PendingUpload): Promise<boolean> {
   try {
     console.log("Uploading workout to database:", entry.sessionId);
-    const { rollupApplied } = await saveWorkoutSession(entry.uid, entry.workout, entry.endedAt);
+    const { summaries } = await saveWorkoutSession(entry.uid, entry.workout, entry.endedAt);
     // TICKET-075: the recent workouts hold it at once, 0 reads. Before the
     // entry leaves the queue below, so no screen shows its plan without it
     // between the two (`buildPlanRows` merges the queue).
     useRecentWorkoutsStore.getState().applyFinished(entry.uid, buildSessionDocs(entry.workout, entry.endedAt).session);
-    // The saved summaries predate the session just uploaded: the next
-    // trigger checks, past the skip window.
-    useExerciseHistoryStore.getState().invalidateExercises();
-    if (!rollupApplied) {
+    // TICKET-076: "last time" updates at once, with no read.
+    if (summaries) {
+      useExerciseHistoryStore.getState().applyFinished(entry.uid, summaries);
+    } else {
       // Session data is safe; only the derived exercise_stats rollup is
-      // behind. src/scripts/rebuildExerciseStats.ts repairs it.
+      // behind. src/scripts/rebuildExerciseStats.ts repairs it. The store
+      // keeps what it held: nothing was written, so there is nothing to show.
       console.warn("Workout saved, history rollup pending.");
     }
     updateEntry(entry.sessionId, () => null);

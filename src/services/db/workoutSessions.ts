@@ -102,7 +102,7 @@ export const saveWorkoutSession = async (
    * session must record the end, not the upload.
    */
   endedAt: number
-): Promise<{ sessionId: string; rollupApplied: boolean }> => {
+): Promise<{ sessionId: string; summaries: ExerciseStatsDoc[] | null }> => {
   if (!userId || !workout) throw new Error("Missing userId or workout.");
 
   const { session, exerciseSessions } = buildSessionDocs(workout, endedAt);
@@ -123,21 +123,28 @@ export const saveWorkoutSession = async (
   }
   await batch.commit();
 
-  // Phase 2 — derived rollup. Best effort.
-  let rollupApplied = false;
+  // Phase 2 — derived rollup. Best effort. `summaries` is what it committed, for
+  // the phone's own copy (TICKET-076): what `runTransaction` resolves with is
+  // the attempt that won, so a retry after a conflict returns its own fold, and
+  // an upload retried from the queue returns the fold of the server's current
+  // docs. Null when it failed: nothing was written, so there is nothing to
+  // hold. They carry no `updatedAt`: the server's stamp is not known here.
+  let summaries: ExerciseStatsDoc[] | null = null;
   try {
-    await runTransaction(db, async (tx) => {
+    summaries = await runTransaction(db, async (tx) => {
       const refs = exerciseSessions.map((e) =>
         doc(exerciseStatsRef(userId), e.exerciseId)
       );
       // Firestore requires every read before any write.
       const snapshots = await Promise.all(refs.map((ref) => tx.get(ref)));
 
-      exerciseSessions.forEach((exerciseSession, index) => {
+      const folded = exerciseSessions.map((exerciseSession, index) => {
         const existing = snapshots[index].exists()
           ? (snapshots[index].data() as ExerciseStatsDoc)
           : null;
-        tx.set(refs[index], { ...applySessionToStats(existing, exerciseSession), updatedAt: serverTimestamp() });
+        const summary = applySessionToStats(existing, exerciseSession);
+        tx.set(refs[index], { ...summary, updatedAt: serverTimestamp() });
+        return summary;
       });
 
       tx.set(
@@ -145,8 +152,8 @@ export const saveWorkoutSession = async (
         { ...session, rollupPending: false, updatedAt: serverTimestamp() },
         { merge: true }
       );
+      return folded;
     });
-    rollupApplied = true;
   } catch (error) {
     console.warn(
       "⚠️ exercise_stats rollup deferred; session data is saved.",
@@ -154,7 +161,7 @@ export const saveWorkoutSession = async (
     );
   }
 
-  return { sessionId: session.sessionId, rollupApplied };
+  return { sessionId: session.sessionId, summaries };
 };
 
 // ---------------------------------------------------------------------------

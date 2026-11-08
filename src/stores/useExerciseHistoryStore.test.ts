@@ -3,7 +3,7 @@ import { waitFor } from "@testing-library/react-native";
 import { useExerciseHistoryStore } from "./useExerciseHistoryStore";
 import { getAllExerciseStats, getChangedExerciseStats } from "../services/db/workoutSessions";
 import type { ExerciseStatsDoc } from "../types/workoutSession";
-import { storedSummariesKeys } from "../utils/exerciseSummariesSync";
+import { readStoredSummaries, storedSummariesKeys } from "../utils/exerciseSummariesSync";
 import { EXERCISE_SUMMARIES_STORAGE_KEY } from "../config/storageKeys";
 import { EXERCISE_SUMMARIES_SHARDS } from "../config/sync";
 
@@ -17,6 +17,10 @@ const UID = "u1";
 const store = () => useExerciseHistoryStore.getState();
 const summary = (exerciseId: string, seconds: number) =>
   ({ exerciseId, exerciseName: exerciseId, lastPerformedAt: 1, fields: [], recentSessions: [], bestByReps: {}, volumeHistory: [], updatedAt: { seconds, nanoseconds: 0 } }) as ExerciseStatsDoc;
+const unstamped = (doc: ExerciseStatsDoc, lastPerformedAt: number): ExerciseStatsDoc => {
+  const { updatedAt: _stamp, ...rest } = doc;
+  return { ...rest, lastPerformedAt };
+};
 const stored = () => AsyncStorage.multiGet(storedSummariesKeys(EXERCISE_SUMMARIES_SHARDS));
 
 beforeEach(async () => {
@@ -34,7 +38,7 @@ it("first load reads the collection; a recent check skips; past the skip it asks
   expect(getChangedExerciseStats).not.toHaveBeenCalled();
 
   jest.mocked(getChangedExerciseStats).mockResolvedValue([summary("squat", 8)]);
-  store().invalidateExercises();
+  useExerciseHistoryStore.setState({ lastOkAt: null });
   await store().open(UID);
   expect(getChangedExerciseStats).toHaveBeenCalledWith(UID, { seconds: 5, nanoseconds: 0 });
   expect(getAllExerciseStats).toHaveBeenCalledTimes(1);
@@ -58,4 +62,37 @@ it("offline after a restart keeps the stored copy, and sign-out removes every ke
   store().clear();
   await waitFor(async () => expect((await stored()).every(([, value]) => value === null)).toBe(true));
   expect(store().byId).toBeNull();
+});
+
+it("own Finish: held at once with no read, lastSeen unmoved; the next check's stamped copy wins", async () => {
+  await store().open(UID);
+  const before = jest.mocked(getChangedExerciseStats).mock.calls.length + jest.mocked(getAllExerciseStats).mock.calls.length;
+
+  store().applyFinished(UID, [unstamped(summary("bench", 0), 2), unstamped(summary("squat", 0), 2)]);
+
+  expect(jest.mocked(getChangedExerciseStats).mock.calls.length + jest.mocked(getAllExerciseStats).mock.calls.length).toBe(before);
+  expect(store().byId?.bench).toMatchObject({ lastPerformedAt: 2 });
+  expect(store().byId?.bench.updatedAt).toBeUndefined();
+  expect(store().byId?.squat).toBeDefined(); // never done before: no longer "First time"
+  expect(store().lastSeen).toEqual({ seconds: 5, nanoseconds: 0 });
+
+  jest.mocked(getChangedExerciseStats).mockResolvedValue([{ ...summary("bench", 9), lastPerformedAt: 2 }]);
+  await store().check({ force: true });
+  expect(getChangedExerciseStats).toHaveBeenCalledWith(UID, { seconds: 5, nanoseconds: 0 });
+  expect(store().byId?.bench.updatedAt).toEqual({ seconds: 9, nanoseconds: 0 });
+  expect(store().lastSeen).toEqual({ seconds: 9, nanoseconds: 0 });
+});
+
+it("own Finish with nothing held holds nothing: a partial copy would stop the first load", () => {
+  useExerciseHistoryStore.setState({ uid: UID, byId: null, storedRead: true });
+  store().applyFinished(UID, [unstamped(summary("bench", 0), 2)]);
+  expect(store().byId).toBeNull();
+});
+
+it("own Finish reaches the saved copy", async () => {
+  await store().open(UID);
+  store().applyFinished(UID, [unstamped(summary("bench", 0), 2)]);
+  await waitFor(async () =>
+    expect(readStoredSummaries(await stored(), UID, EXERCISE_SUMMARIES_SHARDS).held?.byId.bench.lastPerformedAt).toBe(2)
+  );
 });

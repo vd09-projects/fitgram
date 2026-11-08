@@ -12,7 +12,7 @@ import useWorkoutPlans from "./useWorkoutPlans";
  * mount. The Workout stack keeps its screens mounted underneath (WorkoutNavigator
  * `singleCopy`), so for the hub, All plans, Manage and History "the screen
  * opens" is a focus (TICKET-070 D4). The check is skipped if one succeeded in
- * the last 2 minutes, so hub → Start → Manage costs one read.
+ * the check skip, so hub → Start → Manage costs one read.
  *
  * Coming back from the background is not a focus, and the hub is often left
  * open for hours, so while the screen is focused a return to the foreground

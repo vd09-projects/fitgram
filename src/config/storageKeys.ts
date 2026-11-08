@@ -47,7 +47,7 @@ export const WORKOUTS_STORAGE_KEY = "recentWorkouts";
  * changes. `WORKOUTS_PER_PLAN` is not part of it: the copy records its own N.
  *
  * Changes stored data: bumping it discards every phone's stored workouts on
- * the next launch; each refills with one first load (one read per plan, plus 1).
+ * the next launch; each refills with one first load (up to N reads per plan, plus 1).
  */
 export const WORKOUTS_FORMAT_VERSION = 1;
 

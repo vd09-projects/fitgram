@@ -484,7 +484,7 @@ it("checks the plans again when Manage comes back into view", async () => {
   expect(reads).toHaveBeenCalledTimes(1);
 });
 
-// TICKET-070 D4, stage 2: opening a plan runs a change check past the 2-minute
+// TICKET-070 D4, stage 2: opening a plan runs a change check past the check
 // skip; a newer version shows in place unless the draft has edits.
 describe("opening a plan checks it is current", () => {
   const pushFromElsewhere = (): WorkoutPlan => ({ ...push(), name: "Push (laptop)", updatedAt: { seconds: 9, nanoseconds: 0 } });

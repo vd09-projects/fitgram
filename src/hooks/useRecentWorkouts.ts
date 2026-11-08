@@ -17,7 +17,7 @@ import type { WorkoutSessionDoc } from "../types/workoutSession";
  * never "not done". A failed check keeps what is held.
  *
  * Checked on focus, and on a return to the foreground while focused, as
- * `useWorkoutPlansOnFocus` (TICKET-070 D4), with the same 2-minute skip: one
+ * `useWorkoutPlansOnFocus` (TICKET-070 D4), with the same check skip: one
  * hub → Start → Manage visit costs one check. A workout uploaded while the
  * screen is open needs no read: the upload puts it in the store
  * (`applyFinished`), and the screen re-renders.

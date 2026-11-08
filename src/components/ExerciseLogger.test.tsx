@@ -167,7 +167,7 @@ describe("ExerciseLogger", () => {
 
   it("a set logged on the card is what Finish saves", async () => {
     const save = saveWorkoutSession as jest.Mock;
-    save.mockResolvedValue({ sessionId: "s", rollupApplied: true });
+    save.mockResolvedValue({ sessionId: "s", summaries: [] });
     const log = jest.spyOn(console, "log").mockImplementation(() => {});
     renderScreen(ActiveWorkoutScreen, { workout: buildWorkout(["Bench Press"]), history: withHistory });
 

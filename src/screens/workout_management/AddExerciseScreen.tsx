@@ -212,7 +212,7 @@ export default function AddExerciseScreen() {
 
   /**
    * TICKET-070 D4: opening a stored plan to edit runs a change check past the
-   * 2-minute skip, so an edit from another device shows before this one is
+   * check skip, so an edit from another device shows before this one is
    * built on it. Changed, and nothing typed yet: the new version replaces the
    * draft in place, its `rev` included (`openPlanRefresh`, TICKET-073). Typed:
    * the draft stays; if the plan did change, its Save is refused and reloads

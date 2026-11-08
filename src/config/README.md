@@ -10,7 +10,7 @@ one-line pointer. One home per constant: nothing is re-exported from the old fil
 
 | File | Holds |
 | --- | --- |
-| `sync.ts` | how often the phone checks the server, how long it waits |
+| `sync.ts` | how often the phone checks the server, how long it waits. No store re-reads everything on a timer: every app write is stamped, so a change check finds it (TICKET-076) |
 | `display.ts` | how much each screen shows or reads to show |
 | `workout.ts` | rest timer, default target sets, save and upload grace, plan name length |
 | `auth.ts` | inactivity sign-out, fresh sign-in window |

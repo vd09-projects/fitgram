@@ -63,7 +63,6 @@ export default function ExerciseHistoryDebugScreen() {
   const checkCount = useExerciseHistoryStore((s) => s.readout.reads);
   const byId = useExerciseHistoryStore((s) => s.byId);
   const open = useExerciseHistoryStore((s) => s.open);
-  const invalidate = useExerciseHistoryStore((s) => s.invalidateExercises);
 
   // Reading. This never fetches.
   const history = useExerciseHistory(exercise?.value?.id, {
@@ -126,7 +125,7 @@ export default function ExerciseHistoryDebugScreen() {
       <View style={styles.buttonRow}>
         <Button label="Check (force)" onPress={() => open(user?.uid, { force: true })} />
         <Button label="Full load" onPress={() => open(user?.uid, { force: true, full: true })} />
-        <Button label="Expire skip" onPress={invalidate} />
+        <Button label="Expire skip" onPress={() => useExerciseHistoryStore.setState({ lastOkAt: null })} />
       </View>
 
       <TextBase style={styles.section}>Held summaries for this plan</TextBase>

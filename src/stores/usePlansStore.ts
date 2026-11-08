@@ -31,7 +31,8 @@ import { PLANS_STORAGE_KEY } from "../config/storageKeys";
  * A check is one server read, of one of two kinds:
  * - change (D3): only plans with `updatedAt` after `lastSeen`. Nothing
  *   changed costs 1 read, 0 docs.
- * - full (D5): every plan, replacing the stored copy.
+ * - full (D5): every plan, replacing the stored copy. Only with nothing held
+ *   or when asked for, never on a timer (`fullReloadDue`).
  * Both reject offline (D11). Answers merge by D10, the higher `rev` wins
  * (TICKET-073); the merge rules are pure functions in `planSync.ts`.
  *
@@ -74,14 +75,14 @@ interface PlansStore extends SyncFields<ReadoutKind> {
    * null: none yet (`changeCheckAfter`). Stored with the plans.
    */
   lastSeen: PlanStamp | null;
-  /** When the last full reload answered, the phone's clock (D5). Stored with the plans. */
+  /** When the last full reload answered, the phone's clock. Debug page only; stored with the plans. */
   lastFullAt: number | null;
 
   /** A plans screen opened: load the stored copy for `uid`, then check unless `check` is false. */
   open: (uid: string, options?: { check?: boolean }) => Promise<void>;
   /**
    * Ask the server now unless skipped (D4) or one is running (D9). `force`:
-   * past the 2-minute skip (Try again, Reload, opening a plan in Manage); it
+   * past the check skip (Try again, Reload, opening a plan in Manage); it
    * also starts a fresh read when the running one is past its wait. `full`:
    * a full reload (Try again, Reload); otherwise D5 decides.
    */
@@ -153,13 +154,7 @@ async function readStoredCopy(uid: string): Promise<HeldPlans | null> {
 
 /** Which kind of check runs now (D5). */
 function checkKindNow(state: State, fullRequested: boolean): CheckKind {
-  const due = isFullReloadDue({
-    requested: fullRequested,
-    hasStored: state.plans !== null,
-    lastFullAt: state.lastFullAt,
-    now: Date.now(),
-  });
-  return due ? "full" : "change";
+  return isFullReloadDue({ requested: fullRequested, hasStored: state.plans !== null }) ? "full" : "change";
 }
 
 /**
@@ -183,7 +178,7 @@ function stateAfterAnswer(state: State, run: CheckRun, docs: WorkoutPlan[], now:
  *
  * The saved plan is confirmed if the read-back returned it, or if a check
  * that answered meanwhile already holds it stamped after `after`. Otherwise
- * it goes in as saved, unstamped, and the 2-minute skip is lifted so the
+ * it goes in as saved, unstamped, and the check skip is lifted so the
  * next screen checks and stamps it.
  */
 function stateAfterSave(state: State, plan: WorkoutPlan, docs: WorkoutPlan[] | null, after: PlanStamp): Partial<State> {

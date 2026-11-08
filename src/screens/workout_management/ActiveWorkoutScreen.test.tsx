@@ -111,7 +111,7 @@ describe("ActiveWorkoutScreen", () => {
   // see the first. The store's in-flight save is what stops the second.
   it("two Finish taps inside one frame save once", async () => {
     const save = saveWorkoutSession as jest.Mock;
-    save.mockResolvedValue({ sessionId: "s", rollupApplied: true });
+    save.mockResolvedValue({ sessionId: "s", summaries: [] });
     const log = jest.spyOn(console, "log").mockImplementation(() => {});
     // One set logged: a workout with none is refused before it reaches the save.
     const workout = buildWorkout([], {
@@ -140,7 +140,7 @@ describe("after the workout ends", () => {
     });
 
   it("Finish lands on the hub, with one Saved message naming the workout and its minutes", async () => {
-    (saveWorkoutSession as jest.Mock).mockResolvedValue({ sessionId: "s", rollupApplied: true });
+    (saveWorkoutSession as jest.Mock).mockResolvedValue({ sessionId: "s", summaries: [] });
     const log = jest.spyOn(console, "log").mockImplementation(() => {});
     const success = jest.spyOn(show, "success");
     renderScreen(ActiveWorkoutScreen, { workout: loggedWorkout() });
