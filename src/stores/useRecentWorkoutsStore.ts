@@ -4,12 +4,10 @@ import { getChangedSessions, getNewestSessionStamp, getPlanSessionsFromServer } 
 import type { WorkoutSessionDoc } from "../types/workoutSession";
 import { changeCheckAfter, fullReloadDue, type SyncStamp } from "../utils/syncCore";
 import {
-  fullReloadPlans,
   mergeIntoPlans,
   planIdsToHold,
   readStoredWorkouts,
   serializeStoredWorkouts,
-  stillOwnFinished,
   workoutsLastSeenAfter,
   type HeldWorkouts,
   type WorkoutsByPlan,
@@ -32,17 +30,18 @@ import { WORKOUTS_STORAGE_KEY } from "../config/storageKeys";
  * (`useRecentSessions`, removed). Saved to AsyncStorage, so the dates show
  * at once and offline.
  *
- * A check is one of three kinds (the merge and `lastSeen` rules are pure
+ * A check is one of two kinds (the merge and `lastSeen` rules are pure
  * functions in `workoutsSync.ts`):
  * - full: a baseline read (the newest stamp, 1 read), then one query per
- *   plan, newest N by `startedAt`. Replaces what is held. On the first load,
- *   every `WORKOUTS_FULL_RELOAD_INTERVAL_MS`, and after a copy with another N
- *   was discarded. All or nothing: one failed query fails the check.
+ *   plan, newest N by `startedAt`. Replaces what is held, so a session
+ *   deleted on the server goes. On the first load, every
+ *   `WORKOUTS_FULL_RELOAD_INTERVAL_MS`, and after a copy with another N was
+ *   discarded. All or nothing: one failed query fails the check.
  * - change: sessions with `updatedAt > lastSeen`, any plan (1 read when
  *   nothing changed), plus a per-plan query for any plan not loaded yet.
- * - new plans: only the per-plan queries for plans not loaded yet, when a
- *   check ran less than 2 minutes ago (they are not skipped: a plan with no
- *   dates is the gap they fill).
+ * Inside the 2-minute skip nothing is read, plans not loaded yet included:
+ * a plan's sessions written since `lastSeen` already came with the change
+ * check, so only its older ones wait, for the next check.
  * Every read is from the server (`serverOnly` in workoutSessions.ts).
  *
  * Plans arriving later (PR #52 review): on a first launch the plans store may
@@ -53,12 +52,18 @@ import { WORKOUTS_STORAGE_KEY } from "../config/storageKeys";
  * Own Finish, 0 reads: `applyFinished` puts the uploaded session in unstamped
  * (ordering is by `startedAt`, so it needs no stamp). `lastSeen` does not
  * move, so the next change check returns it once and the stamped copy
- * replaces it.
+ * replaces it. Known gap, accepted: a Finish uploaded while a full reload's
+ * query for its plan has already run is missing from that answer, and the
+ * replace drops it until the next check, which returns it (its stamp is past
+ * the baseline). Only when a Finish lands inside a weekly reload; it costs a
+ * date shown as older for a few minutes, never a lost workout. Rejected:
+ * tracking own Finishes through a reload (an id list kept and stored), and a
+ * read back after the upload (+1 read per workout, and the race stays).
  *
  * Sign-out clears it (`initAuth`), as the plans store.
  */
 
-export type WorkoutsCheckKind = "full" | "change" | "new plans";
+export type WorkoutsCheckKind = "full" | "change";
 export type WorkoutsReadoutEntry = SyncReadoutEntry<WorkoutsCheckKind>;
 
 interface WorkoutsStore extends SyncFields<WorkoutsCheckKind> {
@@ -66,8 +71,6 @@ interface WorkoutsStore extends SyncFields<WorkoutsCheckKind> {
   byPlan: WorkoutsByPlan | null;
   /** Plans whose own query answered: their list is their newest N. */
   loaded: string[];
-  /** Own Finishes not yet seen stamped, kept through a full reload (`fullReloadPlans`). */
-  ownFinished: string[];
   /** The newest `updatedAt` a change check or baseline returned (server clock); null: none yet. */
   lastSeen: SyncStamp | null;
   /** When the last full reload answered (phone clock). */
@@ -91,7 +94,6 @@ const initialState = {
   uid: null,
   byPlan: null,
   loaded: [],
-  ownFinished: [],
   storedRead: false,
   checking: false,
   waitOver: false,
@@ -145,7 +147,7 @@ async function readFromServer(run: CheckRun): Promise<Answer> {
     baseline = await getNewestSessionStamp(run.uid);
     bill(baseline ? 1 : 0);
     perPlan = await readPlans(run.uid, run.planIds);
-  } else if (run.kind === "change") {
+  } else {
     [changed, perPlan] = await Promise.all([
       getChangedSessions(run.uid, changeCheckAfter(run.seenAtStart)).then((docs) => {
         bill(docs.length);
@@ -153,12 +155,15 @@ async function readFromServer(run: CheckRun): Promise<Answer> {
       }),
       readPlans(run.uid, run.planIds),
     ]);
-  } else {
-    perPlan = await readPlans(run.uid, run.planIds);
   }
   const planDocs = Object.values(perPlan).reduce((sum, sessions) => sum + sessions.length, 0);
-  const queries = run.planIds.length + (run.kind === "new plans" ? 0 : 1);
-  return { baseline, perPlan, changed, queries, docs: planDocs + changed.length + (baseline ? 1 : 0) };
+  return {
+    baseline,
+    perPlan,
+    changed,
+    queries: run.planIds.length + 1,
+    docs: planDocs + changed.length + (baseline ? 1 : 0),
+  };
 }
 
 async function readStoredCopy(uid: string): Promise<HeldWorkouts | null> {
@@ -180,7 +185,6 @@ async function readStoredCopy(uid: string): Promise<HeldWorkouts | null> {
  * The run a trigger starts, or null to skip. Nothing while the plans store
  * holds nothing (`planIdsToHold`). A full reload when due, except inside the
  * skip window with something held (the 7-day schedule can wait 2 minutes).
- * Plans not loaded yet are read even inside the skip window.
  */
 export function workoutsRunFor(
   state: Pick<State, "byPlan" | "loaded" | "lastFullAt" | "lastSeen">,
@@ -200,35 +204,23 @@ export function workoutsRunFor(
     intervalMs: WORKOUTS_FULL_RELOAD_INTERVAL_MS,
   });
   if (due && (!skipped || !held)) return { kind: "full", planIds, seenAtStart };
+  if (skipped) return null;
   const loaded = new Set(state.loaded);
-  const missing = planIds.filter((id) => !loaded.has(id));
-  if (skipped) return missing.length > 0 ? { kind: "new plans", planIds: missing, seenAtStart } : null;
-  return { kind: "change", planIds: missing, seenAtStart };
+  return { kind: "change", planIds: planIds.filter((id) => !loaded.has(id)), seenAtStart };
 }
 
 /** After a check's answer. The runner adds what every success sets. */
 function stateAfterAnswer(state: State, run: CheckRun, answer: Answer, now: number): Partial<State> {
-  const returned = [...Object.values(answer.perPlan).flat(), ...answer.changed];
-  const lastSeen = workoutsLastSeenAfter(run.kind, state.lastSeen, answer);
-  if (run.kind === "full") {
-    const byPlan = fullReloadPlans(answer.perPlan, state.byPlan, state.ownFinished, WORKOUTS_PER_PLAN);
-    return {
-      byPlan,
-      loaded: run.planIds,
-      ownFinished: stillOwnFinished(state.ownFinished, returned, byPlan),
-      lastSeen,
-      lastFullAt: now,
-    };
-  }
-  const withPlans = mergeIntoPlans(state.byPlan ?? {}, Object.values(answer.perPlan).flat(), WORKOUTS_PER_PLAN);
+  const full = run.kind === "full";
+  // A full reload starts from nothing, so a session deleted on the server goes.
+  const withPlans = mergeIntoPlans(full ? {} : (state.byPlan ?? {}), Object.values(answer.perPlan).flat(), WORKOUTS_PER_PLAN);
   // A plan never done answers no docs: it is still loaded, with an empty list.
   for (const planId of run.planIds) withPlans[planId] ??= [];
-  const byPlan = mergeIntoPlans(withPlans, answer.changed, WORKOUTS_PER_PLAN);
   return {
-    byPlan,
-    loaded: [...new Set([...state.loaded, ...run.planIds])],
-    ownFinished: stillOwnFinished(state.ownFinished, returned, byPlan),
-    lastSeen,
+    byPlan: mergeIntoPlans(withPlans, answer.changed, WORKOUTS_PER_PLAN),
+    loaded: full ? run.planIds : [...new Set([...state.loaded, ...run.planIds])],
+    lastSeen: workoutsLastSeenAfter(run.kind, state.lastSeen, answer),
+    ...(full && { lastFullAt: now }),
   };
 }
 
@@ -245,13 +237,13 @@ export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
     skipMs: WORKOUTS_CHECK_SKIP_MS,
     readStored: readStoredCopy,
     holdsData: (s) => s.byPlan !== null,
-    writeStored: async ({ uid, byPlan, loaded, ownFinished, lastSeen, lastFullAt }) => {
+    writeStored: async ({ uid, byPlan, loaded, lastSeen, lastFullAt }) => {
       if (uid === null) {
         await AsyncStorage.removeItem(WORKOUTS_STORAGE_KEY);
       } else if (byPlan !== null) {
         await AsyncStorage.setItem(
           WORKOUTS_STORAGE_KEY,
-          serializeStoredWorkouts(uid, WORKOUTS_PER_PLAN, { byPlan, loaded, ownFinished, lastSeen, lastFullAt })
+          serializeStoredWorkouts(uid, WORKOUTS_PER_PLAN, { byPlan, loaded, lastSeen, lastFullAt })
         );
       }
     },
@@ -283,10 +275,7 @@ export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
       // Nothing held: one workout is not the user's history (CLAUDE.md 2.4);
       // the next check loads it all.
       if (state.uid !== uid || state.byPlan === null) return;
-      set({
-        byPlan: mergeIntoPlans(state.byPlan, [session], WORKOUTS_PER_PLAN),
-        ownFinished: [...new Set([...state.ownFinished, session.sessionId])],
-      });
+      set({ byPlan: mergeIntoPlans(state.byPlan, [session], WORKOUTS_PER_PLAN) });
       runner.persist();
     },
 
@@ -300,14 +289,13 @@ export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
 
 /** The plan ids last acted on, so a plans store change that adds no id costs nothing. */
 let followedIds = "";
-let following: Promise<void> | null = null;
 
 /**
- * Ids appeared that are not loaded: check now. Twice at most: the first may
- * join a check that started before the ids arrived and so did not read them.
- * Not a loop: a check that fails leaves the next trigger to try again.
- * Ids that change while a follow runs are not dropped: it calls itself again
- * when done, a no-op unless the key moved (PR #53 review).
+ * Ids appeared that are not loaded: check now. Once: what it is for is the
+ * check that found no plans (first launch, sign-in), which leaves no skip
+ * window. Ids arriving within 2 minutes of a check wait for the next one
+ * (see the header), as do ids arriving while a check runs: that check is
+ * joined. Not a loop: a check that fails leaves the next trigger to try.
  */
 function followPlans() {
   const plans = usePlansStore.getState();
@@ -315,20 +303,9 @@ function followPlans() {
   if (workouts.uid === null || plans.uid !== workouts.uid || !workouts.storedRead) return;
   const ids = planIdsToHold(plans.plans);
   const key = ids === null ? "" : `${workouts.uid}:${workouts.epoch}:${ids.join(",")}`;
-  if (ids === null || key === followedIds || following) return;
+  if (ids === null || key === followedIds) return;
   followedIds = key;
-  const missing = () => {
-    const { byPlan, loaded } = useRecentWorkoutsStore.getState();
-    return byPlan === null || ids.some((id) => !loaded.includes(id));
-  };
-  if (!missing()) return;
-  following = (async () => {
-    await useRecentWorkoutsStore.getState().check();
-    if (missing()) await useRecentWorkoutsStore.getState().check();
-  })().finally(() => {
-    following = null;
-    followPlans();
-  });
+  if (workouts.byPlan === null || ids.some((id) => !workouts.loaded.includes(id))) void workouts.check();
 }
 
 usePlansStore.subscribe(followPlans);

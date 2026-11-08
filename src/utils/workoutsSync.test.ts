@@ -1,10 +1,8 @@
 import {
-  fullReloadPlans,
   mergeIntoPlans,
   mergePlanSessions,
   readStoredWorkouts,
   serializeStoredWorkouts,
-  stillOwnFinished,
   workoutsLastSeenAfter,
   type HeldWorkouts,
 } from "./workoutsSync";
@@ -49,27 +47,13 @@ describe("mergePlanSessions", () => {
   });
 });
 
-describe("mergeIntoPlans and fullReloadPlans", () => {
+describe("mergeIntoPlans", () => {
   it("files sessions under their own plan", () => {
     const merged = mergeIntoPlans({ push: [session("p1", 100)] }, [session("l1", 200, { workoutId: "legs" })], 5);
     expect(Object.fromEntries(Object.entries(merged).map(([plan, list]) => [plan, ids(list)]))).toEqual({
       push: ["p1"],
       legs: ["l1"],
     });
-  });
-
-  it("a full reload replaces what is held, keeping only own Finishes the answer did not bring yet", () => {
-    const held = { push: [session("own", 500), session("wiped", 400), session("p1", 100)] };
-    const result = fullReloadPlans({ push: [session("p1", 100, { updatedAt: stamp(1) })] }, held, ["own"], 5);
-    expect(ids(result.push)).toEqual(["own", "p1"]);
-  });
-});
-
-describe("stillOwnFinished", () => {
-  it("drops an own Finish once returned stamped, or once no longer held (pushed past N), so the list cannot grow", () => {
-    const held = { push: [session("kept", 300), session("back", 200)] };
-    const returned = [session("back", 200, { updatedAt: stamp(5) })];
-    expect(stillOwnFinished(["kept", "back", "pushedOut"], returned, held)).toEqual(["kept"]);
   });
 });
 
@@ -81,10 +65,9 @@ describe("workoutsLastSeenAfter", () => {
     expect(workoutsLastSeenAfter("change", stamp(40), { baseline: null, changed })).toEqual(stamp(40));
   });
 
-  it("full reload: the baseline, even when older than held (S1); a new plan's load: unchanged", () => {
+  it("full reload: the baseline, even when older than held (S1)", () => {
     expect(workoutsLastSeenAfter("full", stamp(99_999), { baseline: stamp(50), changed: [] })).toEqual(stamp(50));
     expect(workoutsLastSeenAfter("full", stamp(10), { baseline: null, changed: [] })).toBeNull();
-    expect(workoutsLastSeenAfter("new plans", stamp(10), { baseline: null, changed })).toEqual(stamp(10));
   });
 });
 
@@ -92,7 +75,6 @@ describe("the stored copy", () => {
   const held: HeldWorkouts = {
     byPlan: { push: [session("p1", 100, { updatedAt: stamp(1) })] },
     loaded: ["push"],
-    ownFinished: [],
     lastSeen: stamp(1),
     lastFullAt: 1000,
   };

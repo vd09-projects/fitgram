@@ -74,50 +74,10 @@ export function mergeIntoPlans(
 }
 
 /**
- * What a full reload leaves held: each plan's answer, and nothing else held
- * before, so a session deleted on the server (the wipe scripts) goes. Except
- * this phone's own Finishes not yet seen stamped (`ownFinished`): one that
- * landed after its plan's query ran is not in the answer, and dropping it
- * would turn its plan's "Today" back into an older date until the next
- * change check brings it.
- */
-export function fullReloadPlans(
-  answer: WorkoutsByPlan,
-  held: WorkoutsByPlan | null,
-  ownFinished: readonly string[],
-  n: number
-): WorkoutsByPlan {
-  const own = new Set(ownFinished);
-  const keep = Object.values(held ?? {}).flatMap((sessions) => sessions.filter((s) => own.has(s.sessionId)));
-  const fresh: WorkoutsByPlan = {};
-  for (const [planId, sessions] of Object.entries(answer)) fresh[planId] = mergePlanSessions([], sessions, n);
-  return mergeIntoPlans(fresh, keep, n);
-}
-
-/**
- * Own Finishes still waiting for their stamped copy: those not among
- * `returned` with a stamp, and still held in `byPlan`. Once a check returns
- * one stamped, it is the server's like any other. One no longer held (a late
- * upload pushed past its plan's newest N) goes too: no check may ever return
- * it (outside the plan's top N, stamp at or before `lastSeen`), and
- * `fullReloadPlans` keeps only held ids anyway, so keeping it would only grow
- * the stored list (PR #53 review).
- */
-export function stillOwnFinished(
-  ownFinished: readonly string[],
-  returned: readonly WorkoutSessionDoc[],
-  byPlan: WorkoutsByPlan
-): string[] {
-  const stamped = new Set(returned.filter((s) => s.updatedAt).map((s) => s.sessionId));
-  const held = new Set(Object.values(byPlan).flat().map((s) => s.sessionId));
-  return ownFinished.filter((id) => !stamped.has(id) && held.has(id));
-}
-
-/**
  * `lastSeen` after a check (070's rules, D3 and S1):
  * - change check: forward only, over every doc it returned (`lastSeenAfter`).
- * - per-plan loads (a new plan): unchanged. A per-plan read sees one plan,
- *   not every write before its newest stamp; moving past it could skip
+ *   Never past the per-plan loads it ran alongside: a per-plan read sees one
+ *   plan, not every write before its newest stamp; moving past it could skip
  *   another plan's write.
  * - full reload: the baseline read's stamp, taken *before* the per-plan
  *   queries, whatever was held, so it may move back (S1: a hand-set future
@@ -130,13 +90,11 @@ export function stillOwnFinished(
  *   a duplicate merges away.
  */
 export function workoutsLastSeenAfter(
-  kind: "full" | "change" | "new plans",
+  kind: "full" | "change",
   lastSeen: SyncStamp | null,
   answer: { baseline: SyncStamp | null; changed: readonly WorkoutSessionDoc[] }
 ): SyncStamp | null {
-  if (kind === "full") return answer.baseline;
-  if (kind === "change") return lastSeenAfter(lastSeen, answer.changed);
-  return lastSeen;
+  return kind === "full" ? answer.baseline : lastSeenAfter(lastSeen, answer.changed);
 }
 
 /**
@@ -166,7 +124,6 @@ export const heldSessions = (byPlan: WorkoutsByPlan): WorkoutSessionDoc[] =>
 /**
  * What AsyncStorage holds. `n`: the `WORKOUTS_PER_PLAN` the copy was built
  * with; another `n` discards it. `loaded`: plans whose own query answered.
- * `ownFinished`: own Finishes not yet seen stamped (`fullReloadPlans`).
  */
 export type StoredWorkouts = {
   formatVersion: number;
@@ -174,7 +131,6 @@ export type StoredWorkouts = {
   n: number;
   byPlan: WorkoutsByPlan;
   loaded: string[];
-  ownFinished: string[];
   lastSeen: SyncStamp | null;
   lastFullAt: number | null;
 };
@@ -217,14 +173,14 @@ export function readStoredWorkouts(
   if (body === null) return { held: null, error };
   const stored = body as Partial<StoredWorkouts>;
   if (stored.n !== n) return { held: null, error: `built with ${String(stored.n)} per plan, this build keeps ${n}` };
-  const { byPlan, loaded, ownFinished, lastSeen, lastFullAt } = stored;
+  const { byPlan, loaded, lastSeen, lastFullAt } = stored;
   const plansOk =
     typeof byPlan === "object" &&
     byPlan !== null &&
     Object.values(byPlan).every((sessions) => Array.isArray(sessions) && sessions.every(isSession));
-  if (!plansOk || !isStringArray(loaded) || !isStringArray(ownFinished))
+  if (!plansOk || !isStringArray(loaded))
     return { held: null, error: "workouts in an unknown shape" };
   if ((lastSeen !== null && !isStamp(lastSeen)) || (lastFullAt !== null && typeof lastFullAt !== "number"))
     return { held: null, error: "check times in an unknown shape" };
-  return { held: { byPlan, loaded, ownFinished, lastSeen, lastFullAt }, error: null };
+  return { held: { byPlan, loaded, lastSeen, lastFullAt }, error: null };
 }

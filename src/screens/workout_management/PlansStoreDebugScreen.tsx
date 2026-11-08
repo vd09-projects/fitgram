@@ -205,7 +205,6 @@ function WorkoutsSection({ planNames }: { planNames: Map<string, string> }) {
         ? `${new Date(w.lastFullAt).toLocaleString()} · next due ${new Date(w.lastFullAt + WORKOUTS_FULL_RELOAD_INTERVAL_MS).toLocaleString()}`
         : "never (the next check is full)",
     ],
-    ["Own Finishes not yet stamped", w.ownFinished.length === 0 ? "none" : w.ownFinished.join(", ")],
     ["Checks", `${w.readout.reads} this app run`],
     ["Reads billed", `${w.billedReads} this app run (session docs, 1 per empty query)`],
   ];

@@ -51,23 +51,19 @@ it("first launch: nothing to load until the plans arrive, then their workouts lo
   expect(planQueries()).toEqual(["freestyle", "push"]);
 });
 
-it("plan ids that arrive while a follow check runs are still loaded, with no focus", async () => {
-  usePlansStore.setState({ uid: UID, plans: null, storedRead: true });
-  await useRecentWorkoutsStore.getState().open(UID); // no plans yet: nothing to load
-  let answerBaseline: (stamp: { seconds: number; nanoseconds: number }) => void = () => {};
-  jest.mocked(getNewestSessionStamp).mockReturnValue(new Promise((resolve) => (answerBaseline = resolve)));
+it("a full reload replaces what is held: a session deleted on the server goes", async () => {
+  usePlansStore.setState({ uid: UID, plans: [{ id: "push", name: "Push", exercises: [] }], storedRead: true });
+  jest.mocked(getPlanSessionsFromServer).mockImplementation(async (_uid, planId) =>
+    planId === "push" ? [session("kept", "push", 200), session("wiped", "push", 100)] : []
+  );
+  await useRecentWorkoutsStore.getState().open(UID);
+  await waitFor(() => expect(useRecentWorkoutsStore.getState().byPlan?.push).toHaveLength(2));
 
-  usePlansStore.setState({ plans: [{ id: "push", name: "Push", exercises: [] }] }); // follow starts
-  usePlansStore.setState({
-    plans: [
-      { id: "push", name: "Push", exercises: [] },
-      { id: "pull", name: "Pull", exercises: [] },
-    ],
-  }); // lands mid-follow
-  answerBaseline({ seconds: 10, nanoseconds: 0 });
-
-  await waitFor(() => expect(useRecentWorkoutsStore.getState().loaded).toContain("pull"));
-  expect(planQueries()).toEqual(["freestyle", "pull", "push"]);
+  jest.mocked(getPlanSessionsFromServer).mockImplementation(async (_uid, planId) =>
+    planId === "push" ? [session("kept", "push", 200)] : []
+  );
+  await useRecentWorkoutsStore.getState().check({ force: true, full: true });
+  expect(useRecentWorkoutsStore.getState().byPlan?.push.map((s) => s.sessionId)).toEqual(["kept"]);
 });
 
 it("own Finish: held at once with no read; the next check brings the stamped copy once, in its place", async () => {

@@ -8685,22 +8685,31 @@ Stage 2 removes the hook; its replacement refuses cached answers (`serverOnly`).
   in `config/sync.ts`; `WORKOUTS_STORAGE_KEY = "recentWorkouts"` and
   `WORKOUTS_FORMAT_VERSION = 1` in `storageKeys.ts`. `useRecentSessions` and
   `RECENT_SESSIONS_WINDOW` deleted.
-- **Check kinds:** full (baseline, then per plan), change (`updatedAt >
-  lastSeen`, plus per-plan queries for any plan not loaded yet), and **new
-  plans** (only those per-plan queries; runs inside the 2-minute skip, since
-  an undated plan is what it fixes). Inside the skip a due 7-day reload waits;
-  with nothing held it does not.
-- **Own Finishes through a full reload** (not in the design): a Finish applied
-  while a full reload was out is missing from the answer, and the reload
-  replaces what is held, so its plan's "Today" would go back to an older date
-  until the next check. The store keeps `ownFinished` (session ids applied
-  with no read and not yet seen stamped), stored with the copy; a full reload
-  keeps those (`fullReloadPlans`). Rejected: keeping every unstamped held
-  session, which would also keep a pre-075 session deleted by a wipe.
+- **Check kinds:** full (baseline, then per plan) and change (`updatedAt >
+  lastSeen`, plus per-plan queries for any plan not loaded yet). Inside the
+  2-minute skip nothing is read; a due 7-day reload waits, with nothing held
+  it does not.
 - **Plans arriving later:** `usePlansStore.subscribe` → `followPlans`: when
-  the plan-id set changes and an id is not loaded, check, then once more if
-  the first joined a check that predates the ids. Keyed on uid, epoch and ids,
-  so other plans store changes cost nothing.
+  the plan-id set changes and an id is not loaded, check once. Keyed on uid,
+  epoch and ids, so other plans store changes cost nothing. It exists for the
+  check that found no plans (first launch, sign-in), which leaves no skip
+  window.
+- **Cut after PR #53 review (user, 2026-11-08: remove code for cases that do
+  not happen in real use):**
+  - `ownFinished`, the list keeping own Finishes through a full reload. Its
+    one use: a Finish uploaded after its plan's reload query ran is missing
+    from the answer and the replace drops it. The next check returns it (its
+    stamp is past the baseline), so the cost is a date shown older for a few
+    minutes, once in a weekly reload's second or so. Kept as a known gap. A
+    read back after the upload was rejected too: +1 read per workout (the
+    next check bills 1 read with or without the doc), and the race stays.
+  - The "new plans" check kind (only the missing per-plan queries, run inside
+    the skip). A plan from another device arriving within 2 minutes of a
+    check: its sessions since `lastSeen` came with that change check, so it
+    is dated already; only its older ones wait for the next check.
+  - With it, `followPlans`' second check and its PR #53 re-call: both run
+    inside the skip window, where nothing is read now. Ids arriving mid-check
+    wait for the next check, as above.
 - **Own Finish:** `attemptUpload` calls `applyFinished` right after
   `saveWorkoutSession` resolves and before the queue entry is removed, so no
   render sees the plan without it. Nothing held: not applied (one workout is
@@ -8711,15 +8720,16 @@ Stage 2 removes the hook; its replacement refuses cached answers (`serverOnly`).
   workout, newest first.
 - **Debug page** (Plans Store, kept like 070's): a "Recent workouts store"
   section with per-plan held count, newest date and unstamped count; `lastSeen`;
-  last full reload; own Finishes waiting; each check with queries and docs;
+  last full reload; each check with queries and docs;
   **reads billed** this app run (docs, 1 per empty query); buttons to force a
   check, expire the skip, full reload, zero the counters.
-- **Tests:** `workoutsSync.test.ts` (10: late upload and more than N,
-  duplicates and stamp precedence, ties, own Finish through a full reload,
-  `lastSeen` change/full (S1)/new plans, stored copy round trip, another N
-  either way, bad shape), `useRecentWorkoutsStore.test.ts` (3: plans arriving
-  later, own Finish 0 reads then stamped once, offline restart keeps the copy
-  and sign-out removes it). Each of the 13 seen red by breaking its line.
+- **Tests:** `workoutsSync.test.ts` (9: late upload and more than N,
+  duplicates and stamp precedence, ties, files by plan, `lastSeen`
+  change/full (S1), stored copy round trip, another N either way, bad shape),
+  `useRecentWorkoutsStore.test.ts` (4: plans arriving later, a full reload
+  drops a server-deleted session, own Finish 0 reads then stamped once,
+  offline restart keeps the copy and sign-out removes it). Each of the 13
+  seen red by breaking its line.
 - **Changed existing tests, with reason:** Hub, Start and Manage screen tests
   mocked `getWorkoutSessions`, which the screens no longer call; they now
   serve sessions through the store's reads (`test/recentWorkouts.ts`). Their
@@ -8773,6 +8783,8 @@ account "Vikrant Dhawan"; writes: two Finishes on "Test WK"):**
    plan if wanted.
 
 **Known gaps:**
+- **Own Finish during a full reload:** shown with the plan's older date until
+  the next check (see "Cut after PR #53 review"). Accepted.
 - **Copy:** "not in recent workouts" now means never done (or a plan whose
   workouts are not loaded yet, for a moment). Changing it to "never done"
   is a UI change outside this ticket; left, comment in `hubTileFace`.
