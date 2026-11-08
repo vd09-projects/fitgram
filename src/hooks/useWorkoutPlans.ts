@@ -9,7 +9,7 @@ import { plansView } from "../utils/planSync";
  *
  * `check`: when the plans are asked of the server (D4).
  * - "mount" (default): once when the caller mounts, skipped if a check
- *   succeeded in the last 2 minutes. For screens that unmount when left.
+ *   succeeded within the check skip. For screens that unmount when left.
  * - "none": read only. The mid-workout picker, and `useWorkoutPlansOnFocus`,
  *   which checks on focus instead.
  *
@@ -20,7 +20,7 @@ import { plansView } from "../utils/planSync";
  * only `loadingWorkoutPlans`, so there a failed first load still shows "No
  * plans yet": a known gap, now only on a first launch offline (D12).
  *
- * `retry` reads every plan now, past the 2-minute skip: a full reload (Try
+ * `retry` reads every plan now, past the check skip: a full reload (Try
  * again, Reload; D5).
  */
 export default function useWorkoutPlans({ check = "mount" }: { check?: "mount" | "none" } = {}) {

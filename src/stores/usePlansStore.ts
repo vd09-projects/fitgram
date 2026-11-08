@@ -82,7 +82,7 @@ interface PlansStore extends SyncFields<ReadoutKind> {
   open: (uid: string, options?: { check?: boolean }) => Promise<void>;
   /**
    * Ask the server now unless skipped (D4) or one is running (D9). `force`:
-   * past the 2-minute skip (Try again, Reload, opening a plan in Manage); it
+   * past the check skip (Try again, Reload, opening a plan in Manage); it
    * also starts a fresh read when the running one is past its wait. `full`:
    * a full reload (Try again, Reload); otherwise D5 decides.
    */
@@ -178,7 +178,7 @@ function stateAfterAnswer(state: State, run: CheckRun, docs: WorkoutPlan[], now:
  *
  * The saved plan is confirmed if the read-back returned it, or if a check
  * that answered meanwhile already holds it stamped after `after`. Otherwise
- * it goes in as saved, unstamped, and the 2-minute skip is lifted so the
+ * it goes in as saved, unstamped, and the check skip is lifted so the
  * next screen checks and stamps it.
  */
 function stateAfterSave(state: State, plan: WorkoutPlan, docs: WorkoutPlan[] | null, after: PlanStamp): Partial<State> {

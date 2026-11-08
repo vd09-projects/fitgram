@@ -169,7 +169,7 @@ export default function WorkoutHubScreen() {
     // could not load is the false "No plans yet" TICKET-052 D5 ruled out.
     // Shown only with nothing stored (TICKET-070 D11). Try again reads every
     // plan now; coming back to the tab checks again unless one succeeded in
-    // the last 2 minutes (`useWorkoutPlansOnFocus`).
+    // the check skip (`useWorkoutPlansOnFocus`).
     <>
       <HubMessageCard
         icon="cloud-offline-outline"

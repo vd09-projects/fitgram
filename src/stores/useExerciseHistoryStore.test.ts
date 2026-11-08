@@ -77,23 +77,8 @@ it("own Finish: held at once with no read, lastSeen unmoved; the next check's st
   expect(store().lastSeen).toEqual({ seconds: 5, nanoseconds: 0 });
 
   jest.mocked(getChangedExerciseStats).mockResolvedValue([{ ...summary("bench", 9), lastPerformedAt: 2 }]);
-  await store().open(UID); // past the skip with no force
+  await store().check({ force: true });
   expect(getChangedExerciseStats).toHaveBeenCalledWith(UID, { seconds: 5, nanoseconds: 0 });
   expect(store().byId?.bench.updatedAt).toEqual({ seconds: 9, nanoseconds: 0 });
   expect(store().lastSeen).toEqual({ seconds: 9, nanoseconds: 0 });
-});
-
-it("a check running as the upload finishes does not start a skip that hides the Finish", async () => {
-  await store().open(UID);
-  useExerciseHistoryStore.setState({ lastOkAt: null });
-  let answer!: (docs: ExerciseStatsDoc[]) => void;
-  jest.mocked(getChangedExerciseStats).mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
-  const running = store().check();
-
-  store().applyFinished(UID, [unstamped(summary("bench", 0), 2)]);
-  answer([]);
-  await running;
-
-  await store().open(UID);
-  expect(getChangedExerciseStats).toHaveBeenCalledTimes(2);
 });

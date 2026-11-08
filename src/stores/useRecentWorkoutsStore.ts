@@ -38,10 +38,10 @@ import { WORKOUTS_STORAGE_KEY } from "../config/storageKeys";
  *   All or nothing: one failed query fails the check.
  * - change: sessions with `updatedAt > lastSeen`, any plan (1 read when
  *   nothing changed), plus a per-plan query for any plan not loaded yet.
- * Inside the 2-minute skip nothing is read, plans not loaded yet included:
+ * Inside the check skip nothing is read, plans not loaded yet included:
  * a plan's sessions written since `lastSeen` already came with the change
  * check. Its older ones wait for the next check after the skip (a focus or
- * foreground once the 2 minutes are up); until then a plan with only older
+ * foreground once the skip is over); until then a plan with only older
  * sessions shows "not in recent workouts". Accepted (PR #53 pass 2).
  * Every read is from the server (`serverOnly` in workoutSessions.ts).
  *
@@ -288,7 +288,7 @@ let followedIds = "";
 /**
  * Ids appeared that are not loaded: check now. Once: what it is for is the
  * check that found no plans (first launch, sign-in), which leaves no skip
- * window. Ids arriving within 2 minutes of a check wait for the next one
+ * window. Ids arriving within the skip of a check wait for the next one
  * (see the header), as do ids arriving while a check runs: that check is
  * joined. Not a loop: a check that fails leaves the next trigger to try.
  */

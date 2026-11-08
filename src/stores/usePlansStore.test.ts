@@ -38,7 +38,7 @@ beforeEach(async () => {
   onePlan.mockReset();
 });
 
-it("hub, Start, Manage within 2 minutes: one read (D4)", async () => {
+it("hub, Start, Manage within the check skip: one read (D4)", async () => {
   reads.mockResolvedValue([plan("a")]);
   await store().open("u1");
   await store().open("u1");

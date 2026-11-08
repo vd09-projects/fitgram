@@ -49,7 +49,7 @@ describe("readStoredPlans: anything but this user's copy in this format is nothi
 });
 
 describe("shouldSkipCheck (D4)", () => {
-  it("skips only within 2 minutes of a success, and never when forced", () => {
+  it("skips only within the window after a success, and never when forced", () => {
     expect(shouldSkipCheck(null, 1_000)).toBe(false);
     expect(shouldSkipCheck(0, PLANS_CHECK_SKIP_MS - 1)).toBe(true);
     expect(shouldSkipCheck(0, PLANS_CHECK_SKIP_MS)).toBe(false);

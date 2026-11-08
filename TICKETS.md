@@ -9011,10 +9011,18 @@ Finish, and can skip another phone's Finish.
   (`compareStamps`: no stamp is older than any stamp). Nothing held (`byId` null):
   not applied (2.4), the next check is a first load. Comment on
   `withFinishedSummaries`.
-- **Skip window:** the runner's `expireSkip` lifts the skip, and any check started
-  before it does not start a new one (`skipExpiredAt`), including one running as the
-  upload finishes. Called even when nothing is held. Rejected: `lastOkAt: null` in
-  the store alone, which the running check's answer overwrites (`onAnswer`).
+- **A Finish does not touch the skip (user, 2026-11-09, on PR #55; deviates from
+  the brief's "a Finish leads to a check at the next trigger").** Built first as
+  `expireSkip`/`skipExpiredAt` in the runner, then removed: "last time" already
+  comes from `applyFinished`, and a real workout runs far longer than the skip after
+  its last check, so the next trigger checks anyway. The runner is unchanged from
+  main. The echo arrives at the next check past the skip and is never lost, as
+  `lastSeen` does not move. What it costs is under Known gaps.
+- **The check skip is 1 minute, not 2, for all three stores (user, 2026-11-09).**
+  Its job is quick back-and-forth, which is seconds; a longer window only delays
+  what another phone wrote. Costs a few extra reads, worth nothing at this scale.
+  Kept at all because every successful check rewrites the stored copy, changed or
+  not. Comment on `PLANS_CHECK_SKIP_MS`.
 - **No "offline · as of <date>" on the sheet.** Its rows are dated, and an own
   Finish is always in the copy, so a stale copy can only lack a workout finished on
   another phone. "As of" has no good date: `lastOkAt` is memory-only (blank after
@@ -9038,8 +9046,7 @@ Finish, and can skip another phone's Finish.
 **Stage 2 as built (2026-11-09, branch `TICKET-076-stage-2`):**
 - `saveWorkoutSession` returns `summaries` (`ExerciseStatsDoc[] | null`);
   `attemptUpload` calls `applyFinished` when non-null. `invalidateExercises` gone.
-- `expireSkip` in `syncRunner.ts`; `withFinishedSummaries` in
-  `exerciseSummariesSync.ts`; a fold is one write and one summary entry, unchanged.
+- `withFinishedSummaries` in `exerciseSummariesSync.ts`; `syncRunner.ts` unchanged.
 - Timer code removed from `syncCore.ts`, `planSync.ts`, `usePlansStore.ts`,
   `useRecentWorkoutsStore.ts`, `config/sync.ts`, the debug page and the comments
   (the workouts' "one read per plan" fixed to up to N).
@@ -9050,10 +9057,10 @@ Finish, and can skip another phone's Finish.
   lines (`useWorkoutStore`, `ActiveWorkoutScreen`, `ExerciseLogger`) now return
   `summaries: []`, the field's replacement; the plans interval tests as above. The
   `invalidateExercises` call in stage 1's store test became a `setState`.
-- **Tests:** own Finish then stamped copy (`lastSeen` unmoved, no read), a running
-  check not hiding the Finish, failed rollup leaves the store alone, a Finish with no
-  summary read, `saveWorkoutSession`'s return, held copy with an old `lastFullAt`
-  (plans and workouts). 14 lines broken one at a time, each seen red.
+- **Tests:** own Finish then stamped copy (`lastSeen` unmoved, no read), failed
+  rollup leaves the store alone, a Finish with no summary read,
+  `saveWorkoutSession`'s return, held copy with an old `lastFullAt` (plans and
+  workouts). Each seen red by breaking its line.
 
 **Measured (2026-11-09, Pixel 9 Pro XL emulator, real project, account with 10 then
 11 summaries, N = 2 exercises in a workout):** hub → plan card → start → log →
@@ -9091,15 +9098,26 @@ on the branch, one on main for the baseline; a third workout discarded. iOS not 
 - **Date moved forward 8 days:** plans `ok change (0 docs)`; workouts `ok change
   (1 queries, 1 docs)`, the last Finish's echo; `Last full reload` unchanged, no
   full read. Date restored. **Pass.**
+- **After removing `expireSkip` and setting the skip to 1 minute (same emulator and
+  account; one more Finish on "Test WK"):** card `change (0 docs)` 2:09:33, Start
+  `skipped`, Finish 2:09:48 `own Finish: 2 summaries, 0 reads`; next card 2:09:52
+  `skipped` and already showing the new "top 25 kg × 14"; card at 2:10:43, past the
+  skip, `change (2 docs)`, `lastSeen` moved to the Finish's stamp. 3 reads billed.
+  **Pass.** The earlier items ran on the build with `expireSkip`; not rerun.
 - **Not run:** the rollup failing for real (needs the transaction to fail after the
-  batch; unit-tested); a Finish racing a running check (unit-tested); `multiSet`
-  atomicity on a kill.
+  batch; unit-tested); `multiSet` atomicity on a kill.
 
 **Known gaps (stage 2):**
 - **A running check can put an older copy over a Finish's:** only if that check
   returns the exercise (another phone's Finish, or an earlier Finish not yet echoed)
-  while the upload lands. Shown as the older session until the next check, which
-  the skip no longer hides. Too rare to order.
+  while the upload lands. Shown as the older session until the next check, up to the
+  skip (1 minute) later. Too rare to order.
+- **Nothing held, and a first load running as the upload lands:** the Finish is not
+  applied and that answer may lack it, so a never-done exercise can read "First
+  time" until the next check, up to the skip later. Needs both at once.
+- **Another phone's Finish** shows at this phone's next check past the skip, so a
+  never-done exercise can read "First time" here until then. Knowing sooner needs a
+  live listener (rejected, TICKET-070 D3).
 - **A check that answers with the echo before the upload resolves:** the own-Finish
   copy goes in over the stamped one and stays unstamped (`lastSeen` is already
   past it). Same data, so no visible cost; if another phone finished that exercise

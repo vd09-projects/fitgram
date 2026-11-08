@@ -68,7 +68,7 @@ interface ExerciseHistoryStoreState extends SyncFields<SummariesCheckKind> {
   /** A trigger: load the stored copy for `uid`, then check. Never rejects. */
   open: (uid: string | undefined, options?: CheckOptions) => Promise<void>;
   check: (options?: CheckOptions) => Promise<void>;
-  /** This phone's upload committed these summaries: hold them, 0 reads, and the next trigger checks. */
+  /** This phone's upload committed these summaries: hold them, 0 reads. */
   applyFinished: (uid: string, summaries: ExerciseStatsDoc[]) => void;
   /** Sign-out. */
   clear: () => void;
@@ -155,13 +155,10 @@ export const useExerciseHistoryStore = create<ExerciseHistoryStoreState>((set, g
 
     applyFinished: (uid, summaries) => {
       const state = get();
-      if (state.uid !== uid) return;
-      // Whether or not they go in below: the echo must not wait out the skip.
-      runner.expireSkip();
       // Nothing held: a few summaries are not the user's history (CLAUDE.md
       // 2.4), and every other exercise would read "First time". The next check
       // is a first load, which has them.
-      if (state.byId === null) return;
+      if (state.uid !== uid || state.byId === null) return;
       set({ byId: withFinishedSummaries(state.byId, summaries) });
       runner.persist();
       runner.note("ok", undefined, `own Finish: ${summaries.length} summaries, 0 reads now (${summaries.length} tx.get in the transaction)`);

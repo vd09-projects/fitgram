@@ -16,7 +16,7 @@
 // `readout` field and `note` (each marked "debug readout").
 //
 // What it shows (TICKET-070 device test):
-//  - hub → All plans → Manage within 2 minutes: "server reads" goes up by 1,
+//  - hub → All plans → Manage within the check skip: "server reads" goes up by 1,
 //    the rest log "skipped"
 //  - stage 2: each check logs its kind (full or change) and the docs it
 //    returned; nothing changed is "ok change (0 docs)". "Last seen" is the
@@ -133,10 +133,10 @@ export default function PlansStoreDebugScreen() {
         {s.lastError && <TextBase style={styles.warn}>Error: {s.lastError}</TextBase>}
       </View>
 
-      {/* Force check: Try again's path. Expire skip: so a test need not wait 2 minutes.
+      {/* Force check: Try again's path. Expire skip: so a test need not wait it out.
           Clear store: sign-out's clear without signing out; the next plans screen reloads. */}
       {button("Force check now", () => usePlansStore.getState().check({ force: true }))}
-      {button("Expire the 2-minute skip", () => usePlansStore.setState({ lastOkAt: null }))}
+      {button("Expire the skip", () => usePlansStore.setState({ lastOkAt: null }))}
       {button("Full reload now (as Try again)", () => usePlansStore.getState().check({ force: true, full: true }))}
       {button("Clear store (as sign-out)", () => usePlansStore.getState().clear())}
 
@@ -228,7 +228,7 @@ function WorkoutsSection({ planNames }: { planNames: Map<string, string> }) {
       </View>
 
       {button("Workouts: force check now", () => useRecentWorkoutsStore.getState().check({ force: true }))}
-      {button("Workouts: expire the 2-minute skip", () => useRecentWorkoutsStore.setState({ lastOkAt: null }))}
+      {button("Workouts: expire the skip", () => useRecentWorkoutsStore.setState({ lastOkAt: null }))}
       {button("Workouts: full reload now", () => useRecentWorkoutsStore.getState().check({ force: true, full: true }))}
       {button("Workouts: zero the read counters", () =>
         useRecentWorkoutsStore.setState({ billedReads: 0, readout: { reads: 0, log: [] } })
@@ -321,7 +321,7 @@ function SummariesSection() {
       </View>
 
       {button("Summaries: force check now", () => useExerciseHistoryStore.getState().check({ force: true }))}
-      {button("Summaries: expire the 2-minute skip", () => useExerciseHistoryStore.setState({ lastOkAt: null }))}
+      {button("Summaries: expire the skip", () => useExerciseHistoryStore.setState({ lastOkAt: null }))}
       {button("Summaries: full load now", () => useExerciseHistoryStore.getState().check({ force: true, full: true }))}
       {button("Summaries: zero the read counters", () =>
         useExerciseHistoryStore.setState({ billedReads: 0, readout: { reads: 0, log: [] } })

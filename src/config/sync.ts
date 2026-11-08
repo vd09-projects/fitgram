@@ -7,8 +7,14 @@
 // No store re-reads everything on a timer (TICKET-076): every app write is
 // stamped, so a change check finds it (`fullReloadDue` in utils/syncCore.ts).
 
-/** A check that succeeded this recently makes the next screen skip its own (D4). */
-export const PLANS_CHECK_SKIP_MS = 2 * 60 * 1000;
+/**
+ * A check that succeeded this recently makes the next screen skip its own (D4).
+ * Its job is quick back-and-forth between screens, which is seconds. 1 minute,
+ * not 2 (TICKET-076): a longer window only delays what another phone wrote, and
+ * the extra reads at 1 minute cost nothing. It also limits how often the stored
+ * copies are rewritten: every successful check rewrites them, changed or not.
+ */
+export const PLANS_CHECK_SKIP_MS = 60 * 1000;
 
 /**
  * How long a screen with nothing stored waits on a check before it shows

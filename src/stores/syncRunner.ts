@@ -114,8 +114,6 @@ export function createSyncRunner<S extends SyncFields<Kind>, Kind extends string
    */
   let checksStarted = 0;
   let newestApplied = 0;
-  /** The newest check started when the skip was last expired (`expireSkip`). */
-  let skipExpiredAt = 0;
 
   // Debug readout: logs each check and counts server reads.
   const note = (outcome: ReadoutEntry["outcome"], kind?: Kind, detail?: string) =>
@@ -153,10 +151,7 @@ export function createSyncRunner<S extends SyncFields<Kind>, Kind extends string
     }
     newestApplied = run.seq;
     const now = Date.now();
-    // A check started before `expireSkip` may have read too early, so it does
-    // not start a new skip.
-    const lastOkAt = run.seq > skipExpiredAt ? now : null;
-    set((s) => ({ ...config.apply(s, run, answer, now), lastResult: "ok", lastError: null, lastOkAt }) as Partial<S>);
+    set((s) => ({ ...config.apply(s, run, answer, now), lastResult: "ok", lastError: null, lastOkAt: now }) as Partial<S>);
     note("ok", run.kind, config.describe(answer));
     persist();
   };
@@ -207,17 +202,6 @@ export function createSyncRunner<S extends SyncFields<Kind>, Kind extends string
     note,
     isCurrent,
     persist,
-
-    /**
-     * A write this phone just made is on the server: the next trigger checks,
-     * past the skip window, even if a check is running now. That check may
-     * have read before the write, and its answer would otherwise start a new
-     * skip and hide the write for two minutes.
-     */
-    expireSkip: () => {
-      skipExpiredAt = checksStarted;
-      set({ lastOkAt: null } as Partial<S>);
-    },
 
     /** Load the stored copy for `uid` once, clearing another user's first. */
     open: async (uid: string) => {
