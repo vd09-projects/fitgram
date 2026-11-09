@@ -313,17 +313,15 @@ it("New plan: the sheet's first row names a plan, which opens empty and is writt
   expect(saveButton()).toBeEnabled();
   save.mockResolvedValue(undefined);
   const readsBefore = (getAllWorkoutPlans as jest.Mock).mock.calls.length;
-  jest.mocked(getChangedPlans).mockResolvedValueOnce([
-    { id: "generated_id", name: "Legs Day", exercises: [], updatedAt: { seconds: 9, nanoseconds: 0 } },
-  ]);
+  const changesBefore = jest.mocked(getChangedPlans).mock.calls.length;
   await act(async () => fireEvent.press(saveButton()));
   // D1: the generated id, never the name's slug.
   expect(save).toHaveBeenCalledWith(TEST_USER_ID, expect.objectContaining({ id: "generated_id", name: "Legs Day" }));
-  // TICKET-070 D8: the confirmed Save is in the store, in id order, with no
-  // full re-read: its stamp comes back from one change query.
+  // TICKET-070 D8: the confirmed Save is in the store, in id order, for no
+  // read (TICKET-078).
   expect(usePlansStore.getState().plans?.map((plan) => plan.id)).toEqual(["generated_id", "push"]);
-  expect(usePlansStore.getState().lastSeen).toEqual({ seconds: 9, nanoseconds: 0 });
   expect(getAllWorkoutPlans).toHaveBeenCalledTimes(readsBefore);
+  expect(getChangedPlans).toHaveBeenCalledTimes(changesBefore);
 });
 
 it("New plan refuses a name a plan already has, and keeps the open plan", async () => {

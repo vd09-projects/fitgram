@@ -4,7 +4,6 @@ import { getAllWorkoutPlans, getChangedPlans, getPlanFromServer } from "../servi
 import type { PlanStamp, PlanVersion, WorkoutPlan } from "../types/workoutType";
 import {
   changeCheckAfter,
-  compareStamps,
   lastSeenAfter,
   lastSeenAfterFullReload,
   mergeChanges,
@@ -12,10 +11,9 @@ import {
   readStoredPlans,
   serializeStoredPlans,
   type HeldPlans,
-  withSavedPlan,
   withServerPlan,
 } from "../utils/planSync";
-import { versionRev } from "../utils/planVersion";
+import { versionRev, type VersionedPlan } from "../utils/planVersion";
 import { fullReloadDue } from "../utils/syncCore";
 import { createSyncRunner, type CheckRun as RunBase, type ReadoutEntry as SyncReadoutEntry, type SyncFields } from "./syncRunner";
 import { PLANS_CHECK_SKIP_MS, PLANS_CHECK_WAIT_MS } from "../config/sync";
@@ -56,7 +54,7 @@ export type PlansSource = "none" | "stored" | "server";
 export type CheckKind = "full" | "change";
 
 // Debug readout, for the Plans Store debug page (TICKET-070; kept, user 2026-11-06).
-type ReadoutKind = CheckKind | "save read-back" | "refusal reload";
+type ReadoutKind = CheckKind | "refusal reload";
 export type ReadoutEntry = SyncReadoutEntry<ReadoutKind>;
 
 /**
@@ -90,9 +88,11 @@ interface PlansStore extends SyncFields<ReadoutKind> {
   check: (options?: { force?: boolean; full?: boolean }) => Promise<void>;
   /**
    * A Save of `plan`, started under `epoch`, was confirmed by the server
-   * (D8). Reads its stamp back before it goes into the store.
+   * (D8). It goes into the store now, with no read. Versioned by type: with
+   * no `rev` it would tie with a stamped copy and lose, and the Save would
+   * not show.
    */
-  applySaved: (uid: string, epoch: number, plan: WorkoutPlan) => Promise<void>;
+  applySaved: (uid: string, epoch: number, plan: VersionedPlan) => void;
   /**
    * The server refused a Save of `planId` as version `sent`, started under
    * `epoch`: another device saved it since (TICKET-073 D7). Reloads that
@@ -174,27 +174,6 @@ function stateAfterAnswer(state: State, run: CheckRun, docs: WorkoutPlan[], now:
   return { source: "server", plans: mergeChanges(state.plans ?? [], docs), lastSeen: lastSeenAfter(state.lastSeen, docs) };
 }
 
-/**
- * After a Save's read-back (`applySaved`). `docs` is what the read-back
- * returned, null if it failed; `after` is where it started.
- *
- * The saved plan is confirmed if the read-back returned it, or if a check
- * that answered meanwhile already holds it stamped after `after`. Otherwise
- * it goes in as saved, unstamped, and the check skip is lifted so the
- * next screen checks and stamps it.
- */
-function stateAfterSave(state: State, plan: WorkoutPlan, docs: WorkoutPlan[] | null, after: PlanStamp): Partial<State> {
-  const plans = docs ? mergeChanges(state.plans ?? [], docs) : state.plans;
-  const lastSeen = docs ? lastSeenAfter(state.lastSeen, docs) : state.lastSeen;
-
-  const returned = docs?.some((p) => p.id === plan.id) ?? false;
-  const held = plans?.find((p) => p.id === plan.id);
-  const heldStamped = held !== undefined && compareStamps(held.updatedAt, after) > 0;
-
-  if (returned || heldStamped) return { plans, lastSeen };
-  return { plans: withSavedPlan(plans, plan), lastSeen, lastOkAt: null };
-}
-
 // ---------------------------------------------------------------------------
 // The store.
 // ---------------------------------------------------------------------------
@@ -224,36 +203,6 @@ export const usePlansStore = create<PlansStore>((set, get) => {
   });
   const { note, isCurrent, persist } = runner;
 
-  // --- A Save's read-back ----------------------------------------------
-
-  /**
-   * `setDoc` does not return the `serverTimestamp()` it wrote, and D10 needs
-   * it: without it a check that started before this Save could put the old
-   * version back. So the stamp is read back with a change query from
-   * `lastSeen`, the same 1 read a check costs, which also brings any other
-   * plan changed since and moves `lastSeen` past this Save: the next check
-   * returns 0 docs, not this plan again. Rejected: leaving the plan unstamped
-   * until the next check (no extra read, but nothing would order it against
-   * a slow check's answer); a read of the one doc (the same 1 read, and
-   * `lastSeen` could not move, so the next check would return it). Not joined
-   * with a running check (D9): that read may predate the Save.
-   *
-   * Null if it fails: the plan then goes in unstamped (`stateAfterSave`).
-   * Until the next check a slow check could put the old version back:
-   * accepted, it needs a failure straight after a successful write.
-   */
-  const readBackSave = async (uid: string, after: PlanStamp): Promise<WorkoutPlan[] | null> => {
-    note("read", "save read-back");
-    try {
-      const docs = await getChangedPlans(uid, after);
-      note("ok", "save read-back", `${docs.length} docs`);
-      return docs;
-    } catch (error) {
-      note("failed", "save read-back", errorMessage(error));
-      return null;
-    }
-  };
-
   return {
     ...initialState,
     epoch: 0,
@@ -268,18 +217,27 @@ export const usePlansStore = create<PlansStore>((set, get) => {
         skipped ? null : { kind: checkKindNow(state, full), seenAtStart: state.lastSeen }
       ),
 
-    applySaved: async (uid, epoch, plan) => {
+    /**
+     * Held unstamped until a check returns it: `rev` orders it against any
+     * check's answer (D10), so it needs no stamp. That check stamps it and
+     * moves `lastSeen` past it, at the cost it had anyway, as for an own Finish.
+     * Merged, not put in outright: a check that answered first may hold this
+     * Save stamped, or a later one.
+     *
+     * Rejected (TICKET-078): reading the stamp back, 1 read per Save, written
+     * before `rev` existed; lifting the check skip to stamp it sooner, a read
+     * nothing needs.
+     */
+    applySaved: (uid, epoch, plan) => {
       const state = get();
       if (!isCurrent(epoch) || state.uid !== uid) return;
-      // Nothing stored: one plan is not the user's plans (`withSavedPlan`).
+      // Nothing stored: one plan is not the user's plans (CLAUDE.md 2.4). The
+      // next check fills it.
       if (state.plans === null) return;
 
-      const after = changeCheckAfter(state.lastSeen);
-      const docs = await readBackSave(uid, after);
-      if (!isCurrent(epoch)) return;
-
-      set((s) => stateAfterSave(s, plan, docs, after));
+      set({ plans: mergeChanges(state.plans, [plan]) });
       persist();
+      note("ok", undefined, `own Save: plan ${plan.id} at rev ${versionRev(plan)}, 0 reads`);
     },
 
     /**

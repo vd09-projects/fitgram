@@ -24,9 +24,9 @@
 // - `rev`: a counter, + 1 per accepted Save (the rule enforces it). Not the
 //   safety check: it orders two copies of a plan on the phone (D10,
 //   `compareVersions`). `updatedAt` cannot: the server sets it, and the phone
-//   does not learn it for its own Save until it reads it back, so a Save
-//   whose read-back failed would be unordered against an older copy from a
-//   slow check. `rev` is known the moment the phone writes it.
+//   does not learn it for its own Save until a later check returns it, so
+//   until then the Save would be unordered against an older copy from a slow
+//   check. `rev` is known the moment the phone writes it.
 //
 // `updatedAt` stays a separate field: it answers "what changed since I last
 // looked" for the change query (TICKET-070), not "which version is this".

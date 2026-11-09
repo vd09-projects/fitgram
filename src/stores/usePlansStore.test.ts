@@ -7,6 +7,7 @@ import { getAllWorkoutPlans, getChangedPlans, getPlanFromServer } from "../servi
 import { usePlansStore } from "./usePlansStore";
 import { serializeStoredPlans } from "../utils/planSync";
 import type { PlanStamp, WorkoutPlan } from "../types/workoutType";
+import type { VersionedPlan } from "../utils/planVersion";
 import { PLANS_CHECK_WAIT_MS } from "../config/sync";
 import { PLANS_STORAGE_KEY } from "../config/storageKeys";
 
@@ -18,6 +19,12 @@ const onePlan = getPlanFromServer as jest.Mock;
 const plan = (id: string, name = id): WorkoutPlan => ({ id, name, exercises: [] });
 const at = (seconds: number, nanoseconds = 0): PlanStamp => ({ seconds, nanoseconds });
 const stamped = (id: string, stamp: PlanStamp, name = id): WorkoutPlan => ({ ...plan(id, name), updatedAt: stamp });
+/** A plan (default "a") at version `rev`, as a Save holds it before any check returns it. */
+const unstamped = (rev: number, name: string, id = "a"): VersionedPlan => ({
+  ...plan(id, name),
+  version: { rev, id: `v${rev}`, base: rev > 1 ? `v${rev - 1}` : null },
+});
+const revved = (rev: number, name: string, stamp = at(5)): WorkoutPlan => ({ ...unstamped(rev, name), updatedAt: stamp });
 const store = () => usePlansStore.getState();
 // Timers are fake in every file (jest.setup.ts): this lets queued promises settle.
 const tick = () => jest.advanceTimersByTimeAsync(0);
@@ -148,7 +155,7 @@ it("sign-out: a check or Save landing after the clear does not refill the store 
   // Signed back in as the same user: a Save from before sign-out still lands nowhere.
   reads.mockResolvedValue([plan("a")]);
   await store().open("u1");
-  await store().applySaved("u1", epoch, plan("b"));
+  store().applySaved("u1", epoch, unstamped(1, "b"));
   expect(store().plans).toEqual([plan("a")]);
 });
 
@@ -160,18 +167,35 @@ it("another user opening a plans screen clears the first user's plans", async ()
   expect(store()).toMatchObject({ uid: "u2", plans: null });
 });
 
-it("a confirmed Save goes into the store stamped, read back by one change query; the next check gets 0 docs (D8)", async () => {
-  reads.mockResolvedValue([stamped("a", at(5))]);
+it("a confirmed Save shows at once for 0 reads; the next check stamps it and moves lastSeen past it (D8)", async () => {
+  reads.mockResolvedValue([revved(1, "A1")]);
   await store().open("u1");
-  changes.mockResolvedValueOnce([stamped("b", at(6))]);
-  await store().applySaved("u1", store().epoch, plan("b"));
-  expect(store().plans).toEqual([stamped("a", at(5)), stamped("b", at(6))]);
-  expect(store().lastSeen).toEqual(at(6));
-  await tick();
-  expect((await stored()).plans).toEqual([stamped("a", at(5)), stamped("b", at(6))]);
+  store().applySaved("u1", store().epoch, unstamped(2, "A2"));
+  expect(store().plans).toEqual([unstamped(2, "A2")]);
+  expect(changes).not.toHaveBeenCalled();
   expect(reads).toHaveBeenCalledTimes(1);
+  await tick();
+  expect((await stored()).plans).toEqual([unstamped(2, "A2")]);
+  changes.mockResolvedValueOnce([revved(2, "A2", at(7))]);
   await store().check({ force: true });
-  expect(changes).toHaveBeenLastCalledWith("u1", at(6));
+  expect(store().plans).toEqual([revved(2, "A2", at(7))]);
+  expect(store().lastSeen).toEqual(at(7));
+});
+
+it("a Save a check already brought stays stamped, and one older than what is held does not go in (D10)", async () => {
+  reads.mockResolvedValue([revved(2, "A2", at(7))]);
+  await store().open("u1");
+  store().applySaved("u1", store().epoch, unstamped(2, "A2"));
+  expect(store().plans).toEqual([revved(2, "A2", at(7))]);
+  store().applySaved("u1", store().epoch, unstamped(1, "A1"));
+  expect(store().plans).toEqual([revved(2, "A2", at(7))]);
+});
+
+it("a Save with nothing stored leaves nothing stored, not a list of one (D11)", async () => {
+  reads.mockRejectedValueOnce(new Error("unavailable"));
+  await store().open("u1");
+  store().applySaved("u1", store().epoch, unstamped(1, "A1"));
+  expect(store().plans).toBeNull();
 });
 
 it("a full reload resets lastSeen from what it holds: a stamp in the future cannot pin it (PR #49, S1)", async () => {
@@ -187,42 +211,17 @@ it("a full reload resets lastSeen from what it holds: a stamp in the future cann
   expect(changes).toHaveBeenLastCalledWith("u1", at(7));
 });
 
-it("a Save whose read-back fails keeps the stamped copy a check brought meanwhile (PR #49, S2)", async () => {
-  reads.mockResolvedValue([stamped("a", at(5))]);
-  await store().open("u1");
-  let failReadBack!: (error: Error) => void;
-  changes.mockImplementationOnce(() => new Promise((_resolve, reject) => (failReadBack = reject)));
-  const saving = store().applySaved("u1", store().epoch, plan("a", "A2"));
-  await tick();
-  changes.mockResolvedValueOnce([stamped("a", at(7), "A2")]);
-  await store().check({ force: true });
-  const okAt = store().lastOkAt;
-  failReadBack(new Error("unavailable"));
-  await saving;
-  expect(store().plans).toEqual([stamped("a", at(7), "A2")]);
-  expect(store().lastOkAt).toBe(okAt);
-});
-
-it("a Save whose read-back fails still shows, unstamped, and lifts the skip so the next screen checks", async () => {
-  reads.mockResolvedValue([stamped("a", at(5))]);
-  await store().open("u1");
-  changes.mockRejectedValueOnce(new Error("unavailable"));
-  await store().applySaved("u1", store().epoch, plan("a", "A2"));
-  expect(store()).toMatchObject({ plans: [plan("a", "A2")], lastSeen: at(5), lastOkAt: null });
-});
-
 it("a check that started before a Save cannot undo it when it answers (D10)", async () => {
-  reads.mockResolvedValueOnce([stamped("a", at(5))]);
+  reads.mockResolvedValueOnce([revved(1, "A1")]);
   await store().open("u1");
   const answer = deferredRead(changes);
   const checking = store().check({ force: true });
   await tick();
-  changes.mockResolvedValueOnce([stamped("a", at(7), "A2")]);
-  await store().applySaved("u1", store().epoch, plan("a", "A2"));
-  answer([stamped("a", at(6), "from another phone, before the Save")]);
+  store().applySaved("u1", store().epoch, unstamped(2, "A2"));
+  answer([revved(1, "from before the Save", at(6))]);
   await checking;
-  expect(store().plans).toEqual([stamped("a", at(7), "A2")]);
-  expect(store().lastSeen).toEqual(at(7));
+  expect(store().plans).toEqual([unstamped(2, "A2")]);
+  expect(store().lastSeen).toEqual(at(6));
 });
 
 it("stored writes land in order: a slow older write cannot land last", async () => {
@@ -241,9 +240,9 @@ it("stored writes land in order: a slow older write cannot land last", async () 
   });
   try {
     const epoch = store().epoch;
-    await store().applySaved("u1", epoch, plan("b"));
+    store().applySaved("u1", epoch, unstamped(1, "b", "b"));
     await tick(); // the first write has read [a, b] and is stuck
-    await store().applySaved("u1", epoch, plan("c"));
+    store().applySaved("u1", epoch, unstamped(1, "c", "c"));
     await tick();
     release();
     await tick();
@@ -270,11 +269,6 @@ it("Try again on a check past its wait reads afresh; the stalled read, landing l
 // TICKET-073 D7: a refused Save reloads its plan by reading that one plan
 // from the server (user, 2026-11-07: no change check first).
 describe("reloadRefused", () => {
-  const revved = (rev: number, name: string, stamp = at(5)): WorkoutPlan => ({
-    ...stamped("a", stamp, name),
-    version: { rev, id: `v${rev}`, base: rev > 1 ? `v${rev - 1}` : null },
-  });
-
   // Device run, 2026-11-07: a Save chained on a refused offline Save is made
   // on a version this phone never held (b5); the guess "the plan came back"
   // kept the stale copy. Now the plan is always read, and nothing else.
