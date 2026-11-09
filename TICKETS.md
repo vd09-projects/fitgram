@@ -34,7 +34,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 029 | Pending uploads view | Small-Med | A `TEMPORARY` debug screen is currently the only way to see the queue |
 | 030 | Drop unit suffixes from catalogue field names | Small | **Silent data loss:** renaming a field nulls every past value for it, and the session stays `comparable` so nothing flags it |
 | 031 | Contrast guards for the rest of the role palette | Small | Extends the `colors.test.ts` pattern |
-| 032 | Edit or delete an already-uploaded set | Med-Large | Needs a rollup rebuild: `rebuildExerciseSummary` from TICKET-077 |
+| 032 | Edit or delete an already-uploaded set | Med-Large | Needs a rollup rebuild: `rebuildExerciseSummary`, built with this ticket (moved from TICKET-077) |
 | 035 | Measures beyond weight x reps | Med-Large | "Which way is better" is a product decision |
 | 036 | Put a unit on volume trend points | Small-Med | Today the trend over-suppresses; held by an invariant test, not a fix |
 | 037 | Tell apart two sessions on the same day | Small | |
@@ -47,7 +47,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 063 | Finish summary | Small-Med | Low. From 056's design review (2026-11-02): exercises and set counts before saving, as Finish's confirm. To decide: how 0-set exercises show, sheet or screen |
 | 068 | Drag to close: every sheet on a real phone | Small | Low. From 065's device run (2026-11-03): only `PlanCard` drags; decide drag on every sheet with a handle, or drop the handles |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
-| 077 | Summary integrity | Medium | **Silent:** a failed summary update is repaired only by a hand-run script. Also the one rebuild path 032 needs |
+| 077 | Summary integrity | Small | **Silent:** a failed summary update loses the phone's copy. Kept in the upload queue until it commits |
 | 071 | History page redesign | Medium-Large | Raised 2026-11-05 (user). Design on the Drafts canvas first; 070 is merged |
 
 ### Not tickets — verification owed
@@ -1160,6 +1160,22 @@ exercise's last session, write `deleted: true` with a server-stamped `updatedAt`
 The exercise then reads "First time" again. Markers never expire (see TICKET-070 D5).
 The same rule applies to any future delete of a workout: a server-stamped `deleted`
 marker on the `sessions` doc, dropped by the merge, never a hard delete.
+
+**Moved here from TICKET-077 (2026-11-09):** build `rebuildExerciseSummary(userId,
+exerciseId)` with this ticket, its only caller. The one way to recompute a summary from
+`exercise_sessions`, wrapping `rebuildStatsFromSessions`: a server-only read, then one
+write with a server-stamped `updatedAt` (replace, not merge, or an old best survives).
+It can lower a best, which the fold cannot, and `mergeSummaries` orders by stamp, so
+phones take the lower value. No sessions left: write nothing and return null, then the
+`deleted` marker above applies. A client query cannot run inside a transaction, so a
+Finish landing between the read and the write can be overwritten: decide whether that
+matters here.
+
+**To decide first, old-format sets:** today's decoder needs `segments`, so sets stored
+before TICKET-055 (a bare map) are not counted by a rebuild. On the test account the
+26 Oct session is in that format, and a rebuild drops its Chest-Supported Row best from
+34 kg to 5 kg: the stored summary is right and the rebuild is wrong. Decide here: decode
+the old shape, migrate those docs, or wipe them (pre-launch, test data so far).
 
 **Dependencies:** TICKET-019, TICKET-020 (the history sheet is where a past set
 is visible).
@@ -9032,8 +9048,8 @@ Finish, and can skip another phone's Finish.
 - **A failed rollup:** the store keeps the old summary; the logger shows the
   previous session as "last time" (with its real date), ghosts and the PR banner
   use it, and the numbers are older, not wrong. An exercise with no summary reads
-  "First time", with no ghost, target or banner: an absence, no number. Only
-  TICKET-077's repair fixes the data.
+  "First time", with no ghost, target or banner: an absence, no number. TICKET-077
+  keeps the workout in the upload queue until a retry commits the summary.
 - **No timed full reload anywhere.** Every app write is stamped, so a change check
   finds it; the timer only caught wipe scripts and hand edits, at about 5 reads per
   plan (workouts) or up to 20 (plans) each week. `lastFullAt` stays debug-only: no
@@ -9127,7 +9143,7 @@ on the branch, one on main for the baseline; a third workout discarded. iOS not 
   past it). Same data, so no visible cost; if another phone finished that exercise
   in the same instant, its copy is stale until the next change to it.
 - **A failed rollup:** "First time" for a never-done exercise that was done, until
-  TICKET-077 repairs it. Unchanged from main; no number shown.
+  the queue's retry lands (TICKET-077). No number shown.
 - **A workout queued offline** is not in the summaries until it uploads: TICKET-028's
   accepted gap, unchanged.
 - **Debug page summaries section** is TEMPORARY; removal notes in its header.
@@ -9138,34 +9154,147 @@ on the branch, one on main for the baseline; a third workout discarded. iOS not 
 
 ### TICKET-077: Summary Integrity
 
-**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — raised 2026-11-08,
-from TICKET-072 (D5, known gap)
+**Priority:** Medium | **Effort:** Small | **Status: BUILT, PR open from branch
+`TICKET-077`, awaiting review** — raised 2026-11-08, from TICKET-072 (D5,
+known gap); rewritten 2026-11-09 after the user questioned the original plan
 
 **Description:**
-When the summary transaction on Finish fails (all 5 retries, or the connection drops
-mid-way), the workout is saved but marked `rollupPending`, and only a hand-run
-script repairs it. Until then "last time", ghost targets and the PR banner silently
-ignore that workout: a plausible wrong number. Make the app repair it, and give
-every future edit or delete one rebuild path.
+A Finish writes in two phases: a batch (the session and its sets), then a transaction
+(the summaries). When the batch landed and the transaction failed, `saveWorkoutSession`
+swallowed the error and `attemptUpload` removed the workout from the queue, so the
+phone threw away the one copy that could fix it, and only a hand-run script could. "Last
+time", ghosts and the PR banner then lacked that workout. **Now the workout stays in the
+upload queue until the transaction commits.**
 
 **Build:**
-- **Repair in the app:** on the next upload or check, find this user's sessions with
-  `rollupPending: true` and fold them in from their `exercise_sessions` (the fold
-  replaces by `sessionId`, so re-running is safe), then clear the flag. Phones get
-  the repaired summary through TICKET-076's change check.
-- **`rebuildExerciseSummary(exerciseId)`:** the one way to recompute a summary from
-  `exercise_sessions` (wraps `rebuildStatsFromSessions`). TICKET-032 (edit or delete
-  an uploaded set) calls it; the fold's comment points to it. A rebuild also lowers
-  a best, which the fold cannot.
-- **Drift check on the debug page:** one exercise's stored summary against one
-  rebuilt from its sets.
-- **Remove dead code:** `getSessionExercises`, `getExerciseSession`.
+- `saveWorkoutSession`'s phase 2 has no try/catch: a failed transaction rejects,
+  `attemptUpload`'s existing catch keeps the entry, counts it, and the existing drain
+  retries both phases at its next trigger (app start, sign-in, foreground, after an
+  upload). `summaries` is never null; the else branch in `attemptUpload` went.
+- `rebuildExerciseStats.ts` stays. Its header now warns about old-format sets (below).
+- `getSessionExercises` and `getExerciseSession` removed: no callers.
+- `rollupPending` removed (user, 2026-11-09): from the type, `buildSessionDocs`,
+  `importHistory.ts` and the script. Phase 2's write of the session doc went with it, as
+  clearing the flag was its job; the transaction now writes only summaries, and the batch
+  still stamps the session's `updatedAt`. No app code ever read the flag, the queue does
+  the retry without it, and the script rebuilds everything regardless. Old docs keep a
+  stale field that nothing reads. Older tickets' mentions describe the code of their day.
 
-**Proof:** fail a summary transaction on purpose on the emulator; the next check
-repairs it with no script, and the drift check shows none.
+**Decision (user, 2026-11-09), replacing the ticket's original build:** the ticket asked
+for an app repair path, a `rebuildExerciseSummary` and a drift check. Built as asked,
+then questioned and cut.
 
-**Dependencies:** TICKET-076. Unblocks TICKET-032's rebuild. TICKET-049 (scripts on
-the admin SDK) still matters for the hand-run script.
+*When the failure can happen.* Only when the batch landed and the transaction did not:
+| Scenario | Reaches this? | Handled by |
+| --- | --- | --- |
+| Offline from the start | No: `batch.commit` does not resolve, the entry stays queued | The queue, already |
+| App killed between the two phases | No: the entry leaves only after the save resolves | The queue, already |
+| Connection lost in the one round trip between them | Yes | This change |
+| Contention, all of the SDK's retries used | Yes | This change |
+| A bug that fails every time | Yes | Known gap below |
+
+*What the real data says* (read-only comparison of every stored summary with one rebuilt
+from its sets, 2026-11-09):
+| Account | App Finishes | Summaries | Differ from a rebuild | Flagged |
+| --- | --- | --- | --- | --- |
+| Test account | 16 sessions | 11 | 6, all from the 26 Oct old-format session (below) | 0 |
+| Main account | 0: its 15 sessions / 122 sets are the import | 48 | 0 | 0 |
+
+No summary is wrong because of a failed Finish, and the failure has never been observed
+in 16 app Finishes. A small sample: the failure is unobserved, not impossible. If it
+happens, "last time" and ghosts heal at that exercise's next workout; what stays lost
+without a retry is one trend point and a best that session may have set.
+
+**Rejected:**
+- **A repair that finds flagged sessions on the server:** a second path, 1 read per app
+  run, for a failure never observed, reading back data the phone already held.
+- **Keeping `rollupPending` as a diagnostic:** its one remaining use was a person
+  querying for a session whose phone was lost before a retry. Nothing watches it, and the
+  fix is the same script either way.
+- **One atomic transaction for both phases** (no partial state): `batch.commit`
+  waits offline and completes on reconnect, while a transaction fails at once, and no
+  connectivity listener exists to retry it. Read from the code; not measured on a device.
+- **Doing nothing:** a possible PR is lost for good, for want of a few lines.
+- **Saving the computed summary instead of the workout:** it goes stale if another
+  workout lands first, and would overwrite it. The retry runs the same fold on the
+  server's current docs.
+
+`rebuildExerciseSummary` moved to TICKET-032, its only caller. The drift check, which
+existed to verify it, and the `applyBest` tie change were cut.
+
+**Load-bearing facts, checked 2026-11-09 (CLAUDE.md 2.1):**
+1. **Re-running the fold is safe,** which the retry depends on: `applySessionToStats`
+   compared with a rebuild field by field. A re-run, an older session after newer ones
+   and a session beyond the caps give the same `recentSessions`, `volumeHistory`,
+   `lastPerformedAt`, name, `fields` and `bestByReps`, with one exception: the tie under
+   Known gaps.
+2. **`rollupPending`, before its removal:** set true by `buildSessionDocs`, written by
+   phase 1, written true again by a retried batch. Cleared by phase 2 and by the script
+   when run for all exercises. `importHistory.ts` wrote false. No app code read it; the
+   script's only use was to clear it after a full rebuild.
+3. **Sessions flagged before the removal: 0** across all 27 user ids.
+4. **Nothing gates on `failedAttempts`:** only the Pending Uploads debug page reads it.
+
+**Old-format sets (found here, decided on TICKET-032):** today's decoder needs `segments`,
+so sets stored before TICKET-055 (a bare map) are not counted by a rebuild. The test
+account's 26 Oct session is in that format: a rebuild drops its Chest-Supported Row best
+from 34 kg to 5 kg. There the stored summary is right and the rebuild is wrong.
+
+**Tests:** `saveWorkoutSession`: a failed transaction rejects after the batch, and a
+retry folds the session once (`workoutSessions.test`). The queue: a failed rollup stays
+queued and counted with the store untouched; the retry's summary reaches the store and
+the entry leaves (`useWorkoutStore.test`). Two existing tests changed, as they asserted
+the old swallow. Each seen red by breaking its line (6 mutations, throwaway worktree).
+tsc clean, jest 725 passed, `test:rules` 25 passed. After removing `rollupPending`: a
+Finish stamps the session in the batch and writes only summaries in the transaction
+(`workoutSessions.test`).
+
+**Device run (2026-11-09, Pixel 9 Pro XL emulator, real project, test account, plan
+"Test WK"; 2 Finishes written. iOS not run):** the failure was a local, uncommitted
+one-shot throw before phase 2's transaction, removed from disk before the retry. Server
+state read with the admin SDK, read-only. Run before `rollupPending` was removed, so the
+"flag" results below are of that code; the removal has had no device run.
+- **The failed Finish:** alert "Saved on this phone, upload f… It will be retried."
+  Server: session present once (16 → 17), `rollupPending` true, no Face Pull summary
+  (a never-done exercise), Bench summary still at the previous session. Queue: 1 entry,
+  "Failed 1×". **Pass.**
+- **The row, not as expected:** All plans read "last done today · 512.5 kg", not "not
+  uploaded yet". A workouts check had brought the session from the server, and on equal
+  `startedAt` `buildPlanRows` keeps the uploaded copy. The hub tile has no pending label
+  at all. **Observed; Known gaps corrected.**
+- **Retry on return to the foreground:** "Saved" toast 52 seconds after the failure.
+  Sessions still 17, flag cleared, Face Pull summary written, Bench's newest entry is this
+  session, once. **Pass.**
+- **"Last time" shows it:** Bench LAST TIME 27.5 × 15; Face Pull, never done before the
+  failed Finish, LAST TIME 10 × 10. **Pass.**
+- **A normal Finish unchanged:** "Saved", no alert, sessions 18, flag false, Face Pull's
+  newest entry is that session. **Pass.**
+- **Not run:** a real transaction failure (the probe throws before it); an always-failing
+  rollup; a retry at app start or sign-in (same drain).
+
+**Known gaps:**
+- **While a rollup retries, the words are wrong:** the alert says "Saved on this phone,
+  upload failed … It will be retried" and a later drain "Upload failed … Will retry",
+  though the session is on the server; a plan row says "not uploaded yet" until a
+  workouts check brings the session, then reads as uploaded. Cost: a wrong word during a
+  rare failure.
+- **A rollup that always fails** alerts on every foreground and rewrites 1 + N docs per
+  retry. Never seen. Loud, so it will not go unnoticed; TICKET-029 is where it gets a
+  screen.
+- **A retried older workout landing after a newer one at the same weight and reps:** the
+  record's date and set point at the newer session. Weight is right. Needs a failed
+  rollup, a newer Finish first and a tie.
+- **The phone lost or reinstalled before a retry:** the session is on the server with no
+  summary, nothing marks it, and only the script repairs it, if someone notices. "Last
+  time" and ghosts heal at that exercise's next workout. A workout whose rollup failed
+  before this change is the same case; 0 were flagged when the flag was removed.
+- **iOS:** untested.
+
+**CLAUDE.md rules skipped:** 3.3 (no new instrument: the Pending Uploads debug page and a
+read-only admin query made it observable); 3.4 (one small change, no stages).
+
+**Dependencies:** TICKET-076. TICKET-049 (scripts on the admin SDK) still matters for the
+hand-run script. TICKET-032 now owns the rebuild.
 
 ---
 
@@ -9259,7 +9388,7 @@ one before it.
 1. TICKET-074  (Config in one place)       — DONE (PR #51); the next three add their values in src/config/
 2. TICKET-075  (Recent workouts on phone)  — DONE (PR #52, #53); the sync core is src/utils/syncCore.ts + src/stores/syncRunner.ts
 3. TICKET-076  (Exercise summaries)        — DONE (PR #54, #55); on the sync core; no store has a timed full reload
-4. TICKET-077  (Summary integrity)         — Repair in the app; 032's rebuild path
+4. TICKET-077  (Summary integrity)         — Failed summary stays queued and retries
 5. TICKET-078  (Simplify the sync code)    — Analysis first, then small PRs; after 076
 ```
 
