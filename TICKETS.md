@@ -9342,6 +9342,11 @@ small PR that typechecks and can be tested alone (CLAUDE.md 3.4).
 Out of this ticket: `getSessionExercises` and `getExerciseSession` have no callers, but
 removing them is already on TICKET-077.
 
+**Deviation from the above (user's choice, 2026-11-10):** the four stages below landed
+in one PR, #58, one commit per stage, not one PR each. The analysis was done in
+conversation and agreed there before each stage's code. Each stage's table is its record,
+shorter than the five points above.
+
 **Stage 1, agreed and built (user, 2026-11-09): guards whose trigger is gone.**
 
 | Code | Why added | Why it no longer applies | What removal loses | Touches |
@@ -9350,7 +9355,7 @@ removing them is already on TICKET-077.
 | Candidate 3, `due && (!skipped \|\| !held)` | Let the timed reload wait out the skip window (075) | Same removal. Due is now asked for or nothing held. Asked for always comes with `force` (one caller, debug page), and `!held` already passed | Nothing | `useRecentWorkoutsStore.ts` |
 | New: `normalizeExerciseFields` on resume | `fields` moved from `string[]` to objects (2026-10-07), so a phone could hold an in-progress workout in the old shape | `LOCAL_DATA_VERSION` 2 and 3 wiped every older stored workout at first launch; every slot since is built from normalized plans or the catalog | Nothing. `userDB.ts` keeps its own use for old plan docs | `useWorkoutStore.tsx` |
 
-Stored shape unchanged. The other candidates are still hypotheses, not agreed.
+Stored shape unchanged.
 
 **Stage 2, agreed and built (user, 2026-11-09): load races that cannot happen.**
 
@@ -9374,12 +9379,14 @@ Stored shape unchanged.
 
 | Code | Finding | Change |
 | --- | --- | --- |
-| New: `ActiveWorkout.lastUpdated` | Written by every set change, read by nothing, never uploaded | Removed. A workout already stored carries a field nothing reads, so no `LOCAL_DATA_VERSION` bump |
+| New: `ActiveWorkout.lastUpdated` | Written by most workout changes, read by nothing, never uploaded | Removed. A workout already stored carries a field nothing reads, so no `LOCAL_DATA_VERSION` bump |
 | New: catalog `source`, `lastError` | `source` read only by its tests, `lastError` by nothing. Failures are still logged | Removed; the tests assert the catalog held |
 | New: `lastRefusal.at`, `.errors` and the search-words twin | Only `.version` is read; the errors are still logged loudly | Now `refusedCatalogVersion` and `refusedSearchWordsVersion`. A null meta version returns `keep` first, so null never matches |
 | Candidate 6, `shouldSkipCheck` | No caller outside tests | Removed. Its test now covers `withinSkipWindow`, which had no other unit test |
 | Candidate 4, alias `isFullReloadDue` | One rule under two names | Alias removed. Summaries still decide this themselves: not changed here |
 | Candidate 7, plans `source` | **Not dead:** the Plans Store page prints it | Kept and marked as debug readout |
+
+Still hypotheses, not agreed: candidates 2 (`readBackSave`) and 8 (shards).
 
 **Looked at and kept in the review** (reopen only with new evidence): `epoch` (a late
 answer cannot refill the store after sign-out); the check join and the persist chain;

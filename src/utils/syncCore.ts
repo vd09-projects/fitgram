@@ -69,8 +69,8 @@ export function lastSeenAfter<T extends { updatedAt?: SyncStamp }>(lastSeen: Syn
 }
 
 /**
- * Is the next check a full reload? Asked for (Try again, Reload, the debug
- * page), or nothing stored (the first load, or a stored copy discarded:
+ * Is the next check a full reload? Asked for (Try again, the debug page),
+ * or nothing stored (the first load, or a stored copy discarded:
  * "nothing stored", not "app launch", or every cold start would read
  * everything).
  *

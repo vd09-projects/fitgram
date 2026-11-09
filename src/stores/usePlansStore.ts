@@ -83,9 +83,9 @@ interface PlansStore extends SyncFields<ReadoutKind> {
   open: (uid: string, options?: { check?: boolean }) => Promise<void>;
   /**
    * Ask the server now unless skipped (D4) or one is running (D9). `force`:
-   * past the check skip (Try again, Reload, opening a plan in Manage); it
-   * also starts a fresh read when the running one is past its wait. `full`:
-   * a full reload (Try again, Reload); otherwise D5 decides.
+   * past the check skip (Try again, opening a plan in Manage); it also
+   * starts a fresh read when the running one is past its wait. `full`: a
+   * full reload (Try again); otherwise D5 decides.
    */
   check: (options?: { force?: boolean; full?: boolean }) => Promise<void>;
   /**
