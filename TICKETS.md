@@ -9361,8 +9361,14 @@ Stored shape unchanged. The other candidates are still hypotheses, not agreed.
 | New: "Finish that beat the load" | The queue load is async, so a Finish during it would be overwritten (028) | Finish needs an active workout, and resume sets one only after the queue loads | Start, a set and Finish inside one disk read would lose that entry from memory. Not reachable by hand | `useWorkoutStore.tsx` |
 | New: "replace if somehow queued" | One entry per session; the comment names no scenario (028) | The only route is a crash between the queue write and the slot clear, and `loadWorkoutFromStorage` drops that active copy | Nothing. Even a duplicate would join one upload (`savesInFlight`) and both entries leave together | `useWorkoutStore.tsx` |
 
-Stored shape unchanged. Kept for now: the identity check in `uploadPendingWorkout` and the
-resume prefetch's cancel, not looked at in this stage.
+Stored shape unchanged.
+
+**Stage 3, agreed and built (user, 2026-11-10): the last two unreachable guards.**
+
+| Code | Why added | Why it cannot happen | What removal loses | Touches |
+| --- | --- | --- | --- | --- |
+| New: identity check in `uploadPendingWorkout`'s `finally` | Copied from the history store's in-flight pattern (027), for a `force` path that might bypass the join | The join above it allows one run per session, so the entry is always this run's. PR #6's review already noted it unreachable. The plain delete still allows a retry | Nothing today. A future path that bypasses the join has to bring its own check | `useWorkoutStore.tsx` |
+| New: `stopResumePrefetchWatch` | A second restore while waiting would replace the first watcher | `loadWorkoutFromStorage` has one caller, a mount-once effect in `AppControlProvider`. The watcher itself stays: restore runs before auth settles | If restore ever ran twice before sign-in: two watchers, two `open` calls, and the second joins or skips | `useWorkoutStore.tsx` |
 
 **Looked at and kept in the review** (reopen only with new evidence): `epoch` (a late
 answer cannot refill the store after sign-out); the check join and the persist chain;

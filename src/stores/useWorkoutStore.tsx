@@ -896,14 +896,7 @@ function uploadPendingWorkout(entry: PendingUpload): Promise<boolean> {
   const pending = savesInFlight.get(entry.sessionId);
   if (pending) return pending;
 
-  const run = attemptUpload(entry).finally(() => {
-    // Identity check: only remove our own entry, never a later upload's.
-    // Unreachable today, since the join above allows one upload per session, so
-    // no test covers it. Kept deliberately: it is what stays correct if a
-    // `force` path that bypasses the join is ever added, as the sync
-    // runner's `check` has.
-    if (savesInFlight.get(entry.sessionId) === run) savesInFlight.delete(entry.sessionId);
-  });
+  const run = attemptUpload(entry).finally(() => savesInFlight.delete(entry.sessionId));
   savesInFlight.set(entry.sessionId, run);
   return run;
 }
@@ -1012,9 +1005,6 @@ function watchSignInForUploads() {
   });
 }
 
-/** Cancels a resume prefetch still waiting for sign-in, if any. */
-let stopResumePrefetchWatch: (() => void) | null = null;
-
 /**
  * Load the saved summaries and check them for a resumed session, as
  * `startWorkout` does for a new one. History is only ever checked at session
@@ -1027,8 +1017,6 @@ let stopResumePrefetchWatch: (() => void) | null = null;
  * check and joins one running — and a failure leaves the saved copy in place.
  */
 function prefetchHistoryOnResume(exerciseCount: number) {
-  stopResumePrefetchWatch?.();
-  stopResumePrefetchWatch = null;
   if (exerciseCount === 0) return;
 
   const prefetch = (uid: string) => void useExerciseHistoryStore.getState().open(uid);
@@ -1043,9 +1031,7 @@ function prefetchHistoryOnResume(exerciseCount: number) {
     const signedIn = state.user?.uid;
     if (!signedIn) return;
     stop();
-    stopResumePrefetchWatch = null;
     prefetch(signedIn);
   });
-  stopResumePrefetchWatch = stop;
 }
 
