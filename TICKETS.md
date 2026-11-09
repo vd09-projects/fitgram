@@ -9398,7 +9398,7 @@ Stored shape unchanged.
 | --- | --- | --- | --- | --- |
 | New: `queueWrite` (028) and `persistChain` (070) | Overlapping writes might finish out of order, leaving an older copy on disk | They never applied to the installed 1.24.0. The JS side issues the native call at once, Android runs every write through one `SerialExecutor`, iOS through one serial dispatch queue. The chains merged nothing either: N calls made N writes | Protection if a later library version stops being serial. `writeStored` must issue its write before awaiting anything, now written on it | `syncRunner.ts`, `useWorkoutStore.tsx`; "stored writes land in order" goes with the chain, since it faked a slow write the library cannot produce |
 
-Reopens "looked at and kept" below for the persist chain: the native ordering is the new evidence.
+The persist chain left the "looked at and kept" list below: the native ordering is the new evidence.
 
 Still hypotheses, not agreed: candidate 8 (shards).
 
