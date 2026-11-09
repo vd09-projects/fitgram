@@ -13,7 +13,7 @@ import {
   type HeldPlans,
   withServerPlan,
 } from "../utils/planSync";
-import { versionRev } from "../utils/planVersion";
+import { versionRev, type VersionedPlan } from "../utils/planVersion";
 import { fullReloadDue } from "../utils/syncCore";
 import { createSyncRunner, type CheckRun as RunBase, type ReadoutEntry as SyncReadoutEntry, type SyncFields } from "./syncRunner";
 import { PLANS_CHECK_SKIP_MS, PLANS_CHECK_WAIT_MS } from "../config/sync";
@@ -88,9 +88,11 @@ interface PlansStore extends SyncFields<ReadoutKind> {
   check: (options?: { force?: boolean; full?: boolean }) => Promise<void>;
   /**
    * A Save of `plan`, started under `epoch`, was confirmed by the server
-   * (D8). It goes into the store now, with no read.
+   * (D8). It goes into the store now, with no read. Versioned by type: with
+   * no `rev` it would tie with a stamped copy and lose, and the Save would
+   * not show.
    */
-  applySaved: (uid: string, epoch: number, plan: WorkoutPlan) => void;
+  applySaved: (uid: string, epoch: number, plan: VersionedPlan) => void;
   /**
    * The server refused a Save of `planId` as version `sent`, started under
    * `epoch`: another device saved it since (TICKET-073 D7). Reloads that

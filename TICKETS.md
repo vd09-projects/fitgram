@@ -9342,7 +9342,7 @@ small PR that typechecks and can be tested alone (CLAUDE.md 3.4).
 Out of this ticket: `getSessionExercises` and `getExerciseSession` have no callers, but
 removing them is already on TICKET-077.
 
-**Deviation from the above (user's choice, 2026-11-10):** the four stages below landed
+**Deviation from the above (user's choice, 2026-11-10):** stages 1 to 4 below landed
 in one PR, #58, one commit per stage, not one PR each. The analysis was done in
 conversation and agreed there before each stage's code. Each stage's table is its record,
 shorter than the five points above.

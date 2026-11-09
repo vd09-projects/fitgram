@@ -7,6 +7,7 @@ import { getAllWorkoutPlans, getChangedPlans, getPlanFromServer } from "../servi
 import { usePlansStore } from "./usePlansStore";
 import { serializeStoredPlans } from "../utils/planSync";
 import type { PlanStamp, WorkoutPlan } from "../types/workoutType";
+import type { VersionedPlan } from "../utils/planVersion";
 import { PLANS_CHECK_WAIT_MS } from "../config/sync";
 import { PLANS_STORAGE_KEY } from "../config/storageKeys";
 
@@ -18,9 +19,9 @@ const onePlan = getPlanFromServer as jest.Mock;
 const plan = (id: string, name = id): WorkoutPlan => ({ id, name, exercises: [] });
 const at = (seconds: number, nanoseconds = 0): PlanStamp => ({ seconds, nanoseconds });
 const stamped = (id: string, stamp: PlanStamp, name = id): WorkoutPlan => ({ ...plan(id, name), updatedAt: stamp });
-/** Plan "a" at version `rev`, as a Save holds it before any check returns it. */
-const unstamped = (rev: number, name: string): WorkoutPlan => ({
-  ...plan("a", name),
+/** A plan (default "a") at version `rev`, as a Save holds it before any check returns it. */
+const unstamped = (rev: number, name: string, id = "a"): VersionedPlan => ({
+  ...plan(id, name),
   version: { rev, id: `v${rev}`, base: rev > 1 ? `v${rev - 1}` : null },
 });
 const revved = (rev: number, name: string, stamp = at(5)): WorkoutPlan => ({ ...unstamped(rev, name), updatedAt: stamp });
@@ -154,7 +155,7 @@ it("sign-out: a check or Save landing after the clear does not refill the store 
   // Signed back in as the same user: a Save from before sign-out still lands nowhere.
   reads.mockResolvedValue([plan("a")]);
   await store().open("u1");
-  store().applySaved("u1", epoch, plan("b"));
+  store().applySaved("u1", epoch, unstamped(1, "b"));
   expect(store().plans).toEqual([plan("a")]);
 });
 
