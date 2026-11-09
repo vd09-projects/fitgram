@@ -42,8 +42,8 @@ import { PLANS_STORAGE_KEY } from "../config/storageKeys";
  * only if it is still current when it lands, so a late answer for the user who
  * signed out cannot refill the store for the next one.
  *
- * The check machinery (stored load, join, wait, skip, `epoch`, the write
- * chain, the readout) is the shared sync runner, `syncRunner.ts`
+ * The check machinery (stored load, join, wait, skip, `epoch`, the stored
+ * write, the readout) is the shared sync runner, `syncRunner.ts`
  * (TICKET-075); this file keeps what is the plans' own.
  */
 

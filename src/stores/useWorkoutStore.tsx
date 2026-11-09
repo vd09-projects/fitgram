@@ -811,29 +811,15 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
 // Upload queue (TICKET-028)
 // ---------------------------------------------------------------------------
 
-/** Serialises queue writes so the disk ends on the latest state, never an older one. */
-let queueWrite: Promise<void> = Promise.resolve();
-
 /**
- * Write the in-memory queue to disk. Each write snapshots the queue when it
- * runs, not when it was requested, so overlapping writes converge on the latest
- * state. Rejects if this write failed; later writes still run.
+ * Write the in-memory queue to disk as it is now. Rejects if this write failed.
  *
- * The chain is deliberately redundant, and no test covers it: removing it
- * leaves every test green. Without it, each write snapshots at call time and
- * starts at once, so the disk is only current if AsyncStorage finishes writes in
- * the order they were issued. That is likely, but nothing here asserts it, and
- * the chain makes it unnecessary to rely on.
+ * AsyncStorage's native side runs writes one at a time in the order they are
+ * issued, so the last one issued, the latest queue, lands last. Rejected
+ * (TICKET-078): a promise chain in front of it, which repeated that guarantee.
  */
-function writePendingUploads(): Promise<void> {
-  const write = queueWrite.then(() =>
-    AsyncStorage.setItem(
-      PENDING_UPLOADS_KEY,
-      JSON.stringify(useWorkoutStore.getState().pendingUploads)
-    )
-  );
-  queueWrite = write.catch(() => {});
-  return write;
+async function writePendingUploads(): Promise<void> {
+  await AsyncStorage.setItem(PENDING_UPLOADS_KEY, JSON.stringify(useWorkoutStore.getState().pendingUploads));
 }
 
 const writePendingUploadsOrLog = () =>

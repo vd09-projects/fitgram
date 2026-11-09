@@ -9392,10 +9392,18 @@ Stored shape unchanged.
 | --- | --- | --- | --- | --- |
 | Candidate 2, `readBackSave`, `stateAfterSave`, `withSavedPlan` | 070 ordered plans by `updatedAt` alone, and `setDoc` does not return its stamp, so a slow check could put the old version back | 073 added `rev`, known when the phone writes it, and `replaces` compares it first. Deviates from 070 D8's read-back. A Save now goes in through `mergeChanges`, unstamped: a check that already brought it keeps its stamp, and a late older Save cannot replace a newer one | Other plans changed since arrive at the next check, not at Save. The plan is unstamped until then; nothing reads its stamp but D10's tie-break. The check skip is not lifted, as for an own Finish, so each Save costs 1 read less | `usePlansStore.ts`, `planSync.ts`, `planVersion.ts` comment; tests move from the read-back to `rev` |
 
+**Stage 6, agreed and built (user, 2026-11-10): no queue in front of AsyncStorage.**
+
+| Code | Why added | Why it no longer applies | What removal loses | Touches |
+| --- | --- | --- | --- | --- |
+| New: `queueWrite` (028) and `persistChain` (070) | Overlapping writes might finish out of order, leaving an older copy on disk | They never applied to the installed 1.24.0. The JS side issues the native call at once, Android runs every write through one `SerialExecutor`, iOS through one serial dispatch queue. The chains merged nothing either: N calls made N writes | Protection if a later library version stops being serial. `writeStored` must issue its write before awaiting anything, now written on it | `syncRunner.ts`, `useWorkoutStore.tsx`; "stored writes land in order" goes with the chain, since it faked a slow write the library cannot produce |
+
+The persist chain left the "looked at and kept" list below: the native ordering is the new evidence.
+
 Still hypotheses, not agreed: candidate 8 (shards).
 
 **Looked at and kept in the review** (reopen only with new evidence): `epoch` (a late
-answer cannot refill the store after sign-out); the check join and the persist chain;
+answer cannot refill the store after sign-out); the check join;
 `seq`, `newestApplied` and `restartStalled` (Try again and the sheet's Reload on a
 stalled read); the `followPlans` key (without it a failed check re-reads on every plans
 store change); the workouts' baseline read (one query per plan cannot set `lastSeen`);
