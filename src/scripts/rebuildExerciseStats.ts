@@ -6,15 +6,20 @@
 //   npx tsx src/scripts/rebuildExerciseStats.ts <userId> [exerciseId ...]
 //
 // When to run it:
-//  - a workout saved with `rollupPending: true` (the rollup transaction failed,
-//    usually offline) and never got repaired
+//  - a workout saved with no summary and lost from the phone before its queue
+//    retried it (the queue retries a failed rollup, TICKET-077)
 //  - a logged set was edited or deleted. An incremental fold can raise a record
 //    but never lower one, so an edit downwards needs a rebuild
 //  - any time the rollup is suspected of drift
 //
 // Safe to re-run: it writes a value derived purely from the sessions it reads.
+//
+// Warning: sets stored before TICKET-055 (a bare map, no `segments`) do not decode
+// today, so a rebuild does not count them. On the test account the 26 Oct session
+// is in that format, and a rebuild drops a 34 kg best to 5 kg (found in TICKET-077;
+// TICKET-032 decides what to do). Running this on such an account lowers real bests.
 
-import { collection, doc, getDocs, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
+import { collection, doc, getDocs, serverTimestamp, writeBatch } from "firebase/firestore";
 import { db } from "./firebase";
 import { ExerciseSessionDoc } from "../types/workoutSession";
 import { rebuildStatsFromSessions } from "../utils/exerciseStats";
@@ -62,24 +67,6 @@ const rebuild = async (userId: string, onlyExerciseIds: string[]) => {
     }
   }
   if (pending > 0) await batch.commit();
-
-  // Anything still flagged has now been folded in.
-  const pendingSnap = await getDocs(
-    query(
-      collection(db, "users", userId, "sessions"),
-      where("rollupPending", "==", true)
-    )
-  );
-  if (pendingSnap.size > 0 && onlyExerciseIds.length === 0) {
-    const clear = writeBatch(db);
-    // `updatedAt` on every sessions write (TICKET-075): a phone holding this
-    // session sees the cleared flag on its next change check.
-    pendingSnap.docs.forEach((d) =>
-      clear.set(d.ref, { rollupPending: false, updatedAt: serverTimestamp() }, { merge: true })
-    );
-    await clear.commit();
-    console.log(`Cleared rollupPending on ${pendingSnap.size} session(s).`);
-  }
 
   console.log(`Rebuilt ${written} exercise_stats doc(s).`);
 };

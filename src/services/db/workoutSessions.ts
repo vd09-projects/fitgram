@@ -13,7 +13,6 @@
 import {
   collection,
   doc,
-  getDoc,
   getDocs,
   getDocsFromServer,
   limit as limitFn,
@@ -80,18 +79,26 @@ const sessionFromDoc = (snapshot: QueryDocumentSnapshot<DocumentData>): WorkoutS
  *     writes queue in Firestore's offline cache and sync later, so finishing a
  *     workout without a connection still saves.
  *  2. A transaction that folds those sessions into the exercise_stats rollup.
- *     Transactions need a server round trip, so this is the part that can fail
- *     offline — and it is allowed to. The rollup is derived; `rollupPending`
- *     stays true on the session doc and `rebuildExerciseStats` can repair it.
- *     Logging data is never lost to a failed rollup.
+ *     Transactions need a server round trip, so this can fail after phase 1
+ *     landed. It then rejects, and the upload queue keeps the workout and runs
+ *     both phases again at its next trigger (TICKET-077). Safe to repeat: same
+ *     ids, and the fold replaces by `sessionId`. Logging data is never lost to a
+ *     failed rollup.
  *
- * Both writes of the session doc carry `updatedAt: serverTimestamp()`
- * (TICKET-075, TICKET-072 D8), so another phone's change check finds this
- * workout whatever its `startedAt`: an upload hours late from the offline
- * queue has an old start time but a new stamp. Every other writer of
- * `sessions` stamps too: importHistory.ts, rebuildExerciseStats.ts. The same
- * three stamp every write of `exercise_stats` (TICKET-076); a writer that does
- * not is invisible to the summaries' change check.
+ * Rejected (TICKET-077): a repair that looks on the server for sessions with no
+ * summary, which is a second path and 1 read per app run for a failure never
+ * observed; a flag on the session doc marking one, which nothing read, as the
+ * queue is what retries; and one atomic transaction for both phases, because
+ * `batch.commit` waits offline and completes on reconnect, while a transaction
+ * fails at once and no connectivity listener exists to retry it.
+ *
+ * The session doc carries `updatedAt: serverTimestamp()` (TICKET-075, TICKET-072
+ * D8), so another phone's change check finds this workout whatever its
+ * `startedAt`: an upload hours late from the offline queue has an old start time
+ * but a new stamp. The other writer of `sessions` stamps too: importHistory.ts.
+ * This function, importHistory.ts and rebuildExerciseStats.ts stamp every write
+ * of `exercise_stats` (TICKET-076); a writer that does not is invisible to the
+ * summaries' change check.
  */
 export const saveWorkoutSession = async (
   userId: string,
@@ -102,7 +109,7 @@ export const saveWorkoutSession = async (
    * session must record the end, not the upload.
    */
   endedAt: number
-): Promise<{ sessionId: string; summaries: ExerciseStatsDoc[] | null }> => {
+): Promise<{ sessionId: string; summaries: ExerciseStatsDoc[] }> => {
   if (!userId || !workout) throw new Error("Missing userId or workout.");
 
   const { session, exerciseSessions } = buildSessionDocs(workout, endedAt);
@@ -123,43 +130,27 @@ export const saveWorkoutSession = async (
   }
   await batch.commit();
 
-  // Phase 2 — derived rollup. Best effort. `summaries` is what it committed, for
-  // the phone's own copy (TICKET-076): what `runTransaction` resolves with is
-  // the attempt that won, so a retry after a conflict returns its own fold, and
-  // an upload retried from the queue returns the fold of the server's current
-  // docs. Null when it failed: nothing was written, so there is nothing to
-  // hold. They carry no `updatedAt`: the server's stamp is not known here.
-  let summaries: ExerciseStatsDoc[] | null = null;
-  try {
-    summaries = await runTransaction(db, async (tx) => {
-      const refs = exerciseSessions.map((e) =>
-        doc(exerciseStatsRef(userId), e.exerciseId)
-      );
-      // Firestore requires every read before any write.
-      const snapshots = await Promise.all(refs.map((ref) => tx.get(ref)));
-
-      const folded = exerciseSessions.map((exerciseSession, index) => {
-        const existing = snapshots[index].exists()
-          ? (snapshots[index].data() as ExerciseStatsDoc)
-          : null;
-        const summary = applySessionToStats(existing, exerciseSession);
-        tx.set(refs[index], { ...summary, updatedAt: serverTimestamp() });
-        return summary;
-      });
-
-      tx.set(
-        doc(sessionsRef(userId), session.sessionId),
-        { ...session, rollupPending: false, updatedAt: serverTimestamp() },
-        { merge: true }
-      );
-      return folded;
-    });
-  } catch (error) {
-    console.warn(
-      "⚠️ exercise_stats rollup deferred; session data is saved.",
-      error
+  // Phase 2 — derived rollup. `summaries` is what it committed, for the phone's
+  // own copy (TICKET-076): what `runTransaction` resolves with is the attempt
+  // that won, so a retry after a conflict returns its own fold, and an upload
+  // retried from the queue returns the fold of the server's current docs. They
+  // carry no `updatedAt`: the server's stamp is not known here.
+  const summaries = await runTransaction(db, async (tx) => {
+    const refs = exerciseSessions.map((e) =>
+      doc(exerciseStatsRef(userId), e.exerciseId)
     );
-  }
+    // Firestore requires every read before any write.
+    const snapshots = await Promise.all(refs.map((ref) => tx.get(ref)));
+
+    return exerciseSessions.map((exerciseSession, index) => {
+      const existing = snapshots[index].exists()
+        ? (snapshots[index].data() as ExerciseStatsDoc)
+        : null;
+      const summary = applySessionToStats(existing, exerciseSession);
+      tx.set(refs[index], { ...summary, updatedAt: serverTimestamp() });
+      return summary;
+    });
+  });
 
   return { sessionId: session.sessionId, summaries };
 };
@@ -343,29 +334,4 @@ export const getChangedExerciseStats = async (userId: string, after: SyncStamp):
     )
   );
   return snapshot.docs.map(summaryFromDoc);
-};
-
-/** Every exercise performed in one session. */
-export const getSessionExercises = async (
-  userId: string,
-  sessionId: string
-): Promise<ExerciseSessionDoc[]> => {
-  if (!userId || !sessionId) return [];
-  const snapshot = await getDocs(
-    query(exerciseSessionsRef(userId), where("sessionId", "==", sessionId))
-  );
-  return snapshot.docs.map((d) => d.data() as ExerciseSessionDoc);
-};
-
-/** One exercise's record within one session. */
-export const getExerciseSession = async (
-  userId: string,
-  sessionId: string,
-  exerciseId: string
-): Promise<ExerciseSessionDoc | null> => {
-  if (!userId || !sessionId || !exerciseId) return null;
-  const snapshot = await getDoc(
-    doc(exerciseSessionsRef(userId), buildExerciseSessionId(sessionId, exerciseId))
-  );
-  return snapshot.exists() ? (snapshot.data() as ExerciseSessionDoc) : null;
 };

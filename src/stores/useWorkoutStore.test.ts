@@ -100,15 +100,31 @@ describe("a Finish and the saved summaries (TICKET-076)", () => {
     expect(getChangedExerciseStats).not.toHaveBeenCalled();
   });
 
-  it("a failed rollup changes nothing in the store", async () => {
+  it("a failed rollup stays queued and counted, and changes nothing in the store (TICKET-077)", async () => {
     seedWorkout();
     const before = held().byId;
-    save.mockResolvedValueOnce({ sessionId: "s", summaries: null });
+    save.mockRejectedValueOnce(new Error("rollup failed"));
 
     await store().endWorkout("u1");
 
+    expect(queue()).toHaveLength(1);
+    expect(queue()[0]).toMatchObject({ failedAttempts: 1, lastError: "rollup failed" });
+    expect((await storedQueue())[0].failedAttempts).toBe(1);
     expect(held().byId).toBe(before);
     expect(held().lastOkAt).toBe(123);
+  });
+
+  it("the retry's summary reaches the store and the entry leaves the queue (TICKET-077)", async () => {
+    seedWorkout();
+    signIn("u1");
+    save.mockRejectedValueOnce(new Error("rollup failed"));
+    await store().endWorkout("u1");
+
+    save.mockResolvedValueOnce({ sessionId: "s", summaries: [summary("bench")] });
+    await drainPendingUploads();
+
+    expect(held().byId?.bench).toEqual(summary("bench"));
+    expect(queue()).toHaveLength(0);
   });
 });
 

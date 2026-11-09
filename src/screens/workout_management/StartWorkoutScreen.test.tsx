@@ -48,7 +48,6 @@ const session = (workoutId: string, startedAt: number, value: number): WorkoutSe
   startedAt,
   endedAt: startedAt + 3600_000,
   exerciseIds: [],
-  rollupPending: false,
   volume: {
     totals: [{ unit: "kg", value }],
     unavailableReason: null,

@@ -49,7 +49,6 @@ const session = (workoutId: string, startedAt: number): WorkoutSessionDoc => ({
   startedAt,
   endedAt: startedAt + 3600_000,
   exerciseIds: [],
-  rollupPending: false,
 });
 
 async function renderHub(
