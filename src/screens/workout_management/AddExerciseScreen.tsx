@@ -283,7 +283,7 @@ export default function AddExerciseScreen() {
    * 'pending' ("Not saved yet"), so the phone never shows a save the server
    * did not get.
    */
-  const onSaved = (plan: WorkoutPlan, epoch: number) => {
+  const onSaved = (plan: VersionedPlan, epoch: number) => {
     // D5's running-workout note is the banner, before editing; a longer toast
     // was cut off on the device (round 1).
     show.success('Plan saved', `"${plan.name}" saved.`);
