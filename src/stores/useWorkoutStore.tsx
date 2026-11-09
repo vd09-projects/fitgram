@@ -7,7 +7,6 @@ import { ActiveWorkout, ExerciseSet, LoggedExercise, PendingUpload } from "../ty
 import { saveWorkoutSession } from "../services/db/workoutSessions";
 import show from "../utils/toastUtils";
 import { savedSummary } from "../utils/sessionDuration";
-import { normalizeExerciseFields } from "../utils/exerciseFields";
 import { clampExerciseIndex, indexAfterRemoval, resolveCurrentIndex } from "../utils/workoutProgress";
 import { extendRest, RestTimer } from "../utils/restTimer";
 import { buildSessionDocs, buildSessionId } from "../utils/exerciseStats";
@@ -797,16 +796,9 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       await AsyncStorage.removeItem(ACTIVE_WORKOUT_KEY);
       return;
     }
-    const exercises = (parsed.exercises ?? []).map((exercise) => ({
-      ...exercise,
-      // A workout started before field roles existed has `fields: string[]` in
-      // storage. Normalising on the way in keeps a resumed session renderable
-      // instead of showing inputs labelled `undefined`.
-      fields: normalizeExerciseFields(exercise.fields),
-    }));
-    set({ activeWorkout: { ...parsed, exercises } });
+    set({ activeWorkout: parsed });
 
-    prefetchHistoryOnResume(exercises.length);
+    prefetchHistoryOnResume(parsed.exercises.length);
   },
 
   /**

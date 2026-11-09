@@ -185,8 +185,8 @@ async function readStoredCopy(uid: string): Promise<HeldWorkouts | null> {
 
 /**
  * The run a trigger starts, or null to skip. Nothing while the plans store
- * holds nothing (`planIdsToHold`). A full reload when due (`fullReloadDue`),
- * except inside the skip window with something held.
+ * holds nothing (`planIdsToHold`). A full reload when due (`fullReloadDue`):
+ * nothing held, or asked for, which always comes with `force`, so no skip.
  */
 export function workoutsRunFor(
   state: Pick<State, "byPlan" | "loaded" | "lastSeen">,
@@ -196,9 +196,7 @@ export function workoutsRunFor(
 ): Omit<CheckRun, "uid" | "epoch" | "seq"> | null {
   if (planIds === null) return null;
   const seenAtStart = state.lastSeen;
-  const held = state.byPlan !== null;
-  const due = fullReloadDue({ requested: fullRequested, hasStored: held });
-  if (due && (!skipped || !held)) return { kind: "full", planIds, seenAtStart };
+  if (fullReloadDue({ requested: fullRequested, hasStored: state.byPlan !== null })) return { kind: "full", planIds, seenAtStart };
   if (skipped) return null;
   const loaded = new Set(state.loaded);
   return { kind: "change", planIds: planIds.filter((id) => !loaded.has(id)), seenAtStart };

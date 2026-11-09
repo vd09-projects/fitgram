@@ -9342,6 +9342,16 @@ small PR that typechecks and can be tested alone (CLAUDE.md 3.4).
 Out of this ticket: `getSessionExercises` and `getExerciseSession` have no callers, but
 removing them is already on TICKET-077.
 
+**Stage 1, agreed and built (user, 2026-11-09): guards whose trigger is gone.**
+
+| Code | Why added | Why it no longer applies | What removal loses | Touches |
+| --- | --- | --- | --- | --- |
+| Candidate 1, `mergeFullReload`'s keep-held logic, now `plansFromFullReload` | The timed full reload (070 D5) ran with plans held, so a Save landing mid-read would vanish when the answer replaced the list | TICKET-076 removed the timer. A full reload runs with nothing held (`useWorkoutPlans.retry` shows only then; `applySaved` ignores a Save while nothing is held), so only a stalled first load can leave plans held | Stalled first load answers, the user saves, Retry's read answers after: the plan shows its old version until the next check. The debug page's full reload likewise. No write lost: the draft has moved on and the next check returns the Save | `planSync.ts`, `usePlansStore.ts`; `planSync.test` loses the keep-held cases; the equal-stamp rule moves to `mergeChanges` |
+| Candidate 3, `due && (!skipped \|\| !held)` | Let the timed reload wait out the skip window (075) | Same removal. Due is now asked for or nothing held. Asked for always comes with `force` (one caller, debug page), and `!held` already passed | Nothing | `useRecentWorkoutsStore.ts` |
+| New: `normalizeExerciseFields` on resume | `fields` moved from `string[]` to objects (2026-10-07), so a phone could hold an in-progress workout in the old shape | `LOCAL_DATA_VERSION` 2 and 3 wiped every older stored workout at first launch; every slot since is built from normalized plans or the catalog | Nothing. `userDB.ts` keeps its own use for old plan docs | `useWorkoutStore.tsx` |
+
+Stored shape unchanged. The other candidates are still hypotheses, not agreed.
+
 **Looked at and kept in the review** (reopen only with new evidence): `epoch` (a late
 answer cannot refill the store after sign-out); the check join and the persist chain;
 `seq`, `newestApplied` and `restartStalled` (Try again and the sheet's Reload on a

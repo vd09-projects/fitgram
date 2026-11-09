@@ -9,7 +9,7 @@ import {
   lastSeenAfter,
   lastSeenAfterFullReload,
   mergeChanges,
-  mergeFullReload,
+  plansFromFullReload,
   readStoredPlans,
   serializeStoredPlans,
   type HeldPlans,
@@ -33,8 +33,8 @@ import { PLANS_STORAGE_KEY } from "../config/storageKeys";
  *   changed costs 1 read, 0 docs.
  * - full (D5): every plan, replacing the stored copy. Only with nothing held
  *   or when asked for, never on a timer (`fullReloadDue`).
- * Both reject offline (D11). Answers merge by D10, the higher `rev` wins
- * (TICKET-073); the merge rules are pure functions in `planSync.ts`.
+ * Both reject offline (D11). A change check's answer merges by D10, the
+ * higher `rev` wins (TICKET-073); the rules are pure functions in `planSync.ts`.
  *
  * The stored copy changes only on what the server confirmed (D8): a check's
  * answer, a Save that resolved (`applySaved`), or the server's copy of a plan
@@ -158,15 +158,16 @@ function checkKindNow(state: State, fullRequested: boolean): CheckKind {
 }
 
 /**
- * After a check's answer (D3, D5). D10 is in both merges: a Save that landed
- * while the read was out is newer than anything the read returned, so it
- * stays. A full reload resets `lastSeen` from what it now holds
- * (`lastSeenAfterFullReload`); a change check only moves it forward. The
- * runner adds what every success sets (`lastResult`, `lastOkAt`).
+ * After a check's answer (D3, D5). A change check merges by D10: a Save that
+ * landed while the read was out is newer than anything the read returned, so
+ * it stays, and `lastSeen` only moves forward. A full reload takes the
+ * server's list (`plansFromFullReload`) and resets `lastSeen` from it
+ * (`lastSeenAfterFullReload`). The runner adds what every success sets
+ * (`lastResult`, `lastOkAt`).
  */
 function stateAfterAnswer(state: State, run: CheckRun, docs: WorkoutPlan[], now: number): Partial<State> {
   if (run.kind === "full") {
-    const plans = mergeFullReload(state.plans, docs, run.seenAtStart);
+    const plans = plansFromFullReload(docs);
     return { source: "server", plans, lastSeen: lastSeenAfterFullReload(plans), lastFullAt: now };
   }
   return { source: "server", plans: mergeChanges(state.plans ?? [], docs), lastSeen: lastSeenAfter(state.lastSeen, docs) };

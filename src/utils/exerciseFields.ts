@@ -22,7 +22,7 @@ export type NumericFieldMap = {
 /**
  * Coerce a legacy `string[]` field list into `ExerciseField[]`.
  *
- * Plans, catalog docs and in-progress workouts written before roles existed
+ * Plans and catalog docs written before roles existed
  * stored bare names. They are live configuration, not history, so they cannot
  * simply be abandoned — read raw, they would render inputs named `undefined`.
  * A legacy name becomes role `"other"`, which means the exercise reports no
