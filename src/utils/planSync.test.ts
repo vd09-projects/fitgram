@@ -2,20 +2,19 @@
 
 import {
   changeCheckAfter,
-  isFullReloadDue,
   isRefusedSave,
   lastSeenAfter,
   mergeChanges,
-  mergeFullReload,
+  plansFromFullReload,
   plansView,
   readStoredPlans,
   serializeStoredPlans,
-  shouldSkipCheck,
   toPlanStamp,
   withSavedPlan,
   withServerPlan,
   type PlansState,
 } from "./planSync";
+import { fullReloadDue, withinSkipWindow } from "./syncCore";
 import type { PlanStamp, PlanVersion, WorkoutPlan } from "../types/workoutType";
 import { PLANS_CHECK_SKIP_MS } from "../config/sync";
 import { PLANS_FORMAT_VERSION } from "../config/storageKeys";
@@ -48,12 +47,12 @@ describe("readStoredPlans: anything but this user's copy in this format is nothi
   });
 });
 
-describe("shouldSkipCheck (D4)", () => {
+describe("withinSkipWindow (D4)", () => {
   it("skips only within the window after a success, and never when forced", () => {
-    expect(shouldSkipCheck(null, 1_000)).toBe(false);
-    expect(shouldSkipCheck(0, PLANS_CHECK_SKIP_MS - 1)).toBe(true);
-    expect(shouldSkipCheck(0, PLANS_CHECK_SKIP_MS)).toBe(false);
-    expect(shouldSkipCheck(0, 1, true)).toBe(false);
+    expect(withinSkipWindow(null, 1_000, PLANS_CHECK_SKIP_MS)).toBe(false);
+    expect(withinSkipWindow(0, PLANS_CHECK_SKIP_MS - 1, PLANS_CHECK_SKIP_MS)).toBe(true);
+    expect(withinSkipWindow(0, PLANS_CHECK_SKIP_MS, PLANS_CHECK_SKIP_MS)).toBe(false);
+    expect(withinSkipWindow(0, 1, PLANS_CHECK_SKIP_MS, true)).toBe(false);
   });
 });
 
@@ -127,19 +126,13 @@ describe("merging by version (TICKET-073 D10)", () => {
 
   it("equal rev, a console edit that moved updatedAt or kept it: the server's copy", () => {
     expect(names(mergeChanges([revved("a", 2, at(5), "held")], [revved("a", 2, at(6), "console")]))).toEqual(["console"]);
-    expect(names(mergeFullReload([revved("a", 2, at(5), "held")], [revved("a", 2, at(5), "console")], at(5)))).toEqual(["console"]);
+    expect(names(mergeChanges([revved("a", 2, at(5), "held")], [revved("a", 2, at(5), "console")]))).toEqual(["console"]);
   });
 
   it("no version counts as rev 0: rev 1 beats it, and two with none go by stamp", () => {
     expect(names(mergeChanges([revved("a", 0, at(9), "pre-073")], [revved("a", 1, at(5), "saved")]))).toEqual(["saved"]);
     expect(names(mergeChanges([revved("a", 1, at(5), "saved")], [revved("a", 0, at(9), "pre-073")]))).toEqual(["saved"]);
     expect(names(mergeChanges([revved("a", 0, at(5), "held")], [revved("a", 0, at(6), "newer stamp")]))).toEqual(["newer stamp"]);
-  });
-
-  it("a full reload: a copy held from before the read loses to the server's, even at a lower rev (070 S1)", () => {
-    expect(names(mergeFullReload([revved("a", 5, at(5), "held")], [revved("a", 1, at(5), "rev lowered by hand")], at(5)))).toEqual([
-      "rev lowered by hand",
-    ]);
   });
 
   it("the stored copy keeps the version; a version not whole is an unknown shape", () => {
@@ -176,37 +169,18 @@ function v(rev: number): PlanVersion {
   return { rev, id: `v${rev}`, base: rev > 1 ? `v${rev - 1}` : null };
 }
 
-describe("mergeFullReload (D5, D10)", () => {
-  it("replaces what is held: a plan removed outside the app goes, deleted ones are left out", () => {
-    const result = mergeFullReload([stamped("a", at(5)), stamped("gone", at(4))], [stamped("a", at(5)), { ...stamped("d", at(5)), deleted: true }], at(5));
-    expect(names(result)).toEqual(["a"]);
-  });
-
-  it("equal stamps take the server's copy: an outside edit that kept the stamp shows", () => {
-    expect(names(mergeFullReload([stamped("a", at(5), "held")], [stamped("a", at(5), "console")], at(5)))).toEqual(["console"]);
-    expect(names(mergeFullReload([plan("a", "held")], [plan("a", "console")], null))).toEqual(["console"]);
-  });
-
-  it("keeps a Save that landed while the read was out: newer than its copy, or new since it started", () => {
-    const held = [stamped("a", at(7), "saved"), stamped("n", at(8), "new")];
-    expect(names(mergeFullReload(held, [stamped("a", at(5), "old")], at(6)))).toEqual(["saved", "new"]);
-  });
-
-  it("a held stamp 'newer' than the server's, but held before the read started: the server wins", () => {
-    expect(names(mergeFullReload([stamped("a", at(9_999), "future")], [stamped("a", at(7), "real")], at(9_999)))).toEqual(["real"]);
-  });
-
-  it("first load: nothing held, every plan the server has", () => {
-    expect(names(mergeFullReload(null, [plan("a"), stamped("b", at(1))], null))).toEqual(["a", "b"]);
+describe("plansFromFullReload (D5)", () => {
+  it("the server's list, in its order, without deleted markers", () => {
+    expect(names(plansFromFullReload([plan("a"), { ...plan("d"), deleted: true }, plan("b")]))).toEqual(["a", "b"]);
   });
 });
 
-describe("isFullReloadDue (D5)", () => {
+describe("fullReloadDue (D5)", () => {
   // TICKET-076: the interval and clock-moved-back cases went with the timer.
   it("only when asked for or nothing stored", () => {
-    expect(isFullReloadDue({ requested: false, hasStored: true })).toBe(false);
-    expect(isFullReloadDue({ requested: true, hasStored: true })).toBe(true);
-    expect(isFullReloadDue({ requested: false, hasStored: false })).toBe(true);
+    expect(fullReloadDue({ requested: false, hasStored: true })).toBe(false);
+    expect(fullReloadDue({ requested: true, hasStored: true })).toBe(true);
+    expect(fullReloadDue({ requested: false, hasStored: false })).toBe(true);
   });
 });
 

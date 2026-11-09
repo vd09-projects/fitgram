@@ -32,23 +32,15 @@ import { CATALOG_CACHE_KEY, SEARCH_WORDS_CACHE_KEY } from "../config/storageKeys
 
 // CATALOG_CACHE_KEY, SEARCH_WORDS_CACHE_KEY: value and reason in src/config/storageKeys.ts.
 
-type Refusal = { at: number; version: string | null; errors: string[] };
-
-export type CatalogSource = "none" | "cache" | "network";
-
 interface CatalogStore {
   catalog: LoadedCatalog | null;
-  /** Where `catalog` came from in this app run. "none" until one loads. */
-  source: CatalogSource;
   cacheLoaded: boolean;
-  /** The last fetched catalog that `loadCatalog` refused, kept for display. The cache was not touched. */
-  lastRefusal: Refusal | null;
+  /** The hash of the last fetched catalog that `loadCatalog` refused. The cache was not touched. */
+  refusedCatalogVersion: string | null;
   /** Null until loaded, or when none was ever uploaded: search then knows the labels only. */
   searchWords: LoadedSearchWords | null;
-  /** As `lastRefusal`, for the search-words doc. */
-  searchWordsRefusal: Refusal | null;
-  /** The last meta or catalog read that failed (offline, rules). */
-  lastError: string | null;
+  /** As `refusedCatalogVersion`, for the search-words doc. */
+  refusedSearchWordsVersion: string | null;
   /** Set once the unknown-id meta check has run in this app run (Q5: never again until restart). */
   unknownIdChecked: boolean;
 
@@ -63,12 +55,10 @@ let syncInFlight: Promise<void> | null = null;
 
 export const useCatalogStore = create<CatalogStore>((set, get) => ({
   catalog: null,
-  source: "none",
   cacheLoaded: false,
-  lastRefusal: null,
+  refusedCatalogVersion: null,
   searchWords: null,
-  searchWordsRefusal: null,
-  lastError: null,
+  refusedSearchWordsVersion: null,
   unknownIdChecked: false,
 
   loadFromCache: () => {
@@ -80,12 +70,9 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
         if (errors.length > 0) console.error("Catalog cache refused; will refetch:", errors);
         const words = readCachedSearchWords(await AsyncStorage.getItem(SEARCH_WORDS_CACHE_KEY));
         if (words.errors.length > 0) console.error("Search words cache refused; will refetch:", words.errors);
-        // A sync that finished first (network beat the disk) wins.
-        set((state) => ({
-          ...(state.catalog ? {} : { catalog, source: catalog ? "cache" : "none" }),
-          ...(state.searchWords ? {} : { searchWords: words.searchWords }),
-          cacheLoaded: true,
-        }));
+        // Replaces outright (TICKET-078): `sync` is the only other writer and
+        // awaits this first.
+        set({ catalog, searchWords: words.searchWords, cacheLoaded: true });
       } catch (error) {
         console.error("Catalog cache unreadable:", error);
         set({ cacheLoaded: true });
@@ -108,11 +95,9 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
         const meta = await fetchCatalogMeta();
         await syncCatalogDoc(meta.catalog);
         await syncSearchWordsDoc(meta.searchWords);
-        set({ lastError: null });
       } catch (error) {
         // Offline or refused by the rules: the caches stay as they were.
         console.log("Catalog check failed; using the cached catalog:", error);
-        set({ lastError: error instanceof Error ? error.message : String(error) });
       } finally {
         syncInFlight = null;
       }
@@ -141,9 +126,9 @@ async function syncCatalogDoc(metaVersion: string | null): Promise<void> {
   if (planCatalogSync(getState().catalog, metaVersion) === "keep") return;
   // Already refused in this app run: this build cannot load it, so do not
   // re-download 282 KB on every Manage Workout visit, or log it again.
-  // `lastRefusal` is memory only, so the next app run tries once more; a
-  // reinstall may have brought the vocabulary.
-  if (metaVersion === getState().lastRefusal?.version) return;
+  // `refusedCatalogVersion` is memory only, so the next app run tries once
+  // more; a reinstall may have brought the vocabulary.
+  if (metaVersion === getState().refusedCatalogVersion) return;
 
   const decision = decideFetchedCatalog(await fetchCatalogDoc());
   if (decision.kind === "refuse") {
@@ -155,19 +140,19 @@ async function syncCatalogDoc(metaVersion: string | null): Promise<void> {
         `Install a build that knows its vocabulary. Errors:`,
       decision.errors
     );
-    setState({ lastRefusal: { at: Date.now(), version: metaVersion, errors: decision.errors } });
+    setState({ refusedCatalogVersion: metaVersion });
     return;
   }
 
   const { version, movements } = decision.catalog;
   await AsyncStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify({ version, movements }));
-  setState({ catalog: decision.catalog, source: "network" });
+  setState({ catalog: decision.catalog });
 }
 
 /** The search words, by the same rules as the catalog doc, under their own hash. */
 async function syncSearchWordsDoc(metaVersion: string | null): Promise<void> {
   if (planCatalogSync(getState().searchWords, metaVersion) === "keep") return;
-  if (metaVersion === getState().searchWordsRefusal?.version) return;
+  if (metaVersion === getState().refusedSearchWordsVersion) return;
 
   const decision = decideFetchedSearchWords(await fetchSearchWordsDoc());
   if (decision.kind === "refuse") {
@@ -175,7 +160,7 @@ async function syncSearchWordsDoc(metaVersion: string | null): Promise<void> {
       `SEARCH WORDS REFUSED (hash ${metaVersion}); keeping ${getState().searchWords?.version ?? "labels only"}. Errors:`,
       decision.errors
     );
-    setState({ searchWordsRefusal: { at: Date.now(), version: metaVersion, errors: decision.errors } });
+    setState({ refusedSearchWordsVersion: metaVersion });
     return;
   }
 

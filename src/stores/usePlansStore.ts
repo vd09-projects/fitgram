@@ -5,11 +5,10 @@ import type { PlanStamp, PlanVersion, WorkoutPlan } from "../types/workoutType";
 import {
   changeCheckAfter,
   compareStamps,
-  isFullReloadDue,
   lastSeenAfter,
   lastSeenAfterFullReload,
   mergeChanges,
-  mergeFullReload,
+  plansFromFullReload,
   readStoredPlans,
   serializeStoredPlans,
   type HeldPlans,
@@ -17,6 +16,7 @@ import {
   withServerPlan,
 } from "../utils/planSync";
 import { versionRev } from "../utils/planVersion";
+import { fullReloadDue } from "../utils/syncCore";
 import { createSyncRunner, type CheckRun as RunBase, type ReadoutEntry as SyncReadoutEntry, type SyncFields } from "./syncRunner";
 import { PLANS_CHECK_SKIP_MS, PLANS_CHECK_WAIT_MS } from "../config/sync";
 import { PLANS_STORAGE_KEY } from "../config/storageKeys";
@@ -33,8 +33,8 @@ import { PLANS_STORAGE_KEY } from "../config/storageKeys";
  *   changed costs 1 read, 0 docs.
  * - full (D5): every plan, replacing the stored copy. Only with nothing held
  *   or when asked for, never on a timer (`fullReloadDue`).
- * Both reject offline (D11). Answers merge by D10, the higher `rev` wins
- * (TICKET-073); the merge rules are pure functions in `planSync.ts`.
+ * Both reject offline (D11). A change check's answer merges by D10, the
+ * higher `rev` wins (TICKET-073); the rules are pure functions in `planSync.ts`.
  *
  * The stored copy changes only on what the server confirmed (D8): a check's
  * answer, a Save that resolved (`applySaved`), or the server's copy of a plan
@@ -69,6 +69,7 @@ export type RefusalReload = { kind: "reloaded"; plan: WorkoutPlan } | { kind: "g
 interface PlansStore extends SyncFields<ReadoutKind> {
   /** Null: nothing stored for `uid` (D11). `[]`: stored, no plans. */
   plans: WorkoutPlan[] | null;
+  /** Debug readout: only the Plans Store page reads it. */
   source: PlansSource;
   /**
    * The newest `updatedAt` the server has returned (D3), the server's clock;
@@ -82,9 +83,9 @@ interface PlansStore extends SyncFields<ReadoutKind> {
   open: (uid: string, options?: { check?: boolean }) => Promise<void>;
   /**
    * Ask the server now unless skipped (D4) or one is running (D9). `force`:
-   * past the check skip (Try again, Reload, opening a plan in Manage); it
-   * also starts a fresh read when the running one is past its wait. `full`:
-   * a full reload (Try again, Reload); otherwise D5 decides.
+   * past the check skip (Try again, opening a plan in Manage); it also
+   * starts a fresh read when the running one is past its wait. `full`: a
+   * full reload (Try again); otherwise D5 decides.
    */
   check: (options?: { force?: boolean; full?: boolean }) => Promise<void>;
   /**
@@ -154,19 +155,20 @@ async function readStoredCopy(uid: string): Promise<HeldPlans | null> {
 
 /** Which kind of check runs now (D5). */
 function checkKindNow(state: State, fullRequested: boolean): CheckKind {
-  return isFullReloadDue({ requested: fullRequested, hasStored: state.plans !== null }) ? "full" : "change";
+  return fullReloadDue({ requested: fullRequested, hasStored: state.plans !== null }) ? "full" : "change";
 }
 
 /**
- * After a check's answer (D3, D5). D10 is in both merges: a Save that landed
- * while the read was out is newer than anything the read returned, so it
- * stays. A full reload resets `lastSeen` from what it now holds
- * (`lastSeenAfterFullReload`); a change check only moves it forward. The
- * runner adds what every success sets (`lastResult`, `lastOkAt`).
+ * After a check's answer (D3, D5). A change check merges by D10: a Save that
+ * landed while the read was out is newer than anything the read returned, so
+ * it stays, and `lastSeen` only moves forward. A full reload takes the
+ * server's list (`plansFromFullReload`) and resets `lastSeen` from it
+ * (`lastSeenAfterFullReload`). The runner adds what every success sets
+ * (`lastResult`, `lastOkAt`).
  */
 function stateAfterAnswer(state: State, run: CheckRun, docs: WorkoutPlan[], now: number): Partial<State> {
   if (run.kind === "full") {
-    const plans = mergeFullReload(state.plans, docs, run.seenAtStart);
+    const plans = plansFromFullReload(docs);
     return { source: "server", plans, lastSeen: lastSeenAfterFullReload(plans), lastFullAt: now };
   }
   return { source: "server", plans: mergeChanges(state.plans ?? [], docs), lastSeen: lastSeenAfter(state.lastSeen, docs) };
@@ -208,7 +210,6 @@ export const usePlansStore = create<PlansStore>((set, get) => {
       const held = await readStoredCopy(uid);
       return held === null ? null : { ...held, source: "stored" };
     },
-    holdsData: (s) => s.plans !== null,
     writeStored: async ({ uid, plans, lastSeen, lastFullAt }) => {
       if (uid === null) {
         await AsyncStorage.removeItem(PLANS_STORAGE_KEY);

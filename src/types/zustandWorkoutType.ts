@@ -91,7 +91,6 @@ export interface ActiveWorkout {
   id: string;
   name: string;
   startTime: number;
-  lastUpdated: number;
   exercises: LoggedExercise[];
   currentExerciseIndex: number | null; // Track the current exercise index
 }

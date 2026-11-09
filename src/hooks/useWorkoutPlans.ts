@@ -21,7 +21,7 @@ import { plansView } from "../utils/planSync";
  * plans yet": a known gap, now only on a first launch offline (D12).
  *
  * `retry` reads every plan now, past the check skip: a full reload (Try
- * again, Reload; D5).
+ * again; D5).
  */
 export default function useWorkoutPlans({ check = "mount" }: { check?: "mount" | "none" } = {}) {
   const { user } = useAuthUser();

@@ -49,7 +49,7 @@ describe("reads per check", () => {
     upload("h1");
     await sync();
     expect(reads()).toEqual(["exercise_catalog/meta"]);
-    expect(useCatalogStore.getState().source).toBe("cache");
+    expect(useCatalogStore.getState().catalog?.version).toBe("h1");
   });
 
   it("app start, changed hash: 2 reads, the cache is replaced", async () => {
@@ -64,7 +64,7 @@ describe("reads per check", () => {
     upload("h1");
     await sync();
     expect(reads()).toHaveLength(2);
-    expect(useCatalogStore.getState().source).toBe("network");
+    expect(useCatalogStore.getState().catalog?.version).toBe("h1");
 
     await sync(); // AddExerciseScreen's focus effect
     expect(reads()).toEqual(["exercise_catalog/meta", "exercise_catalog/catalog", "exercise_catalog/meta"]);
@@ -87,7 +87,7 @@ it("a refused catalog keeps the old cache and says so loudly", async () => {
 
   expect(useCatalogStore.getState().catalog?.version).toBe("h1");
   expect(await cachedVersion()).toBe("h1");
-  expect(useCatalogStore.getState().lastRefusal?.version).toBe("h2");
+  expect(useCatalogStore.getState().refusedCatalogVersion).toBe("h2");
   expect(error).toHaveBeenCalledWith(expect.stringMatching(/^CATALOG REFUSED/), expect.anything());
 
   // The same hash again in this app run: meta only, no second download or log.

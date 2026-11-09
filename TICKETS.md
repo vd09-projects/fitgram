@@ -9342,6 +9342,52 @@ small PR that typechecks and can be tested alone (CLAUDE.md 3.4).
 Out of this ticket: `getSessionExercises` and `getExerciseSession` have no callers, but
 removing them is already on TICKET-077.
 
+**Deviation from the above (user's choice, 2026-11-10):** the four stages below landed
+in one PR, #58, one commit per stage, not one PR each. The analysis was done in
+conversation and agreed there before each stage's code. Each stage's table is its record,
+shorter than the five points above.
+
+**Stage 1, agreed and built (user, 2026-11-09): guards whose trigger is gone.**
+
+| Code | Why added | Why it no longer applies | What removal loses | Touches |
+| --- | --- | --- | --- | --- |
+| Candidate 1, `mergeFullReload`'s keep-held logic, now `plansFromFullReload` | The timed full reload (070 D5) ran with plans held, so a Save landing mid-read would vanish when the answer replaced the list | TICKET-076 removed the timer. A full reload runs with nothing held (`useWorkoutPlans.retry` shows only then; `applySaved` ignores a Save while nothing is held), so only a stalled first load can leave plans held | Stalled first load answers, the user saves, Retry's read answers after: the plan shows its old version until the next check. The debug page's full reload likewise. No write lost: the draft has moved on and the next check returns the Save | `planSync.ts`, `usePlansStore.ts`; `planSync.test` loses the keep-held cases; the equal-stamp rule moves to `mergeChanges` |
+| Candidate 3, `due && (!skipped \|\| !held)` | Let the timed reload wait out the skip window (075) | Same removal. Due is now asked for or nothing held. Asked for always comes with `force` (one caller, debug page), and `!held` already passed | Nothing | `useRecentWorkoutsStore.ts` |
+| New: `normalizeExerciseFields` on resume | `fields` moved from `string[]` to objects (2026-10-07), so a phone could hold an in-progress workout in the old shape | `LOCAL_DATA_VERSION` 2 and 3 wiped every older stored workout at first launch; every slot since is built from normalized plans or the catalog | Nothing. `userDB.ts` keeps its own use for old plan docs | `useWorkoutStore.tsx` |
+
+Stored shape unchanged.
+
+**Stage 2, agreed and built (user, 2026-11-09): load races that cannot happen.**
+
+| Code | Why added | Why it cannot happen | What removal loses | Touches |
+| --- | --- | --- | --- | --- |
+| Candidate 5, `holdsData` | A check might answer before the disk read, and the old stored copy would overwrite it (070 stage 1) | `open` awaited the stored read from the first version. Try again shows only after it, `followPlans` waits for `storedRead`, and `applySaved`, `applyFinished` and `reloadRefused` do nothing while nothing is held | A debug button tapped during the disk read: its answer is replaced by the stored copy until the next check | `syncRunner.ts`, the three sync stores |
+| New: catalog "sync finished first" | Same fear, for the catalog cache (042) | `sync` is the only other writer and its first step is awaiting `loadFromCache` | Nothing | `useCatalogStore.ts` |
+| New: "Finish that beat the load" | The queue load is async, so a Finish during it would be overwritten (028) | Finish needs an active workout, and resume sets one only after the queue loads | Start, a set and Finish inside one disk read would lose that entry from memory. Not reachable by hand | `useWorkoutStore.tsx` |
+| New: "replace if somehow queued" | One entry per session; the comment names no scenario (028) | The only route is a crash between the queue write and the slot clear, and `loadWorkoutFromStorage` drops that active copy | Nothing. Even a duplicate would join one upload (`savesInFlight`) and both entries leave together | `useWorkoutStore.tsx` |
+
+Stored shape unchanged.
+
+**Stage 3, agreed and built (user, 2026-11-10): the last two unreachable guards.**
+
+| Code | Why added | Why it cannot happen | What removal loses | Touches |
+| --- | --- | --- | --- | --- |
+| New: identity check in `uploadPendingWorkout`'s `finally` | Copied from the history store's in-flight pattern (027), for a `force` path that might bypass the join | The join above it allows one run per session, so the entry is always this run's. PR #6's review already noted it unreachable. The plain delete still allows a retry | Nothing today. A future path that bypasses the join has to bring its own check | `useWorkoutStore.tsx` |
+| New: `stopResumePrefetchWatch` | A second restore while waiting would replace the first watcher | `loadWorkoutFromStorage` has one caller, a mount-once effect in `AppControlProvider`. The watcher itself stays: restore runs before auth settles | If restore ever ran twice before sign-in: two watchers, two `open` calls, and the second joins or skips | `useWorkoutStore.tsx` |
+
+**Stage 4, agreed and built (user, 2026-11-10): dead code.**
+
+| Code | Finding | Change |
+| --- | --- | --- |
+| New: `ActiveWorkout.lastUpdated` | Written by most workout changes, read by nothing, never uploaded | Removed. A workout already stored carries a field nothing reads, so no `LOCAL_DATA_VERSION` bump |
+| New: catalog `source`, `lastError` | `source` read only by its tests, `lastError` by nothing. Failures are still logged | Removed; the tests assert the catalog held |
+| New: `lastRefusal.at`, `.errors` and the search-words twin | Only `.version` is read; the errors are still logged loudly | Now `refusedCatalogVersion` and `refusedSearchWordsVersion`. A null meta version returns `keep` first, so null never matches |
+| Candidate 6, `shouldSkipCheck` | No caller outside tests | Removed. Its test now covers `withinSkipWindow`, which had no other unit test |
+| Candidate 4, alias `isFullReloadDue` | One rule under two names | Alias removed. Summaries still decide this themselves: not changed here |
+| Candidate 7, plans `source` | **Not dead:** the Plans Store page prints it | Kept and marked as debug readout |
+
+Still hypotheses, not agreed: candidates 2 (`readBackSave`) and 8 (shards).
+
 **Looked at and kept in the review** (reopen only with new evidence): `epoch` (a late
 answer cannot refill the store after sign-out); the check join and the persist chain;
 `seq`, `newestApplied` and `restartStalled` (Try again and the sheet's Reload on a

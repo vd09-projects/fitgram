@@ -7,7 +7,6 @@ import { ActiveWorkout, ExerciseSet, LoggedExercise, PendingUpload } from "../ty
 import { saveWorkoutSession } from "../services/db/workoutSessions";
 import show from "../utils/toastUtils";
 import { savedSummary } from "../utils/sessionDuration";
-import { normalizeExerciseFields } from "../utils/exerciseFields";
 import { clampExerciseIndex, indexAfterRemoval, resolveCurrentIndex } from "../utils/workoutProgress";
 import { extendRest, RestTimer } from "../utils/restTimer";
 import { buildSessionDocs, buildSessionId } from "../utils/exerciseStats";
@@ -140,8 +139,8 @@ const prefetchHistory = () => {
  *
  * Every action that changes the workout ends here, except paging
  * (`setCurrentExerciseIndex`), which writes memory first and keeps its own two
- * lines rather than an order flag only it would pass. `lastUpdated` and
- * `currentExerciseIndex` stay with each action, which decides them on purpose.
+ * lines rather than an order flag only it would pass. `currentExerciseIndex`
+ * stays with each action, which decides it on purpose.
  * Removals use the key alone: their error handling and memory steps differ.
  *
  * Rejected: zustand `persist` (writes memory first without waiting, and one key
@@ -237,7 +236,6 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       id: workout.id,
       name: workout.name,
       startTime,
-      lastUpdated: startTime,
       exercises: workout.exercises.map((ex) => freshSlot(ex, catalogIndex)),
       currentExerciseIndex: workout.exercises.length > 0 ? 0 : null,
     };
@@ -267,7 +265,6 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     const updatedWorkout: ActiveWorkout = {
       ...activeWorkout,
       exercises: updatedExercises,
-      lastUpdated: Date.now(),
       currentExerciseIndex: exerciseIndex !== -1 ? exerciseIndex : null,
     };
 
@@ -289,8 +286,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
    * comparison reads — and its effort mark. No rest is started or touched, and
    * a pending undo (held by the caller) is unaffected.
    *
-   * `lastUpdated` moves, as for remove and restore: the logged data changed.
-   * `currentExerciseIndex` does not, as for `removeSet`: editing is not logging,
+   * `currentExerciseIndex` stays, as for `removeSet`: editing is not logging,
    * and the row is only reachable on the exercise already on screen.
    *
    * `setId` is an ordinal: read it fresh from the store. The caller keeps the
@@ -318,7 +314,6 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     const updatedWorkout: ActiveWorkout = {
       ...activeWorkout,
       exercises: updatedExercises,
-      lastUpdated: Date.now(),
     };
 
     await saveActiveWorkout(updatedWorkout);
@@ -361,7 +356,6 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     const updatedWorkout: ActiveWorkout = {
       ...activeWorkout,
       exercises: updatedExercises,
-      lastUpdated: Date.now(),
     };
 
     await saveActiveWorkout(updatedWorkout);
@@ -394,7 +388,6 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     const updatedWorkout: ActiveWorkout = {
       ...activeWorkout,
       exercises: updatedExercises,
-      lastUpdated: Date.now(),
     };
 
     await saveActiveWorkout(updatedWorkout);
@@ -410,9 +403,8 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
    * moves it with its set. `setId` is read fresh from the store by the caller,
    * as for `updateSet`: it is an ordinal.
    *
-   * Neither `lastUpdated` nor `currentExerciseIndex` moves: a mark is not
-   * logged data (`lastUpdated` tracks sets), and it is set from the rest panel
-   * or the Today list of the exercise already on screen.
+   * `currentExerciseIndex` stays: a mark is set from the rest panel or the
+   * Today list of the exercise already on screen.
    */
   setSetEffort: async (exerciseId, setId, effort) => {
     const { activeWorkout } = get();
@@ -457,7 +449,6 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     const clamped = clampExerciseIndex(index, activeWorkout.exercises.length);
     if (clamped === activeWorkout.currentExerciseIndex) return;
 
-    // `lastUpdated` is left alone: it tracks logged data, and paging is not data.
     const updatedWorkout: ActiveWorkout = { ...activeWorkout, currentExerciseIndex: clamped };
 
     // Memory first so the screen moves on the tap, not after the disk write: the
@@ -525,7 +516,6 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     const updatedWorkout: ActiveWorkout = {
       ...activeWorkout,
       exercises: activeWorkout.exercises.map((ex, i) => (i === index ? swapped : ex)),
-      lastUpdated: Date.now(),
     };
 
     await saveActiveWorkout(updatedWorkout, rest?.exerciseId === exerciseId ? { rest: null } : {});
@@ -564,7 +554,6 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       ...activeWorkout,
       exercises,
       currentExerciseIndex: exercises.length - 1,
-      lastUpdated: Date.now(),
     };
 
     await saveActiveWorkout(updatedWorkout);
@@ -609,7 +598,6 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       ...activeWorkout,
       exercises,
       currentExerciseIndex: indexAfterRemoval(current, index, exercises.length),
-      lastUpdated: Date.now(),
     };
 
     await saveActiveWorkout(updatedWorkout, rest?.exerciseId === exerciseId ? { rest: null } : {});
@@ -641,7 +629,6 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       ...activeWorkout,
       exercises,
       currentExerciseIndex: index,
-      lastUpdated: Date.now(),
     };
 
     await saveActiveWorkout(updatedWorkout);
@@ -692,12 +679,9 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     set((state) => ({
       activeWorkout: null,
       rest: null,
-      // Replace, not append, if this session is somehow queued already: one
-      // entry per session.
-      pendingUploads: [
-        ...state.pendingUploads.filter((e) => e.sessionId !== entry.sessionId),
-        entry,
-      ],
+      // One entry per session: an active workout is never one already queued
+      // (`loadWorkoutFromStorage` drops it).
+      pendingUploads: [...state.pendingUploads, entry],
     }));
 
     try {
@@ -797,16 +781,9 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       await AsyncStorage.removeItem(ACTIVE_WORKOUT_KEY);
       return;
     }
-    const exercises = (parsed.exercises ?? []).map((exercise) => ({
-      ...exercise,
-      // A workout started before field roles existed has `fields: string[]` in
-      // storage. Normalising on the way in keeps a resumed session renderable
-      // instead of showing inputs labelled `undefined`.
-      fields: normalizeExerciseFields(exercise.fields),
-    }));
-    set({ activeWorkout: { ...parsed, exercises } });
+    set({ activeWorkout: parsed });
 
-    prefetchHistoryOnResume(exercises.length);
+    prefetchHistoryOnResume(parsed.exercises.length);
   },
 
   /**
@@ -872,8 +849,10 @@ const updateEntry = (sessionId: string, update: (e: PendingUpload) => PendingUpl
   }));
 
 /**
- * Read the queue from disk. Entries already in memory (a Finish that beat the
- * load) are kept after the stored ones.
+ * Read the queue from disk, replacing memory's (TICKET-078): this runs before
+ * a workout can be resumed, so nothing can be queued yet. Rejected: merging in
+ * entries already in memory, which needs a Start, a set and a Finish inside
+ * this one disk read.
  *
  * An unreadable queue is copied aside, not overwritten: the next write would
  * otherwise replace finished workouts with an empty list.
@@ -890,12 +869,7 @@ async function loadPendingUploads(): Promise<void> {
     await AsyncStorage.setItem(`${PENDING_UPLOADS_KEY}.corrupt.${Date.now()}`, raw);
     return;
   }
-  useWorkoutStore.setState((state) => ({
-    pendingUploads: [
-      ...stored,
-      ...state.pendingUploads.filter((e) => !stored.some((s) => s.sessionId === e.sessionId)),
-    ],
-  }));
+  useWorkoutStore.setState({ pendingUploads: stored });
 }
 
 /**
@@ -910,14 +884,7 @@ function uploadPendingWorkout(entry: PendingUpload): Promise<boolean> {
   const pending = savesInFlight.get(entry.sessionId);
   if (pending) return pending;
 
-  const run = attemptUpload(entry).finally(() => {
-    // Identity check: only remove our own entry, never a later upload's.
-    // Unreachable today, since the join above allows one upload per session, so
-    // no test covers it. Kept deliberately: it is what stays correct if a
-    // `force` path that bypasses the join is ever added, as the sync
-    // runner's `check` has.
-    if (savesInFlight.get(entry.sessionId) === run) savesInFlight.delete(entry.sessionId);
-  });
+  const run = attemptUpload(entry).finally(() => savesInFlight.delete(entry.sessionId));
   savesInFlight.set(entry.sessionId, run);
   return run;
 }
@@ -1026,9 +993,6 @@ function watchSignInForUploads() {
   });
 }
 
-/** Cancels a resume prefetch still waiting for sign-in, if any. */
-let stopResumePrefetchWatch: (() => void) | null = null;
-
 /**
  * Load the saved summaries and check them for a resumed session, as
  * `startWorkout` does for a new one. History is only ever checked at session
@@ -1041,8 +1005,6 @@ let stopResumePrefetchWatch: (() => void) | null = null;
  * check and joins one running — and a failure leaves the saved copy in place.
  */
 function prefetchHistoryOnResume(exerciseCount: number) {
-  stopResumePrefetchWatch?.();
-  stopResumePrefetchWatch = null;
   if (exerciseCount === 0) return;
 
   const prefetch = (uid: string) => void useExerciseHistoryStore.getState().open(uid);
@@ -1057,9 +1019,7 @@ function prefetchHistoryOnResume(exerciseCount: number) {
     const signedIn = state.user?.uid;
     if (!signedIn) return;
     stop();
-    stopResumePrefetchWatch = null;
     prefetch(signedIn);
   });
-  stopResumePrefetchWatch = stop;
 }
 

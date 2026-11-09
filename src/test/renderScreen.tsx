@@ -41,6 +41,7 @@ import { useRestPreferenceStore } from "../stores/restPreferenceStore";
 import { useCatalogStore } from "../stores/useCatalogStore";
 import { usePlansStore } from "../stores/usePlansStore";
 import { useRecentWorkoutsStore } from "../stores/useRecentWorkoutsStore";
+import type { LoadedCatalog } from "../utils/catalogSync";
 import { ActiveWorkout } from "../types/zustandWorkoutType";
 import { ExerciseStatsDoc } from "../types/workoutSession";
 
@@ -64,6 +65,11 @@ export type RenderScreenOptions = {
    * exercise is `idle`.
    */
   history?: Record<string, ExerciseStatsDoc | null>;
+  /**
+   * The catalog, seeded as after the cache load. Before render, since a screen
+   * that syncs on focus starts that load, and its answer replaces the store.
+   */
+  catalog?: LoadedCatalog;
   /** Signed-in user. Default `{ uid: "test-user" }`; null for signed out. */
   user?: Pick<User, "uid"> | null;
   /** Route the screen is registered under. Default `LogWorkout`. */
@@ -148,7 +154,7 @@ export function renderScreen(
   Screen: React.ComponentType<any>,
   options: RenderScreenOptions = {}
 ): RenderResult {
-  const { workout = null, workoutActions, history, user, workoutRoute } = options;
+  const { workout = null, workoutActions, history, catalog, user, workoutRoute } = options;
   const route = workoutRoute ? LayoutRoutes.Workout : (options.route ?? LayoutRoutes.LogWorkout);
 
   resetStores();
@@ -157,6 +163,7 @@ export function renderScreen(
     user: (user === undefined ? { uid: TEST_USER_ID } : user) as User | null,
     initialized: true,
   });
+  if (catalog) useCatalogStore.setState({ catalog, cacheLoaded: true });
   if (history) {
     // As after a successful check: loaded, so an exercise with no doc (or seeded
     // null) is never done, and a recent check, so a screen's trigger is skipped.
