@@ -73,8 +73,8 @@ export function lastSeenAfterFullReload(held: WorkoutPlan[]): PlanStamp | null {
 /**
  * D10 (TICKET-073): does `incoming` replace `held`? The higher `rev` wins:
  * the server accepts each `rev` once per plan, so a higher one is a later
- * Save, whatever the clocks say, stamped or not (a Save whose stamp could not
- * be read back is held unstamped, with its `rev`).
+ * Save, whatever the clocks say, stamped or not (a Save is held unstamped,
+ * with its `rev`, until a check returns it).
  *
  * Equal `rev`: the newer-or-equal `updatedAt` wins, 070's rule. One app Save
  * makes one `rev`, so equal revs are the same Save, or an edit made outside
@@ -90,11 +90,11 @@ const replaces = (incoming: WorkoutPlan, held: WorkoutPlan | undefined): boolean
 };
 
 /**
- * A change check's answer merged into the plans held (D3, D10). Each
- * incoming plan replaces the held one unless that is newer (`replaces`), so
- * a check that started before a Save and answers after it cannot undo the
- * Save. A
- * `deleted` plan is removed (D5). Order as a full read would give (D13).
+ * A change check's answer, or a confirmed Save, merged into the plans held
+ * (D3, D10). Each incoming plan replaces the held one unless that is newer
+ * (`replaces`), so a check that started before a Save and answers after it
+ * cannot undo the Save. A `deleted` plan is removed (D5). Order as a full read
+ * would give (D13).
  */
 export function mergeChanges(held: WorkoutPlan[], incoming: WorkoutPlan[]): WorkoutPlan[] {
   return incoming.reduce((plans, plan) => {
@@ -158,20 +158,6 @@ function withPlan(plans: WorkoutPlan[], plan: WorkoutPlan): WorkoutPlan[] {
 }
 
 /**
- * The stored plans after the server confirmed a Save of `plan` (D8), when the
- * read back of its stamp failed: put in as saved, unstamped, whatever is held.
- * Not through `mergeChanges`, where an unstamped plan loses to the stamped one
- * held and the Save would not show.
- *
- * Nothing stored stays nothing stored: one plan is not the user's plans, and
- * a list of one would read as "this is all of them" (CLAUDE.md 2.4). The next
- * check fills it.
- */
-export function withSavedPlan(plans: WorkoutPlan[] | null, plan: WorkoutPlan): WorkoutPlan[] | null {
-  return plans === null ? null : withPlan(plans, plan);
-}
-
-/**
  * Did the server refuse this save because the plan changed on another device
  * (TICKET-073 D7)? firestore.rules refuses a Save not made on the stored
  * version with `permission-denied`, the Firestore error code for any refused rule. Every
@@ -188,8 +174,9 @@ export const isRefusedSave = (error: unknown): boolean =>
  * (D7): the server's copy replaces the held one whatever D10 says, since the
  * server just refused a save based on the held one. `null`: the server has
  * no such plan (removed outside the app), so it goes, as a full reload would
- * drop it; a `deleted` marker likewise. Nothing stored stays nothing stored
- * (`withSavedPlan`).
+ * drop it; a `deleted` marker likewise. Nothing stored stays nothing stored:
+ * one plan is not the user's plans, and a list of one would read as "this is
+ * all of them" (CLAUDE.md 2.4).
  */
 export function withServerPlan(plans: WorkoutPlan[] | null, planId: string, plan: WorkoutPlan | null): WorkoutPlan[] | null {
   if (plans === null) return null;

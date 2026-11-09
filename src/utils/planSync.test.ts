@@ -10,7 +10,6 @@ import {
   readStoredPlans,
   serializeStoredPlans,
   toPlanStamp,
-  withSavedPlan,
   withServerPlan,
   type PlansState,
 } from "./planSync";
@@ -119,7 +118,7 @@ describe("merging by version (TICKET-073 D10)", () => {
   });
 
   it("the higher rev wins, whatever the stamps say", () => {
-    // A Save held unstamped (read-back failed) at rev 3; a slow check returns rev 2.
+    // A Save held unstamped at rev 3; a slow check returns rev 2.
     expect(names(mergeChanges([{ ...plan("a", "saved"), version: v(3) }], [revved("a", 2, at(9), "old")]))).toEqual(["saved"]);
     expect(names(mergeChanges([revved("a", 2, at(9), "held")], [revved("a", 3, at(5), "newer")]))).toEqual(["newer"]);
   });
@@ -184,18 +183,14 @@ describe("fullReloadDue (D5)", () => {
   });
 });
 
-describe("withSavedPlan (D8, D13)", () => {
-  it("replaces a saved plan where it stands", () => {
-    expect(withSavedPlan([plan("a"), plan("b"), plan("c")], plan("b", "B2")).map((p) => p.name)).toEqual(["a", "B2", "c"]);
+describe("mergeChanges keeps a full read's order (D13)", () => {
+  it("replaces a plan where it stands", () => {
+    expect(names(mergeChanges([plan("a"), plan("b"), plan("c")], [plan("b", "B2")]))).toEqual(["a", "B2", "c"]);
   });
 
-  it("puts a new plan where a full read would: in id order", () => {
-    expect(withSavedPlan([plan("Ab"), plan("x")], plan("b")).map((p) => p.id)).toEqual(["Ab", "b", "x"]);
-    expect(withSavedPlan([plan("a")], plan("z")).map((p) => p.id)).toEqual(["a", "z"]);
-  });
-
-  it("leaves nothing stored as nothing stored, not a list of one", () => {
-    expect(withSavedPlan(null, plan("a"))).toBeNull();
+  it("puts a new plan in id order", () => {
+    expect(mergeChanges([plan("Ab"), plan("x")], [plan("b")]).map((p) => p.id)).toEqual(["Ab", "b", "x"]);
+    expect(mergeChanges([plan("a")], [plan("z")]).map((p) => p.id)).toEqual(["a", "z"]);
   });
 });
 
