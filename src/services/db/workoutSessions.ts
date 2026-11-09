@@ -75,9 +75,9 @@ const sessionFromDoc = (snapshot: QueryDocumentSnapshot<DocumentData>): WorkoutS
  *
  * Two phases, on purpose:
  *
- *  1. A `writeBatch` for the session and its exercise_sessions docs. Batched
- *     writes queue in Firestore's offline cache and sync later, so finishing a
- *     workout without a connection still saves.
+ *  1. A `writeBatch` for the session and its exercise_sessions docs. Offline it
+ *     waits in Firestore's memory cache and completes on reconnect. That cache
+ *     dies with the app: the upload queue is what makes an offline Finish safe.
  *  2. A transaction that folds those sessions into the exercise_stats rollup.
  *     Transactions need a server round trip, so this can fail after phase 1
  *     landed. It then rejects, and the upload queue keeps the workout and runs

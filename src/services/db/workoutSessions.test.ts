@@ -63,8 +63,8 @@ describe("the server stamp on sessions", () => {
 
     const { summaries } = await saveWorkoutSession("u1", workout, 2_000);
     expect(summaries).toHaveLength(1);
-    expect(summaries?.[0].lastPerformedAt).toBe(1_000);
-    expect(summaries?.[0].updatedAt).toBeUndefined();
+    expect(summaries[0].lastPerformedAt).toBe(1_000);
+    expect(summaries[0].updatedAt).toBeUndefined();
   });
 
   // TICKET-077: the queue retries both phases, so the transaction's failure must

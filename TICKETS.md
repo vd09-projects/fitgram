@@ -9253,7 +9253,7 @@ Finish stamps the session in the batch and writes only summaries in the transact
 "Test WK"; 2 Finishes written. iOS not run):** the failure was a local, uncommitted
 one-shot throw before phase 2's transaction, removed from disk before the retry. Server
 state read with the admin SDK, read-only. Run before `rollupPending` was removed, so the
-"flag" results below are of that code; the removal has had no device run.
+"flag" results below are of that code. The last item is the run after the removal.
 - **The failed Finish:** alert "Saved on this phone, upload f… It will be retried."
   Server: session present once (16 → 17), `rollupPending` true, no Face Pull summary
   (a never-done exercise), Bench summary still at the previous session. Queue: 1 entry,
@@ -9269,13 +9269,18 @@ state read with the admin SDK, read-only. Run before `rollupPending` was removed
   failed Finish, LAST TIME 10 × 10. **Pass.**
 - **A normal Finish unchanged:** "Saved", no alert, sessions 18, flag false, Face Pull's
   newest entry is that session. **Pass.**
+- **A normal Finish after removing `rollupPending` (1 more Finish, 1 set, "Test WK"):**
+  "Saved", no alert, sessions 18 → 19. The new session has no flag and its `updatedAt` is
+  stamped; Bench's summary is stamped and its newest entry is this session, once. Card's
+  LAST TIME 30 kg × 16; queue empty. **Pass.**
 - **Not run:** a real transaction failure (the probe throws before it); an always-failing
   rollup; a retry at app start or sign-in (same drain).
 
 **Known gaps:**
 - **While a rollup retries, the words are wrong:** the alert says "Saved on this phone,
   upload failed … It will be retried" and a later drain "Upload failed … Will retry",
-  though the session is on the server; a plan row says "not uploaded yet" until a
+  with Firestore's raw error text in the gap, though the session is on the server; a plan
+  row says "not uploaded yet" until a
   workouts check brings the session, then reads as uploaded. Cost: a wrong word during a
   rare failure.
 - **A rollup that always fails** alerts on every foreground and rewrites 1 + N docs per

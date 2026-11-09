@@ -12,7 +12,8 @@
 //    but never lower one, so an edit downwards needs a rebuild
 //  - any time the rollup is suspected of drift
 //
-// Safe to re-run: it writes a value derived purely from the sessions it reads.
+// Idempotent: it writes a value derived purely from the sessions it reads. Pass
+// exercise ids to limit what a run touches.
 //
 // Warning: sets stored before TICKET-055 (a bare map, no `segments`) do not decode
 // today, so a rebuild does not count them. On the test account the 26 Oct session
