@@ -9370,6 +9370,17 @@ Stored shape unchanged.
 | New: identity check in `uploadPendingWorkout`'s `finally` | Copied from the history store's in-flight pattern (027), for a `force` path that might bypass the join | The join above it allows one run per session, so the entry is always this run's. PR #6's review already noted it unreachable. The plain delete still allows a retry | Nothing today. A future path that bypasses the join has to bring its own check | `useWorkoutStore.tsx` |
 | New: `stopResumePrefetchWatch` | A second restore while waiting would replace the first watcher | `loadWorkoutFromStorage` has one caller, a mount-once effect in `AppControlProvider`. The watcher itself stays: restore runs before auth settles | If restore ever ran twice before sign-in: two watchers, two `open` calls, and the second joins or skips | `useWorkoutStore.tsx` |
 
+**Stage 4, agreed and built (user, 2026-11-10): dead code.**
+
+| Code | Finding | Change |
+| --- | --- | --- |
+| New: `ActiveWorkout.lastUpdated` | Written by every set change, read by nothing, never uploaded | Removed. A workout already stored carries a field nothing reads, so no `LOCAL_DATA_VERSION` bump |
+| New: catalog `source`, `lastError` | `source` read only by its tests, `lastError` by nothing. Failures are still logged | Removed; the tests assert the catalog held |
+| New: `lastRefusal.at`, `.errors` and the search-words twin | Only `.version` is read; the errors are still logged loudly | Now `refusedCatalogVersion` and `refusedSearchWordsVersion`. A null meta version returns `keep` first, so null never matches |
+| Candidate 6, `shouldSkipCheck` | No caller outside tests | Removed. Its test now covers `withinSkipWindow`, which had no other unit test |
+| Candidate 4, alias `isFullReloadDue` | One rule under two names | Alias removed. Summaries still decide this themselves: not changed here |
+| Candidate 7, plans `source` | **Not dead:** the Plans Store page prints it | Kept and marked as debug readout |
+
 **Looked at and kept in the review** (reopen only with new evidence): `epoch` (a late
 answer cannot refill the store after sign-out); the check join and the persist chain;
 `seq`, `newestApplied` and `restartStalled` (Try again and the sheet's Reload on a

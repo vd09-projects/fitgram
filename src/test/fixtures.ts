@@ -38,7 +38,6 @@ export function buildWorkout(
     id: "test-workout",
     name: "Test Workout",
     startTime: Date.now(),
-    lastUpdated: Date.now(),
     exercises: exerciseNames.map((name) => buildExercise(name)),
     currentExerciseIndex: exerciseNames.length > 0 ? 0 : null,
     ...overrides,

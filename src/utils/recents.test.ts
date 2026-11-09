@@ -27,7 +27,6 @@ const pending = (uid: string, startTime: number, ids: string[], skipped: string[
     id: "push",
     name: "Push",
     startTime,
-    lastUpdated: startTime,
     currentExerciseIndex: null,
     exercises: [
       ...ids.map((id) => ({ id, name: "", fields: [], sets: [{ id: 1, segments: [{ Reps: "8" }] }] })),

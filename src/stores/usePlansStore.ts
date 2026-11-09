@@ -5,7 +5,6 @@ import type { PlanStamp, PlanVersion, WorkoutPlan } from "../types/workoutType";
 import {
   changeCheckAfter,
   compareStamps,
-  isFullReloadDue,
   lastSeenAfter,
   lastSeenAfterFullReload,
   mergeChanges,
@@ -17,6 +16,7 @@ import {
   withServerPlan,
 } from "../utils/planSync";
 import { versionRev } from "../utils/planVersion";
+import { fullReloadDue } from "../utils/syncCore";
 import { createSyncRunner, type CheckRun as RunBase, type ReadoutEntry as SyncReadoutEntry, type SyncFields } from "./syncRunner";
 import { PLANS_CHECK_SKIP_MS, PLANS_CHECK_WAIT_MS } from "../config/sync";
 import { PLANS_STORAGE_KEY } from "../config/storageKeys";
@@ -69,6 +69,7 @@ export type RefusalReload = { kind: "reloaded"; plan: WorkoutPlan } | { kind: "g
 interface PlansStore extends SyncFields<ReadoutKind> {
   /** Null: nothing stored for `uid` (D11). `[]`: stored, no plans. */
   plans: WorkoutPlan[] | null;
+  /** Debug readout: only the Plans Store page reads it. */
   source: PlansSource;
   /**
    * The newest `updatedAt` the server has returned (D3), the server's clock;
@@ -154,7 +155,7 @@ async function readStoredCopy(uid: string): Promise<HeldPlans | null> {
 
 /** Which kind of check runs now (D5). */
 function checkKindNow(state: State, fullRequested: boolean): CheckKind {
-  return isFullReloadDue({ requested: fullRequested, hasStored: state.plans !== null }) ? "full" : "change";
+  return fullReloadDue({ requested: fullRequested, hasStored: state.plans !== null }) ? "full" : "change";
 }
 
 /**

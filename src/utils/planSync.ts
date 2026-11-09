@@ -1,10 +1,9 @@
 // src/utils/planSync.ts
 //
 // The decisions behind the phone's copy of the plans (TICKET-070), as pure
-// functions: whether a stored copy is usable, whether a screen opening runs a
-// check and which kind, how an answer merges into what is held, what a
-// screen shows, and what a refused save reloads (TICKET-073). `usePlansStore`
-// does the I/O around them, on the shared sync runner.
+// functions: whether a stored copy is usable, how an answer merges into what
+// is held, what a screen shows, and what a refused save reloads (TICKET-073).
+// `usePlansStore` does the I/O around them, on the shared sync runner.
 //
 // The rules every synced store shares (stamps, `lastSeen`, the skip window,
 // when a full reload runs, the stored envelope) moved to the sync core,
@@ -16,16 +15,13 @@
 
 import type { PlanStamp, WorkoutPlan } from "../types/workoutType";
 import { compareVersions, toPlanVersion } from "./planVersion";
-import { compareStamps, isStamp, lastSeenAfter, openEnvelope, withinSkipWindow } from "./syncCore";
-import { PLANS_CHECK_SKIP_MS } from "../config/sync";
+import { compareStamps, isStamp, lastSeenAfter, openEnvelope } from "./syncCore";
 import { PLANS_FORMAT_VERSION } from "../config/storageKeys";
 
 // The plans' names for the core's stamp rules (TICKET-070 D3); the reasons are in syncCore.ts.
-export { changeCheckAfter, compareStamps, fullReloadDue as isFullReloadDue, lastSeenAfter, NO_STAMP_SEEN, toStamp as toPlanStamp } from "./syncCore";
+export { changeCheckAfter, compareStamps, lastSeenAfter, NO_STAMP_SEEN, toStamp as toPlanStamp } from "./syncCore";
 
 // PLANS_FORMAT_VERSION: value and reason in src/config/storageKeys.ts.
-
-// Check skip and check wait: value and reason in src/config/sync.ts.
 
 /**
  * What AsyncStorage holds: whose plans, in which format, and where the next
@@ -145,14 +141,6 @@ export function readStoredPlans(raw: string | null, uid: string): { held: HeldPl
   if ((lastSeen !== null && !isStamp(lastSeen)) || (lastFullAt !== null && typeof lastFullAt !== "number"))
     return { held: null, error: "check times in an unknown shape" };
   return { held: { plans: stored.plans, lastSeen, lastFullAt }, error: null };
-}
-
-/**
- * Whether a plans screen opening skips its check (D4): the core's rule
- * (`withinSkipWindow`) on `PLANS_CHECK_SKIP_MS`.
- */
-export function shouldSkipCheck(lastOkAt: number | null, now: number, force = false): boolean {
-  return withinSkipWindow(lastOkAt, now, PLANS_CHECK_SKIP_MS, force);
 }
 
 /**

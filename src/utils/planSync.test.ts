@@ -2,7 +2,6 @@
 
 import {
   changeCheckAfter,
-  isFullReloadDue,
   isRefusedSave,
   lastSeenAfter,
   mergeChanges,
@@ -10,12 +9,12 @@ import {
   plansView,
   readStoredPlans,
   serializeStoredPlans,
-  shouldSkipCheck,
   toPlanStamp,
   withSavedPlan,
   withServerPlan,
   type PlansState,
 } from "./planSync";
+import { fullReloadDue, withinSkipWindow } from "./syncCore";
 import type { PlanStamp, PlanVersion, WorkoutPlan } from "../types/workoutType";
 import { PLANS_CHECK_SKIP_MS } from "../config/sync";
 import { PLANS_FORMAT_VERSION } from "../config/storageKeys";
@@ -48,12 +47,12 @@ describe("readStoredPlans: anything but this user's copy in this format is nothi
   });
 });
 
-describe("shouldSkipCheck (D4)", () => {
+describe("withinSkipWindow (D4)", () => {
   it("skips only within the window after a success, and never when forced", () => {
-    expect(shouldSkipCheck(null, 1_000)).toBe(false);
-    expect(shouldSkipCheck(0, PLANS_CHECK_SKIP_MS - 1)).toBe(true);
-    expect(shouldSkipCheck(0, PLANS_CHECK_SKIP_MS)).toBe(false);
-    expect(shouldSkipCheck(0, 1, true)).toBe(false);
+    expect(withinSkipWindow(null, 1_000, PLANS_CHECK_SKIP_MS)).toBe(false);
+    expect(withinSkipWindow(0, PLANS_CHECK_SKIP_MS - 1, PLANS_CHECK_SKIP_MS)).toBe(true);
+    expect(withinSkipWindow(0, PLANS_CHECK_SKIP_MS, PLANS_CHECK_SKIP_MS)).toBe(false);
+    expect(withinSkipWindow(0, 1, PLANS_CHECK_SKIP_MS, true)).toBe(false);
   });
 });
 
@@ -176,12 +175,12 @@ describe("plansFromFullReload (D5)", () => {
   });
 });
 
-describe("isFullReloadDue (D5)", () => {
+describe("fullReloadDue (D5)", () => {
   // TICKET-076: the interval and clock-moved-back cases went with the timer.
   it("only when asked for or nothing stored", () => {
-    expect(isFullReloadDue({ requested: false, hasStored: true })).toBe(false);
-    expect(isFullReloadDue({ requested: true, hasStored: true })).toBe(true);
-    expect(isFullReloadDue({ requested: false, hasStored: false })).toBe(true);
+    expect(fullReloadDue({ requested: false, hasStored: true })).toBe(false);
+    expect(fullReloadDue({ requested: true, hasStored: true })).toBe(true);
+    expect(fullReloadDue({ requested: false, hasStored: false })).toBe(true);
   });
 });
 

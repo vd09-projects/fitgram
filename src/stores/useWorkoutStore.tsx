@@ -139,8 +139,8 @@ const prefetchHistory = () => {
  *
  * Every action that changes the workout ends here, except paging
  * (`setCurrentExerciseIndex`), which writes memory first and keeps its own two
- * lines rather than an order flag only it would pass. `lastUpdated` and
- * `currentExerciseIndex` stay with each action, which decides them on purpose.
+ * lines rather than an order flag only it would pass. `currentExerciseIndex`
+ * stays with each action, which decides it on purpose.
  * Removals use the key alone: their error handling and memory steps differ.
  *
  * Rejected: zustand `persist` (writes memory first without waiting, and one key
@@ -236,7 +236,6 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       id: workout.id,
       name: workout.name,
       startTime,
-      lastUpdated: startTime,
       exercises: workout.exercises.map((ex) => freshSlot(ex, catalogIndex)),
       currentExerciseIndex: workout.exercises.length > 0 ? 0 : null,
     };
@@ -266,7 +265,6 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     const updatedWorkout: ActiveWorkout = {
       ...activeWorkout,
       exercises: updatedExercises,
-      lastUpdated: Date.now(),
       currentExerciseIndex: exerciseIndex !== -1 ? exerciseIndex : null,
     };
 
@@ -288,8 +286,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
    * comparison reads — and its effort mark. No rest is started or touched, and
    * a pending undo (held by the caller) is unaffected.
    *
-   * `lastUpdated` moves, as for remove and restore: the logged data changed.
-   * `currentExerciseIndex` does not, as for `removeSet`: editing is not logging,
+   * `currentExerciseIndex` stays, as for `removeSet`: editing is not logging,
    * and the row is only reachable on the exercise already on screen.
    *
    * `setId` is an ordinal: read it fresh from the store. The caller keeps the
@@ -317,7 +314,6 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     const updatedWorkout: ActiveWorkout = {
       ...activeWorkout,
       exercises: updatedExercises,
-      lastUpdated: Date.now(),
     };
 
     await saveActiveWorkout(updatedWorkout);
@@ -360,7 +356,6 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     const updatedWorkout: ActiveWorkout = {
       ...activeWorkout,
       exercises: updatedExercises,
-      lastUpdated: Date.now(),
     };
 
     await saveActiveWorkout(updatedWorkout);
@@ -393,7 +388,6 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     const updatedWorkout: ActiveWorkout = {
       ...activeWorkout,
       exercises: updatedExercises,
-      lastUpdated: Date.now(),
     };
 
     await saveActiveWorkout(updatedWorkout);
@@ -409,9 +403,8 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
    * moves it with its set. `setId` is read fresh from the store by the caller,
    * as for `updateSet`: it is an ordinal.
    *
-   * Neither `lastUpdated` nor `currentExerciseIndex` moves: a mark is not
-   * logged data (`lastUpdated` tracks sets), and it is set from the rest panel
-   * or the Today list of the exercise already on screen.
+   * `currentExerciseIndex` stays: a mark is set from the rest panel or the
+   * Today list of the exercise already on screen.
    */
   setSetEffort: async (exerciseId, setId, effort) => {
     const { activeWorkout } = get();
@@ -456,7 +449,6 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     const clamped = clampExerciseIndex(index, activeWorkout.exercises.length);
     if (clamped === activeWorkout.currentExerciseIndex) return;
 
-    // `lastUpdated` is left alone: it tracks logged data, and paging is not data.
     const updatedWorkout: ActiveWorkout = { ...activeWorkout, currentExerciseIndex: clamped };
 
     // Memory first so the screen moves on the tap, not after the disk write: the
@@ -524,7 +516,6 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     const updatedWorkout: ActiveWorkout = {
       ...activeWorkout,
       exercises: activeWorkout.exercises.map((ex, i) => (i === index ? swapped : ex)),
-      lastUpdated: Date.now(),
     };
 
     await saveActiveWorkout(updatedWorkout, rest?.exerciseId === exerciseId ? { rest: null } : {});
@@ -563,7 +554,6 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       ...activeWorkout,
       exercises,
       currentExerciseIndex: exercises.length - 1,
-      lastUpdated: Date.now(),
     };
 
     await saveActiveWorkout(updatedWorkout);
@@ -608,7 +598,6 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       ...activeWorkout,
       exercises,
       currentExerciseIndex: indexAfterRemoval(current, index, exercises.length),
-      lastUpdated: Date.now(),
     };
 
     await saveActiveWorkout(updatedWorkout, rest?.exerciseId === exerciseId ? { rest: null } : {});
@@ -640,7 +629,6 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       ...activeWorkout,
       exercises,
       currentExerciseIndex: index,
-      lastUpdated: Date.now(),
     };
 
     await saveActiveWorkout(updatedWorkout);

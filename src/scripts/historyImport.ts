@@ -150,7 +150,6 @@ export function buildImport(file: ImportFile): BuiltImport {
       id: plan.id,
       name: plan.name,
       startTime: start,
-      lastUpdated: start,
       exercises: entry.exercises.map(loggedExercise),
       currentExerciseIndex: null,
     };
