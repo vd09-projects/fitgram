@@ -47,7 +47,6 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 063 | Finish summary | Small-Med | Low. From 056's design review (2026-11-02): exercises and set counts before saving, as Finish's confirm. To decide: how 0-set exercises show, sheet or screen |
 | 068 | Drag to close: every sheet on a real phone | Small | Low. From 065's device run (2026-11-03): only `PlanCard` drags; decide drag on every sheet with a handle, or drop the handles |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
-| 077 | Summary integrity | Small | **Silent:** a failed summary update loses the phone's copy. Kept in the upload queue until it commits |
 | 071 | History page redesign | Medium-Large | Raised 2026-11-05 (user). Design on the Drafts canvas first; 070 is merged |
 
 ### Not tickets — verification owed
@@ -9154,8 +9153,7 @@ on the branch, one on main for the baseline; a third workout discarded. iOS not 
 
 ### TICKET-077: Summary Integrity
 
-**Priority:** Medium | **Effort:** Small | **Status: BUILT, PR open from branch
-`TICKET-077`, awaiting review** — raised 2026-11-08, from TICKET-072 (D5,
+**Priority:** Medium | **Effort:** Small | **Status: DONE** — merged in PR #56, 2026-11-09; Android emulator device runs (see below). Raised 2026-11-08, from TICKET-072 (D5,
 known gap); rewritten 2026-11-09 after the user questioned the original plan
 
 **Description:**
@@ -9393,7 +9391,7 @@ one before it.
 1. TICKET-074  (Config in one place)       — DONE (PR #51); the next three add their values in src/config/
 2. TICKET-075  (Recent workouts on phone)  — DONE (PR #52, #53); the sync core is src/utils/syncCore.ts + src/stores/syncRunner.ts
 3. TICKET-076  (Exercise summaries)        — DONE (PR #54, #55); on the sync core; no store has a timed full reload
-4. TICKET-077  (Summary integrity)         — Failed summary stays queued and retries
+4. TICKET-077  (Summary integrity)         — DONE (PR #56); a failed summary stays queued and retries
 5. TICKET-078  (Simplify the sync code)    — Analysis first, then small PRs; after 076
 ```
 
