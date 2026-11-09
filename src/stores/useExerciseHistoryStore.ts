@@ -117,7 +117,6 @@ export const useExerciseHistoryStore = create<ExerciseHistoryStoreState>((set, g
     waitMs: EXERCISE_SUMMARIES_CHECK_WAIT_MS,
     skipMs: EXERCISE_SUMMARIES_CHECK_SKIP_MS,
     readStored: readStoredCopy,
-    holdsData: (s) => s.byId !== null,
     writeStored: async ({ uid, byId, lastSeen, lastFullAt }) => {
       if (uid === null) {
         await AsyncStorage.multiRemove(storedSummariesKeys(EXERCISE_SUMMARIES_SHARDS));

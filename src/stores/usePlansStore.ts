@@ -209,7 +209,6 @@ export const usePlansStore = create<PlansStore>((set, get) => {
       const held = await readStoredCopy(uid);
       return held === null ? null : { ...held, source: "stored" };
     },
-    holdsData: (s) => s.plans !== null,
     writeStored: async ({ uid, plans, lastSeen, lastFullAt }) => {
       if (uid === null) {
         await AsyncStorage.removeItem(PLANS_STORAGE_KEY);

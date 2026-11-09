@@ -229,7 +229,6 @@ export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
     waitMs: WORKOUTS_CHECK_WAIT_MS,
     skipMs: WORKOUTS_CHECK_SKIP_MS,
     readStored: readStoredCopy,
-    holdsData: (s) => s.byPlan !== null,
     writeStored: async ({ uid, byPlan, loaded, lastSeen, lastFullAt }) => {
       if (uid === null) {
         await AsyncStorage.removeItem(WORKOUTS_STORAGE_KEY);

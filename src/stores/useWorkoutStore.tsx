@@ -691,12 +691,9 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     set((state) => ({
       activeWorkout: null,
       rest: null,
-      // Replace, not append, if this session is somehow queued already: one
-      // entry per session.
-      pendingUploads: [
-        ...state.pendingUploads.filter((e) => e.sessionId !== entry.sessionId),
-        entry,
-      ],
+      // One entry per session: an active workout is never one already queued
+      // (`loadWorkoutFromStorage` drops it).
+      pendingUploads: [...state.pendingUploads, entry],
     }));
 
     try {
@@ -864,8 +861,10 @@ const updateEntry = (sessionId: string, update: (e: PendingUpload) => PendingUpl
   }));
 
 /**
- * Read the queue from disk. Entries already in memory (a Finish that beat the
- * load) are kept after the stored ones.
+ * Read the queue from disk, replacing memory's (TICKET-078): this runs before
+ * a workout can be resumed, so nothing can be queued yet. Rejected: merging in
+ * entries already in memory, which needs a Start, a set and a Finish inside
+ * this one disk read.
  *
  * An unreadable queue is copied aside, not overwritten: the next write would
  * otherwise replace finished workouts with an empty list.
@@ -882,12 +881,7 @@ async function loadPendingUploads(): Promise<void> {
     await AsyncStorage.setItem(`${PENDING_UPLOADS_KEY}.corrupt.${Date.now()}`, raw);
     return;
   }
-  useWorkoutStore.setState((state) => ({
-    pendingUploads: [
-      ...stored,
-      ...state.pendingUploads.filter((e) => !stored.some((s) => s.sessionId === e.sessionId)),
-    ],
-  }));
+  useWorkoutStore.setState({ pendingUploads: stored });
 }
 
 /**

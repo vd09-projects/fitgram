@@ -9352,6 +9352,18 @@ removing them is already on TICKET-077.
 
 Stored shape unchanged. The other candidates are still hypotheses, not agreed.
 
+**Stage 2, agreed and built (user, 2026-11-09): load races that cannot happen.**
+
+| Code | Why added | Why it cannot happen | What removal loses | Touches |
+| --- | --- | --- | --- | --- |
+| Candidate 5, `holdsData` | A check might answer before the disk read, and the old stored copy would overwrite it (070 stage 1) | `open` awaited the stored read from the first version. Try again shows only after it, `followPlans` waits for `storedRead`, and `applySaved`, `applyFinished` and `reloadRefused` do nothing while nothing is held | A debug button tapped during the disk read: its answer is replaced by the stored copy until the next check | `syncRunner.ts`, the three sync stores |
+| New: catalog "sync finished first" | Same fear, for the catalog cache (042) | `sync` is the only other writer and its first step is awaiting `loadFromCache` | Nothing | `useCatalogStore.ts` |
+| New: "Finish that beat the load" | The queue load is async, so a Finish during it would be overwritten (028) | Finish needs an active workout, and resume sets one only after the queue loads | Start, a set and Finish inside one disk read would lose that entry from memory. Not reachable by hand | `useWorkoutStore.tsx` |
+| New: "replace if somehow queued" | One entry per session; the comment names no scenario (028) | The only route is a crash between the queue write and the slot clear, and `loadWorkoutFromStorage` drops that active copy | Nothing. Even a duplicate would join one upload (`savesInFlight`) and both entries leave together | `useWorkoutStore.tsx` |
+
+Stored shape unchanged. Kept for now: the identity check in `uploadPendingWorkout` and the
+resume prefetch's cancel, not looked at in this stage.
+
 **Looked at and kept in the review** (reopen only with new evidence): `epoch` (a late
 answer cannot refill the store after sign-out); the check join and the persist chain;
 `seq`, `newestApplied` and `restartStalled` (Try again and the sheet's Reload on a

@@ -11,7 +11,6 @@ import { renderScreen, RenderScreenOptions, TEST_USER_ID } from "../../test/rend
 import { buildWorkout } from "../../test/fixtures";
 import { CATALOG } from "../../catalog";
 import { getAllWorkoutPlans, getChangedPlans, getPlanFromServer, newVersionId, overrideWorkoutDetails } from "../../services/db/userDB";
-import { useCatalogStore } from "../../stores/useCatalogStore";
 import { usePlansStore } from "../../stores/usePlansStore";
 import { loadCatalog } from "../../utils/catalog";
 import { LayoutRoutes } from "../../constants/routes";
@@ -83,10 +82,9 @@ const pull = (): WorkoutPlan => ({ id: "pull", name: "Pull", exercises: [] });
 
 function renderManage(plans: WorkoutPlan[], options: RenderScreenOptions = {}) {
   (getAllWorkoutPlans as jest.Mock).mockResolvedValue(plans);
-  renderScreen(AddExerciseScreen, options);
   const load = loadCatalog(CATALOG);
   if (load.kind !== "ok") throw new Error("catalog");
-  act(() => useCatalogStore.setState({ catalog: { version: "v1", movements: load.movements, index: load.index }, cacheLoaded: true }));
+  renderScreen(AddExerciseScreen, { ...options, catalog: { version: "v1", movements: load.movements, index: load.index } });
 }
 
 async function openPlan(plans: WorkoutPlan[], name: string, options: RenderScreenOptions = {}) {

@@ -80,12 +80,9 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
         if (errors.length > 0) console.error("Catalog cache refused; will refetch:", errors);
         const words = readCachedSearchWords(await AsyncStorage.getItem(SEARCH_WORDS_CACHE_KEY));
         if (words.errors.length > 0) console.error("Search words cache refused; will refetch:", words.errors);
-        // A sync that finished first (network beat the disk) wins.
-        set((state) => ({
-          ...(state.catalog ? {} : { catalog, source: catalog ? "cache" : "none" }),
-          ...(state.searchWords ? {} : { searchWords: words.searchWords }),
-          cacheLoaded: true,
-        }));
+        // Replaces outright (TICKET-078): `sync` is the only other writer and
+        // awaits this first.
+        set({ catalog, source: catalog ? "cache" : "none", searchWords: words.searchWords, cacheLoaded: true });
       } catch (error) {
         console.error("Catalog cache unreadable:", error);
         set({ cacheLoaded: true });

@@ -72,8 +72,6 @@ export type SyncConfig<S extends SyncFields<Kind>, Kind extends string, Run exte
   skipMs: number;
   /** The stored copy for `uid` as state, or null for "nothing stored". Never rejects. */
   readStored: (uid: string) => Promise<Partial<S> | null>;
-  /** Does the store already hold data (a check answered before the disk did)? */
-  holdsData: (state: S) => boolean;
   /** Write the state as it is, or remove it when `uid` is null. May reject: logged. */
   writeStored: (state: S) => Promise<void>;
   /** The server read for a check. Rejects offline (D11). */
@@ -137,10 +135,11 @@ export function createSyncRunner<S extends SyncFields<Kind>, Kind extends string
   const loadStored = async (uid: string, epoch: number) => {
     const held = await config.readStored(uid);
     if (!isCurrent(epoch)) return;
-    // A check that answered first (network beat the disk) wins. `open` waits
-    // for this before it checks, so that is only a Try again tapped first,
-    // and Try again shows only after this has run.
-    set((s) => (!config.holdsData(s) && held !== null ? { ...held, storedRead: true } : { storedRead: true }) as Partial<S>);
+    // Nothing is held yet (TICKET-078): `open` waits for this before it checks,
+    // Try again shows only after it, and a Save or Finish is ignored while
+    // nothing is held. Rejected: letting an earlier answer win, which only a
+    // debug button tapped during this disk read could reach.
+    set({ ...held, storedRead: true } as Partial<S>);
   };
 
   const onAnswer = (run: Run, answer: Answer) => {
