@@ -110,10 +110,6 @@ export type SessionTotalVolume = {
 
 /**
  * One workout session.
- *
- * `rollupPending` is set when the session was written but its exercise_stats
- * update did not land (offline, or a failed transaction). The rebuild script
- * uses it to find work.
  */
 export type WorkoutSessionDoc = {
   sessionId: string;
@@ -122,7 +118,6 @@ export type WorkoutSessionDoc = {
   startedAt: number;
   endedAt: number;
   exerciseIds: string[];
-  rollupPending: boolean;
   /**
    * Always written. Optional only because dev sessions saved before TICKET-022
    * lack it; readers treat absence as unavailable, never as 0.

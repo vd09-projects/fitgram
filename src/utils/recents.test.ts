@@ -17,7 +17,6 @@ const session = (startedAt: number, exerciseIds: string[]): WorkoutSessionDoc =>
   startedAt,
   endedAt: startedAt + 3600_000,
   exerciseIds,
-  rollupPending: false,
 });
 
 /** A finished workout on this phone, not uploaded. `ids` with sets; `skipped` logged with none. */

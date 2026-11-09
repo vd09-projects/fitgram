@@ -23,7 +23,7 @@ const snapshot = (fromCache: boolean) => ({ metadata: { fromCache }, empty: true
 // TICKET-075: the workouts store's change check filters on `updatedAt`, so a
 // write of a `sessions` doc without it is invisible to every other phone.
 describe("the server stamp on sessions", () => {
-  it("both writes of a Finish carry updatedAt = serverTimestamp(): the batch and the summary merge", async () => {
+  it("a Finish stamps the session in the batch and only summaries in the transaction", async () => {
     const batchSet = jest.fn();
     (writeBatch as jest.Mock).mockReturnValue({ set: batchSet, commit: jest.fn().mockResolvedValue(undefined) });
     const txSet = jest.fn();
@@ -39,16 +39,15 @@ describe("the server stamp on sessions", () => {
     await saveWorkoutSession("u1", workout, 2_000);
 
     const sessionWrite = batchSet.mock.calls.find(([, data]) => data.exerciseIds !== undefined)![1];
-    const summaryMerge = txSet.mock.calls.find(([, data]) => data.rollupPending === false)![1];
     expect(serverTimestamp).toHaveBeenCalled();
     expect(sessionWrite.updatedAt).toBe("SERVER_STAMP");
-    expect(summaryMerge.updatedAt).toBe("SERVER_STAMP");
     // TICKET-076: the summary itself, or the change check never finds it.
-    const summaryWrite = txSet.mock.calls.find(([, data]) => data.exerciseId !== undefined)![1];
-    expect(summaryWrite.updatedAt).toBe("SERVER_STAMP");
+    expect(txSet).toHaveBeenCalledTimes(1);
+    expect(txSet.mock.calls[0][1].exerciseId).toBeDefined();
+    expect(txSet.mock.calls[0][1].updatedAt).toBe("SERVER_STAMP");
   });
 
-  it("a Finish returns what its transaction computed, unstamped; a failed one returns none (TICKET-076)", async () => {
+  it("a Finish returns what its transaction computed, unstamped (TICKET-076)", async () => {
     (writeBatch as jest.Mock).mockReturnValue({ set: jest.fn(), commit: jest.fn().mockResolvedValue(undefined) });
     const workout = buildWorkout([], {
       id: "plan-a",
@@ -64,12 +63,34 @@ describe("the server stamp on sessions", () => {
 
     const { summaries } = await saveWorkoutSession("u1", workout, 2_000);
     expect(summaries).toHaveLength(1);
-    expect(summaries?.[0].lastPerformedAt).toBe(1_000);
-    expect(summaries?.[0].updatedAt).toBeUndefined();
+    expect(summaries[0].lastPerformedAt).toBe(1_000);
+    expect(summaries[0].updatedAt).toBeUndefined();
+  });
 
-    (runTransaction as jest.Mock).mockRejectedValue(new Error("offline"));
-    jest.spyOn(console, "warn").mockImplementation(() => {});
-    expect((await saveWorkoutSession("u1", workout, 2_000)).summaries).toBeNull();
+  // TICKET-077: the queue retries both phases, so the transaction's failure must
+  // reach it, and a retry after a commit whose answer was lost must not count twice.
+  it("a failed transaction rejects after the batch; a retry folds the session once", async () => {
+    const commit = jest.fn().mockResolvedValue(undefined);
+    (writeBatch as jest.Mock).mockReturnValue({ set: jest.fn(), commit });
+    const workout = buildWorkout([], {
+      id: "plan-a",
+      startTime: 1_000,
+      exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: 60, Reps: 5 }] }] })],
+    });
+    (runTransaction as jest.Mock).mockRejectedValueOnce(new Error("contention"));
+    await expect(saveWorkoutSession("u1", workout, 2_000)).rejects.toThrow("contention");
+    expect(commit).toHaveBeenCalledTimes(1);
+
+    const held = new Map<string, object>();
+    (runTransaction as jest.Mock).mockImplementation(async (_db, fn) =>
+      fn({
+        get: async (id: string) => ({ exists: () => held.has(id), data: () => held.get(id) }),
+        set: (id: string, data: object) => held.set(id, data),
+      })
+    );
+    await saveWorkoutSession("u1", workout, 2_000);
+    const { summaries } = await saveWorkoutSession("u1", workout, 2_000);
+    expect(summaries[0].recentSessions).toHaveLength(1);
   });
 
   it("a read gives the stamp as plain numbers, nanoseconds kept, and none for a session written before 075", async () => {

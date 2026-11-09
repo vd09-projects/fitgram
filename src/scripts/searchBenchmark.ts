@@ -126,7 +126,6 @@ export function runSearchBenchmark(now: () => number): BenchmarkResult {
     startedAt: 20 - i,
     endedAt: 21 - i,
     exerciseIds: Array.from({ length: 6 }, (_, j) => versionIds[(i * 37 + j * 101) % versionIds.length]),
-    rollupPending: false,
   }));
   const catalogIndex = buildCatalogIndex(CATALOG);
   const recents = stats(Array.from({ length: 7 }, () => timeOf(now, () => buildRecentHistory(sessions, [], "u", catalogIndex, []))));

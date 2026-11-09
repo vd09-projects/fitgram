@@ -128,7 +128,7 @@ const run = async () => {
   }
   for (const { session, exerciseSessions } of built.sessions) {
     // Written settled: the rollup is rebuilt below, in this same run.
-    await queue((b) => b.set(user.collection(SESSIONS).doc(session.sessionId), { ...session, rollupPending: false, updatedAt: FieldValue.serverTimestamp() }));
+    await queue((b) => b.set(user.collection(SESSIONS).doc(session.sessionId), { ...session, updatedAt: FieldValue.serverTimestamp() }));
     for (const e of exerciseSessions) {
       await queue((b) => b.set(user.collection(EXERCISE_SESSIONS).doc(buildExerciseSessionId(e.sessionId, e.exerciseId)), e));
     }

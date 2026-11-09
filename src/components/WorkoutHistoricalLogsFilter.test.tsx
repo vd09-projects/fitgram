@@ -69,7 +69,6 @@ const workoutSession = (workoutId: string, startedAt: number, exerciseIds: strin
   startedAt,
   endedAt: startedAt + 1,
   exerciseIds,
-  rollupPending: false,
 });
 const benchDone = (workoutId: string, performedAt: number): ExerciseSessionDoc => ({
   exerciseId: bench.id,

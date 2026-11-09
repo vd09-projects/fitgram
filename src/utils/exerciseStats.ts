@@ -330,7 +330,6 @@ export function buildSessionDocs(
       startedAt: workout.startTime,
       endedAt,
       exerciseIds: exerciseSessions.map((e) => e.exerciseId),
-      rollupPending: true,
       volume: computeSessionTotalVolume(exerciseSessions),
     },
     exerciseSessions,

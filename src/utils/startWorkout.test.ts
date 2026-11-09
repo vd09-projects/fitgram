@@ -109,7 +109,6 @@ const session = (workoutId: string, startedAt: number, value: number | null = 10
   startedAt,
   endedAt: startedAt + 3600_000,
   exerciseIds: [],
-  rollupPending: false,
   volume: {
     totals: value === null ? [] : [{ unit: "kg", value }],
     unavailableReason: value === null ? "unparseable" : null,

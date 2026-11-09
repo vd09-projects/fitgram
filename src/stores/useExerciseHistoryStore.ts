@@ -20,11 +20,12 @@
 // go in unstamped, with no read; the next check brings the stamped copies back
 // (`withFinishedSummaries`).
 //
-// A failed Finish summary (`rollupPending` stays true, TICKET-077) writes no
-// doc and returns none, so the store keeps what it held: "last time", ghosts
-// and the PR banner show the previous session, with its own date, and an
-// exercise with no summary at all stays "First time" with no target and no
-// banner. An older true fact or an absence, never a wrong number (TICKET-076).
+// A Finish whose summary transaction fails writes no summary and stays in the
+// upload queue until a retry lands (TICKET-077). Until then the store keeps what
+// it held: "last time", ghosts and the PR banner show the previous session, with
+// its own date, and an exercise with no summary at all stays "First time" with no
+// target and no banner. An older true fact or an absence, never a wrong number
+// (TICKET-076).
 //
 // Sign-out clears it (`initAuth`), as the plans and the recent workouts.
 

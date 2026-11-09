@@ -17,7 +17,6 @@ const session = (id: string, startedAt: number, extra: Partial<WorkoutSessionDoc
   startedAt,
   endedAt: startedAt + 60,
   exerciseIds: [],
-  rollupPending: false,
   ...extra,
 });
 const ids = (sessions: WorkoutSessionDoc[]) => sessions.map((s) => s.sessionId);

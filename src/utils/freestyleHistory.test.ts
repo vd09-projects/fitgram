@@ -10,7 +10,6 @@ const session = (workoutId: string, startedAt: number, exerciseIds: string[]): W
   startedAt,
   endedAt: startedAt + 1,
   exerciseIds,
-  rollupPending: false,
 });
 
 describe("freestyleHistoryEntry", () => {

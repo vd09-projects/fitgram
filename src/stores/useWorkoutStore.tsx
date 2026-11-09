@@ -931,14 +931,7 @@ async function attemptUpload(entry: PendingUpload): Promise<boolean> {
     // between the two (`buildPlanRows` merges the queue).
     useRecentWorkoutsStore.getState().applyFinished(entry.uid, buildSessionDocs(entry.workout, entry.endedAt).session);
     // TICKET-076: "last time" updates at once, with no read.
-    if (summaries) {
-      useExerciseHistoryStore.getState().applyFinished(entry.uid, summaries);
-    } else {
-      // Session data is safe; only the derived exercise_stats rollup is
-      // behind. src/scripts/rebuildExerciseStats.ts repairs it. The store
-      // keeps what it held: nothing was written, so there is nothing to show.
-      console.warn("Workout saved, history rollup pending.");
-    }
+    useExerciseHistoryStore.getState().applyFinished(entry.uid, summaries);
     updateEntry(entry.sessionId, () => null);
     // If this write fails the entry comes back on restart and uploads again,
     // which is safe: same ids, and the rollup folds by replacement.
