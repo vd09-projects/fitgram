@@ -223,34 +223,6 @@ it("a check that started before a Save cannot undo it when it answers (D10)", as
   expect(store().lastSeen).toEqual(at(6));
 });
 
-it("stored writes land in order: a slow older write cannot land last", async () => {
-  reads.mockResolvedValue([plan("a")]);
-  await store().open("u1");
-  await tick();
-  const realSetItem = AsyncStorage.setItem.bind(AsyncStorage);
-  // The mock's setItem is already a jest.fn: `mockRestore` would strip its
-  // implementation, and every later test's writes would silently go nowhere.
-  const mockedSetItem = jest.mocked(AsyncStorage.setItem);
-  const realImplementation = mockedSetItem.getMockImplementation()!;
-  let release!: () => void;
-  const setItem = jest.spyOn(AsyncStorage, "setItem").mockImplementationOnce(async (key, value) => {
-    await new Promise<void>((resolve) => (release = resolve));
-    return realSetItem(key, value);
-  });
-  try {
-    const epoch = store().epoch;
-    store().applySaved("u1", epoch, plan("b"));
-    await tick(); // the first write has read [a, b] and is stuck
-    store().applySaved("u1", epoch, plan("c"));
-    await tick();
-    release();
-    await tick();
-    expect((await stored()).plans.map((p: WorkoutPlan) => p.id)).toEqual(["a", "b", "c"]);
-  } finally {
-    setItem.mockImplementation(realImplementation);
-  }
-});
-
 it("Try again on a check past its wait reads afresh; the stalled read, landing late, is dropped", async () => {
   const stalled = deferredRead();
   const opening = store().open("u1");

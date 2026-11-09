@@ -6,8 +6,8 @@
 // pure rules are `utils/syncCore.ts`.
 //
 // What it runs, the same for every store:
-// - the stored copy, read once per user (`open`), and written in a chain so an
-//   older write cannot land last (`persist`);
+// - the stored copy, read once per user (`open`), and written as it stands
+//   after each change (`persist`);
 // - one check at a time: a trigger while one runs joins it (070 D9), except a
 //   forced one past its wait, which starts afresh; the wait is bounded for the
 //   screen, not for the read (`waitOver`);
@@ -72,7 +72,11 @@ export type SyncConfig<S extends SyncFields<Kind>, Kind extends string, Run exte
   skipMs: number;
   /** The stored copy for `uid` as state, or null for "nothing stored". Never rejects. */
   readStored: (uid: string) => Promise<Partial<S> | null>;
-  /** Write the state as it is, or remove it when `uid` is null. May reject: logged. */
+  /**
+   * Write the state as it is, or remove it when `uid` is null. Issues its
+   * write before awaiting anything: `persist` relies on that order. May
+   * reject: logged.
+   */
   writeStored: (state: S) => Promise<void>;
   /** The server read for a check. Rejects offline (D11). */
   read: (run: Run) => Promise<Answer>;
@@ -98,12 +102,6 @@ export function createSyncRunner<S extends SyncFields<Kind>, Kind extends string
   /** The stored copy being read for the current user. */
   let storedLoad: Promise<void> | null = null;
   /**
-   * AsyncStorage writes run one after another, each writing the state as it
-   * is when its turn comes. So an older write cannot land last: the last
-   * write in the chain always holds the latest state.
-   */
-  let persistChain: Promise<void> = Promise.resolve();
-  /**
    * Checks started, and the newest one whose answer was applied. A forced
    * check can start while a stalled one still runs (`check`); if the stalled
    * one answers last, its data is older and is dropped. Kept beside each
@@ -125,11 +123,14 @@ export function createSyncRunner<S extends SyncFields<Kind>, Kind extends string
   /** Is work started under `epoch` still for the signed-in user (D2)? */
   const isCurrent = (epoch: number) => get().epoch === epoch;
 
-  /** Queue a write of the state as it is when the write's turn comes. */
+  /**
+   * Write the state as it is now. AsyncStorage's native side runs writes one
+   * at a time in the order they are issued, so the last one issued, the latest
+   * state, lands last. Rejected (TICKET-078): a promise chain in front of it,
+   * which repeated that guarantee.
+   */
   const persist = () => {
-    persistChain = persistChain
-      .then(() => config.writeStored(get()))
-      .catch((error) => console.warn(`Could not store ${config.label}:`, error));
+    config.writeStored(get()).catch((error) => console.warn(`Could not store ${config.label}:`, error));
   };
 
   const loadStored = async (uid: string, epoch: number) => {
