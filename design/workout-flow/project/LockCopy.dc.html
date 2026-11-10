@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lock-screen copy table and decisions</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body { margin: 0; }
+.k { font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 11.5px; color: #8CC6D2; }
+.row { display: grid; grid-template-columns: 250px 1fr 64px; gap: 14px; padding: 9px 0; border-top: 1px solid #22272A; align-items: baseline; font-size: 13px; line-height: 1.45 }
+.h { font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593; padding-bottom: 6px }
+</style>
+</helmet>
+<div style="width: 860px; height: 1020px; box-sizing: border-box; padding: 32px 40px; background: #121414; color: #E8EDEC; font-family: 'Archivo', system-ui, sans-serif; display: flex; flex-direction: column; gap: 22px">
+
+  <h1 style="margin: 0; font-size: 22px; font-weight: 700">Copy table</h1>
+
+  <section>
+    <div class="row h" style="border-top: none"><span>Constant</span><span>Text</span><span>Max</span></div>
+    <div class="row"><span class="k">REST_NOTIF_CHANNEL_NAME</span><span>Rest timer</span><span>40</span></div>
+    <div class="row"><span class="k">REST_NOTIF_SUBTEXT</span><span>Workout</span><span>16</span></div>
+    <div class="row"><span class="k">REST_NOTIF_TITLE</span><span>Catch your breath</span><span>20</span></div>
+    <div class="row"><span class="k">REST_NOTIF_TITLE_DONE</span><span>Go time</span><span>20</span></div>
+    <div class="row"><span class="k">REST_NOTIF_TEXT</span><span>Next: {exercise} · set {n}. Exercise cut with … before it wraps; one line only.</span><span>40</span></div>
+    <div class="row"><span class="k">REST_NOTIF_TEXT_DONE</span><span>{exercise} · set {n} is up. The exercise is cut, never the set.</span><span>40</span></div>
+    <div class="row"><span class="k">PERM_PROMPT_TITLE</span><span>Rest time on your lock screen</span><span>34</span></div>
+    <div class="row"><span class="k">PERM_PROMPT_BODY</span><span>See how much rest is left without unlocking your phone. Android will ask you to allow notifications.</span><span>120</span></div>
+    <div class="row"><span class="k">PERM_PROMPT_ALLOW</span><span>Turn on</span><span>12</span></div>
+    <div class="row"><span class="k">PERM_PROMPT_SKIP</span><span>Not now</span><span>12</span></div>
+    <div class="row"><span class="k">SETTINGS_ROW_TITLE</span><span>Rest time on lock screen</span><span>30</span></div>
+    <div class="row"><span class="k">SETTINGS_ROW_ON</span><span>Shows on your lock screen while you rest</span><span>44</span></div>
+    <div class="row"><span class="k">SETTINGS_ROW_OFF</span><span>Off</span><span>12</span></div>
+    <div class="row"><span class="k">SETTINGS_ROW_BLOCKED</span><span>Blocked in Android settings</span><span>32</span></div>
+    <div class="row"><span class="k">SETTINGS_ACTION_TURN_ON</span><span>Turn on</span><span>12</span></div>
+    <div class="row"><span class="k">SETTINGS_ACTION_OPEN</span><span>Open settings</span><span>16</span></div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 8px">
+    <h2 style="margin: 0 0 2px; font-size: 16px; font-weight: 700">Decisions, with what was rejected</h2>
+    <div style="font-size: 13px; line-height: 1.5; color: #C9D0D2"><b style="color: #E8EDEC">Big ticking time in a custom card, not Android's small header time.</b> It is the only look where the time reads at a glance. Fallback: the standard card with the time in the header. Rejected: a Live Update (status-bar chip), because a custom card cannot be promoted, and it did not run on this emulator image.</div>
+    <div style="font-size: 13px; line-height: 1.5; color: #C9D0D2"><b style="color: #E8EDEC">Exercise name shown on the lock screen.</b> It helps between supersets and the notification is public. Rejected: a generic "Next set". One string to change if you disagree.</div>
+    <div style="font-size: 13px; line-height: 1.5; color: #C9D0D2"><b style="color: #E8EDEC">No buttons.</b> Skip and +30s need a native receiver that acts while the app is closed. TICKET-079's effort stays Medium. A tap opens the app on the active exercise.</div>
+    <div style="font-size: 13px; line-height: 1.5; color: #C9D0D2"><b style="color: #E8EDEC">0:00.</b> Re-post once: "Go time", static 00:00, not ongoing, so it can be swiped away.</div>
+    <div style="font-size: 13px; line-height: 1.5; color: #C9D0D2"><b style="color: #E8EDEC">Permission.</b> Sheet once, at the first rest. "Not now" is final. The way back is a settings row. No off switch: declining is the off.</div>
+    <div style="font-size: 13px; line-height: 1.5; color: #C9D0D2"><b style="color: #E8EDEC">Time colour.</b> Teal while resting. At 0:00: the secondary grey on Android's light card, white on its dark card. The teal is deeper than the in-app accent so it passes contrast on the light card. One colour pair, day and night: Android picked the night value without a re-post on the emulator. A real phone is untested.</div>
+    <div style="font-size: 13px; line-height: 1.5; color: #C9D0D2"><b style="color: #E8EDEC">Small things.</b> Pulse-bar barbell glyph, one colour (the logo's two ideas, bar and heartbeat; the full-colour logo cannot be a notification icon). The circle is the app accent. Colours come from resources, not hexes in the native code.</div>
+  </section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":860,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

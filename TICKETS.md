@@ -9430,7 +9430,7 @@ lines removed, and a device run for any stage that changes a read or write path.
 **Priority:** Low (nice to have, not core) | **Effort:** Medium | **Status: OPEN** — raised
 2026-11-10 (user); researched and spiked on an emulator the same day (Stage 0 result below).
 Next: the two settle-first items, then the build. Split the same day: what the user sees and
-reads is TICKET-080
+reads is TICKET-080, which is now designed (2026-11-10; "Design decided" below)
 
 **Description:**
 While the rest timer runs and the phone is locked, the lock screen shows how much rest
@@ -9488,6 +9488,40 @@ sees every start, extend and end.
   this alone: it kept going to `-00:24`. So something must act at the end time. See
   "Settle first, 2".
 
+**Design decided in TICKET-080 (user, 2026-11-10).** Boards: main canvas, rows "Lock 1" to
+"Lock 5", mirrored in `design/workout-flow/project/Lock*.dc.html`. The strings are in
+TICKET-080's copy table; they live in one config file here.
+- **Layout: a custom content view with a big ticking time.** `DecoratedCustomViewStyle` with a
+  `Chronometer` on the right and a title plus one line on the left, not the standard card, whose
+  ticking time is small and sits in the header. Consequence: a custom view can never be a Live
+  Update (status-bar chip). That option is rejected here; it also never ran, because the
+  emulator image (Android 16.0, built Feb 2025) did not promote it (`canPostPromotedNotifications`
+  false, no promoted flag). A real Android 16 QPR1+ phone could still prove it, and it would
+  replace this layout, not add to it.
+- **Icon: a pulse-bar barbell vector** (`ic_rest_pulse`), one colour. The full-colour logo cannot
+  be a notification icon: Android keeps only the shape. The circle is the app accent, from a
+  resource, not a hex in the Kotlin.
+- **Colours: teal while resting; at 0:00 soft grey on the light card and white on the dark card.**
+  One colour pair, `values/` and `values-night/`, referenced from the layouts so Android resolves
+  it when it draws. The teal is deeper than the in-app accent because the accent fails contrast
+  on the light card (computed by hand, 2.2:1).
+- **No buttons.** Each needs a receiver that acts while the app is closed. A tap opens the app.
+  This ticket's effort stays Medium: the design adds two layout files, one colour pair, one
+  vector, and in TSX the permission sheet and a settings row. It adds no receiver.
+- **0:00 is a second layout** (`rest_notification_done`): static `00:00`, not ongoing, so it can
+  be swiped away. Settle-first 2 still decides what fires it.
+- **Permission:** a sheet once, at the first rest ("Not now" is final), then Android's own
+  dialog. A settings row shows On, Off or Blocked; Android will not show its dialog again after
+  two refusals, so Blocked links to the system settings page. No off switch, no banner.
+- **Seen on the emulator** (Pixel 9 Pro XL, Android 16.0, debug build, light and dark themes,
+  shade): the text, colours and icon render as designed. With the 0:00 card already posted, a
+  switch to dark re-rendered it white with no re-post, so the night colour resolves at draw time.
+  **Not run:** a real phone; the lock screen with this exact design (the earlier shape showed
+  there under the default setting); add-time; what fires the 0:00 swap; the status-bar icon is
+  recognisable but its plates are faint.
+- **Reference code:** `design-probe/` inside the spike folder holds the module as designed
+  (layouts, colour pair, vector, two states) and the emulator screenshots. Start the build from it.
+
 **Stage 0, the spike. Done 2026-11-10; the result is below.** It ran in a throwaway
 worktree, not the working tree. Its open questions, in order of when they bit:
 1. **Native folders.** `android/` is tracked and hand-edited: `AndroidManifest.xml`
@@ -9535,8 +9569,8 @@ with Start, +30s and Clear, run on a Pixel 9 Pro XL emulator, API 36, a debug bu
    turned off, which should show under the default. A channel's importance cannot be raised once created, so it needs a
    new channel id. Whether a real phone's default differs from this emulator image is unknown.
 2. **Staying at 0:00.** The goal (decided above): at the end time, replace the
-   notification with the same id, chronometer off, text like "Rest done", so it reads
-   0:00 and no longer counts. Re-posting with `setOnlyAlertOnce(true)`, as the spike does,
+   notification with the same id, chronometer off, with the "done" layout (TICKET-080: "Go
+   time", static 00:00), so it reads 0:00 and no longer counts. Re-posting with `setOnlyAlertOnce(true)`, as the spike does,
    should not alert again. Also at that moment make it not `ongoing`, so a user who never
    opens the app can swipe it away. Mechanisms, cheapest first, none tested:
    - **A. A timer in the Kotlin module** (`Handler.postDelayed`) plus the in-app path:
@@ -9571,13 +9605,16 @@ unless a PIN is set; `adb shell locksettings set-pin 1234` gives it a lock scree
   "not posted". The reference `index.ts` already does this with `requireOptionalNativeModule`.
 - The module returns false and logs, instead of throwing, when there is no React context or no
   launch intent; the caller catches a native error. The spike code does neither.
-- The end-of-rest re-post to a "Rest done", 0:00, not-ongoing notification (settle-first 2).
+- The end-of-rest re-post to the "done" layout: "Go time", static 00:00, not ongoing
+  (settle-first 2).
+- The custom layouts, the colour pair and the icon vector from `design-probe/`, and the
+  permission sheet and settings row from TICKET-080's boards.
 - The channel decided by settle-first 1, under a new channel id if the importance changes.
 
 **Out of scope:** iOS; any sound or buzz at 0:00; workout-in-progress indicators
 (TICKET-011); what the notification and the permission prompt say (TICKET-080); notification
-buttons (Skip rest, +30s) unless 080 adds them, which would add a receiver that must act while
-the app is closed and raise this ticket's effort. **To decide in the build:** a rest still showing after the app was killed:
+buttons (Skip rest, +30s): 080 decided none, because each needs a receiver that must act while
+the app is closed. **To decide in the build:** a rest still showing after the app was killed:
 clear it on the next launch, or let it stand until the user swipes it.
 
 **Acceptance Criteria:**
@@ -9589,6 +9626,12 @@ clear it on the next launch, or let it stand until the user swipes it.
       never opens the app can swipe it away. Checked on a real phone with the screen locked
       for the whole rest
 - [ ] Shows on the lock screen under the device's default lock-screen setting (settle-first 1)
+- [ ] Strings, icon and colours match TICKET-080's boards, read from one config file and one
+      colour-resource pair
+- [ ] Checked in the light and dark system themes on a real phone, lock screen included (the
+      emulator check covered the shade only)
+- [ ] The permission sheet appears once, at the first rest; the settings row shows On, Off and
+      Blocked (drawn on the main canvas, "Lock 3" and "Lock 4")
 - [ ] Permission denied: no notification, in-app timer unchanged, no repeat prompt
 - [ ] End-time function tested, including a non-finite input and an already-finished rest
 - [ ] `docs/spikes/ticket-079-android-rest-notification/` is deleted (the build replaces it)
@@ -9606,18 +9649,20 @@ plumbing, not maths); 3.3 (the lock screen is observable on a phone).
 **Reference code:** `docs/spikes/ticket-079-android-rest-notification/` (module, test panel,
 the one-line `App.tsx` patch, README to re-run). Temporary: the build starts from the module
 and does not ship the panel. Deleting the folder is an acceptance criterion above.
+`design-probe/` in it is the module as TICKET-080 settled it (layouts, colour pair, pulse
+vector, two states) plus the emulator screenshots; the build starts from that copy.
 
-**Dependencies:** TICKET-080 supplies the strings, the permission wording and whether the
-notification has buttons. The two settle-first tests and the module hardening do not wait for
-it; the final strings and any buttons do. Reads best after the core Android features, per the
-user.
+**Dependencies:** TICKET-080 is decided: the strings, the permission wording and no buttons.
+The two settle-first tests and the module hardening never waited for it. Reads best after the
+core Android features, per the user.
 
 ---
 
 ### TICKET-080: Lock-Screen Rest Timer — Design
 
-**Priority:** Low (nice to have, not core) | **Effort:** Small-Medium | **Status: OPEN** —
-raised 2026-11-10 (user), split from TICKET-079
+**Priority:** Low (nice to have, not core) | **Effort:** Small-Medium | **Status: DESIGN
+DECIDED (2026-11-10)** — raised 2026-11-10 (user), split from TICKET-079. Boards are on the main
+canvas ("Lock 1" to "Lock 5"); what is left is listed under "Decisions"
 
 **Description:**
 Decide what the user sees and reads around the lock-screen rest timer, before TICKET-079's
@@ -9659,11 +9704,65 @@ later pass, not this ticket.)
 - The decisions recorded under this ticket, with what was rejected and why.
 
 **Acceptance Criteria:**
-- [ ] Options shown on the Drafts canvas for knobs 1 to 4, and a pick for each, recorded here
-- [ ] Copy table written, with a length limit per string
-- [ ] The buttons decision made, with its effect on TICKET-079's effort written in both tickets
-- [ ] The denied state and the way back are drawn, not described
-- [ ] Knobs 5 and 6 decided and recorded
+- [x] Options shown for knobs 1 to 4, and a pick for each, recorded here (on a separate canvas,
+      "Lock-Screen Rest Timer", at the user's request, not the Drafts canvas)
+- [x] Copy table written, with a length limit per string
+- [x] The buttons decision made, with its effect on TICKET-079's effort written in both tickets
+- [x] The denied state and the way back are drawn, not described
+- [x] Knobs 5 and 6 decided and recorded
+- [ ] Where the settings row goes on the real settings screen (drawn standalone for now)
+
+**Decisions (user, 2026-11-10).** Each was picked from options shown on the canvas; what was
+rejected is beside it.
+1. **Rest text: "Warmer".** "Catch your breath" / "Next: {exercise} · set {n}"; the exercise name
+   is shown on the lock screen. Rejected: the other six options (Current, Exercise first, With the
+   target, Private, Minimal, Plain nudge). The generic "Next set" line was rejected so the
+   notification helps between supersets; changing it is one string.
+2. **0:00 text:** "Go time" / "{exercise} · set {n} is up". A tap opens the app on the active
+   exercise. The exercise is cut with an ellipsis, never the set.
+3. **Buttons: none.** Skip rest and +30s each need a native receiver that acts while the app is
+   closed. **Effect on TICKET-079's effort: none, it stays Medium** (written there too).
+4. **Permission:** a sheet once at the first rest, "Not now" final, then Android's dialog. The way
+   back is a settings row (On, Off, Blocked); Blocked opens the system settings page because
+   Android will not ask again after two refusals. No banner on the rest screen.
+5. **No off switch.** Declining the permission is the off.
+6. **Small things:** a pulse-bar barbell icon (one colour); the circle is the app accent; time
+   teal while resting, soft grey (light card) or white (dark card) at 0:00; channel name "Rest
+   timer". Rejected: the stopwatch icon, the full-colour logo (Android keeps only the shape),
+   black resting time, a Live Update chip (a custom card cannot be promoted).
+
+**Copy table.** One config file holds these; no value is repeated in a comment or a test title.
+Limits are in characters; Android cuts a line near 25 characters on a phone-width card (one
+emulator estimate), so the exercise is cut before the set.
+
+| Constant | Text | Max |
+| --- | --- | --- |
+| `REST_NOTIF_CHANNEL_NAME` | Rest timer | 40 |
+| `REST_NOTIF_SUBTEXT` | Workout | 16 |
+| `REST_NOTIF_TITLE` | Catch your breath | 20 |
+| `REST_NOTIF_TITLE_DONE` | Go time | 20 |
+| `REST_NOTIF_TEXT` | Next: {exercise} · set {n} | 40 |
+| `REST_NOTIF_TEXT_DONE` | {exercise} · set {n} is up | 40 |
+| `PERM_PROMPT_TITLE` | Rest time on your lock screen | 34 |
+| `PERM_PROMPT_BODY` | See how much rest is left without unlocking your phone. Android will ask you to allow notifications. | 120 |
+| `PERM_PROMPT_ALLOW` | Turn on | 12 |
+| `PERM_PROMPT_SKIP` | Not now | 12 |
+| `SETTINGS_ROW_TITLE` | Rest time on lock screen | 30 |
+| `SETTINGS_ROW_ON` | Shows on your lock screen while you rest | 44 |
+| `SETTINGS_ROW_OFF` | Off | 12 |
+| `SETTINGS_ROW_BLOCKED` | Blocked in Android settings | 32 |
+| `SETTINGS_ACTION_TURN_ON` | Turn on | 12 |
+| `SETTINGS_ACTION_OPEN` | Open settings | 16 |
+
+**Verified and not.** Run on an emulator (Pixel 9 Pro XL, Android 16.0, debug build): the text,
+the icon, and the colours in the light and dark themes, resting and 0:00, in the shade; the dark
+colours switched with no re-post. **Not run:** a real phone, the lock screen with this exact
+design, add-time, the automatic swap to 0:00, a Live Update (needs an Android 16 QPR1+ image),
+the status-bar icon on a real device (plates faint on the emulator). Contrast figures are
+computed by hand, not measured on a device.
+
+**Left open:** where the settings row goes on the real settings screen; whether the longest
+exercise names still read after the cut (check on a phone).
 
 **Out of scope:** the logic and native code (TICKET-079); iOS Live Activity layout; any sound.
 
@@ -9746,7 +9845,7 @@ Decisions before code
 
 Nice to have
   TICKET-079  (Rest on Android lock screen, logic) — Spike done; two settle-first tests, then build
-  TICKET-080  (Lock-screen rest timer, design) — Drafts canvas first; feeds 079's strings
+  TICKET-080  (Lock-screen rest timer, design) — Decided; boards on the main canvas; 079 reads its strings
                                                  iOS after the core Android work
 
 Tech debt

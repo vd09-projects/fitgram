@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lock-screen timer: the way back</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body { margin: 0; }
+button { font: inherit; color: inherit; background: none; border: none; padding: 0; cursor: pointer; }
+</style>
+</helmet>
+<div style="width: 390px; height: 620px; box-sizing: border-box; padding: 24px 14px; background: #121414; color: #E8EDEC; font-family: 'Archivo', system-ui, sans-serif; display: flex; flex-direction: column; gap: 14px">
+
+  <div style="padding: 0 2px; display: flex; flex-direction: column; gap: 4px">
+    <h1 style="margin: 0; font-size: 20px; font-weight: 700">Rest time on lock screen</h1>
+    <div style="font-size: 12.5px; line-height: 1.5; color: #8A9593">One row in the existing settings screen. Its three states, top to bottom. The in-app rest timer works the same in all of them.</div>
+  </div>
+
+  <section style="background: #1A1D1F; border: 1px solid #2A2F31; border-radius: 16px; overflow: hidden">
+
+    <div style="padding: 14px; display: flex; align-items: center; gap: 12px">
+      <span style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; background: #1E3A41; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="{{accent}}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+      <div style="flex-grow: 1; min-width: 0">
+        <div style="font-size: 14.5px; font-weight: 600">Rest time on lock screen</div>
+        <div style="margin-top: 2px; font-size: 12.5px; color: #8A9593">Shows on your lock screen while you rest</div>
+      </div>
+      <div style="font-size: 12px; font-weight: 600; color: {{accent}}">On</div>
+    </div>
+
+    <div style="border-top: 1px solid #22272A; padding: 14px; display: flex; align-items: center; gap: 12px">
+      <span style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; background: #22272A; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A9593" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5v7 M7 6.5v11 M17 6.5v11 M20.5 8.5v7 M7 12h3l1.4-3.4 2.2 6.8 1.4-3.4H17"></path></svg></span>
+      <div style="flex-grow: 1; min-width: 0">
+        <div style="font-size: 14.5px; font-weight: 600">Rest time on lock screen</div>
+        <div style="margin-top: 2px; font-size: 12.5px; color: #8A9593">Off</div>
+      </div>
+      <button type="button" style="height: 40px; padding: 0 16px; border-radius: 12px; background: {{accent}}; color: #121414; font-size: 13.5px; font-weight: 700">Turn on</button>
+    </div>
+
+    <div style="border-top: 1px solid #22272A; padding: 14px; display: flex; align-items: center; gap: 12px">
+      <span style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; background: #22272A; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A9593" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5v7 M7 6.5v11 M17 6.5v11 M20.5 8.5v7 M7 12h3l1.4-3.4 2.2 6.8 1.4-3.4H17"></path></svg></span>
+      <div style="flex-grow: 1; min-width: 0">
+        <div style="font-size: 14.5px; font-weight: 600">Rest time on lock screen</div>
+        <div style="margin-top: 2px; font-size: 12.5px; color: #8A9593">Blocked in Android settings</div>
+      </div>
+      <button type="button" style="height: 40px; padding: 0 16px; border-radius: 12px; border: 1px solid #3A4245; color: #E8EDEC; font-size: 13.5px; font-weight: 600">Open settings</button>
+    </div>
+
+  </section>
+
+  <div style="display: flex; flex-direction: column; gap: 8px; padding: 0 2px; font-size: 12.5px; line-height: 1.5; color: #A9B3B1">
+    <div><b style="color: #E8EDEC">Off:</b> never asked, or "Not now". Turn on shows the same sheet as the previous board, then Android's own dialog.</div>
+    <div><b style="color: #E8EDEC">Blocked:</b> Android will not show its dialog again after two refusals, so the only way back is its settings page.</div>
+    <div><b style="color: #E8EDEC">No nagging:</b> the sheet appears once, at the first rest. No banner on the rest screen.</div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5FA8B8"},"$preview":{"width":390,"height":620}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#5FA8B8' };
+  }
+}
+</script>
+</body>
+</html>

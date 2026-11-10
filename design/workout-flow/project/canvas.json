@@ -838,6 +838,43 @@
       "w": 390,
       "x": 2350,
       "y": 37140
+    },
+    "LockNotif.dc.html": {
+      "h": 790,
+      "title": "Lock 1 · The notification, as built: light and dark, lock screen and shade",
+      "w": 900,
+      "x": 0,
+      "y": 38600
+    },
+    "LockReal.dc.html": {
+      "h": 640,
+      "title": "Lock 2 · What Android drew on the emulator",
+      "w": 960,
+      "x": 980,
+      "y": 38600
+    },
+    "LockPrompt.dc.html": {
+      "h": 844,
+      "radius": 28,
+      "title": "Lock 3 · Before the system dialog, once at the first rest",
+      "w": 390,
+      "x": 0,
+      "y": 39510
+    },
+    "LockWay.dc.html": {
+      "h": 620,
+      "radius": 28,
+      "title": "Lock 4 · The way back: On, Off, Blocked",
+      "w": 390,
+      "x": 470,
+      "y": 39510
+    },
+    "LockCopy.dc.html": {
+      "h": 1020,
+      "title": "Lock 5 · Copy table and decisions",
+      "w": 860,
+      "x": 940,
+      "y": 39510
     }
   },
   "createdOnFiles": {
@@ -1133,7 +1170,9 @@
     "hubrules": {"fill": "orange", "text": "FINAL (user, 2026-11-02). Designed on the 'Fitgram Workout Hub' canvas.\n\nTILES (max 6): plans in your last 20 workouts, longest since done first; fewer than 6 \u2192 filled with other plans in plan order. Big number: 9d / today / new (never done) / dash while loading, never 0.\nAll plans: today's Start list (search, Show archived), always linked.\nFreestyle: no plan created, saved as Freestyle, one entry in History. Tap starts it at once (no card).\n\nCARD: pop-up over the same page, no swipe. Max 75% height, list scrolls, Start pinned, header shrinks on scroll. Close: tap outside, X, drag down from the header, Android back.\nLast time per exercise: '3 sets \u00b7 top 40 kg \u00d7 8' (heaviest; tie \u2192 more reps), 'best 12 reps', 'best 45 s', 'new', or just '3 sets' if unreadable.\n\nLOGGER: unchanged (Main board), with two exceptions: after Finish/Discard go to the hub, not 'No active workout'; and an empty workout shows Add your first exercise with an Add exercise button (Busy 6, user 2026-11-04). In a Freestyle, Add exercise says nothing about a plan (Busy 7).", "w": 380, "x": 4230, "y": 34340},
     "hubtitle": {"kind": "title1", "maxW": 4150, "text": "Workout hub: pick today's workout", "x": 0, "y": 34000},
     "removeex": {"kind": "title1", "maxW": 2740, "text": "TICKET-069 \u2014 remove an exercise, this workout only", "x": 0, "y": 36800},
-    "removeexwhy": {"fill": "orange", "text": "DECIDED (user, 2026-11-05).\n\nExercise \u22ef \u2192 Remove from today, in its own group under Split and Swap. Not red: danger is Discard's only, and nothing is lost.\n\nOnly at 0 sets, with Swap's reason (2). Logged sets are work done.\n\nThe next exercise takes its place; the last one lands on the new last; the only one leaves Freestyle's empty screen.\n\nUndo: one bar under the header, untimed, until the next log, page, removal or Finish. \u2296, bold white name, grey \"removed\".\n\nRejected: Undo above Finish (stray tap), a timed toast, a confirm with sets.\n\nExplorations: Drafts canvas, row TICKET-069.", "w": 320, "x": 2820, "y": 37140}
+    "removeexwhy": {"fill": "orange", "text": "DECIDED (user, 2026-11-05).\n\nExercise \u22ef \u2192 Remove from today, in its own group under Split and Swap. Not red: danger is Discard's only, and nothing is lost.\n\nOnly at 0 sets, with Swap's reason (2). Logged sets are work done.\n\nThe next exercise takes its place; the last one lands on the new last; the only one leaves Freestyle's empty screen.\n\nUndo: one bar under the header, untimed, until the next log, page, removal or Finish. \u2296, bold white name, grey \"removed\".\n\nRejected: Undo above Finish (stray tap), a timed toast, a confirm with sets.\n\nExplorations: Drafts canvas, row TICKET-069.", "w": 320, "x": 2820, "y": 37140},
+    "lockex": {"kind": "title1", "maxW": 2340, "text": "TICKET-080 — rest timer on the Android lock screen", "x": 0, "y": 38300},
+    "lockexwhy": {"fill": "orange", "text": "DECIDED (user, 2026-11-10).\n\nA custom card with the time as the big ticking number, not Android's small header time. Pulse-bar barbell icon (the logo's two ideas in one colour). Text: Catch your breath / Go time. Time teal while resting; at 0:00 soft grey (light card) or white (dark card).\n\nNo buttons: each needs a native receiver that acts while the app is closed. The permission sheet appears once, at the first rest; the way back is a settings row.\n\nRejected: a Live Update status-bar chip (a custom card cannot be promoted; it also did not run on the emulator image), the stopwatch icon, the full-colour logo (Android keeps only the shape of the icon), black resting time.\n\nUnproven: a real phone, the lock screen with this exact design, the automatic swap to 0:00.\n\nExplorations: the Lock-Screen Rest Timer canvas, https://claude.ai/artifact/1CbFHZUdAm8H1FysYLxV9A.", "w": 320, "x": 2020, "y": 38600}
   },
   "order": [
     "Main.dc.html",
@@ -1259,7 +1298,12 @@
     "RemoveLanded.dc.html",
     "RemoveSecond.dc.html",
     "RemoveAddedLast.dc.html",
-    "RemoveEmpty.dc.html"
+    "RemoveEmpty.dc.html",
+    "LockNotif.dc.html",
+    "LockReal.dc.html",
+    "LockPrompt.dc.html",
+    "LockWay.dc.html",
+    "LockCopy.dc.html"
   ],
   "pages": [],
   "title": "Fitgram Workout Flow Redesign"
