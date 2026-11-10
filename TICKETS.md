@@ -9631,7 +9631,8 @@ clear it on the next launch, or let it stand until the user swipes it.
 - [ ] Checked in the light and dark system themes on a real phone, lock screen included (the
       emulator check covered the shade only)
 - [ ] The permission sheet appears once, at the first rest; the settings row shows On, Off and
-      Blocked (drawn on the main canvas, "Lock 3" and "Lock 4")
+      Blocked (drawn on the main canvas, "Lock 3" and "Lock 4"), placed on the real settings
+      screen (carried over from TICKET-080, which drew it standalone)
 - [ ] Permission denied: no notification, in-app timer unchanged, no repeat prompt
 - [ ] End-time function tested, including a non-finite input and an already-finished rest
 - [ ] `docs/spikes/ticket-079-android-rest-notification/` is deleted (the build replaces it)
@@ -9660,9 +9661,11 @@ core Android features, per the user.
 
 ### TICKET-080: Lock-Screen Rest Timer — Design
 
-**Priority:** Low (nice to have, not core) | **Effort:** Small-Medium | **Status: DESIGN
-DECIDED (2026-11-10)** — raised 2026-11-10 (user), split from TICKET-079. Boards are on the main
-canvas ("Lock 1" to "Lock 5"); what is left is listed under "Decisions"
+**Priority:** Low (nice to have, not core) | **Effort:** Small-Medium | **Status: DONE** —
+merged in PR #62 (2026-11-10); marked done by the user the same day. Raised 2026-11-10 (user),
+split from TICKET-079. Boards are on the main canvas ("Lock 1" to "Lock 5"). Carried over, not
+done here: where the settings row goes on the real settings screen (see "Left open"), which
+TICKET-079's build settles
 
 **Description:**
 Decide what the user sees and reads around the lock-screen rest timer, before TICKET-079's
@@ -9845,7 +9848,6 @@ Decisions before code
 
 Nice to have
   TICKET-079  (Rest on Android lock screen, logic) — Spike done; two settle-first tests, then build
-  TICKET-080  (Lock-screen rest timer, design) — Decided; boards on the main canvas; 079 reads its strings
                                                  iOS after the core Android work
 
 Tech debt
