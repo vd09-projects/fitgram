@@ -18,6 +18,9 @@ eas.json
 *.key
 *.mobileprovision
 
+# Local native modules: Gradle build output (android/ keeps its own ignore)
+modules/*/android/build/
+
 # Metro
 .metro-health-check*
 
