@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Real emulator shots, final design</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body { margin: 0; }
+</style>
+</helmet>
+<div style="width: 960px; height: 640px; box-sizing: border-box; padding: 32px 40px; background: #121414; color: #E8EDEC; font-family: 'Archivo', system-ui, sans-serif; display: flex; flex-direction: column; gap: 16px">
+
+  <div style="display: flex; flex-direction: column; gap: 6px">
+    <h1 style="margin: 0; font-size: 22px; font-weight: 700">What Android drew</h1>
+    <div style="font-size: 13px; color: #A9B3B1; line-height: 1.5">Pixel 9 Pro XL emulator, Android 16.0, debug build, 10 Nov 2026. The shade card, cropped, not edited. The dark shots were taken after switching the system theme; the 0:00 card kept its content and changed colour with no re-post.</div>
+  </div>
+
+  <div style="display: flex; gap: 24px">
+    <div style="width: 420px; display: flex; flex-direction: column; gap: 6px">
+      <div style="font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Light · resting</div>
+      <img src="/_blob/f69c40a4d21ef654d1ab9a110f4b7fd7" alt="Light shade card: Catch your breath, Next: Bench Press, set 3, teal ticking time" style="width: 420px; height: auto; border-radius: 12px; border: 1px solid #2A2F31">
+      <div style="margin-top: 8px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Light · 0:00</div>
+      <img src="/_blob/aadb0f18a32bb2a539947c182bda359f" alt="Light shade card: Go time, Bench Press set 3 is up, grey 00:00" style="width: 420px; height: auto; border-radius: 12px; border: 1px solid #2A2F31">
+    </div>
+    <div style="width: 420px; display: flex; flex-direction: column; gap: 6px">
+      <div style="font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Dark · resting</div>
+      <img src="/_blob/6ea2e0905e18694df547abba59f8dd21" alt="Dark shade card: Catch your breath, light teal ticking time" style="width: 420px; height: auto; border-radius: 12px; border: 1px solid #2A2F31">
+      <div style="margin-top: 8px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Dark · 0:00</div>
+      <img src="/_blob/77bfc6817829049bd7e25e905ac35920" alt="Dark shade card: Go time, white 00:00" style="width: 420px; height: auto; border-radius: 12px; border: 1px solid #2A2F31">
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 14px">
+    <img src="/_blob/320e4e8b21d0aa88e83920b1752ca779" alt="Status bar with the pulse icon next to the clock" style="width: 300px; height: auto; border-radius: 8px; border: 1px solid #2A2F31">
+    <div style="font-size: 12px; color: #A9B3B1; line-height: 1.5">The icon at status-bar size, next to the clock. It reads as a small waveform; the plates are faint.</div>
+  </div>
+
+  <div style="font-size: 12px; color: #A9B3B1; line-height: 1.5">Not run: the lock screen with this design (the earlier shape was checked there), a real phone, add-time, the automatic swap to 0:00.</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":960,"height":640}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

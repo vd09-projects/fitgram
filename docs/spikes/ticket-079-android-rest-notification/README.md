@@ -18,3 +18,20 @@ To run it again:
    Undo with `adb shell settings delete secure lock_screen_show_silent_notifications`.
 6. Tap Start, allow the permission, press the power button, press it again: the countdown is on the
    lock screen. At zero it keeps counting below zero; that is expected and is settle first 2.
+
+## design-probe/ (TICKET-080, 2026-11-10)
+
+TEMPORARY, same rule as above: delete with this folder when the TICKET-079 build lands.
+
+The module as TICKET-080 settled the design: a custom content view with a big ticking
+`Chronometer`, a second "done" layout (static 00:00), a day and night colour pair
+(`values/` and `values-night/`), and the pulse-bar vector icon. `RestSpikePanel.tsx` has three
+buttons (Rest, 0:00, Clear). `screenshots/` holds the emulator shots (Android 16.0, light and
+dark shade) the main canvas boards use.
+
+Differences from the module above: `show(endAtMs, title, text, variant)` returns a diagnostic
+string, not a boolean, and the strings are passed in from the panel (the build reads them from
+one config file). It still has unused imports and no error handling: not the production module.
+To run it, follow steps 1 to 6 above with `design-probe/module` as `modules/rest-notification/`
+and `design-probe/RestSpikePanel.tsx` as `src/spike/RestSpikePanel.tsx`. Switch themes with
+`adb shell cmd uimode night yes|no`.
