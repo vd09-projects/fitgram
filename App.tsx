@@ -16,6 +16,9 @@ import { AppControlProvider } from './src/components/app_manager/AppControlProvi
 import { refreshLastActive } from './src/services/initAuth';
 import { drainPendingUploads } from './src/stores/useWorkoutStore';
 import { useRestPreferenceStore } from './src/stores/restPreferenceStore';
+import { useRestNotificationStore, watchRestNotificationForeground } from './src/stores/restNotificationStore';
+import { startRestNotificationSync } from './src/services/restNotification/adapter';
+import RestNotificationPrompt from './src/components/RestNotificationPrompt';
 
 export default function App() {
   const [fontLoaded, setFontLoaded] = useState(false);
@@ -29,6 +32,10 @@ export default function App() {
     loadFromStorage();
     // Not awaited and not gating the first render: the default rest is usable.
     useRestPreferenceStore.getState().loadFromStorage();
+    useRestNotificationStore.getState().loadFromStorage();
+    // Follows `rest` for the lock-screen timer; also clears a post the last run left behind.
+    const stopRestNotificationSync = startRestNotificationSync();
+    const stopRestNotificationForeground = watchRestNotificationForeground();
 
     // Update last-active timestamp each time the user brings the app to foreground
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -40,7 +47,11 @@ export default function App() {
       appState.current = nextState;
     });
 
-    return () => subscription.remove();
+    return () => {
+      subscription.remove();
+      stopRestNotificationSync();
+      stopRestNotificationForeground();
+    };
   }, []);
 
   if (!fontLoaded) return null;
@@ -54,6 +65,7 @@ export default function App() {
             <TourGuideProvider>
               <AppNavigator />
               <Toast config={toastConfig} />
+              <RestNotificationPrompt />
               <TooltipOverlay />
             </TourGuideProvider>
           </ThemeProvider>

@@ -120,5 +120,7 @@ export const SEARCH_WORDS_CACHE_KEY = "exerciseSearchWords";
 export const REST_DURATION_KEY = "rest_duration_ms";
 /** The chosen color scheme's name (colorSchemaStore). An unknown name on read = default. */
 export const COLOR_SCHEMA_KEY = "color_schema_key";
+/** Whether the lock-screen rest timer's sheet was answered, and how many times Android's dialog was refused (restNotificationStore). JSON that does not parse = neither. */
+export const REST_NOTIFICATION_KEY = "rest_notification_prefs";
 /** Which guided tours have been seen (useTourStore). Only parsed on read, not checked: JSON that does not parse = none seen. */
 export const SEEN_TOURS_KEY = "seen_tours_key";

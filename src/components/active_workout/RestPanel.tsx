@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SPACING } from "../../constants/styles";
@@ -18,6 +18,7 @@ import { useNow } from "../../hooks/useNow";
 import { EffortBadge } from "./EffortBadge";
 import { comparisonSegment } from "../../utils/storedSets";
 import { ADD_REST_MS } from "../../config/workout";
+import { announceRestDone } from "../../services/restNotification/adapter";
 
 const ACTION_HEIGHT = 48;
 
@@ -66,6 +67,13 @@ export default function RestPanel({ rest, exercise, history, onSkip, onAddTime, 
   const running = countdown?.state === "running";
   const remaining = formatCountdown(running ? countdown.remainingSeconds : 0);
   const targetTime = formatCountdown(rest.durationMs / 1000);
+
+  // The lock-screen timer swaps itself to 0:00 while the app lives; this covers a
+  // reopened app, where the old post is still counting past zero (TICKET-079).
+  const done = countdown?.state === "done";
+  useEffect(() => {
+    if (done) announceRestDone(rest);
+  }, [done, rest]);
 
   const nextSet = exercise.sets.length + 1;
   const target = resolveGhostTarget(history, nextSet);
