@@ -36,6 +36,10 @@ class RestCopy : Record {
 
 class RestNotificationModule : Module() {
   private val handler = Handler(Looper.getMainLooper())
+  // Guards `swap` and the post it makes. show/clear run on the JS thread, the swap on the main
+  // looper, and removeCallbacks cannot stop a swap that has already started: without the lock a
+  // Skip tapped at the end time could be followed by a "done" post for the rest it ended.
+  private val lock = Any()
   private var swap: Runnable? = null
 
   private fun context(): Context? = appContext.reactContext
@@ -96,6 +100,7 @@ class RestNotificationModule : Module() {
       .build()
   }
 
+  // Caller holds `lock`.
   private fun cancelSwap() {
     swap?.let { handler.removeCallbacks(it) }
     swap = null
@@ -133,19 +138,27 @@ class RestNotificationModule : Module() {
     // JS re-posts the done layout when it next sees the rest over.
     Function("show") { endAtMs: Double, copy: RestCopy ->
       try {
-        cancelSwap()
-        val end = endAtMs.toLong()
-        if (!post(copy, end)) return@Function false
-        val runnable = Runnable {
-          try {
-            post(copy, null)
-          } catch (e: Throwable) {
-            Log.w(TAG, "swap to done failed", e)
+        synchronized(lock) {
+          cancelSwap()
+          val end = endAtMs.toLong()
+          if (!post(copy, end)) return@Function false
+          val runnable = object : Runnable {
+            override fun run() {
+              synchronized(lock) {
+                // Replaced or cleared since it was scheduled: that rest is no longer this one.
+                if (swap !== this) return
+                try {
+                  post(copy, null)
+                } catch (e: Throwable) {
+                  Log.w(TAG, "swap to done failed", e)
+                }
+              }
+            }
           }
+          swap = runnable
+          handler.postDelayed(runnable, maxOf(0L, end - System.currentTimeMillis()))
+          true
         }
-        swap = runnable
-        handler.postDelayed(runnable, maxOf(0L, end - System.currentTimeMillis()))
-        true
       } catch (e: Throwable) {
         Log.w(TAG, "show failed", e)
         false
@@ -155,8 +168,10 @@ class RestNotificationModule : Module() {
     // The in-app path to the same layout, for when JS sees the rest over and the swap did not run.
     Function("showDone") { copy: RestCopy ->
       try {
-        cancelSwap()
-        post(copy, null)
+        synchronized(lock) {
+          cancelSwap()
+          post(copy, null)
+        }
       } catch (e: Throwable) {
         Log.w(TAG, "showDone failed", e)
         false
@@ -165,10 +180,12 @@ class RestNotificationModule : Module() {
 
     Function("clear") {
       try {
-        cancelSwap()
-        val context = context() ?: return@Function false
-        manager(context).cancel(NOTIFICATION_ID)
-        true
+        synchronized(lock) {
+          cancelSwap()
+          val context = context() ?: return@Function false
+          manager(context).cancel(NOTIFICATION_ID)
+          true
+        }
       } catch (e: Throwable) {
         Log.w(TAG, "clear failed", e)
         false

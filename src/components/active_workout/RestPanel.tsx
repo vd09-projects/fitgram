@@ -68,8 +68,10 @@ export default function RestPanel({ rest, exercise, history, onSkip, onAddTime, 
   const remaining = formatCountdown(running ? countdown.remainingSeconds : 0);
   const targetTime = formatCountdown(rest.durationMs / 1000);
 
-  // The lock-screen timer swaps itself to 0:00 while the app lives; this covers a
-  // reopened app, where the old post is still counting past zero (TICKET-079).
+  // The lock-screen timer swaps itself to 0:00 on time. This covers the swap running
+  // late (deep sleep) while the app process lives, so the post is still counting past
+  // zero when the user returns here (TICKET-079; not the killed-process case, see
+  // `announceRestDone`).
   const done = countdown?.state === "done";
   useEffect(() => {
     if (done) announceRestDone(rest);

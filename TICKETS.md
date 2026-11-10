@@ -9428,8 +9428,8 @@ lines removed, and a device run for any stage that changes a read or write path.
 ### TICKET-079: Rest Time on the Android Lock Screen — Logic and Native
 
 **Priority:** Low (nice to have, not core) | **Effort:** Medium | **Status: BUILT, NEEDS A
-REAL-PHONE CHECK** — raised 2026-11-10 (user); spiked and built the same day (unstaged, not
-committed). Emulator-verified; the real-phone device test and the light/dark lock-screen check
+REAL-PHONE CHECK** — raised 2026-11-10 (user); spiked and built the same day (PR #63).
+Emulator-verified; the real-phone device test and the light/dark lock-screen check
 are still open ("Build result" below). Split the same day: what the user sees and
 reads is TICKET-080, which is now designed (2026-11-10; "Design decided" below)
 
@@ -9559,7 +9559,7 @@ with Start, +30s and Clear, run on a Pixel 9 Pro XL emulator, API 36, a debug bu
 | `android/` | The module autolinked from `modules/`; `expo run:android` built it with no `--clean`, and we did not edit `AndroidManifest.xml`. No `git status` was taken after the build, so nothing else is proven. Stage 0 question 1 is smaller than feared |
 
 **Build result (2026-11-10, emulator Pixel 9 Pro XL, Android 16, debug build, throwaway
-worktree; nothing committed).**
+worktree; committed in PR #63 after review).**
 
 *Settle-first 1: answered.* Fresh channels, lock-screen setting left at its default (unset):
 a LOW-importance channel's notification was posted and **hidden** from the lock screen; an
@@ -9585,6 +9585,12 @@ not) and the rest is timing noise: both numbers are whole seconds and the clock 
 second-resolution. So: lock screen minus in-app is -1 to -2 s here, in one sample. Add-time was in
 that sample (+30 s after the first post): the lock screen followed it. Not measured: a real phone,
 a second sample, a long rest.
+
+*Cost of the system checks (emulator, JS-side `performance.now()`, throwaway worktree, nothing
+committed; not a phone):* `refresh()` 2.7 to 6.7 ms warm (n=5), 18.2 ms cold, one 50.6 ms outlier
+on the first foreground. `show` native 3.4 to 4.7 ms warm (n=5 of 6), 23.6 ms cold (creates the
+channel), one 39 ms outlier. All at user-action rate, none per frame; `show` is a synchronous call on
+the JS thread. Not measured: dropped frames, a real phone, Android below 13.
 
 *Other device checks passed (emulator):* permission sheet (first open from the settings row);
 Android's dialog; Don't allow leaves Off, then Blocked; Open settings lands on App info; granting
@@ -9614,6 +9620,9 @@ runs in the app, nothing is posted, no sheet, no crash.
   could read a stale state after a trip to system settings. Unit-tested; not run on a device. Still
   open: the per-channel switch ("Rest timer" turned off alone) is not checked, so the row can say On
   while Android hides the post.
+- **Permission arriving after a rest began posts that rest** (from the first-rest dialog or from
+  Android's settings page): `refresh` resyncs when the state moves from Off or Blocked to On. Found in
+  review of PR #63; covered by a unit test, not run on a device.
 - **The store subscriber re-posts only on a change of the rest**, not when a set is removed
   mid-rest, so "set N" in the text can be one stale after a removal. Known gap.
 

@@ -91,9 +91,16 @@ export function resyncRestNotification(): void {
 }
 
 /**
- * The in-app path to the 0:00 layout. The native timer swaps it on time while the
- * process lives; this covers the app being killed and reopened, when the old
- * post is still counting past zero. Posting the same layout twice changes nothing.
+ * The in-app path to the 0:00 layout, for a process that is alive while the
+ * native swap did not run on time: a phone in deep sleep (the swap is a Handler,
+ * which runs on uptime) or a missed callback. The post is then still counting
+ * past zero when the user is back in the app, and the rest panel calls this.
+ * Posting the same layout twice changes nothing.
+ *
+ * Not the killed-process case: `rest` is memory only, so after a kill there is
+ * no rest for the panel to see. That post is removed at the next launch by the
+ * start-up `clear` in `planRestNotification`, and stands, counting past zero and
+ * not swipeable, until then (a known gap, TICKET-079).
  */
 export function announceRestDone(rest: RestTimer): void {
   try {

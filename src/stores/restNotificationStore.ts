@@ -24,8 +24,8 @@ interface RestNotificationStore {
   /** The sheet was answered once ("Turn on" or "Not now"); it never reopens by itself. */
   promptSeen: boolean;
   /**
-   * How many times Android's dialog was refused. Android shows it twice at most
-   * (REST_NOTIF_MAX_REFUSALS), and says "never ask again" when it will not show
+   * How many times Android's dialog was refused. Android shows it
+   * REST_NOTIF_MAX_REFUSALS times at most, and says "never ask again" when it will not show
    * it again, which can come after one refusal if the permission was revoked
    * before (emulator, `adb shell pm revoke`). Both signals count: that result
    * jumps straight to the maximum; a plain refusal adds one.
@@ -88,13 +88,17 @@ export const useRestNotificationStore = create<RestNotificationStore>((set, get)
           set({ refusals: 0 });
           persist();
         }
-        set({
-          state: restNotificationState({
-            granted,
-            enabled: RestNotification.isEnabled(),
-            refusedForGood: get().refusals >= REST_NOTIF_MAX_REFUSALS,
-          }),
+        const before = get().state;
+        const state = restNotificationState({
+          granted,
+          enabled: RestNotification.isEnabled(),
+          refusedForGood: get().refusals >= REST_NOTIF_MAX_REFUSALS,
         });
+        set({ state });
+        // Allowed after the rest began (the first-rest dialog, or Android's settings page):
+        // nothing was posted for it, so post what is left now. Not from "unknown", which is
+        // only the first read at start.
+        if (state === "on" && (before === "off" || before === "blocked")) resyncRestNotification();
       } catch (error) {
         console.warn("Could not read the notification permission:", error);
       }
@@ -120,8 +124,6 @@ export const useRestNotificationStore = create<RestNotificationStore>((set, get)
       }
       persist();
       await get().refresh();
-      // The first rest is already running when the sheet opens: post it now, with what is left.
-      if (get().state === "on") resyncRestNotification();
     },
   };
 });
