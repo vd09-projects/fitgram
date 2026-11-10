@@ -48,7 +48,8 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 068 | Drag to close: every sheet on a real phone | Small | Low. From 065's device run (2026-11-03): only `PlanCard` drags; decide drag on every sheet with a handle, or drop the handles |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
 | 071 | History page redesign | Medium-Large | Raised 2026-11-05 (user). Design on the Drafts canvas first; 070 is merged |
-| 079 | Rest time on the Android lock screen | Medium | Nice to have, raised 2026-11-10 (user). Spike first; the Android countdown API is unconfirmed. iOS later |
+| 079 | Rest time on the Android lock screen: logic and native | Medium | Nice to have, raised 2026-11-10 (user). Spike done: it works on the emulator. Settle two things first (silent channel, staying at 0:00), then build. Wording and permission flow are 080. iOS later |
+| 080 | Lock-screen rest timer: design | Small-Medium | Split from 079 (2026-11-10). Wording, permission flow, buttons; options on the Drafts canvas first |
 
 ### Not tickets — verification owed
 
@@ -9424,15 +9425,23 @@ lines removed, and a device run for any stage that changes a read or write path.
 
 ---
 
-### TICKET-079: Rest Time on the Android Lock Screen
+### TICKET-079: Rest Time on the Android Lock Screen — Logic and Native
 
-**Priority:** Low (nice to have, not core) | **Effort:** Small-Medium | **Status: OPEN** —
-raised 2026-11-10 (user); researched and spiked on an emulator the same day (Stage 0 result
-below). Next: the two settle-first items, then the build
+**Priority:** Low (nice to have, not core) | **Effort:** Medium | **Status: OPEN** — raised
+2026-11-10 (user); researched and spiked on an emulator the same day (Stage 0 result below).
+Next: the two settle-first items, then the build. Split the same day: what the user sees and
+reads is TICKET-080
 
 **Description:**
 While the rest timer runs and the phone is locked, the lock screen shows how much rest
 is left. The user wants to know the time left for the next set without unlocking.
+
+**Split (2026-11-10, user's idea; the split and sizes are mine):** this ticket is the logic
+and the native module. What the user sees and reads (the notification's wording, the
+permission wording and its denied state, whether the notification has buttons, the icon) is
+TICKET-080, designed on the Drafts canvas first. The notification itself is drawn by Android,
+so its "UI" is a few text slots, an icon and optional buttons, not a layout we control. Until
+080 lands, use placeholder strings kept in one config file.
 
 **The sentence that justifies it:** *with the phone locked, the time on the lock screen
 matches the in-app timer, with no JS running.* That sentence is the deliverable, and
@@ -9463,11 +9472,16 @@ sees every start, extend and end.
 - **No foreground service:** an ongoing notification with a native countdown needs none,
   so none of its permission types or Play declarations. (My design reasoning; the spike
   ran without one and the notification posted and ticked, so it held on an emulator.)
-- **A small Kotlin module, not a library** (user, 2026-11-10). Kotlin is required either
-  way: the notification belongs to Android's system UI, which React Native cannot draw
-  into, so only the native API can create it. The spike's ~60-line module was read and
-  accepted as the starting point. TSX decides when and what end time; Kotlin posts and
-  clears.
+- **Kotlin, starting with our own small module** (Kotlin: user, 2026-11-10; module over a
+  library: my call, the user being open to either). Kotlin is required either way: the
+  notification belongs to Android's system UI, which React Native cannot draw into, so only
+  the native API can create it. TSX decides when and what end time; Kotlin posts and clears.
+  The spike's ~70-line module needs no dependency and is the starting point. Move to a library
+  (`react-native-notify-kit`, the maintained Notifee-compatible fork, or what is current then)
+  if the use grows: action buttons, several notification kinds, scheduling. Rejected for now:
+  a library on day one. None was confirmed to expose the countdown (`expo-notifications`
+  documents none, Notifee is archived, notify-kit was not tried here), and integrating one is
+  more than the module.
 - **At zero the notification stays, reading 0:00; it does not go negative and is not
   removed** (user, 2026-11-10). It leaves when the user skips, logs the next set,
   finishes or removes the exercise. The spike showed a countdown chronometer does not do
@@ -9497,7 +9511,7 @@ Write the answers under this ticket, then cut the build.
 
 **Stage 0 result (2026-11-10, emulator only): it works, with two things to settle.**
 Reference code in `docs/spikes/ticket-079-android-rest-notification/` (unstaged, with a
-README to re-run it). A ~60-line Kotlin Expo module in `modules/`, a temporary panel
+README to re-run it). A ~70-line Kotlin Expo module in `modules/`, a temporary panel
 with Start, +30s and Clear, run on a Pixel 9 Pro XL emulator, API 36, a debug build.
 
 | Check | Result |
@@ -9507,16 +9521,18 @@ with Start, +30s and Clear, run on a Pixel 9 Pro XL emulator, API 36, a debug bu
 | At zero | **It does not stop.** At 14:12:42 it read `-00:24`, 24 s past zero. The user wants it to stay at 0:00, which takes an action at the end time (Settle first, 2) |
 | Add-time | Not run. The code re-posts with the same id, which replaces the notification; untested |
 | Library | **None needed:** platform `Notification.Builder` with `setUsesChronometer`, `setChronometerCountDown`, `setWhen(end)`. Notifee, notify-kit and `expo-notifications` were not tried |
-| `android/` | The module autolinked from `modules/`; `expo run:android` built it with no `--clean`, and `AndroidManifest.xml` was not touched. Risk 1 above is smaller than feared |
+| `android/` | The module autolinked from `modules/`; `expo run:android` built it with no `--clean`, and we did not edit `AndroidManifest.xml`. No `git status` was taken after the build, so nothing else is proven. Stage 0 question 1 is smaller than feared |
 
 **Settle first, before the build (each its own small device test):**
 1. **A silent channel can be hidden from the lock screen.** With a LOW-importance channel
    (no sound) and the device's default for "silent notifications on the lock screen"
    (unset on this image), the lock screen showed other notifications and **not ours**,
-   though the system had it posted. Setting `lock_screen_show_silent_notifications` to 1
-   made it appear. A user on that default would see nothing. Next test: an
-   `IMPORTANCE_DEFAULT` channel with its sound and vibration turned off, which should show
-   under the default. A channel's importance cannot be raised once created, so it needs a
+   though the system had it posted. After I set `lock_screen_show_silent_notifications` to 1
+   and re-posted, it appeared. The cause is likely but not proven: the re-post came between
+   the two shots, and the setting was not reverted to see it vanish again. If the cause is
+   right, a user on that default would see nothing. Next tests: revert the setting and
+   re-post to confirm; then an `IMPORTANCE_DEFAULT` channel with its sound and vibration
+   turned off, which should show under the default. A channel's importance cannot be raised once created, so it needs a
    new channel id. Whether a real phone's default differs from this emulator image is unknown.
 2. **Staying at 0:00.** The goal (decided above): at the end time, replace the
    notification with the same id, chronometer off, text like "Rest done", so it reads
@@ -9532,7 +9548,8 @@ with Start, +30s and Clear, run on a Pixel 9 Pro XL emulator, API 36, a debug bu
      permission, but the Android docs say it can run up to an hour late on Android 12+, so
      the notification could show a negative time for a while.
    - **C. An exact alarm:** on time every time, but needs `SCHEDULE_EXACT_ALARM`, which the
-     user must grant by hand (the cost that ruled out the 0:00 alert, above).
+     user must grant by hand (the cost that ruled out the 0:00 sound, above). That rejection
+     covered the sound, so choosing C would reverse it on purpose: the user's call.
    Try A first; fall back to B or C only if A fails the device test. Add-time must move
    the end time the timer or alarm fires at.
 
@@ -9548,12 +9565,19 @@ unless a PIN is set; `adb shell locksettings set-pin 1234` gives it a lock scree
 - The end time comes from a pure function in `restTimer.ts` next to `restCountdown`
   (`startedAt + durationMs`, `null` for a non-finite input, as `restCountdown` does),
   tested directly. A rest already over at post time posts nothing.
-- The permission prompt and its denied state, in one place.
+- The permission request and its denied state, in one place (what the user reads there is
+  TICKET-080).
+- Where the native module is missing (iOS, web, Expo Go) the adapter is a no-op that reports
+  "not posted". The reference `index.ts` already does this with `requireOptionalNativeModule`.
+- The module returns false and logs, instead of throwing, when there is no React context or no
+  launch intent; the caller catches a native error. The spike code does neither.
 - The end-of-rest re-post to a "Rest done", 0:00, not-ongoing notification (settle-first 2).
 - The channel decided by settle-first 1, under a new channel id if the importance changes.
 
 **Out of scope:** iOS; any sound or buzz at 0:00; workout-in-progress indicators
-(TICKET-011). **To decide in the build:** a rest still showing after the app was killed:
+(TICKET-011); what the notification and the permission prompt say (TICKET-080); notification
+buttons (Skip rest, +30s) unless 080 adds them, which would add a receiver that must act while
+the app is closed and raise this ticket's effort. **To decide in the build:** a rest still showing after the app was killed:
 clear it on the next launch, or let it stand until the user swipes it.
 
 **Acceptance Criteria:**
@@ -9567,6 +9591,7 @@ clear it on the next launch, or let it stand until the user swipes it.
 - [ ] Shows on the lock screen under the device's default lock-screen setting (settle-first 1)
 - [ ] Permission denied: no notification, in-app timer unchanged, no repeat prompt
 - [ ] End-time function tested, including a non-finite input and an already-finished rest
+- [ ] `docs/spikes/ticket-079-android-rest-notification/` is deleted (the build replaces it)
 - [ ] **Device test (done when it passes):** on an Android 13+ phone, start a rest, lock
       the phone for 30 s with the app in the background, read the lock screen against
       the in-app timer when unlocked. Repeat with permission revoked
@@ -9580,9 +9605,73 @@ plumbing, not maths); 3.3 (the lock screen is observable on a phone).
 
 **Reference code:** `docs/spikes/ticket-079-android-rest-notification/` (module, test panel,
 the one-line `App.tsx` patch, README to re-run). Temporary: the build starts from the module
-and does not ship the panel. Delete the folder when the build lands.
+and does not ship the panel. Deleting the folder is an acceptance criterion above.
 
-**Dependencies:** none. Reads best after the core Android features, per the user.
+**Dependencies:** TICKET-080 supplies the strings, the permission wording and whether the
+notification has buttons. The two settle-first tests and the module hardening do not wait for
+it; the final strings and any buttons do. Reads best after the core Android features, per the
+user.
+
+---
+
+### TICKET-080: Lock-Screen Rest Timer — Design
+
+**Priority:** Low (nice to have, not core) | **Effort:** Small-Medium | **Status: OPEN** —
+raised 2026-11-10 (user), split from TICKET-079
+
+**Description:**
+Decide what the user sees and reads around the lock-screen rest timer, before TICKET-079's
+build fixes it in code. Design only: boards and a copy table, no app code. Per the working
+agreement, options go on the Drafts canvas first and only the final boards move to the Workout
+Flow canvas and `design/workout-flow/`.
+
+**What the platform lets us design.** The notification is drawn by Android, not by the app:
+a title, a line of text, an optional sub-text, the ticking time, a small monochrome icon, an
+accent colour and up to three buttons. There is no free layout, so this ticket is wording and a
+few choices, not a screen. (iOS is different: a Live Activity is laid out by the app. That is a
+later pass, not this ticket.)
+
+**The knobs, each to be decided with options shown:**
+1. **What the notification says while resting.** Title and text: the time left only, or also the
+   exercise and the next set's target (the same line `RestPanel` shows, from
+   `resolveGhostTarget`). The notification is public on the lock screen, so naming the exercise
+   is visible to anyone who sees the phone; decide it on purpose.
+2. **What it says at 0:00.** The wording of the "rest done" state (TICKET-079 settle-first 2),
+   and what a tap does (open the app on the active exercise is the default).
+3. **Buttons.** Skip rest and +30s mirror `RestPanel`. Each needs a receiver that acts while the
+   app is closed, which is real native work. Default to none in v1, unless the design shows the
+   lock screen is poor without them. Whatever is decided changes TICKET-079's effort, so say so
+   here.
+4. **Asking for the permission.** Whether a line of explanation comes before the system dialog,
+   its wording, and when (the first rest of a workout is the working assumption). What the user
+   sees if they decline, and whether there is a way back (a link to the system settings).
+5. **Whether the user can turn it off,** and where. Smallest version first: no switch; declining
+   the permission is the off.
+6. **The small things.** The status-bar icon (the spike used a system alarm icon), the accent
+   colour (a theme role, not a hex), and the channel's name, which shows in Android's own
+   notification settings.
+
+**Output:**
+- Options on the Drafts canvas for 1 to 4, the finalized ones on the Workout Flow canvas.
+- A **copy table** in this ticket: every string, its use, its length limit, and the constant
+  name TICKET-079 will read it from. One config file holds them; no value is repeated in a
+  comment or a test title.
+- The decisions recorded under this ticket, with what was rejected and why.
+
+**Acceptance Criteria:**
+- [ ] Options shown on the Drafts canvas for knobs 1 to 4, and a pick for each, recorded here
+- [ ] Copy table written, with a length limit per string
+- [ ] The buttons decision made, with its effect on TICKET-079's effort written in both tickets
+- [ ] The denied state and the way back are drawn, not described
+- [ ] Knobs 5 and 6 decided and recorded
+
+**Out of scope:** the logic and native code (TICKET-079); iOS Live Activity layout; any sound.
+
+**CLAUDE.md rules skipped:** 3.1 to 3.3 (nothing is built or measured; the deliverable is
+decisions and boards).
+
+**Dependencies:** none to start. TICKET-079's final strings, permission wording and any buttons
+wait for this; its two settle-first tests do not.
 
 ---
 
@@ -9656,7 +9745,9 @@ Decisions before code
   TICKET-039  (Rep-progression PRs)      — Decision first
 
 Nice to have
-  TICKET-079  (Rest on Android lock screen) — Spike first; iOS after the core Android work
+  TICKET-079  (Rest on Android lock screen, logic) — Spike done; two settle-first tests, then build
+  TICKET-080  (Lock-screen rest timer, design) — Drafts canvas first; feeds 079's strings
+                                                 iOS after the core Android work
 
 Tech debt
   TICKET-003  (Finish userDB split)      — Substance done; named files and barrel remain

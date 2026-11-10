@@ -2,7 +2,7 @@ package expo.modules.restnotification
 
 // TEMPORARY (TICKET-079 spike). Not the production design: it exists to show whether an
 // ongoing notification with a native countdown ticks on the lock screen with no JS running.
-// To remove: delete modules/rest-notification and src/spike, and the <RestSpikePanel /> line in App.tsx.
+// This is a reference copy under docs/spikes. Delete that folder when the build lands (TICKET-079).
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -35,7 +35,9 @@ class RestNotificationModule : Module() {
 
       val builder: Notification.Builder
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        // LOW: no sound or heads-up. The countdown is the whole point.
+        // LOW: no sound or heads-up. Found in the spike: at this emulator's default setting a LOW
+        // channel was not shown on the lock screen at all (TICKET-079, settle first 1), so the
+        // build is expected to use a normal-importance channel with sound and vibration off.
         val channel = NotificationChannel(CHANNEL_ID, "Rest timer (spike)", NotificationManager.IMPORTANCE_LOW)
         channel.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         manager.createNotificationChannel(channel)

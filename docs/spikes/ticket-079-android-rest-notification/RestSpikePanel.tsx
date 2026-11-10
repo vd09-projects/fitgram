@@ -1,5 +1,5 @@
-// TEMPORARY (TICKET-079 spike). Not the production design. Remove with the module:
-// delete src/spike and modules/rest-notification, and the <RestSpikePanel /> line in App.tsx.
+// TEMPORARY (TICKET-079 spike reference). Not the production design and it does not ship: the
+// build starts from the module only. Delete this folder when the build lands.
 import React, { useState } from "react";
 import { PermissionsAndroid, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import RestNotification from "../../modules/rest-notification";
@@ -9,7 +9,7 @@ import { DEFAULT_REST_MS } from "../config/workout";
 
 async function ensurePermission(): Promise<string> {
   if (Platform.OS !== "android") return "not android";
-  const result = await PermissionsAndroid.request("android.permission.POST_NOTIFICATIONS" as any);
+  const result = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
   return result;
 }
 
