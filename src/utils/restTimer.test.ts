@@ -1,4 +1,4 @@
-import { extendRest, formatCountdown, restCountdown, RestTimer } from "./restTimer";
+import { extendRest, formatCountdown, restCountdown, restEndAt, RestTimer } from "./restTimer";
 
 const START = 1_000_000;
 const REST = 90_000;
@@ -58,5 +58,29 @@ describe("extendRest", () => {
   it("restarts at 30 s from now when the clock moved backwards", () => {
     const extended = extendRest(rest, at(-60));
     expect(extended).toEqual({ ...rest, startedAt: at(-60), durationMs: 30_000 });
+  });
+});
+
+describe("restEndAt", () => {
+  const timer: RestTimer = { exerciseId: "bench", startedAt: START, durationMs: REST, setNumber: 1 };
+
+  it("is the start plus the duration while the rest runs", () => {
+    expect(restEndAt(timer, at(10))).toBe(START + REST);
+  });
+
+  it("moves with added time", () => {
+    expect(restEndAt(extendRest(timer, at(10)), at(10))).toBe(START + REST + 30_000);
+  });
+
+  it("is null for a rest that is already over, so nothing is posted", () => {
+    expect(restEndAt(timer, at(90))).toBeNull();
+    expect(restEndAt(timer, at(600))).toBeNull();
+  });
+
+  it("is null for a non-finite input or no duration", () => {
+    expect(restEndAt({ ...timer, startedAt: NaN }, START)).toBeNull();
+    expect(restEndAt({ ...timer, durationMs: Infinity }, START)).toBeNull();
+    expect(restEndAt({ ...timer, durationMs: 0 }, START)).toBeNull();
+    expect(restEndAt(timer, NaN)).toBeNull();
   });
 });

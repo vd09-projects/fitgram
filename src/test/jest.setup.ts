@@ -47,3 +47,18 @@ jest.mock("expo-font", () => ({
 // actions still settle. A test that needs time to pass calls
 // `jest.advanceTimersByTime`.
 jest.useFakeTimers();
+
+// The lock-screen rest notification's native module (TICKET-079) does not exist
+// under Jest, and jest-expo throws for a native module it has no mock for, which
+// fails every file that imports the store. Reported as absent, the way it is in
+// Expo Go and on iOS: every call returns false and the rest timer carries on.
+jest.mock("../../modules/rest-notification", () => ({
+  __esModule: true,
+  default: {
+    available: false,
+    isEnabled: () => false,
+    show: () => false,
+    showDone: () => false,
+    clear: () => false,
+  },
+}));

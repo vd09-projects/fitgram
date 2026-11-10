@@ -71,6 +71,22 @@ export function restCountdown(
 }
 
 /**
+ * The wall-clock time (ms since the epoch) at which a rest ends, for a surface
+ * that draws the countdown itself from an end time, the Android lock screen
+ * (TICKET-079). `null` means there is nothing to post: a non-finite input, no
+ * duration, or a rest that is already over at `now`.
+ *
+ * Decided: "invalid" and "already over" share the one `null`. Rejected: a
+ * result type that tells them apart. The only caller posts nothing in either
+ * case, and the question is answered by `restCountdown`, so the two definitions
+ * of "over" (including the clock moving backwards) cannot drift apart.
+ */
+export function restEndAt(timer: RestTimer, now: number): number | null {
+  if (restCountdown(timer.startedAt, timer.durationMs, now)?.state !== "running") return null;
+  return timer.startedAt + timer.durationMs;
+}
+
+/**
  * Seconds as `m:ss`. Negative or non-finite input reads `0:00`: callers pass
  * `remainingSeconds`, which is never negative, so this is only a floor.
  */

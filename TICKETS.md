@@ -9427,9 +9427,10 @@ lines removed, and a device run for any stage that changes a read or write path.
 
 ### TICKET-079: Rest Time on the Android Lock Screen — Logic and Native
 
-**Priority:** Low (nice to have, not core) | **Effort:** Medium | **Status: OPEN** — raised
-2026-11-10 (user); researched and spiked on an emulator the same day (Stage 0 result below).
-Next: the two settle-first items, then the build. Split the same day: what the user sees and
+**Priority:** Low (nice to have, not core) | **Effort:** Medium | **Status: BUILT, NEEDS A
+REAL-PHONE CHECK** — raised 2026-11-10 (user); spiked and built the same day (PR #63).
+Emulator-verified; the real-phone device test and the light/dark lock-screen check
+are still open ("Build result" below). Split the same day: what the user sees and
 reads is TICKET-080, which is now designed (2026-11-10; "Design decided" below)
 
 **Description:**
@@ -9557,7 +9558,75 @@ with Start, +30s and Clear, run on a Pixel 9 Pro XL emulator, API 36, a debug bu
 | Library | **None needed:** platform `Notification.Builder` with `setUsesChronometer`, `setChronometerCountDown`, `setWhen(end)`. Notifee, notify-kit and `expo-notifications` were not tried |
 | `android/` | The module autolinked from `modules/`; `expo run:android` built it with no `--clean`, and we did not edit `AndroidManifest.xml`. No `git status` was taken after the build, so nothing else is proven. Stage 0 question 1 is smaller than feared |
 
-**Settle first, before the build (each its own small device test):**
+**Build result (2026-11-10, emulator Pixel 9 Pro XL, Android 16, debug build, throwaway
+worktree; committed in PR #63 after review).**
+
+*Settle-first 1: answered.* Fresh channels, lock-screen setting left at its default (unset):
+a LOW-importance channel's notification was posted and **hidden** from the lock screen; an
+`IMPORTANCE_DEFAULT` channel with sound, vibration, lights and badge off **showed**. Not run: the
+setting reverted after being set to 1 (the unset-default result was seen twice, on fresh ids, which
+shows the same thing). Chosen: DEFAULT importance, silent, one channel id (`rest_timer`; never
+shipped, so no id bump). Written beside the channel in the Kotlin.
+
+*Settle-first 2: answered for the emulator only, mechanism A.* A `Handler.postDelayed` on the
+main looper in the Kotlin module swaps to the done layout at the end time. Screen locked the whole
+rest, nothing in JS: swap fired 1 ms after the end time (45 s rest) and 8 ms after (180 s rest, under
+`dumpsys deviceidle force-idle` and unplugged battery). Done layout reads 00:00, is not ongoing
+(swipeable). **Not proven:** a real phone. The emulator does not suspend the CPU the way hardware
+does, and `Handler` runs on uptime, which stops in deep sleep. If a phone shows the negative time
+after a locked rest, the fallback is B or C, and C reverses the no-exact-alarm decision: the
+user's call. Also: a process killed mid-rest leaves a post that counts down past zero for good
+(nothing re-posts); see the gaps below.
+
+*The sentence that justifies it (3.1), emulator, n=1:* lock screen read 0:23; the
+in-app timer read 0:21 four seconds later (clock reads 1794311248 and 1794311252 s). At one instant the in-app time was about 2 s above the
+lock-screen time. About 1 s of that is rounding (the in-app time rounds up, the chronometer does
+not) and the rest is timing noise: both numbers are whole seconds and the clock reads were
+second-resolution. So: lock screen minus in-app is -1 to -2 s here, in one sample. Add-time was in
+that sample (+30 s after the first post): the lock screen followed it. Not measured: a real phone,
+a second sample, a long rest.
+
+*Cost of the system checks (emulator, JS-side `performance.now()`, throwaway worktree, nothing
+committed; not a phone):* `refresh()` 2.7 to 6.7 ms warm (n=5), 18.2 ms cold, one 50.6 ms outlier
+on the first foreground. `show` native 3.4 to 4.7 ms warm (n=5 of 6), 23.6 ms cold (creates the
+channel), one 39 ms outlier. All at user-action rate, none per frame; `show` is a synchronous call on
+the JS thread. Not measured: dropped frames, a real phone, Android below 13.
+
+*Other device checks passed (emulator):* permission sheet (first open from the settings row);
+Android's dialog; Don't allow leaves Off, then Blocked; Open settings lands on App info; granting
+there and returning shows On; Skip clears the post (0 notifications); permission revoked: the rest
+runs in the app, nothing is posted, no sheet, no crash.
+
+**Deviations from the ticket, and what the device found:**
+- **The exercise name was blank** on the first device run: a catalog exercise stores `name: ""`
+  and keeps its built name in `nameSnapshot`; the adapter read `name`. Fixed by going through
+  `exerciseDisplayName`, as the screen does. Unit tests could not see it: it needs a real catalog
+  exercise. Where the catalog is not loaded the line drops the exercise rather than show the
+  screen's placeholder.
+- **"Never ask again" is counted, not trusted alone.** After `adb shell pm revoke`, one refusal made
+  React Native report never-ask-again and Android showed no second dialog. The store counts
+  refusals (two, Android's rule) and also treats that result as the maximum. My first reading
+  (React Native reports it a refusal early) was wrong and is retracted: the revoke counted as a
+  prior refusal.
+- **The 0:00 text budget is a tunable (`REST_NOTIF_TEXT_BUDGET`), not the copy table's 40 or
+  080's estimate of 25.** The card fit more than the estimate on this emulator; the value is a
+  guess to confirm with the longest names on a phone.
+- **Strings in `src/config/restNotification.ts`**, an exception to that folder's "no copy" rule
+  (noted in its README), because the ticket asked for one file.
+- **`rest` is memory only**, so a restart always begins with none: the app clears any post the
+  last run left behind at start, rather than leaving it to count down.
+- **The permission state is re-read on every foreground, app-wide** (`watchRestNotificationForeground`,
+  from `App.tsx`), not only while Profile is open. Before, the row and the first-rest sheet trigger
+  could read a stale state after a trip to system settings. Unit-tested; not run on a device. Still
+  open: the per-channel switch ("Rest timer" turned off alone) is not checked, so the row can say On
+  while Android hides the post.
+- **Permission arriving after a rest began posts that rest** (from the first-rest dialog or from
+  Android's settings page): `refresh` resyncs when the state moves from Off or Blocked to On. Found in
+  review of PR #63; covered by a unit test, not run on a device.
+- **The store subscriber re-posts only on a change of the rest**, not when a set is removed
+  mid-rest, so "set N" in the text can be one stale after a removal. Known gap.
+
+**Settle first, before the build (each its own small device test) — DONE, see "Build result":**
 1. **A silent channel can be hidden from the lock screen.** With a LOW-importance channel
    (no sound) and the device's default for "silent notifications on the lock screen"
    (unset on this image), the lock screen showed other notifications and **not ours**,
@@ -9620,22 +9689,27 @@ clear it on the next launch, or let it stand until the user swipes it.
 **Acceptance Criteria:**
 - [x] Spike result written here, including which library and what happened to `android/`
       (no library; the module autolinked, `android/` untouched)
-- [ ] Rest starts with permission granted: a countdown shows on the lock screen
-- [ ] Add-time moves it; Skip, finish and removing the exercise clear it
-- [ ] At the end time it reads 0:00 and stays, not negative and not removed, and a user who
-      never opens the app can swipe it away. Checked on a real phone with the screen locked
-      for the whole rest
-- [ ] Shows on the lock screen under the device's default lock-screen setting (settle-first 1)
-- [ ] Strings, icon and colours match TICKET-080's boards, read from one config file and one
-      colour-resource pair
+- [x] Rest starts with permission granted: a countdown shows on the lock screen (emulator)
+- [~] Add-time moves it (emulator, seen on the lock screen); Skip clears it (emulator, 0
+      posts). Finish and removing the exercise are covered by the unit test (they set `rest` to
+      null) but **not run on a device**
+- [~] At the end time it reads 0:00 and stays, not negative and not removed, and swipeable:
+      **emulator only**, 45 s and 180 s locked. Real phone still open
+- [x] Shows on the lock screen under the device's default lock-screen setting (settle-first 1;
+      emulator)
+- [x] Strings, icon and colours match TICKET-080's boards, read from one config file and one
+      colour-resource pair (seen on the emulator in the light theme only)
 - [ ] Checked in the light and dark system themes on a real phone, lock screen included (the
-      emulator check covered the shade only)
-- [ ] The permission sheet appears once, at the first rest; the settings row shows On, Off and
-      Blocked (drawn on the main canvas, "Lock 3" and "Lock 4"), placed on the real settings
-      screen (carried over from TICKET-080, which drew it standalone)
-- [ ] Permission denied: no notification, in-app timer unchanged, no repeat prompt
-- [ ] End-time function tested, including a non-finite input and an already-finished rest
-- [ ] `docs/spikes/ticket-079-android-rest-notification/` is deleted (the build replaces it)
+      emulator lock screen was seen in the light theme only)
+- [~] The permission sheet appears once, at the first rest; the settings row shows On, Off and
+      Blocked, placed on the real settings screen (Profile, below Appearance). Row and sheet
+      verified on the emulator; **the auto-open at the first rest was not run** (the sheet had
+      already been answered on that emulator)
+- [x] Permission denied: no notification, in-app timer unchanged, no repeat prompt (emulator,
+      permission revoked)
+- [x] End-time function tested, including a non-finite input and an already-finished rest
+- [x] `docs/spikes/ticket-079-android-rest-notification/` is deleted (the build replaces it;
+      recoverable from git, including the emulator screenshots the boards used)
 - [ ] **Device test (done when it passes):** on an Android 13+ phone, start a rest, lock
       the phone for 30 s with the app in the background, read the lock screen against
       the in-app timer when unlocked. Repeat with permission revoked
@@ -9713,7 +9787,7 @@ later pass, not this ticket.)
 - [x] The buttons decision made, with its effect on TICKET-079's effort written in both tickets
 - [x] The denied state and the way back are drawn, not described
 - [x] Knobs 5 and 6 decided and recorded
-- [ ] Where the settings row goes on the real settings screen (drawn standalone for now)
+- [x] Where the settings row goes on the real settings screen: Profile, below Appearance (placed in TICKET-079's build)
 
 **Decisions (user, 2026-11-10).** Each was picked from options shown on the canvas; what was
 rejected is beside it.
@@ -9847,7 +9921,7 @@ Decisions before code
   TICKET-039  (Rep-progression PRs)      — Decision first
 
 Nice to have
-  TICKET-079  (Rest on Android lock screen, logic) — Spike done; two settle-first tests, then build
+  TICKET-079  (Rest on Android lock screen, logic) — Built, emulator-verified; real-phone check open
                                                  iOS after the core Android work
 
 Tech debt
