@@ -9427,10 +9427,13 @@ lines removed, and a device run for any stage that changes a read or write path.
 
 ### TICKET-079: Rest Time on the Android Lock Screen — Logic and Native
 
-**Priority:** Low (nice to have, not core) | **Effort:** Medium | **Status: BUILT, NEEDS A
-REAL-PHONE CHECK** — raised 2026-11-10 (user); spiked and built the same day (PR #63).
-Emulator-verified; the real-phone device test and the light/dark lock-screen check
-are still open ("Build result" below). Split the same day: what the user sees and
+**Priority:** Low (nice to have, not core) | **Effort:** Medium | **Status: DONE** —
+merged in PR #63 (2026-11-10); marked done by the user the same day. Raised 2026-11-10 (user);
+spiked and built the same day. Emulator-verified only. **Carried over, not done here:** the
+real-phone device test, the light/dark lock-screen check on a real phone, whether deep sleep
+delays the 0:00 swap (then B or C, the user's call), `setTimeoutAfter` for a post left by a
+killed process, and the first-rest sheet auto-open, Finish and removal clearing run on a device
+(unchecked boxes and "Build result" below). Split the same day: what the user sees and
 reads is TICKET-080, which is now designed (2026-11-10; "Design decided" below)
 
 **Description:**
@@ -9921,8 +9924,6 @@ Decisions before code
   TICKET-039  (Rep-progression PRs)      — Decision first
 
 Nice to have
-  TICKET-079  (Rest on Android lock screen, logic) — Built, emulator-verified; real-phone check open
-                                                 iOS after the core Android work
 
 Tech debt
   TICKET-003  (Finish userDB split)      — Substance done; named files and barrel remain
