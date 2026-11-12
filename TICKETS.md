@@ -47,7 +47,14 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 063 | Finish summary | Small-Med | Low. From 056's design review (2026-11-02): exercises and set counts before saving, as Finish's confirm. To decide: how 0-set exercises show, sheet or screen |
 | 068 | Drag to close: every sheet on a real phone | Small | Low. From 065's device run (2026-11-03): only `PlanCard` drags; decide drag on every sheet with a handle, or drop the handles |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
-| 071 | History page redesign | Medium-Large | Raised 2026-11-05 (user). Design on the Drafts canvas first; 070 is merged |
+| 071 | History page redesign | Medium-Large | Raised 2026-11-05 (user). **Design done 2026-11-13**; the build is 081-086 |
+| 081 | History data foundation: the lift record and the verdict | Large | Raised 2026-11-13 (user). No screen. `lifts[]` and `note` on the session doc, one verdict function, a compare script. Reps-only lifts and the count word are decided |
+| 082 | Hold every workout on the phone | Med-Large | After 081. Replaces the 5-per-plan window; month shards; counts and filters offline |
+| 083 | Session screen and landing after Finish | Large | After 081, 082. Ships alone: the user lands on it after Finish |
+| 084 | Exercise screen | Med-Large | After 083. Graph library is a decision first (none installed) |
+| 085 | History home: Workouts and Exercises tabs | Large | After 081-084. Replaces the old History page; closes 029 |
+| 086 | Delete a workout | Med-Large | After 083. Shares `rebuildExerciseSummary` with 032 |
+| (parked) | Edit session UI | Design only | The option is shown switched off; the user decides the UI later |
 | 079 | Rest time on the Android lock screen: logic and native | Medium | Nice to have, raised 2026-11-10 (user). Spike done: it works on the emulator. Settle two things first (silent channel, staying at 0:00), then build. Wording and permission flow are 080. iOS later |
 | 080 | Lock-screen rest timer: design | Small-Medium | Split from 079 (2026-11-10). Wording, permission flow, buttons; options on the Drafts canvas first |
 
@@ -8369,8 +8376,8 @@ change check never saw them: every reload below came from the one-plan read.
 
 ### TICKET-071: History Page Redesign
 
-**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN** — raised
-2026-11-05 (user)
+**Priority:** Medium | **Effort:** Medium-Large | **Status: DESIGN DONE** — raised
+2026-11-05 (user); designed 2026-11-13 on the canvas "Fitgram History Redesign"; built in TICKET-081 to 086
 
 **Description:**
 The History page (`WorkoutLogsScreen`, with `WorkoutHistoricalLogsFilter` and
@@ -8383,6 +8390,19 @@ over time, a calendar of sessions, or a mix); whether it is plan-first (today's
 filter: plan, then exercise) or exercise-first, given that history is already keyed
 by exercise; how Freestyle fits; what reuses the history sheet (TICKET-020) and
 set summary util (065).
+
+**Design decided 2026-11-13 (PR #64):** Workouts and Exercises tabs with one workout filter; a monthly
+rail, every lift a capsule; Earlier months open in place; Session and Exercise screens; the link map is
+board `HistExercise13Map`. Edit session is parked.
+
+**Corrections to the design before it is built (found in code review, 2026-11-13; the user confirms):**
+- The link map says History is a footer tab. The footer has Feed, Workout and Log Workout only; History
+  opens from the Workout hub.
+- "Set count and unit must match to compare" is no longer true: the verdict is the app's existing volume rule.
+- Dips on the boards shows a Better mark; reps-only lifts have no verdict under the app's rule, so 081 compares total reps for them (decided).
+- The Session boards show a note on a lift; no field or input exists, so it is dropped (decided); the boards still show it and need redrawing.
+- "Typical weight" and "Going up" have no definition in code (084 pins them).
+- An imported session has no end time, so no duration shows.
 
 **Dependencies:** best after TICKET-070 and TICKET-072 decide how plans and history are read.
 Touches TICKET-037 (two sessions on the same day).
@@ -9851,6 +9871,274 @@ decisions and boards).
 
 **Dependencies:** none to start. TICKET-079's final strings, permission wording and any buttons
 wait for this; its two settle-first tests do not.
+
+---
+
+### TICKET-081: History Data Foundation — the Lift Record and the Verdict
+
+**Priority:** Medium | **Effort:** Large (three stages) | **Status: OPEN** — raised 2026-11-13 (user).
+First of the History build (design: TICKET-071, PR #64). No screen; the proof is a script. No open decisions
+
+**Description:**
+The History design shows, for every workout, each lift with a verdict (Better, Lower, Same,
+First time, Not compared) and a count word. Today nothing stores that. A `sessions` doc holds
+ids only (`WorkoutSessionDoc`: `exerciseIds`, no names, no verdicts, no note), and the swap and
+"added" facts live on the live workout and are dropped by `buildSessionDocs`. This ticket writes
+what the History screens read, once, at Finish, and defines the verdict in one function.
+
+**Build:**
+- **Stage 1, the verdict, pure.** `liftVerdict(current, previous)` comparing two sessions of one
+  lift, each side with its own `fields` (not today's names; renamed fields must not give null).
+  Factor the middle of `todaySummary` (`setDeltas.ts`, from the `setCount === 0` check down) into a
+  shared `compareVolumes`; `todaySummary` keeps its gates and calls it. Rule: the app's existing
+  one (user, 2026-11-13): session total weight × reps against last time, first N sets when there
+  are fewer sets today, totals otherwise. Pinned in a comment on the function: "Same" means no
+  difference after a pinned rounding tolerance (decimal plates), a swapped lift has no previous
+  session (First time), a unit change or an unreadable set is Not compared, never a number.
+  `workoutVerdict(lifts)`: the count word and the amber dot (rule in "To decide"). The user wants the
+  rule generic later: if the code cannot be made generic cheaply, a separate ticket does it.
+  Tests: 6–8 cases (CLAUDE.md 3.2), each seen failing.
+- **Stage 2, the record.** `sessions` gains `lifts: [{ id, name, swappedFrom?, added?, verdict,
+  reason }]` (`verdict` is null whenever there is a `reason`: first_time, unit_changed, no_volume,
+  unreadable, pending) and `note?`. **`exerciseIds` stays**, derived from `lifts`: `recents.ts`,
+  `freestyleHistory.ts`, `workoutsSync.ts` (its validator) and `startWorkout.ts` read it, and
+  keeping it breaks none of them (a reviewer found removing it would). The builder records
+  `swappedFrom` and `added` (a deviation from TICKET-047's "not recorded", written in 047), and
+  must not mark every Freestyle slot `added` (`addExercise` sets it on every added slot).
+  Phase 1 (the batch) writes `lifts` with `reason: pending` using merge, so a replayed upload keeps
+  a note. Phase 2 (the stats transaction, which already reads each `exercise_stats` doc and its
+  `recentSessions`) computes the verdicts and writes the whole `lifts` array to the session doc.
+  `saveWorkoutSession` returns the session, and `attemptUpload` uses it instead of rebuilding it.
+  A workout still waiting to upload gets its verdicts on the phone from the same function, marked
+  provisional, never stored.
+- **Stage 3, scripts and proof.** `importHistory`/`historyImport` and `rebuildExerciseStats` write
+  `lifts` from the full history (the true previous session, so never "too old"). A `--dry-run`
+  compare script recomputes every verdict from `exercise_sessions` and reports differences from
+  the stored ones. Wipe the pre-launch test data in the old shape first (the user: no migration).
+  An imported session has `endedAt` equal to `startedAt`: nothing may show a duration for it.
+
+**Load-bearing facts, checked in code 2026-11-13 (CLAUDE.md 2.1):**
+1. `WorkoutSessionDoc` has no names, verdicts or note (`types/workoutSession.ts`); `buildSessionDocs`
+   drops `planned` and `added` (`utils/exerciseStats.ts:301`).
+2. `saveWorkoutSession` is a batch (session and `exercise_sessions`) then a transaction over
+   `exercise_stats`; the upload queue retries both and the fold replaces by `sessionId`
+   (`services/db/workoutSessions.ts`).
+3. `exercise_stats.recentSessions` holds a lift's last `STATS_RECENT_SESSION_CAP` (10) sessions with
+   their sets; the oldest of ten has no held previous session.
+4. `comparable` is judged against *today's* fields (`buildHistorySession`); the History verdict needs it
+   between two past sessions.
+5. A lift measured in reps only (`bodyweight_reps`: Dips, chin-ups) has no weight pair, so
+   `todaySummary` returns `noComparison` for it. The board shows a Better mark on Dips.
+6. No `firestore.rules` field whitelist: a bad `lifts` array is accepted, so readers must validate it.
+7. Sessions imported by script have no end time and no swap or added flags.
+
+**Decided (user, 2026-11-13, "go with your recommendations"):**
+- **Reps-only lifts** (`bodyweight_reps`: Dips, chin-ups): compare total reps, as one pinned branch in the
+  same function. Rejected: no mark at all, which leaves them blank on every row. Weighted-bodyweight lifts
+  keep the weight × reps rule.
+- **The count word.** "N better" when any lift is better, else "N lower", else "Same", First time or Not
+  compared; first-time and not-compared lifts are not counted. A mixed workout shows only the better count.
+  The amber dot means at least one Better.
+- **Stored, not computed.** It removes the 10-session window for old months. Cost: it can go stale (next
+  section). Rejected: computing on the phone only, which gives every workout older than a lift's last 10
+  sessions "Not compared".
+- **No per-lift note.** The boards show a note on a lift; no field or input exists. Dropped from the design
+  (the boards still show it until they are redrawn); only the workout note (`note`) is built.
+
+**Known gaps, named on purpose:** (a) a workout uploaded late from the offline queue has an old start,
+so its verdict compares against the wrong neighbour and the next session's stored verdict is not
+recomputed; (b) a replayed phase 2 after a neighbour changed rewrites the verdict. Both are rare;
+the compare script finds them and `rebuildExerciseStats` repairs them. TICKET-086 repairs the
+successor on delete.
+
+**Proof (CLAUDE.md 3.1):** the compare script reports 0 mismatches on the imported account, also after
+a simulated late upload and a replayed phase 2; writes per Finish before and after (17 for 8 lifts, 18
+expected); phase 2 latency.
+
+**Out of scope:** every screen; holding sessions on the phone (082); deleting a workout (086).
+
+**CLAUDE.md rules skipped:** none.
+
+**Dependencies:** none. Touches TICKET-047 (swap now recorded), 032, 077.
+
+---
+
+### TICKET-082: Hold Every Workout on the Phone
+
+**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN** — raised 2026-11-13 (user)
+
+**Description:**
+The Workouts list, its month rows, the filter counts ("Push · 14 workouts") and opening an old month
+offline all need every workout's summary on the phone. TICKET-075 keeps the last 5 per plan
+(`WORKOUTS_PER_PLAN`): the newest 5 overall are always held, the newest 10 are not (8 of them could
+be one plan). Firestore here has only a memory cache (`firebase.ts`), so anything not held fails
+offline. With `lifts` (081) a workout doc is about 1 KB, estimated, not measured.
+
+**Build:**
+- The workouts store (`useRecentWorkoutsStore`) holds **every** session doc, newest first, in place
+  of the per-plan N. First load is one query ordered by `startedAt` (the single-field index needs no
+  new entry); then the change check as today. The one shared copy of D2 stays: no second store.
+- Saved in shards by month with the TICKET-076 head key and `multiSet` pattern (Android is said to
+  fail on one entry of about 2 MB: check). `WORKOUTS_FORMAT_VERSION` 2: a version 1 copy is
+  discarded and refilled, as D3 does for N.
+- Retire `WORKOUTS_PER_PLAN`, `loaded` and `followPlans`. Selectors for the later screens: by month,
+  by plan with counts, newest N. The hub, Start, Manage and the picker keep reading what they read.
+- `isSession` accepts `lifts` and `deleted` markers, and the merge drops marked docs (086 writes
+  them; the rule is TICKET-032's).
+- Fix the gap `recents.ts` names: a custom exercise no plan holds has no name; `lifts[].name` gives it.
+- Filter identity is the plan id; the label is the current plan name, else the newest `workoutName`
+  snapshot of that plan (a rename must not split a filter).
+
+**Proof:** reads and bytes of a first load and of a restart, before (today's numbers first) and after, with
+150, 500 and 1500 fixture sessions; the size of one stored entry and the save time at each; a cold
+start in airplane mode shows the list with 0 reads; a Finish on another phone appears on the next check.
+
+**Offline, stated per screen once the History build is done:** Workouts list, month rows, counts,
+filter, Exercises list: held. A lift's last 10 sessions: held. Older sets, a note, a delete: need a
+connection. Opening the app on a phone that never held the copy: needs a connection once.
+
+**Out of scope:** any screen; holding `exercise_sessions` (TICKET-072 D7 stands: sets are not held).
+
+**CLAUDE.md rules skipped:** 3.3 (the proof is a script and a debug readout on the existing debug page).
+
+**Dependencies:** TICKET-081 (the `lifts` shape and validation).
+
+---
+
+### TICKET-083: Session Screen and Landing After Finish
+
+**Priority:** Medium | **Effort:** Large | **Status: OPEN** — raised 2026-11-13 (user)
+
+**Description:**
+The Session screen of the History design (boards `HistSession*`) and, after Finish, landing on the
+Session of the workout just done. It ships alone: the user lands there after every Finish; the old
+History stays the History entry until 085.
+
+**Build:**
+- A `Session` route in the Workout stack with its own `getId` (by session id). Every screen is
+  `singleCopy` today, which would move the one Session instead of opening another (Session → Exercise →
+  Session of another day).
+- Resolution: the pending queue, then the held workouts (082). Opened from the queue, it follows the
+  move to held when the upload lands (`applyFinished`).
+- Lift cards from `lifts` (name, verdict word, captions "Swapped in for X", "Added", "Changed from
+  kg to lb"), with sets from the held summaries; a lift older than its 10 held sessions reads its
+  `exercise_sessions` doc, with a "needs a connection" state per lift. Aligned compare of a lift against
+  its last 3–4 sessions (columns share the width up to 4 sets, scroll sideways beyond: needs a device
+  check, since a split set makes row heights differ).
+- States: waiting to upload and did not upload (the threshold for "did not" is a decision: today only
+  `failedAttempts` and `lastError` exist), first workout, Freestyle, no duration for an imported one.
+- Options sheet (`MenuSheet`): Add a note (writes `note`, refused offline, length capped); Edit session and
+  Delete session shown switched off with a reason. A same-day label helper for compare headers (the
+  collision TICKET-037 describes).
+- Landing: `EndWorkoutResult` gains `sessionId`; the effect that pops to the hub after Finish
+  (`ActiveWorkoutScreen`) navigates to the Session instead, Back goes to the hub until 085 makes it
+  History; the duplicate "Saved" toast is suppressed there. The footer highlight after crossing stacks
+  is TICKET-025's problem and is fixed here for this path.
+
+**Proof:** emulator run: finish a workout online, offline and with a failed upload; open a workout from
+each of the three sources; compare screenshots to the boards (role tokens and `t.fonts`, never board px).
+
+**Out of scope:** Edit and Delete (086, and the Edit UI is parked); the Exercise link inside the compare
+(084 adds it).
+
+**CLAUDE.md rules skipped:** none.
+
+**Dependencies:** TICKET-081, 082. Touches 025, 037, 029 (the waiting state).
+
+---
+
+### TICKET-084: Exercise Screen
+
+**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN** — raised 2026-11-13 (user)
+
+**Description:**
+The Exercise screen of the design (`HistExercise*`): header "History · Bench Press", graph, one scrolling
+log, view options with a dot when not default. Reached from the Session compare ("History" link) and later
+from the Exercises tab.
+
+**Build:**
+- **Graph first, as a decision.** No chart or SVG library is installed (`react-native-svg` is not in
+  `package.json`). Either add it (a native dependency and a dev build) or draw the line from Views.
+  A short spike settles it; peek card and point taps decide which.
+- Pin the definitions the header uses ("Typical weight", the trend word "Going up"): no code defines them
+  today (CLAUDE.md 2.3).
+- Log from the held summaries (the last 10), then pages of `getExerciseSessions` (needs a connection,
+  with a state for it); per-set marks from `sheetSession`; unit-change divider; a new lift with 1–2
+  sessions and no graph; waiting and did-not-upload rows; measure and view-options sheets.
+- Link in the Session compare is added here.
+
+**Proof:** the log agrees with the held summaries (a test); emulator run of every state against its board.
+
+**Out of scope:** the Exercises tab list (085).
+
+**CLAUDE.md rules skipped:** none.
+
+**Dependencies:** TICKET-081, 083. TICKET-036 (unit on trend points) matters only for a graph past 10 sessions.
+
+---
+
+### TICKET-085: History Home — Workouts and Exercises Tabs
+
+**Priority:** Medium | **Effort:** Large (three stages) | **Status: OPEN** — raised 2026-11-13 (user)
+
+**Description:**
+The new History home replaces the old History page. Opened from the Workout hub (the footer has no History
+tab; the design's link map says it does, and is corrected). It always opens on Workouts with All selected;
+Back from a deeper screen keeps tab, filter, scroll and which months are open.
+
+**Build:**
+- **Stage 1, shell:** tabs header with the workout filter, the notice strip (waiting, did not upload with Try
+  again, offline), the entry switch from the hub. Closes TICKET-029 and removes the debug screen.
+- **Stage 2, Workouts:** the rail from the held workouts. Every lift a capsule, in the workout's order; a
+  workout is one tap target; the current month in full (under 10 workouts it runs into the month before,
+  which is then split and its Earlier row counts only what is left); Earlier month rows open in place in one
+  list (`SectionList` or `FlatList` with row types, not nested lists); filter sheet and counts from 082's
+  selectors; a workout waiting to upload merged in with provisional verdicts; "Not compared" for a
+  workout with no verdict (081's reason).
+- **Stage 3, Exercises:** search, one row per lift from the held summaries (Better/Lower/Same by 081's
+  function, last sets, days ago), filter by workout through `lifts` membership, "Most recent first".
+- Removes `WorkoutLogsScreen`, `WorkoutHistoricalLogsFilter`, the log table components, `freestyleHistory`
+  and the two window constants. Their reads (Freestyle's 50 on every visit, up to 50 sets per tap) go.
+
+**Proof:** reads of a History visit before and after (the old page's reads are the baseline); cold start
+offline shows Workouts and Exercises with 0 reads; 20 workouts of 8 lifts scroll without dropped frames on
+the emulator (virtualization, tall capsule rows).
+
+**Out of scope:** Edit session; calendar, streaks, weekly view (cut in design on purpose).
+
+**CLAUDE.md rules skipped:** none.
+
+**Dependencies:** TICKET-081, 082, 083, 084.
+
+---
+
+### TICKET-086: Delete a Workout
+
+**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN** — raised 2026-11-13 (user)
+
+**Description:**
+The options sheet's Delete session (one question first: "Keep it" or "Delete"). No delete exists in the app:
+only the wipe scripts delete. It shares `rebuildExerciseSummary` with TICKET-032 (edit or delete a set),
+which then reuses it.
+
+**Build:**
+- `rebuildExerciseSummary(userId, exerciseId)` as TICKET-032 specifies (a server read of the lift's
+  `exercise_sessions`, one stamped replace, no sessions left means a `deleted` marker on the stats doc).
+- One `writeBatch`: a `deleted: true` marker on the `sessions` doc with a server stamp (never a hard
+  delete: a change check cannot see one), delete that workout's `exercise_sessions` docs, replace each lift's
+  summary, and rewrite each successor session's `lifts` verdict against its new previous session.
+- Refused offline. A Finish landing between the read and the write can overwrite the rebuild: decided in
+  the ticket (re-read the stamps, or accept and heal with the rebuild script).
+- Enable the option on the Session screen with the confirm; after it, Back to Workouts.
+
+**Proof:** read and write counts for a lift with about 100 sessions; the 081 compare script reports 0
+mismatches after a delete; two phones: the deleted workout leaves the other phone's list on its next check.
+
+**Out of scope:** Edit session (UI parked: the user will decide it later); editing a set (032).
+
+**CLAUDE.md rules skipped:** none.
+
+**Dependencies:** TICKET-081, 082, 083. Shares work with 032.
 
 ---
 
