@@ -3,11 +3,11 @@
 // Recompute the exercise_stats rollup from exercise_sessions, which is the
 // source of truth.
 //
-//   npx tsx src/scripts/rebuildExerciseStats.ts <userId> [exerciseId ...] [--dry-run]
+//   npx tsx src/scripts/rebuildExerciseStats.ts <userId> [exerciseId ...] [--confirm]
 //
-// Admin SDK (firebaseAdmin.ts): the client rules refuse a script. `--dry-run`
-// still reads the sessions (so it needs the key) but writes nothing: it prints
-// each stats doc it would write.
+// Admin SDK (firebaseAdmin.ts): the client rules refuse a script. Without
+// `--confirm` it is a dry run: it still reads the sessions (so it needs the key)
+// but writes nothing, and prints each stats doc it would write.
 //
 // When to run it:
 //  - a workout saved with no summary and lost from the phone before its queue
@@ -28,9 +28,10 @@ import { FieldValue } from "firebase-admin/firestore";
 import { ExerciseSessionDoc } from "../types/workoutSession";
 import { rebuildStatsFromSessions } from "../utils/exerciseStats";
 import { getAdminFirestore } from "./firebaseAdmin";
+import { isConfirmedRun } from "./wipe";
 
 const BATCH_LIMIT = 400;
-const DRY_RUN = process.argv.includes("--dry-run");
+const DRY_RUN = !isConfirmedRun(process.argv);
 
 const rebuild = async (userId: string, onlyExerciseIds: string[]) => {
   const db = await getAdminFirestore();
@@ -77,13 +78,13 @@ const rebuild = async (userId: string, onlyExerciseIds: string[]) => {
   }
   if (pending > 0) await batch.commit();
 
-  console.log(`${DRY_RUN ? "Dry run: would rebuild" : "Rebuilt"} ${written} exercise_stats doc(s).`);
+  console.log(`${DRY_RUN ? "Dry run: would rebuild" : "Rebuilt"} ${written} exercise_stats doc(s).${DRY_RUN ? " Pass --confirm to write." : ""}`);
 };
 
-const [userId, ...exerciseIds] = process.argv.slice(2).filter((a) => a !== "--dry-run");
+const [userId, ...exerciseIds] = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 if (!userId) {
   console.error(
-    "Usage: npx tsx src/scripts/rebuildExerciseStats.ts <userId> [exerciseId ...] [--dry-run]"
+    "Usage: npx tsx src/scripts/rebuildExerciseStats.ts <userId> [exerciseId ...] [--confirm]"
   );
   process.exit(1);
 }

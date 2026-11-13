@@ -7,6 +7,11 @@
 import path from "path";
 import { summarise } from "./docSize";
 
+// Fixtures put each workout at an hour of the local day while shards are keyed by
+// UTC month, so the machine's time zone would move evening workouts between months
+// and change the counts. Pinned for every script that imports this file.
+process.env.TZ = "UTC";
+
 export const RUNS = 7;
 
 export const median = (xs: number[]) => summarise(xs).median as number;

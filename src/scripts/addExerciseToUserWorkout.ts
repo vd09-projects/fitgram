@@ -1,6 +1,6 @@
 // src/scripts/addExerciseToUserWorkout.ts
 //
-//   npx tsx src/scripts/addExerciseToUserWorkout.ts <userId> [--dry-run]
+//   npx tsx src/scripts/addExerciseToUserWorkout.ts <userId> [--confirm]
 //
 // Writes the plan `PLAN_ID` for one user. Admin SDK (firebaseAdmin.ts), so the
 // owner-only rules do not apply; that is also why it writes `version` and
@@ -8,13 +8,15 @@
 // plan with none, and every phone's next Save of it is refused once. The version
 // is the existing one's next (none: rev 1), as importHistory.ts does. Run it with
 // the phones idle: a Save made between the read and the write is overwritten.
-// `--dry-run` reads the existing plan and prints the version it would write.
+// Without `--confirm` it is a dry run: it reads the existing plan and prints the
+// version it would write.
 import { randomUUID } from "crypto";
 import { FieldValue } from "firebase-admin/firestore";
 import { NO_VERSION, nextVersion, toPlanVersion, versionOf } from "../utils/planVersion";
 import { getAdminFirestore } from "./firebaseAdmin";
+import { isConfirmedRun } from "./wipe";
 
-const DRY_RUN = process.argv.includes("--dry-run");
+const DRY_RUN = !isConfirmedRun(process.argv);
 const PLAN_ID = "wp_4";
 
 const exercises = [
@@ -26,7 +28,7 @@ const exercises = [
 
 async function run() {
   const userId = process.argv.slice(2).find((a) => !a.startsWith("--"));
-  if (!userId) throw new Error("Usage: npx tsx src/scripts/addExerciseToUserWorkout.ts <userId> [--dry-run]");
+  if (!userId) throw new Error("Usage: npx tsx src/scripts/addExerciseToUserWorkout.ts <userId> [--confirm]");
 
   const db = await getAdminFirestore();
   const ref = db.collection("users").doc(userId).collection("workouts").doc(PLAN_ID);
@@ -35,7 +37,7 @@ async function run() {
   const version = nextVersion(base, randomUUID());
 
   if (DRY_RUN) {
-    console.log(`Dry run: would write ${PLAN_ID} for ${userId} at rev ${version.rev} (${existing.exists ? "overwrite" : "new"}).`);
+    console.log(`Dry run: would write ${PLAN_ID} for ${userId} at rev ${version.rev} (${existing.exists ? "overwrite" : "new"}). Pass --confirm to write.`);
     return;
   }
   await ref.set({ id: PLAN_ID, name: "Workout Plan 4", exercises, version, updatedAt: FieldValue.serverTimestamp() });

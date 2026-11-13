@@ -1,14 +1,15 @@
 // src/scripts/patchMissingUserDocs.ts
 //
-//   npx tsx src/scripts/patchMissingUserDocs.ts --dry-run   # reads, lists what it would write
-//   npx tsx src/scripts/patchMissingUserDocs.ts             # writes
+//   npx tsx src/scripts/patchMissingUserDocs.ts             # dry run: reads, lists what it would write
+//   npx tsx src/scripts/patchMissingUserDocs.ts --confirm   # writes
 //
 // Creates `users/{uid}` for every user that has an `info` doc but no root doc.
 // Admin SDK (firebaseAdmin.ts): a collection-group read across users is beyond
 // the owner-only rules. Never overwrites an existing root doc.
 import { getAdminFirestore } from "./firebaseAdmin";
+import { isConfirmedRun } from "./wipe";
 
-const DRY_RUN = process.argv.includes("--dry-run");
+const DRY_RUN = !isConfirmedRun(process.argv);
 
 const patchMissingUserDocs = async () => {
   const db = await getAdminFirestore();
@@ -34,7 +35,7 @@ const patchMissingUserDocs = async () => {
     await userRootDocRef.set({ uid: userId, verified: true, createdAt: new Date(), patchedFromInfo: true });
     console.log(`Patched user: ${userId}`);
   }
-  console.log(`${DRY_RUN ? "Dry run: would patch" : "Patched"} ${missing} user(s) of ${infoDocsSnapshot.size} info doc(s).`);
+  console.log(`${DRY_RUN ? "Dry run: would patch" : "Patched"} ${missing} user(s) of ${infoDocsSnapshot.size} info doc(s).${DRY_RUN ? " Pass --confirm to write." : ""}`);
 };
 
 patchMissingUserDocs()

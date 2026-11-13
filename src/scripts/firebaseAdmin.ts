@@ -13,8 +13,10 @@
 // Refused: no variable, a missing file, a key inside the repo (one `git add .`
 // from being committed), and a key for a project other than FS_DB_PROJECT_ID.
 // `firebase-admin` is a devDependency, imported only from src/scripts/, so it
-// never reaches the app bundle. Initialised only on a real write, so
-// `--dry-run` needs no key.
+// never reaches the app bundle. Initialised on the first call, so any run
+// that reads needs the key, the dry runs of rebuildExerciseStats,
+// patchMissingUserDocs and addExerciseToUserWorkout included. Only a run that
+// touches no data (importHistory without --inspect) needs none.
 import "dotenv/config";
 import { existsSync, readFileSync, realpathSync } from "fs";
 import path from "path";

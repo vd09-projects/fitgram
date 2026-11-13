@@ -9997,7 +9997,10 @@ the rest when asked.
   those months, so a held month is always complete. Then the change check as today. The one shared copy of D2
   stays: no second store. When a Finish starts a new month and the newest months already cover
   `WORKOUTS_HELD_MIN` without the oldest one, the oldest month is dropped from the copy.
-- Saved in shards by UTC start month with the TICKET-076 head key and `multiSet` pattern. The largest measured
+- Saved in shards by UTC start month with the TICKET-076 head key and `multiSet` pattern. The window is cut at
+  the start of the phone's local month, the one the month rows use; a shard is storage only, so the oldest held
+  shard can hold a few workouts before the cut (a UTC month and a local month differ by up to a day), which
+  are not shown and which a Finish drops. The largest measured
   shard is 279 KB (a busy month of 62 workouts); Android is said to fail on one entry of about 2 MB, which is not
   checked in the library source and is not reached. `WORKOUTS_FORMAT_VERSION` 2: a version 1 copy is discarded
   and refilled, as D3 does for N.
@@ -10200,7 +10203,8 @@ generator and the measuring scripts are reused by 081's compare script and 082's
 
 **Stage 1 — scripts that can touch a real account (TICKET-049).** Move `rebuildExerciseStats.ts`,
 `patchMissingUserDocs.ts` and `addExerciseToUserWorkout.ts` to the admin SDK (`getAdminFirestore()`), each
-writing script with `--dry-run`, then remove `src/scripts/firebase.ts` if nothing uses it. They get
+writing script a dry run by default that writes only with `--confirm` (as `importHistory` does; changed after
+the PR #67 review), then remove `src/scripts/firebase.ts` if nothing uses it. They get
 PERMISSION_DENIED today (owner-only rules are live), so the repair the app points at would fail the first time
 it is needed, and every later stage needs working scripts. 049's TICKET-073 note applies: a plan write sets
 `rev` and `updatedAt`. Not in scope: what the scripts compute.
@@ -10248,7 +10252,7 @@ read-only (`pinky` test account, 15 imported workouts, 185 billed reads). Nothin
 "Not measured".
 
 *What stages 1 to 3 found*
-- **Stage 1.** The three scripts run on the admin SDK with `--dry-run`; all three were run once against the real
+- **Stage 1.** The three scripts run on the admin SDK, as a dry run unless `--confirm` is passed; all three were run once against the real
   project and wrote nothing (4b1c1dc). `src/scripts/firebase.ts` is removed.
 - **Stage 2, today's code.** One Finish of 8 lifts is 17 writes and 8 reads (the real `saveWorkoutSession`, counted).
   Docs, Firestore bytes median/max: `sessions` 651/735, `exercise_sessions` 523/753, `exercise_stats` 1581/3385.
@@ -10301,7 +10305,7 @@ old data often, so hold the newest workouts and fetch the rest (2 workouts a day
    Speed is. Inside the window, opening a workout, a lift's log past its 10 held sessions and a longer graph are
    local: 0 reads, instant and offline, where A waits on the network (8 reads to open a workout, 90-194 reads to
    page the busiest lift's log). The network wait on a gym phone is an estimate, not measured.
-   *What it costs.* 0.87-0.97 MB held instead of 0.25-0.28 MB (about 15% of the 6 MB cap with the summaries and
+   *What it costs.* 0.87-0.97 MB held instead of 0.25-0.28 MB (23-25% of the 6 MB cap with the summaries and
    catalog); a few ms more on a desktop cold load; 0.62-0.69 MB instead of 0.23-0.25 MB on a new phone's first
    load, in the same number of reads; past the window 198 KB instead of 73 KB for a month and 64 KB instead of
    11 KB for a log page; a dual-write window; the reversal of D5; rebuild, delete and TICKET-032 are written
@@ -10313,6 +10317,10 @@ old data often, so hold the newest workouts and fetch the rest (2 workouts a day
    going back means putting `exercise_sessions` back.
 2. **The held window.** The phone holds the records of the newest whole months until at least `WORKOUTS_HELD_MIN`
    workouts (180: the user's 2 a day for 90 days), saved one shard per UTC start month with the TICKET-076 head key.
+   The month is defined once for the window: it is cut at the start of the phone's local month, the one the
+   month rows use. A shard is storage only, so the oldest held shard can hold a few workouts before the cut (a
+   UTC month and a local month differ by up to a day at the edges); they are not shown and a Finish drops them.
+   The measurements here use UTC months and are pinned to `TZ=UTC`, so they do not depend on the machine.
    Measured held size under B is 0.87-0.97 MB; with the rollup summaries (237 KB) and the catalog (283 KB) about
    1.4 MB of the 6 MB cap, and it no longer grows with history. First load is two queries (the newest N, then the rest of
    the oldest month). Rejected: holding everything (1500 reads on a new phone; B breaks the cap near 1250
@@ -10393,7 +10401,7 @@ untested; nothing here was seen on a phone and the data is invented.
 boards; the scripts. No app code outside `src/scripts/`.
 
 **Acceptance Criteria:**
-- [x] The three scripts run on the admin SDK with `--dry-run`, and one real dry run is recorded
+- [x] The three scripts run on the admin SDK as a dry run by default (`--confirm` writes), and one real dry run is recorded
 - [x] The verdict split on the real account is in the ticket, with the rule kept or changed
 - [x] A and B measured at 150, 500 and 1500 workouts (and C, and a window), and the choice recorded with what was rejected
 - [x] The graph decision made, with the spike's result

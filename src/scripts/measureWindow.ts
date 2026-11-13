@@ -25,8 +25,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import os from "os";
 import path from "path";
 import { buildShapes, generateFixture, monthKey, type Shapes } from "./historyFixtures";
-import { firestoreBytes, jsonBytes } from "./docSize";
+import { firestoreBytes } from "./docSize";
 import { kb, mb, median, ms, openDb, timed } from "./benchSupport";
+import { selectHeldMonths } from "./heldWindow";
 import { STATS_RECENT_SESSION_CAP } from "../config/storedData";
 
 /** Workouts on the server: a few months and a few years of the busy user. */
@@ -45,18 +46,10 @@ async function measure(total: number, windowSize: number, dir: string) {
   const exBySession = new Map<string, Shapes["exerciseSessions"]>();
   shapes.exerciseSessions.forEach((e) => exBySession.set(e.sessionId, [...(exBySession.get(e.sessionId) ?? []), e]));
 
-  // Months newest first, taken until the window is covered: the held count floats up to a month above it.
   const months = new Map<string, number[]>();
   shapes.a.forEach((r, i) => months.set(monthKey(r.startedAt), [...(months.get(monthKey(r.startedAt)) ?? []), i]));
+  const { held: heldMonths, older: oldMonths } = selectHeldMonths(new Map([...months].map(([k, idx]) => [k, idx.length])), windowSize);
   const monthKeys = [...months.keys()].sort().reverse();
-  const heldMonths: string[] = [];
-  let heldCount = 0;
-  for (const k of monthKeys) {
-    if (heldCount >= windowSize) break;
-    heldMonths.push(k);
-    heldCount += months.get(k)!.length;
-  }
-  const oldMonths = monthKeys.filter((k) => !heldMonths.includes(k));
 
   const shardOf = (shape: "a" | "b" | "c", k: string): string => {
     const idx = months.get(k)!;
@@ -150,7 +143,7 @@ async function measure(total: number, windowSize: number, dir: string) {
   const [bigLift, bigCount] = [...counts.entries()].sort((x, y) => y[1] - x[1])[0];
   const logInWindow = { bigLift, sessions: bigCount, readsA: Math.max(0, bigCount - STATS_RECENT_SESSION_CAP), readsBC: 0 };
 
-  return { total, windowSize, heldMonths: heldMonths.length, monthsOnServer: monthKeys.length, st, firstLoad, old, logInWindow, exDocBytes, recBBytes, jsonCheck: jsonBytes(shapes.a[0]) };
+  return { total, windowSize, heldMonths: heldMonths.length, monthsOnServer: monthKeys.length, st, firstLoad, old, logInWindow, exDocBytes, recBBytes };
 }
 
 async function main() {
@@ -174,9 +167,12 @@ async function main() {
         console.log(`cold load, newest shard only, ms (4)        A ${ms(st.a.loadNewestMs)} | B ${ms(st.b.loadNewestMs)} | C ${ms(st.c.loadNewestMs)}`);
         console.log(`new-phone first load, window: reads / MB    A ${f.aReads}/${mb(f.aBytes)} | B ${f.bReads}/${mb(f.bBytes)} | C ${f.cReads}/${mb(f.cBytes)}      hold all: A ${f.allAReads} | B ${f.allBReads} | C ${f.allCReads} reads`);
         console.log(`Exercise log inside window (${l.bigLift}, ${l.sessions} sessions): reads A ${l.readsA} | B ${l.readsBC} | C ${l.readsBC}`);
-        console.log(`past the window (2): browse ${old.month} (${old.monthWorkouts} workouts): ${old.monthReadsAB} reads, A/C ${kb(old.monthBytesA)} KB, B ${kb(old.monthBytesB)} KB`);
-        console.log(`  open one old workout from that list: A/C ${old.openFromListA} reads (${kb(old.openBytesA)} KB), B ${old.openFromListB} | opened direct: A/C ${old.openDirectA}, B ${old.openDirectB} reads`);
-        console.log(`  one page (${old.pageReads}) of a lift's Exercise log: ${old.pageReads} reads, A/C ${kb(old.pageBytesAC)} KB, B ${kb(old.pageBytesB)} KB`);
+        if (old.month === null) console.log("past the window (2): no month is older than the window, so there is no old-data fetch to measure");
+        else {
+          console.log(`past the window (2): browse ${old.month} (${old.monthWorkouts} workouts): ${old.monthReadsAB} reads, A/C ${kb(old.monthBytesA)} KB, B ${kb(old.monthBytesB)} KB`);
+          console.log(`  open one old workout from that list: A/C ${old.openFromListA} reads (${kb(old.openBytesA)} KB), B ${old.openFromListB} | opened direct: A/C ${old.openDirectA}, B ${old.openDirectB} reads`);
+          console.log(`  one page (${old.pageReads}) of a lift's Exercise log: ${old.pageReads} reads, A/C ${kb(old.pageBytesAC)} KB, B ${kb(old.pageBytesB)} KB`);
+        }
       }
     }
     const out = arg("--json");
