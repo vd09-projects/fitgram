@@ -220,9 +220,11 @@ export type TodaySummary = {
 /**
  * Set count, today's volume, and today's volume against last session.
  *
- * Today's numeric fields come from `todayExerciseFields` (the live exercise);
- * last session's from `history.numericFields`, which is that session's shape.
- * Both sides are all-or-nothing: one unparseable set among the first N last
+ * Today's numeric fields come from `todayExerciseFields` (the live exercise), and
+ * last session's sets are measured with that same pair (`history.numericFields`,
+ * which `deriveExerciseHistory` builds from the live fields the caller passes). Whether the two sessions are comparable at all
+ * is `last.comparable`, judged on each session's own fields. Both sides are
+ * all-or-nothing: one unparseable set among the first N last
  * time and the comparison is unavailable, never understated.
  */
 export function todaySummary(

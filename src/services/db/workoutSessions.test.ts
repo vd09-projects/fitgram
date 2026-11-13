@@ -1,6 +1,7 @@
 import { Timestamp, getDocs, getDocsFromServer, runTransaction, serverTimestamp, writeBatch } from "firebase/firestore";
 import { getAllExerciseStats, getWorkoutSessions, saveWorkoutSession } from "./workoutSessions";
 import { buildExercise, buildStats, buildWorkout } from "../../test/fixtures";
+import * as liftRecord from "../../utils/liftRecord";
 
 jest.mock("../firebase/firebase", () => ({ db: {} }));
 jest.mock("firebase/firestore", () => ({
@@ -131,8 +132,56 @@ describe("the server stamp on sessions", () => {
       docs: [docOf({ sessionId: "new", updatedAt: new Timestamp(5, 400) }), docOf({ sessionId: "old" })],
     });
     const { sessions } = await getWorkoutSessions("u1");
-    expect(sessions).toEqual([{ sessionId: "new", updatedAt: { seconds: 5, nanoseconds: 400 } }, { sessionId: "old" }]);
+    expect(sessions).toMatchObject([{ sessionId: "new", updatedAt: { seconds: 5, nanoseconds: 400 } }, { sessionId: "old" }]);
+    expect(sessions[1]).not.toHaveProperty("updatedAt");
     expect(sessions[0].updatedAt).not.toBeInstanceOf(Timestamp);
+  });
+
+  // TICKET-081 review: one session without readable `lifts` must not make the held copy's
+  // validator refuse the whole copy; it is read as no lifts, flagged, never as a plain empty list.
+  it("a read gives readable lifts as stored, and [] with liftsUnreadable for a missing or bad array", async () => {
+    const docOf = (data: object) => ({ data: () => data });
+    const lift = { id: "a", name: "A", fields: [], sets: [], verdict: "better", reason: null };
+    (getDocs as jest.Mock).mockResolvedValue({
+      docs: [
+        docOf({ sessionId: "ok", lifts: [lift] }),
+        docOf({ sessionId: "old" }),
+        docOf({ sessionId: "bad", lifts: [{ ...lift, verdict: "better", reason: "first_time" }] }),
+      ],
+    });
+    const { sessions } = await getWorkoutSessions("u1");
+    expect(sessions[0].lifts).toEqual([lift]);
+    expect(sessions[0]).not.toHaveProperty("liftsUnreadable");
+    for (const unreadable of [sessions[1], sessions[2]]) {
+      expect(unreadable.lifts).toEqual([]);
+      expect(unreadable.liftsUnreadable).toBe(true);
+    }
+  });
+
+  // A derived value must not block the rollup: the fold goes on and the lifts stay pending.
+  it("if the verdicts cannot be computed the fold still commits and the lifts stay pending", async () => {
+    const batchSet = jest.fn();
+    (writeBatch as jest.Mock).mockReturnValue({ set: batchSet, commit: jest.fn().mockResolvedValue(undefined) });
+    const tx = { get: jest.fn().mockResolvedValue({ exists: () => false }), set: jest.fn() };
+    (runTransaction as jest.Mock).mockImplementation(async (_db, fn) => fn(tx));
+    const spy = jest.spyOn(liftRecord, "withVerdicts").mockImplementation(() => {
+      throw new Error("boom");
+    });
+    const log = jest.spyOn(console, "log").mockImplementation(() => {});
+    const workout = buildWorkout([], {
+      id: "plan-a",
+      startTime: 1_000,
+      exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: 60, Reps: 5 }] }] })],
+    });
+
+    const { session, summaries } = await saveWorkoutSession("u1", workout, 2_000);
+
+    expect(summaries).toHaveLength(1);
+    expect(tx.set.mock.calls.some(([, data]) => data.exerciseId !== undefined)).toBe(true);
+    expect(session.lifts[0]).toMatchObject({ verdict: null, reason: "pending" });
+    expect(log).toHaveBeenCalledWith("Verdicts not computed, left pending:", expect.any(Error));
+    spy.mockRestore();
+    log.mockRestore();
   });
 });
 

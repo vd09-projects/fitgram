@@ -49,7 +49,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Folded into 087 stage 1 (2026-11-13).** Before the next real repair: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
 | 071 | History page redesign | Medium-Large | Raised 2026-11-05 (user). **Design done 2026-11-13**; the build is 081-086 |
 | 087 | History analysis: measure, decide the schema, fix the design | Med-Large | **Done 2026-11-13 (shape B, held window, Views graph, boards redrawn). Unblocks 081-086.** Raised 2026-11-13 (user). Folds in 049 (scripts to the admin SDK). Embed the sets or not, the verdict split on real data, the graph library, then edits 081-086 |
-| 081 | History data foundation: the lift record and the verdict | Large | Raised 2026-11-13 (user). No screen. `lifts[]` (with the sets) and `note` on the session doc, one verdict function, a compare script. After 087. Reps-only lifts and the count word are decided |
+| 081 | History data foundation: the lift record and the verdict | Large | **Built 2026-11-14, in review (PR #68); one test account still in the old shape.** Raised 2026-11-13 (user). No screen. `lifts[]` (with the sets) and `note` on the session doc, one verdict function, a compare script. After 087. Reps-only lifts and the count word are decided |
 | 082 | Hold recent workouts on the phone | Med-Large | After 081. Replaces the 5-per-plan window with the newest whole months; month shards; older months fetched on tap |
 | 083 | Session screen and landing after Finish | Large | After 081, 082. Ships alone: the user lands on it after Finish |
 | 084 | Exercise screen | Med-Large | After 083. Graph drawn from Views (decided in 087) |
@@ -9878,7 +9878,7 @@ wait for this; its two settle-first tests do not.
 
 ### TICKET-081: History Data Foundation — the Lift Record and the Verdict
 
-**Priority:** Medium | **Effort:** Large (three stages) | **Status: OPEN** — raised 2026-11-13 (user).
+**Priority:** Medium | **Effort:** Large (three stages) | **Status: BUILT, in review (PR #68)** — raised 2026-11-13 (user). Stages 1–3 done and device-tested on the emulator 2026-11-14; open: the `vikrantdhawan9` old-shape data (wipe or backfill, the user's call).
 First of the History build (design: TICKET-071, PR #64). No screen; the proof is a script. No open decisions
 
 **Description:**
@@ -9914,7 +9914,7 @@ what the History screens read, once, at Finish, and defines the verdict in one f
   `recentSessions`) computes the verdicts and writes the whole `lifts` array to the session doc.
   `saveWorkoutSession` returns the session, and `attemptUpload` uses it instead of rebuilding it.
   A workout still waiting to upload gets its verdicts on the phone from the same function, marked
-  provisional, never stored. Reuse `src/scripts/historyFixtures.ts` (seeded workouts built by the importer's own
+  provisional, never stored (the function, `withVerdicts`, is built here; wiring it to the phone's held copy is 082's). Reuse `src/scripts/historyFixtures.ts` (seeded workouts built by the importer's own
   path) for the compare script's tests and the proof.
 - **Stage 3, scripts and proof.** `importHistory`/`historyImport` write `lifts` with their sets from the full history (the true
   previous session, so never "too old"); `rebuildExerciseStats` rebuilds from `sessions` (`lifts[].sets`), not
@@ -9967,8 +9967,14 @@ what the History screens read, once, at Finish, and defines the verdict in one f
   settles it), never a false First time. A workout word is "pending" (no word) while any lift is pending.
 - Phase 2 writes the verdicts with merge and a new `updatedAt`, so a phone that fetched the pending record fetches
   the final one. Phase 1 writes with merge and no `note`, so a replay keeps a note.
-- `WorkoutSessionDoc.lifts` is required, and the held copy's validator (`workoutsSync`) refuses a session with no
-  or bad `lifts` (`readLifts`): a copy from an older build is refilled, no format bump. 082 reads through it.
+- `WorkoutSessionDoc.lifts` is required, and the held copy's validator (`workoutsSync`) refuses a copy with a session
+  with no or bad `lifts` (`readLifts`): a copy from an older build is refilled, no format bump. After the PR #68
+  review the read boundary (`sessionFromDoc`) reads `lifts` through `readLifts` too: missing or unreadable gives `[]`
+  and `liftsUnreadable: true` (never stored), so one old-shape session cannot make the validator discard the whole
+  copy on every launch (an offline cold start would have shown no recent workouts). 082 and 083 read `lifts` only
+  through the boundary and show "details not available" for `liftsUnreadable`, never an empty workout.
+- A verdict that cannot be computed does not fail the save: phase 2 catches it, leaves the lifts `pending`, logs it
+  (not `console.error`) and goes on with the fold (added after the PR #68 review).
 - The provisional verdict for a workout still uploading is `withVerdicts` over the held rollups; wiring it to the
   phone's held copy and marking it provisional is 082's.
 
@@ -10005,9 +10011,10 @@ copy still lists the removed sessions (a hard delete is invisible to the change 
   stamp, only the exercises named if any) and rewrites the rollups, a dry run unless `--confirm`.
 - Found while proving it: a late upload also leaves a rollup different from a rebuild (which session holds a tied
   best), not only verdicts. The rebuild fixes both. Added to known gap (a).
-- A rebuild of an account whose sessions have no readable `lifts` counts none of them and says so (on the test
-  account it reads 15 such sessions and writes nothing). A mixed account would lower bests that came only from the
-  unreadable sessions: the script lists them first.
+- A rebuild counts only sessions with readable `lifts` and lists the rest. On an account with none readable it
+  writes nothing. On a mixed account (any old-shape account after its first Finish under this build) it would lower
+  bests that came only from the unreadable sessions, so `--confirm` is refused until they are re-imported or wiped,
+  unless `--ignore-unreadable` is passed (`rebuildRefusal`, added after the PR #68 review); a dry run is never refused.
 - No duration for an imported session needed no new code: `sessionMinutes` returns null when the end equals the
   start, and a test now pins that for the imported sessions.
 
@@ -10018,9 +10025,12 @@ recomputed; (b) a replayed phase 2 after a neighbour changed rewrites the verdic
 the compare script finds them and `rebuildExerciseStats` repairs them. TICKET-086 repairs the
 successor on delete.
 
-**Proof (CLAUDE.md 3.1):** the compare script reports 0 mismatches on the imported account, also after
-a simulated late upload and a replayed phase 2; writes per Finish before and after (17 for 8 lifts today; 18 while
-`exercise_sessions` is also written, 10 after 085); phase 2 latency.
+**Proof (CLAUDE.md 3.1):** the compare script reports 0 mismatches on the imported account (shown: 15 sessions,
+122 lifts, on two accounts). On fixtures, with the code the transaction runs: saves in start order give 0 mismatches; a
+replay right after its own fold writes the same lifts (0); a late upload gives mismatches (wrong verdicts on the
+successors, a different tied best in a rollup) which the compare script finds and the rebuild repairs to 0. Writes per
+Finish before and after (17 for 8 lifts today; 18 while `exercise_sessions` is also written, 10 after 085), counted by
+the harness; phase 2 latency, not measured.
 
 **Out of scope:** every screen; holding sessions on the phone (082); deleting a workout (086).
 
@@ -10109,7 +10119,7 @@ History stays the History entry until 085.
   the upload lands (`applyFinished`).
 - Lift cards from `lifts` (name, verdict word, captions "Swapped in for X" from `swappedFrom.name`, "Added", "Changed from
   kg to lb") with their sets (081 stage 2: a lift with `reason: "pending"` shows no word, neither First time nor
-  Not compared; every record is read through `readLifts`, which refuses a bad array whole), from the same record: no further read for a held or fetched workout. Aligned compare of a lift against
+  Not compared; every record is read through `readLifts`, which refuses a bad array whole; a `liftsUnreadable` session shows "details not available", not an empty workout), from the same record: no further read for a held or fetched workout. Aligned compare of a lift against
   its last 3–4 sessions (from the held summaries) (columns share the width up to 4 sets, scroll sideways beyond: needs a device
   check, since a split set makes row heights differ).
 - States: waiting to upload and did not upload (the threshold for "did not" is a decision: today only

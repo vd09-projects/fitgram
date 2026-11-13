@@ -126,3 +126,18 @@ export function compareHistory(
     statsDiffer,
   };
 }
+
+/**
+ * Why a rebuild must not write, or null when it may. A rebuild counts only sessions with readable
+ * `lifts`, so on a mixed account it lowers every best that came only from the others: a plausible
+ * wrong number (CLAUDE.md 2.4). A session logged on the phone after TICKET-081 makes any old-shape
+ * account mixed, so this is reachable, not theoretical. A dry run is never refused: it is how
+ * the sessions at risk are listed. `ignoreUnreadable` is the explicit way through.
+ */
+export function rebuildRefusal(
+  unreadable: number,
+  run: { confirm: boolean; ignoreUnreadable: boolean }
+): string | null {
+  if (!run.confirm || run.ignoreUnreadable || unreadable === 0) return null;
+  return `${unreadable} session(s) have no readable lifts and would not be counted: bests that came only from them would be lowered. Re-import or wipe them first, or pass --ignore-unreadable to rebuild without them.`;
+}

@@ -3,7 +3,7 @@
 import type { ExerciseStatsDoc, WorkoutSessionDoc } from "../types/workoutSession";
 import { applySessionToStats, rebuildStatsFromSessions } from "../utils/exerciseStats";
 import { exerciseSessionsOf, repairedSessions, verdictsFromHistory, withVerdicts } from "../utils/liftRecord";
-import { compareHistory, totalMismatches } from "./historyCompare";
+import { compareHistory, rebuildRefusal, totalMismatches } from "./historyCompare";
 import { generateFixture } from "./historyFixtures";
 import { sessionMinutes } from "../utils/sessionDuration";
 import { settleVerdicts } from "./historyImport";
@@ -157,5 +157,14 @@ describe("settleVerdicts and the limited repair", () => {
     changed.forEach((s) =>
       s.lifts.forEach((l) => expect(only.has(l.id) ? l.reason !== "pending" : l.reason === "pending").toBe(true))
     );
+  });
+});
+
+describe("rebuildRefusal", () => {
+  it("refuses a write while sessions are unreadable, unless told to go on; never refuses a dry run or a clean account", () => {
+    expect(rebuildRefusal(2, { confirm: true, ignoreUnreadable: false })).toMatch("2 session(s)");
+    expect(rebuildRefusal(2, { confirm: true, ignoreUnreadable: true })).toBeNull();
+    expect(rebuildRefusal(2, { confirm: false, ignoreUnreadable: false })).toBeNull();
+    expect(rebuildRefusal(0, { confirm: true, ignoreUnreadable: false })).toBeNull();
   });
 });

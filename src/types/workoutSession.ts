@@ -174,6 +174,14 @@ export type WorkoutSessionDoc = {
    * Readers validate it (`readLifts`): `firestore.rules` has no field whitelist.
    */
   lifts: LiftRecord[];
+  /**
+   * Set by the read boundary (`sessionFromDoc`), never stored: the doc's `lifts`
+   * were missing or unreadable (a session from before TICKET-081, or a bad
+   * write), so `lifts` is `[]`. A screen says "details not available" instead
+   * of showing a workout with no lifts. Without it an empty list would read as
+   * data (CLAUDE.md 2.4).
+   */
+  liftsUnreadable?: true;
   /** The workout's note, written by the Session screen (TICKET-083), never by Finish. */
   note?: string;
   /**

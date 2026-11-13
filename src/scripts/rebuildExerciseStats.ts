@@ -5,7 +5,7 @@
 // before it, `exercise_sessions`, which is still written beside them until
 // TICKET-085 and is not read here).
 //
-//   npx tsx src/scripts/rebuildExerciseStats.ts <userId> [exerciseId ...] [--confirm]
+//   npx tsx src/scripts/rebuildExerciseStats.ts <userId> [exerciseId ...] [--confirm] [--ignore-unreadable]
 //
 // Admin SDK (firebaseAdmin.ts): the client rules refuse a script. Without
 // `--confirm` it is a dry run: it still reads the sessions (so it needs the key)
@@ -24,21 +24,24 @@
 // Idempotent: it writes a value derived purely from the sessions it reads. Pass
 // exercise ids to limit what a run touches.
 //
-// Warning: sessions with no readable `lifts` (written before TICKET-081) and sets
-// stored before TICKET-055 (a bare map, no `segments`) are not counted, so a
-// rebuild lowers bests that came only from them. The sessions left out are
-// listed. On the test account the 26 Oct session is in the older format and a
-// rebuild drops a 34 kg best to 5 kg (TICKET-077; TICKET-032 decides what to do).
+// Sessions with no readable `lifts` (written before TICKET-081) and sets stored before
+// TICKET-055 (a bare map, no `segments`) are not counted, so a rebuild would lower bests
+// that came only from them. The dry run lists the sessions left out; `--confirm` is
+// REFUSED while any exist, unless `--ignore-unreadable` says to rebuild without them
+// (`rebuildRefusal`). On the test account the 26 Oct session was in the older format and a
+// rebuild dropped a 34 kg best to 5 kg (TICKET-077; TICKET-032 decides what to do).
 
 import { FieldValue } from "firebase-admin/firestore";
 import { WorkoutSessionDoc } from "../types/workoutSession";
 import { rebuildStatsFromSessions } from "../utils/exerciseStats";
 import { exerciseSessionsOf, readLifts, repairedSessions } from "../utils/liftRecord";
 import { getAdminFirestore } from "./firebaseAdmin";
+import { rebuildRefusal } from "./historyCompare";
 import { isConfirmedRun } from "./wipe";
 
 const BATCH_LIMIT = 400;
 const DRY_RUN = !isConfirmedRun(process.argv);
+const IGNORE_UNREADABLE = process.argv.includes("--ignore-unreadable");
 
 const rebuild = async (userId: string, onlyExerciseIds: string[]) => {
   const db = await getAdminFirestore();
@@ -49,6 +52,8 @@ const rebuild = async (userId: string, onlyExerciseIds: string[]) => {
     console.warn(`  NOT COUNTED: ${all.length - sessions.length} session(s) with no readable lifts:`);
     all.filter((s) => !sessions.includes(s)).forEach((s) => console.warn(`    ${s.sessionId}`));
   }
+  const refusal = rebuildRefusal(all.length - sessions.length, { confirm: !DRY_RUN, ignoreUnreadable: IGNORE_UNREADABLE });
+  if (refusal) throw new Error(refusal);
 
   if (sessions.length === 0) {
     console.log("No sessions with lifts found — nothing to rebuild.");
@@ -112,7 +117,7 @@ const rebuild = async (userId: string, onlyExerciseIds: string[]) => {
 const [userId, ...exerciseIds] = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 if (!userId) {
   console.error(
-    "Usage: npx tsx src/scripts/rebuildExerciseStats.ts <userId> [exerciseId ...] [--confirm]"
+    "Usage: npx tsx src/scripts/rebuildExerciseStats.ts <userId> [exerciseId ...] [--confirm] [--ignore-unreadable]"
   );
   process.exit(1);
 }

@@ -41,7 +41,7 @@ import {
   buildExerciseSessionId,
   buildSessionDocs,
 } from "../../utils/exerciseStats";
-import { withVerdicts } from "../../utils/liftRecord";
+import { readLifts, withVerdicts } from "../../utils/liftRecord";
 import { toStamp, type SyncStamp } from "../../utils/syncCore";
 
 const USERS = tables.users.collection;
@@ -64,7 +64,16 @@ const exerciseStatsRef = (userId: string) =>
 const sessionFromDoc = (snapshot: QueryDocumentSnapshot<DocumentData>): WorkoutSessionDoc => {
   const { updatedAt, ...data } = snapshot.data();
   const stamp = toStamp(updatedAt);
-  return { ...(data as WorkoutSessionDoc), ...(stamp ? { updatedAt: stamp } : {}) };
+  // `lifts` is read through `readLifts` here, the one boundary (firestore.rules has no field
+  // whitelist). Missing or unreadable: `[]` and `liftsUnreadable`, so one such session (a
+  // pre-081 doc) cannot make the held copy's validator refuse the whole copy on every launch.
+  const lifts = readLifts(data.lifts);
+  return {
+    ...(data as WorkoutSessionDoc),
+    lifts: lifts ?? [],
+    ...(lifts ? {} : { liftsUnreadable: true as const }),
+    ...(stamp ? { updatedAt: stamp } : {}),
+  };
 };
 
 // ---------------------------------------------------------------------------
@@ -155,7 +164,15 @@ export const saveWorkoutSession = async (
     );
     // Verdicts from the rollups as they stand before this session is folded in.
     const statsById = new Map(exerciseSessions.map((e, index) => [e.exerciseId, existing[index]]));
-    const lifts = withVerdicts(session, (exerciseId) => statsById.get(exerciseId) ?? null);
+    // A derived value must not block the rollup: if the verdicts cannot be computed the lifts
+    // stay `pending` (the compare script finds them, the rebuild repairs them) and the fold goes
+    // on. Logged, not `console.error`: in a dev build that opens LogBox over the "Saved" toast.
+    let lifts = session.lifts;
+    try {
+      lifts = withVerdicts(session, (exerciseId) => statsById.get(exerciseId) ?? null);
+    } catch (error) {
+      console.log("Verdicts not computed, left pending:", error);
+    }
     // Merge, as phase 1: a note added since stays. The stamp moves again, so a
     // phone that fetched the pending record fetches this one.
     tx.set(sessionRef, { lifts, updatedAt: serverTimestamp() }, { merge: true });
