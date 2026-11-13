@@ -3,7 +3,11 @@
 // Recompute the exercise_stats rollup from exercise_sessions, which is the
 // source of truth.
 //
-//   npx tsx src/scripts/rebuildExerciseStats.ts <userId> [exerciseId ...]
+//   npx tsx src/scripts/rebuildExerciseStats.ts <userId> [exerciseId ...] [--dry-run]
+//
+// Admin SDK (firebaseAdmin.ts): the client rules refuse a script. `--dry-run`
+// still reads the sessions (so it needs the key) but writes nothing: it prints
+// each stats doc it would write.
 //
 // When to run it:
 //  - a workout saved with no summary and lost from the phone before its queue
@@ -20,17 +24,17 @@
 // is in that format, and a rebuild drops a 34 kg best to 5 kg (found in TICKET-077;
 // TICKET-032 decides what to do). Running this on such an account lowers real bests.
 
-import { collection, doc, getDocs, serverTimestamp, writeBatch } from "firebase/firestore";
-import { db } from "./firebase";
+import { FieldValue } from "firebase-admin/firestore";
 import { ExerciseSessionDoc } from "../types/workoutSession";
 import { rebuildStatsFromSessions } from "../utils/exerciseStats";
+import { getAdminFirestore } from "./firebaseAdmin";
 
 const BATCH_LIMIT = 400;
+const DRY_RUN = process.argv.includes("--dry-run");
 
 const rebuild = async (userId: string, onlyExerciseIds: string[]) => {
-  const sessionsSnap = await getDocs(
-    collection(db, "users", userId, "exercise_sessions")
-  );
+  const db = await getAdminFirestore();
+  const sessionsSnap = await db.collection("users").doc(userId).collection("exercise_sessions").get();
   const sessions = sessionsSnap.docs.map((d) => d.data() as ExerciseSessionDoc);
 
   if (sessions.length === 0) {
@@ -47,7 +51,7 @@ const rebuild = async (userId: string, onlyExerciseIds: string[]) => {
     `Read ${sessions.length} sessions; rebuilding ${exerciseIds.length} exercise(s).`
   );
 
-  let batch = writeBatch(db);
+  let batch = db.batch();
   let pending = 0;
   let written = 0;
 
@@ -58,24 +62,28 @@ const rebuild = async (userId: string, onlyExerciseIds: string[]) => {
       continue;
     }
     // The stamp is what phones' change checks find (TICKET-076).
-    batch.set(doc(db, "users", userId, "exercise_stats", exerciseId), { ...stats, updatedAt: serverTimestamp() });
-    pending += 1;
     written += 1;
+    if (DRY_RUN) {
+      console.log(`  would write exercise_stats/${exerciseId}`);
+      continue;
+    }
+    batch.set(db.collection("users").doc(userId).collection("exercise_stats").doc(exerciseId), { ...stats, updatedAt: FieldValue.serverTimestamp() });
+    pending += 1;
     if (pending >= BATCH_LIMIT) {
       await batch.commit();
-      batch = writeBatch(db);
+      batch = db.batch();
       pending = 0;
     }
   }
   if (pending > 0) await batch.commit();
 
-  console.log(`Rebuilt ${written} exercise_stats doc(s).`);
+  console.log(`${DRY_RUN ? "Dry run: would rebuild" : "Rebuilt"} ${written} exercise_stats doc(s).`);
 };
 
-const [userId, ...exerciseIds] = process.argv.slice(2);
+const [userId, ...exerciseIds] = process.argv.slice(2).filter((a) => a !== "--dry-run");
 if (!userId) {
   console.error(
-    "Usage: npx tsx src/scripts/rebuildExerciseStats.ts <userId> [exerciseId ...]"
+    "Usage: npx tsx src/scripts/rebuildExerciseStats.ts <userId> [exerciseId ...] [--dry-run]"
   );
   process.exit(1);
 }
