@@ -9981,6 +9981,19 @@ its old-shape docs with no wipe (same ids, plain `set`), 0 mismatches. `vikrantd
 is still the old shape: the compare script reports its sessions as unreadable, not as agreeing. Not on the account: the late upload and the replayed phase 2
 (unit-simulated on fixtures with the code the transaction runs), phase 2 latency, a Finish on a phone.
 
+**Device test (emulator, 2026-11-14, signed in as `pinky`; three Finishes, then removed).** T1 Freestyle online, two lifts
+with history: `lifts` with their sets, `exerciseIds` equal to the lift ids, no `added` on Freestyle, a Shoulder Press in kg
+over plate history gave `unit_changed` (a real case), a Lateral Raise cut by a third gave `lower`; 2 `exercise_sessions` docs;
+the live card's "-33.3%" and the stored verdict agreed. T2 "Test 070": a swapped lift stored `swappedFrom {id, name}` and was
+compared with its own exercise's history (`better`), an added slot stored `added: true` and a tie read `same` (the live card said
+0.0%); the Workout hub updated at once from the returned session. T3 airplane mode: "Saved on this phone", the server had nothing
+until reconnect, then the final record landed with verdicts (not pending), its previous session the one T2 had just written.
+`compareHistory` after each: 0 mismatches (16, 17, 18 sessions). Cleanup: the 3 test sessions and their `exercise_sessions`
+deleted, rollups rebuilt with `rebuildExerciseStats --confirm` (the first real run of that write path), back to 15 sessions, 0
+mismatches. Not tested: a late upload (an older workout reaching the server after a newer one), phase 2 failing after phase 1,
+phase 2 latency (not timed), the write count on the server (18 is the harness's count, not read from Firestore). The emulator's held
+copy still lists the removed sessions (a hard delete is invisible to the change check; TICKET-086's marker is the fix).
+
 **Stage 3 decisions (2026-11-13, built):**
 - One pure `verdictsFromHistory(sessions)` recomputes every verdict from the sets, against each lift's true previous
   session in start order (ties by session id). The import, the compare script and the rebuild all use it, so they
