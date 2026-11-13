@@ -46,9 +46,10 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 057 | Save a Freestyle as a plan | Small-Med | Deferred; trimmed 2026-11-02, the rest is 067 |
 | 063 | Finish summary | Small-Med | Low. From 056's design review (2026-11-02): exercises and set counts before saving, as Finish's confirm. To decide: how 0-set exercises show, sheet or screen |
 | 068 | Drag to close: every sheet on a real phone | Small | Low. From 065's device run (2026-11-03): only `PlanCard` drags; decide drag on every sheet with a handle, or drop the handles |
-| 049 | Move the client-SDK scripts to the admin SDK | Small | **Before the next real repair**: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
+| 049 | Move the client-SDK scripts to the admin SDK | Small | **Folded into 087 stage 1 (2026-11-13).** Before the next real repair: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
 | 071 | History page redesign | Medium-Large | Raised 2026-11-05 (user). **Design done 2026-11-13**; the build is 081-086 |
-| 081 | History data foundation: the lift record and the verdict | Large | Raised 2026-11-13 (user). No screen. `lifts[]` and `note` on the session doc, one verdict function, a compare script. Reps-only lifts and the count word are decided |
+| 087 | History analysis: measure, decide the schema, fix the design | Med-Large | **Do first; blocks 081-086.** Raised 2026-11-13 (user). Folds in 049 (scripts to the admin SDK). Embed the sets or not, the verdict split on real data, the graph library, then edits 081-086 |
+| 081 | History data foundation: the lift record and the verdict | Large | Raised 2026-11-13 (user). No screen. `lifts[]` and `note` on the session doc, one verdict function, a compare script. After 087. Reps-only lifts and the count word are decided |
 | 082 | Hold every workout on the phone | Med-Large | After 081. Replaces the 5-per-plan window; month shards; counts and filters offline |
 | 083 | Session screen and landing after Finish | Large | After 081, 082. Ships alone: the user lands on it after Finish |
 | 084 | Exercise screen | Med-Large | After 083. Graph library is a decision first (none installed) |
@@ -5521,7 +5522,8 @@ needs whether it went up. The exact change is one tap away.
 
 ### TICKET-049: Move the Client-SDK Scripts to the Admin SDK
 
-**Priority:** Medium | **Effort:** Small | **Status: OPEN** — raised 2026-10-26 in TICKET-042 stage 2C
+**Priority:** Medium | **Effort:** Small | **Status: OPEN** — raised 2026-10-26 in TICKET-042 stage 2C.
+**Folded into TICKET-087 stage 1 (2026-11-13):** the History build needs these scripts working first
 
 **Description:**
 `rebuildExerciseStats.ts`, `patchMissingUserDocs.ts` and
@@ -9959,7 +9961,7 @@ expected); phase 2 latency.
 
 **CLAUDE.md rules skipped:** none.
 
-**Dependencies:** none. Touches TICKET-047 (swap now recorded), 032, 077.
+**Dependencies:** TICKET-087, which decides the stored shape (whether sets live in the workout record) and edits this ticket to match. Touches TICKET-047 (swap now recorded), 032, 077.
 
 ---
 
@@ -10001,7 +10003,7 @@ connection. Opening the app on a phone that never held the copy: needs a connect
 
 **CLAUDE.md rules skipped:** 3.3 (the proof is a script and a debug readout on the existing debug page).
 
-**Dependencies:** TICKET-081 (the `lifts` shape and validation).
+**Dependencies:** TICKET-087 and 081 (the `lifts` shape and validation).
 
 ---
 
@@ -10097,6 +10099,7 @@ Back from a deeper screen keeps tab, filter, scroll and which months are open.
   workout with no verdict (081's reason).
 - **Stage 3, Exercises:** search, one row per lift from the held summaries (Better/Lower/Same by 081's
   function, last sets, days ago), filter by workout through `lifts` membership, "Most recent first".
+- The guided tour names the old screen (`WORKOUT_LOGS` in `commonStepNames.ts`): repoint it, or log a tour note for TICKET-053.
 - Removes `WorkoutLogsScreen`, `WorkoutHistoricalLogsFilter`, the log table components, `freestyleHistory`
   and the two window constants. Their reads (Freestyle's 50 on every visit, up to 50 sets per tap) go.
 
@@ -10138,7 +10141,86 @@ mismatches after a delete; two phones: the deleted workout leaves the other phon
 
 **CLAUDE.md rules skipped:** none.
 
-**Dependencies:** TICKET-081, 082, 083. Shares work with 032.
+**Dependencies:** TICKET-081, 082, 083 (not 084 or 085: it can ship any time after 083; Back goes to the hub until 085). Shares work with 032.
+
+---
+
+### TICKET-087: History Analysis — Measure, Decide the Schema, Fix the Design (do first)
+
+**Priority:** Medium | **Effort:** Medium-Large (five stages) | **Status: OPEN** — raised 2026-11-13 (user).
+Blocks TICKET-081 to 086. Folds in TICKET-049. Builds no app feature: scripts, numbers, a decision record
+
+**Description:**
+The History build (081 to 086) rests on estimates: sizes, read counts, how the verdict rule behaves on real
+workouts, and one schema choice that moved during planning (whether a workout's sets live inside the
+workout record, replacing `exercise_sessions`). Measure first, decide with numbers, then edit the build
+tickets, instead of building and optimising afterwards. None of the scripts is thrown away: the fixture
+generator and the measuring scripts are reused by 081's compare script and 082's proof.
+
+**Stage 1 — scripts that can touch a real account (TICKET-049).** Move `rebuildExerciseStats.ts`,
+`patchMissingUserDocs.ts` and `addExerciseToUserWorkout.ts` to the admin SDK (`getAdminFirestore()`), each
+writing script with `--dry-run`, then remove `src/scripts/firebase.ts` if nothing uses it. They get
+PERMISSION_DENIED today (owner-only rules are live), so the repair the app points at would fail the first time
+it is needed, and every later stage needs working scripts. 049's TICKET-073 note applies: a plan write sets
+`rev` and `updatedAt`. Not in scope: what the scripts compute.
+
+**Stage 2 — baselines, from today's code, on the imported account (read-only).**
+- Reads and writes per Finish, per visit of the old History page, per workout opened.
+- Size of a `sessions` doc, an `exercise_sessions` doc and an `exercise_stats` doc, by lift count.
+- The verdict rule on real history: run the existing volume comparison over every lift of every workout and
+  print the Better/Lower/Same split, how many lifts get no verdict (time, distance, assisted lifts; reps-only
+  lifts under the "compare total reps" rule), how many are first time, and how often a lift reads Better only
+  because it had more sets. If "better" is most of them, the word is useless and the rule is revisited before
+  anything is stored.
+- Whether old-format sets (before TICKET-055) exist in the account, since a rebuild lowers bests for them.
+- How a late offline upload can arrive out of order: the real drain order of the upload queue.
+
+**Stage 3 — embed the sets or not, with numbers.** A fixture generator (150, 500 and 1500 workouts of 8 lifts,
+5 sets, with drop sets) and a measurement script, for two shapes: (A) the workout record holds `lifts` only,
+`exercise_sessions` stays; (B) the workout record also holds each lift's sets and `exercise_sessions` is
+dropped. For each: the held copy in bytes, the size and write time of one AsyncStorage entry and one shard,
+first-load bytes and reads, writes per Finish (17 today; 18 for A; 9 for B), reads to open an old workout
+(10 for A, 1 for B, 0 held), the Exercise log past 10 sessions (a query for A, a filter of the held copy for
+B), and the work of a delete and a rebuild. Also the cost of the dual-write window if B is chosen (the old
+History page reads `exercise_sessions` until 085 removes it).
+
+**Stage 4 — decide, and edit the build tickets.** A decision record in this ticket with the numbers and what
+was rejected: A or B (which reverses TICKET-072 D7 and D5 if B), the hold-all cap and shard size, stored or
+computed verdicts, and the verdict rule if stage 2 says so. Then edit 081 to 086 to match (stored shape,
+reads, offline claims, the dual-write window and its removal in 085). The recommendation going in, from the
+planning review: B, because with every workout held on the phone it makes old workouts open offline, makes
+the Exercise log a filter of held data, halves the writes and simplifies delete; its costs are a held copy of
+about 4–5 KB per workout and a reversed decision. It is a recommendation, not a decision.
+Also settle the **graph**: no chart or SVG library is installed (`react-native-svg` is not in
+`package.json`). Add it (a native dependency and a dev-build rebuild, checked against the Expo and React
+Native versions in use) or draw the line from Views; a short spike with a 10-point graph, a peek card and
+point taps decides it. 084 then builds against a decided answer.
+
+**Stage 5 — fix the design.** On the main canvas, redraw what the review found wrong: drop the per-lift note
+from the Session boards (decided: only the workout note); correct the link map (History opens from the
+Workout hub, the footer has no History tab); the workout count word and the Not-compared copy as decided in
+081; no duration for an imported session; define "Typical weight" and "Going up" for the Exercise header (or
+remove them); mirror the changes into `design/workout-flow/` in the same PR.
+
+**Output:** the decision record and the measurements, written here; changed text in 081 to 086; the redrawn
+boards; the scripts. No app code outside `src/scripts/`.
+
+**Acceptance Criteria:**
+- [ ] The three scripts run on the admin SDK with `--dry-run`, and one real dry run is recorded
+- [ ] The verdict split on the real account is in the ticket, with the rule kept or changed
+- [ ] A and B measured at 150, 500 and 1500 workouts, and the choice recorded with what was rejected
+- [ ] The graph decision made, with the spike's result
+- [ ] 081 to 086 edited to match, and the boards and link map redrawn and mirrored
+
+**Out of scope:** any screen or store change; the verdict code (081); editing or deleting data on a real
+account (any write to a real database is asked for first, and `--dry-run` comes before it).
+
+**Measured on the emulator and fixtures, not a gym:** what a real phone with a poor signal does stays
+unproven; say so in the record (CLAUDE.md 1.4).
+
+**CLAUDE.md rules skipped:** none. 3.1 is the point of this ticket.
+
+**Dependencies:** none. Folds in TICKET-049. Blocks 081 to 086.
 
 ---
 
@@ -10172,6 +10254,19 @@ one before it.
 3. TICKET-076  (Exercise summaries)        — DONE (PR #54, #55); on the sync core; no store has a timed full reload
 4. TICKET-077  (Summary integrity)         — DONE (PR #56); a failed summary stays queued and retries
 5. TICKET-078  (Simplify the sync code)    — Analysis first, then small PRs; after 076
+```
+
+**The History build, decided 2026-11-13:** 087 (analysis, first) then 081, 082, 083, 084, 085 in
+that order; 086 (delete a workout) any time after 083.
+
+```
+1. TICKET-087  (History analysis)            — Measure, decide the schema, fix the design; folds in 049
+2. TICKET-081  (Lift record and verdict)     — No screen; stored shape per 087
+3. TICKET-082  (Hold every workout)
+4. TICKET-083  (Session screen, landing)
+5. TICKET-084  (Exercise screen)
+6. TICKET-085  (History home; replaces the old page)
+   TICKET-086  (Delete a workout)            — After 083, independent of 084 and 085
 ```
 
 **Next after that:** TICKET-012 Phase 2 (account linking), the user's pick
