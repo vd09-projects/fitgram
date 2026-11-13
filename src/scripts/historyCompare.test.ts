@@ -2,7 +2,7 @@
 // importer's own path, with saves simulated by the same functions the stats transaction runs.
 import type { ExerciseStatsDoc, WorkoutSessionDoc } from "../types/workoutSession";
 import { applySessionToStats, rebuildStatsFromSessions } from "../utils/exerciseStats";
-import { exerciseSessionsOf, repairedSessions, verdictsFromHistory, withVerdicts } from "../utils/liftRecord";
+import { exerciseSessionsOf, judgeableBefore, repairedSessions, verdictsFromHistory, withVerdicts } from "../utils/liftRecord";
 import { compareHistory, rebuildRefusal, totalMismatches } from "./historyCompare";
 import { generateFixture } from "./historyFixtures";
 import { sessionMinutes } from "../utils/sessionDuration";
@@ -157,6 +157,40 @@ describe("settleVerdicts and the limited repair", () => {
     changed.forEach((s) =>
       s.lifts.forEach((l) => expect(only.has(l.id) ? l.reason !== "pending" : l.reason === "pending").toBe(true))
     );
+  });
+});
+
+// PR #68 pass 2: a verdict is judged against the lift's previous session, so a session that starts after an
+// unreadable one has a previous the sets cannot show. It is not judged, never called a false First time.
+describe("a mixed account: the oldest session is in the old shape", () => {
+  const { sessions, stats } = saveInOrder(inStartOrder);
+  const old = { ...sessions[0], lifts: undefined } as unknown as WorkoutSessionDoc;
+  const mixed = [old, ...sessions.slice(1)];
+
+  it("does not call the later verdicts wrong, and says how many it did not judge", () => {
+    const report = compareHistory(mixed, exerciseSessionsOf(sessions), stats);
+    expect(report.unreadable).toEqual([old.sessionId]);
+    expect(report.verdictMismatches).toEqual([]);
+    expect(report.verdictsNotJudged).toBe(sessions.length - 1);
+  });
+
+  it("does not repair what it cannot judge, and still repairs what comes before the old-shape session", () => {
+    const readable = mixed.filter((s) => Array.isArray(s.lifts));
+    const before = judgeableBefore([old]);
+    expect(repairedSessions(readable, undefined, before)).toEqual([]);
+    // Unbounded, the same call rewrites correct verdicts to First time: the bug this guards.
+    expect(repairedSessions(readable).length).toBeGreaterThan(0);
+    const wrong = sessions.map((s) => ({ ...s, lifts: s.lifts.map((l) => ({ ...l, verdict: null, reason: "pending" as const })) }));
+    const cut = wrong[10].startedAt;
+    const fixed = repairedSessions(wrong, undefined, cut);
+    expect(fixed.length).toBe(10);
+    fixed.forEach((s) => expect(s.startedAt).toBeLessThan(cut));
+  });
+
+  it("judges nothing when an unreadable session has no usable start time", () => {
+    expect(judgeableBefore([{ startedAt: undefined }])).toBe(-Infinity);
+    expect(judgeableBefore([{ startedAt: 50 }, { startedAt: 20 }, { startedAt: 90 }])).toBe(20);
+    expect(judgeableBefore([])).toBe(Infinity);
   });
 });
 

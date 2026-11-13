@@ -39,6 +39,9 @@ const compare = async (userId: string): Promise<number> => {
     console.log(`Not checked, lifts missing or unreadable (the old shape): ${report.unreadable.length}`);
     report.unreadable.forEach((id) => console.log(`  ${id}`));
   }
+  if (report.verdictsNotJudged > 0) {
+    console.log(`Verdicts not judged (these sessions start after an unreadable one, so their previous session is unknown): ${report.verdictsNotJudged}`);
+  }
   const pending = report.verdictMismatches.filter((m) => m.stored.reason === "pending").length;
   console.log(`Verdicts that differ from the sets: ${report.verdictMismatches.length} (${pending} still pending)`);
   report.verdictMismatches.forEach((m) =>

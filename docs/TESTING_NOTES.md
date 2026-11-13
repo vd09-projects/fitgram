@@ -45,6 +45,15 @@ code or the diff; **[waste]** cost time and found nothing.
   new id and its history is prefetched). Verify the ticket's claims in code first
   (CLAUDE.md 2.1, 2.2).
 
+- **[read] A test that quietly avoids a dependency is a finding, not a fixture
+  choice.** TICKET-081: the mixed-account test made the *newest* session old-shape
+  "so no later verdict was judged against it". That sentence was the bug: a verdict
+  depends on the previous session, so an old-shape session in the middle makes the
+  compare script and the rebuild call correct verdicts wrong (8 false mismatches
+  on a 24-workout fixture, and a repair that would write false First times).
+  Found in review pass 2, not by a test. When you write "chosen so that X does not
+  matter", write the test where X does matter too.
+
 ## 2. Unit tests: what earned its place
 
 - A verdict or any derived number: 6 to 8 cases of the computation, including

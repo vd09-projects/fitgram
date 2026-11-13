@@ -34,7 +34,7 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { WorkoutSessionDoc } from "../types/workoutSession";
 import { rebuildStatsFromSessions } from "../utils/exerciseStats";
-import { exerciseSessionsOf, readLifts, repairedSessions } from "../utils/liftRecord";
+import { exerciseSessionsOf, judgeableBefore, readLifts, repairedSessions } from "../utils/liftRecord";
 import { getAdminFirestore } from "./firebaseAdmin";
 import { rebuildRefusal } from "./historyCompare";
 import { isConfirmedRun } from "./wipe";
@@ -71,7 +71,12 @@ const rebuild = async (userId: string, onlyExerciseIds: string[]) => {
   );
 
   // Verdicts first: a lift limited by id keeps the others' as stored.
-  const repaired = repairedSessions(sessions, new Set(exerciseIds));
+  // Not those starting after an unreadable session: their previous session is unknown, and the
+  // sets would give a false First time (`judgeableBefore`).
+  const before = judgeableBefore(all.filter((s) => !sessions.includes(s)));
+  const skipped = sessions.filter((s) => !(s.startedAt < before)).length;
+  if (skipped > 0) console.warn(`  verdicts of ${skipped} session(s) not corrected: they start after an unreadable session.`);
+  const repaired = repairedSessions(sessions, new Set(exerciseIds), before);
   repaired.forEach((s) => console.log(`  ${DRY_RUN ? "would correct" : "correcting"} verdicts of sessions/${s.sessionId}`));
 
   let batch = db.batch();

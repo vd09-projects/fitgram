@@ -10015,6 +10015,12 @@ copy still lists the removed sessions (a hard delete is invisible to the change 
   writes nothing. On a mixed account (any old-shape account after its first Finish under this build) it would lower
   bests that came only from the unreadable sessions, so `--confirm` is refused until they are re-imported or wiped,
   unless `--ignore-unreadable` is passed (`rebuildRefusal`, added after the PR #68 review); a dry run is never refused.
+- A verdict is against the lift's previous session, and an unreadable (old-shape) session may be it. So the compare
+  script does not judge, and the rebuild does not repair, a session that starts at or after the earliest unreadable
+  one (`judgeableBefore`): the compare script counts them as "not judged", never as a mismatch and never as a pass.
+  Without this both called correct verdicts wrong and the repair would have written a false First time (found in
+  the PR #68 pass 2 review, on a fixture with the oldest session in the old shape). `settleVerdicts` has the same blind spot for the
+  import's own sessions and says so in its comment; re-import or wipe is the answer.
 - No duration for an imported session needed no new code: `sessionMinutes` returns null when the end equals the
   start, and a test now pins that for the imported sessions.
 

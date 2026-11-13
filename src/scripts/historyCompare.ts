@@ -14,7 +14,7 @@
 //  - `exercise_stats` that are not what the sets rebuild
 import type { ExerciseSessionDoc, ExerciseStatsDoc, LiftReason, LiftVerdict, WorkoutSessionDoc } from "../types/workoutSession";
 import { buildExerciseSessionId, rebuildStatsFromSessions } from "../utils/exerciseStats";
-import { exerciseSessionsOf, readLifts, verdictsFromHistory } from "../utils/liftRecord";
+import { exerciseSessionsOf, judgeableBefore, readLifts, verdictsFromHistory } from "../utils/liftRecord";
 
 export type VerdictMismatch = {
   sessionId: string;
@@ -29,6 +29,11 @@ export type HistoryReport = {
   /** Sessions whose `lifts` are missing or unreadable (the old shape): skipped by every check below. */
   unreadable: string[];
   verdictMismatches: VerdictMismatch[];
+  /**
+   * Readable sessions whose verdicts were not judged: they start at or after an unreadable one,
+   * which may be a lift's previous session (`judgeableBefore`). Not a mismatch, not a pass.
+   */
+  verdictsNotJudged: number;
   exerciseIdsMismatches: string[];
   /** `exercise_sessions` doc ids a lift has none for, or whose fields or sets differ. */
   exerciseSessionsDiffer: string[];
@@ -63,9 +68,11 @@ export function compareHistory(
   const unreadable = sessions.filter((s) => readLifts(s.lifts) === null).map((s) => s.sessionId);
 
   const expected = verdictsFromHistory(readable);
+  const before = judgeableBefore(sessions.filter((s) => readLifts(s.lifts) === null));
   const verdictMismatches: VerdictMismatch[] = [];
   readable.forEach((stored, i) =>
     stored.lifts.forEach((lift, j) => {
+      if (!(stored.startedAt < before)) return;
       const want = expected[i].lifts[j];
       if (lift.verdict !== want.verdict || lift.reason !== want.reason) {
         verdictMismatches.push({
@@ -120,6 +127,7 @@ export function compareHistory(
     lifts: readable.reduce((sum, s) => sum + s.lifts.length, 0),
     unreadable,
     verdictMismatches,
+    verdictsNotJudged: readable.filter((s) => !(s.startedAt < before)).length,
     exerciseIdsMismatches,
     exerciseSessionsDiffer,
     exerciseSessionsOrphan,
