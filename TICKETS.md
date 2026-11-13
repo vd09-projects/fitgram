@@ -9972,6 +9972,15 @@ what the History screens read, once, at Finish, and defines the verdict in one f
 - The provisional verdict for a workout still uploading is `withVerdicts` over the held rollups; wiring it to the
   phone's held copy and marking it provisional is 082's.
 
+**Proof on the test account (2026-11-14, user approved the narrow wipe and the import).** `pinky` held 15 sessions, 122
+`exercise_sessions` and 48 `exercise_stats` in the old shape (dry run, then deleted: those three collections of that
+one user, nothing else; `info` and `workouts` kept). Re-imported the 15 workouts (4 plans overwritten, each at rev 2).
+`compareHistory.ts` read back 15 sessions, 122 lifts, 122 `exercise_sessions`, 48 `exercise_stats`: 0 mismatches of
+every kind; a rebuild dry run would correct 0 sessions. The same on `vdhawan.personal` (2026-11-14): re-imported over
+its old-shape docs with no wipe (same ids, plain `set`), 0 mismatches. `vikrantdhawan9` (19 sessions, no source file)
+is still the old shape: the compare script reports its sessions as unreadable, not as agreeing. Not on the account: the late upload and the replayed phase 2
+(unit-simulated on fixtures with the code the transaction runs), phase 2 latency, a Finish on a phone.
+
 **Stage 3 decisions (2026-11-13, built):**
 - One pure `verdictsFromHistory(sessions)` recomputes every verdict from the sets, against each lift's true previous
   session in start order (ties by session id). The import, the compare script and the rebuild all use it, so they
