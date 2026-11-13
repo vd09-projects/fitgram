@@ -28,3 +28,15 @@ export const STATS_RECENT_SESSION_CAP = 10;
  * points. Must stay at or above `HISTORY_TREND_SESSION_COUNT` (config.test.ts).
  */
 export const STATS_VOLUME_HISTORY_CAP = 12;
+
+/**
+ * How close two session totals must be to count as the same, as a fraction of
+ * the larger one (`compareVolumes`). It absorbs the float noise of summing
+ * decimal plates (3 × 1.1 against 3.3), nothing a lifter could feel: it is far
+ * below the smallest real change, one rep of one set.
+ *
+ * Changes stored data: History stores each lift's verdict (TICKET-081). A new
+ * value applies to the next workout; verdicts already stored change only when
+ * the compare script's repair or `rebuildExerciseStats` rewrites them.
+ */
+export const VERDICT_SAME_TOLERANCE = 1e-9;

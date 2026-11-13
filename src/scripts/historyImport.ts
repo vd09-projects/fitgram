@@ -15,6 +15,7 @@ import type { Exercise, ExerciseField, WorkoutPlan } from "../types/workoutType"
 import type { ActiveWorkout, ExerciseSet, LoggedExercise } from "../types/zustandWorkoutType";
 import { planExerciseForVersion } from "../utils/catalog";
 import { buildSessionDocs } from "../utils/exerciseStats";
+import { readLifts, verdictsFromHistory } from "../utils/liftRecord";
 
 export type ImportExercise = {
   /** A catalog version id. Anything else is refused, not imported as custom. */
@@ -135,8 +136,11 @@ export type BuiltImport = {
  * - Each plan holds the exercises of its most recent session: the routine as
  *   it stands now. Rejected: every exercise the plan ever had, which would put
  *   one-off swaps (hammer curls on 21 Oct) back into today's plan.
- * - The end time is unknown, so `endedAt` equals the start. Nothing reads a
- *   duration from it today.
+ * - The end time is unknown, so `endedAt` equals the start. `sessionMinutes`
+ *   reads that as "no duration", never 0 (sessionDuration.test.ts), so no
+ *   screen may show one for an imported session.
+ * - Verdicts come from the full history in hand, against each lift's true
+ *   previous session (`settleVerdicts`), never "pending" and never too old.
  */
 export function buildImport(file: ImportFile): BuiltImport {
   const plansByKey = new Map(file.plans.map((plan) => [plan.key, plan]));
@@ -162,5 +166,24 @@ export function buildImport(file: ImportFile): BuiltImport {
     return { id: plan.id, name: plan.name, exercises: latest.exercises.map(planExercise) };
   });
 
-  return { plans, sessions };
+  return settleVerdicts({ plans, sessions });
+}
+
+/**
+ * The import's sessions with verdicts from the sets, against each lift's true
+ * previous session among the import and the sessions the user already has
+ * (`verdictsFromHistory`). The existing ones are read, never rewritten: a
+ * session logged after the import dates keeps the verdict it was saved with
+ * until the compare script finds it and the rebuild repairs it. Existing
+ * sessions without readable `lifts` (the old shape) are not history here.
+ * A session of the import wins over an existing one with its id.
+ */
+export function settleVerdicts(built: BuiltImport, existing: readonly WorkoutSessionDoc[] = []): BuiltImport {
+  const ours = new Set(built.sessions.map((s) => s.session.sessionId));
+  const others = existing.filter((s) => !ours.has(s.sessionId) && readLifts(s.lifts) !== null);
+  const settled = verdictsFromHistory([...built.sessions.map((s) => s.session), ...others]);
+  return {
+    plans: built.plans,
+    sessions: built.sessions.map((entry, i) => ({ ...entry, session: settled[i] })),
+  };
 }

@@ -1,6 +1,7 @@
 import { Timestamp, getDocs, getDocsFromServer, runTransaction, serverTimestamp, writeBatch } from "firebase/firestore";
 import { getAllExerciseStats, getWorkoutSessions, saveWorkoutSession } from "./workoutSessions";
-import { buildExercise, buildWorkout } from "../../test/fixtures";
+import { buildExercise, buildStats, buildWorkout } from "../../test/fixtures";
+import * as liftRecord from "../../utils/liftRecord";
 
 jest.mock("../firebase/firebase", () => ({ db: {} }));
 jest.mock("firebase/firestore", () => ({
@@ -23,7 +24,7 @@ const snapshot = (fromCache: boolean) => ({ metadata: { fromCache }, empty: true
 // TICKET-075: the workouts store's change check filters on `updatedAt`, so a
 // write of a `sessions` doc without it is invisible to every other phone.
 describe("the server stamp on sessions", () => {
-  it("a Finish stamps the session in the batch and only summaries in the transaction", async () => {
+  it("a Finish stamps the session in the batch and the summaries and verdicts in the transaction", async () => {
     const batchSet = jest.fn();
     (writeBatch as jest.Mock).mockReturnValue({ set: batchSet, commit: jest.fn().mockResolvedValue(undefined) });
     const txSet = jest.fn();
@@ -42,9 +43,41 @@ describe("the server stamp on sessions", () => {
     expect(serverTimestamp).toHaveBeenCalled();
     expect(sessionWrite.updatedAt).toBe("SERVER_STAMP");
     // TICKET-076: the summary itself, or the change check never finds it.
-    expect(txSet).toHaveBeenCalledTimes(1);
-    expect(txSet.mock.calls[0][1].exerciseId).toBeDefined();
-    expect(txSet.mock.calls[0][1].updatedAt).toBe("SERVER_STAMP");
+    const summaryWrite = txSet.mock.calls.find(([, data]) => data.exerciseId !== undefined)![1];
+    expect(summaryWrite.updatedAt).toBe("SERVER_STAMP");
+    // 081: the transaction also writes the verdicts to the session, stamped, with merge.
+    const verdictWrite = txSet.mock.calls.find(([, data]) => data.lifts !== undefined)!;
+    expect(verdictWrite[1].updatedAt).toBe("SERVER_STAMP");
+    expect(verdictWrite[2]).toEqual({ merge: true });
+    expect(txSet).toHaveBeenCalledTimes(2);
+  });
+
+  // TICKET-081: phase 1 writes the lifts pending, with merge so a replay keeps a note; phase 2 writes the verdicts.
+  it("phase 1 writes the lifts pending with merge and no note; phase 2 writes the verdicts and the returned session has them", async () => {
+    const batchSet = jest.fn();
+    (writeBatch as jest.Mock).mockReturnValue({ set: batchSet, commit: jest.fn().mockResolvedValue(undefined) });
+    const lastTime = {
+      exists: () => true,
+      data: () => buildStats("Bench Press", [{ sets: [{ Weight: 60, Reps: 5 }], performedAt: 500 }]),
+    };
+    const tx = { get: jest.fn().mockResolvedValue(lastTime), set: jest.fn() };
+    (runTransaction as jest.Mock).mockImplementation(async (_db, fn) => fn(tx));
+    const workout = buildWorkout([], {
+      id: "plan-a",
+      startTime: 1_000,
+      exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: 65, Reps: 5 }] }] })],
+    });
+
+    const { session } = await saveWorkoutSession("u1", workout, 2_000);
+
+    const [, phase1, options] = batchSet.mock.calls.find(([, data]) => data.exerciseIds !== undefined)!;
+    expect(options).toEqual({ merge: true });
+    expect(phase1).not.toHaveProperty("note");
+    expect(phase1.lifts[0]).toMatchObject({ verdict: null, reason: "pending" });
+    const phase2 = tx.set.mock.calls.find(([, data]) => data.lifts !== undefined)![1];
+    expect(phase2.lifts[0]).toMatchObject({ verdict: "better", reason: null });
+    expect(session.lifts).toEqual(phase2.lifts);
+    expect(session.exerciseIds).toEqual(["bench-press"]);
   });
 
   it("a Finish returns what its transaction computed, unstamped (TICKET-076)", async () => {
@@ -99,8 +132,56 @@ describe("the server stamp on sessions", () => {
       docs: [docOf({ sessionId: "new", updatedAt: new Timestamp(5, 400) }), docOf({ sessionId: "old" })],
     });
     const { sessions } = await getWorkoutSessions("u1");
-    expect(sessions).toEqual([{ sessionId: "new", updatedAt: { seconds: 5, nanoseconds: 400 } }, { sessionId: "old" }]);
+    expect(sessions).toMatchObject([{ sessionId: "new", updatedAt: { seconds: 5, nanoseconds: 400 } }, { sessionId: "old" }]);
+    expect(sessions[1]).not.toHaveProperty("updatedAt");
     expect(sessions[0].updatedAt).not.toBeInstanceOf(Timestamp);
+  });
+
+  // TICKET-081 review: one session without readable `lifts` must not make the held copy's
+  // validator refuse the whole copy; it is read as no lifts, flagged, never as a plain empty list.
+  it("a read gives readable lifts as stored, and [] with liftsUnreadable for a missing or bad array", async () => {
+    const docOf = (data: object) => ({ data: () => data });
+    const lift = { id: "a", name: "A", fields: [], sets: [], verdict: "better", reason: null };
+    (getDocs as jest.Mock).mockResolvedValue({
+      docs: [
+        docOf({ sessionId: "ok", lifts: [lift] }),
+        docOf({ sessionId: "old" }),
+        docOf({ sessionId: "bad", lifts: [{ ...lift, verdict: "better", reason: "first_time" }] }),
+      ],
+    });
+    const { sessions } = await getWorkoutSessions("u1");
+    expect(sessions[0].lifts).toEqual([lift]);
+    expect(sessions[0]).not.toHaveProperty("liftsUnreadable");
+    for (const unreadable of [sessions[1], sessions[2]]) {
+      expect(unreadable.lifts).toEqual([]);
+      expect(unreadable.liftsUnreadable).toBe(true);
+    }
+  });
+
+  // A derived value must not block the rollup: the fold goes on and the lifts stay pending.
+  it("if the verdicts cannot be computed the fold still commits and the lifts stay pending", async () => {
+    const batchSet = jest.fn();
+    (writeBatch as jest.Mock).mockReturnValue({ set: batchSet, commit: jest.fn().mockResolvedValue(undefined) });
+    const tx = { get: jest.fn().mockResolvedValue({ exists: () => false }), set: jest.fn() };
+    (runTransaction as jest.Mock).mockImplementation(async (_db, fn) => fn(tx));
+    const spy = jest.spyOn(liftRecord, "withVerdicts").mockImplementation(() => {
+      throw new Error("boom");
+    });
+    const log = jest.spyOn(console, "log").mockImplementation(() => {});
+    const workout = buildWorkout([], {
+      id: "plan-a",
+      startTime: 1_000,
+      exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: 60, Reps: 5 }] }] })],
+    });
+
+    const { session, summaries } = await saveWorkoutSession("u1", workout, 2_000);
+
+    expect(summaries).toHaveLength(1);
+    expect(tx.set.mock.calls.some(([, data]) => data.exerciseId !== undefined)).toBe(true);
+    expect(session.lifts[0]).toMatchObject({ verdict: null, reason: "pending" });
+    expect(log).toHaveBeenCalledWith("Verdicts not computed, left pending:", expect.any(Error));
+    spy.mockRestore();
+    log.mockRestore();
   });
 });
 

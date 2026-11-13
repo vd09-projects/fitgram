@@ -11,7 +11,7 @@ const index = buildCatalogIndex(CATALOG);
 const DAY = 86_400_000;
 
 const session = (startedAt: number, exerciseIds: string[]): WorkoutSessionDoc => ({
-  sessionId: `s${startedAt}`,
+  lifts: [], sessionId: `s${startedAt}`,
   workoutId: "push",
   workoutName: "Push",
   startedAt,

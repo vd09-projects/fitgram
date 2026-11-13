@@ -36,7 +36,9 @@ jest.mock("../utils/toastUtils", () => ({
 
 const save = saveWorkoutSession as jest.MockedFunction<typeof saveWorkoutSession>;
 const toast = show as jest.Mocked<typeof show>;
-const saved = { sessionId: "s", summaries: [] };
+// The save's returned session is what the recent workouts hold: the test needs only that it is passed on.
+const savedSession = { sessionId: "s", workoutId: "w", workoutName: "W", startedAt: 1, endedAt: 2, exerciseIds: [], lifts: [] };
+const saved = { sessionId: "s", session: savedSession, summaries: [] };
 
 /** A save the test settles by hand, so it can act while the save is in flight. */
 function deferredSave() {
@@ -91,7 +93,7 @@ describe("a Finish and the saved summaries (TICKET-076)", () => {
 
   it("the transaction's summaries reach the store, with no summary read at that moment", async () => {
     seedWorkout();
-    save.mockResolvedValueOnce({ sessionId: "s", summaries: [summary("bench")] });
+    save.mockResolvedValueOnce({ ...saved, summaries: [summary("bench")] });
 
     await store().endWorkout("u1");
 
@@ -120,7 +122,7 @@ describe("a Finish and the saved summaries (TICKET-076)", () => {
     save.mockRejectedValueOnce(new Error("rollup failed"));
     await store().endWorkout("u1");
 
-    save.mockResolvedValueOnce({ sessionId: "s", summaries: [summary("bench")] });
+    save.mockResolvedValueOnce({ ...saved, summaries: [summary("bench")] });
     await drainPendingUploads();
 
     expect(held().byId?.bench).toEqual(summary("bench"));

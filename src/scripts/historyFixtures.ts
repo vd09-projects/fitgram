@@ -142,8 +142,10 @@ export function generateFixture(workouts: number, seed = 1, perDay = DEFAULT_WOR
 
 export type LiftRecord = { id: string; name: string; verdict: "better" | "lower" | "same" | null; reason: string | null };
 export type LiftRecordWithSets = LiftRecord & { fields: ExerciseField[]; sets: StoredSet[] };
-export type RecordA = WorkoutSessionDoc & { lifts: LiftRecord[] };
-export type RecordB = WorkoutSessionDoc & { lifts: LiftRecordWithSets[] };
+// The record as measured in TICKET-087: `lifts` thin (A) or with sets (B). The app now writes B
+// (`WorkoutSessionDoc.lifts`); these stay the measured shapes, so `lifts` is swapped out of the base type.
+export type RecordA = Omit<WorkoutSessionDoc, "lifts"> & { lifts: LiftRecord[] };
+export type RecordB = Omit<WorkoutSessionDoc, "lifts"> & { lifts: LiftRecordWithSets[] };
 
 const VERDICT_WORD: Record<string, LiftRecord["verdict"]> = { Better: "better", Lower: "lower", Same: "same" };
 const REASON: Record<string, string> = {

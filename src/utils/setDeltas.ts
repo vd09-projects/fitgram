@@ -14,6 +14,7 @@ import { ExerciseHistory, HistorySet } from "../types/exerciseHistory";
 import { StoredSetFields } from "../types/workoutSession";
 import { ExerciseField } from "../types/workoutType";
 import { computeSessionVolume, SessionVolume } from "./exerciseStats";
+import { VERDICT_SAME_TOLERANCE } from "../config/storedData";
 import { SegmentedSet } from "./storedSets";
 import { NumericFieldMap, parseSet, resolveNumericFields, withUnit } from "./exerciseFields";
 import { formatStepValue, GhostTarget, resolveGhostTarget } from "./setLogger";
@@ -219,9 +220,11 @@ export type TodaySummary = {
 /**
  * Set count, today's volume, and today's volume against last session.
  *
- * Today's numeric fields come from `todayExerciseFields` (the live exercise);
- * last session's from `history.numericFields`, which is that session's shape.
- * Both sides are all-or-nothing: one unparseable set among the first N last
+ * Today's numeric fields come from `todayExerciseFields` (the live exercise), and
+ * last session's sets are measured with that same pair (`history.numericFields`,
+ * which `deriveExerciseHistory` builds from the live fields the caller passes). Whether the two sessions are comparable at all
+ * is `last.comparable`, judged on each session's own fields. Both sides are
+ * all-or-nothing: one unparseable set among the first N last
  * time and the comparison is unavailable, never understated.
  */
 export function todaySummary(
@@ -258,32 +261,61 @@ export function todaySummary(
       },
     };
   }
-  if (setCount === 0) return none("noSets");
-  if (volume?.value == null) return none("todayUnavailable");
-
-  const base: VolumeBase =
-    setCount < last.sets.length
-      ? { kind: "firstN", n: setCount }
-      : { kind: "session", performedAt: last.performedAt };
-  const pastSets = base.kind === "firstN" ? last.sets.slice(0, base.n) : last.sets;
-  const pastVolume = computeSessionVolume(
-    pastSets,
-    history.numericFields
-  );
-
-  if (pastVolume.value === null) {
-    return { setCount, volume, comparison: { kind: "none", reason: "pastUnavailable", pastVolume } };
-  }
-  if (pastVolume.value === 0) {
-    return { setCount, volume, comparison: { kind: "none", reason: "pastZero" } };
-  }
-
-  const percent = ((volume.value - pastVolume.value) / pastVolume.value) * 100;
+  // Last session's sets are measured with today's pair: it is what the screen
+  // holds, and `last.comparable` above already ruled out a unit change.
   return {
     setCount,
     volume,
-    comparison: { kind: "percent", percent, direction: sign(volume.value - pastVolume.value), base },
+    comparison: compareVolumes(
+      { sets: todaySets, volume },
+      { sets: last.sets, performedAt: last.performedAt },
+      (sets) => computeSessionVolume(sets, history.numericFields)
+    ),
   };
+}
+
+/**
+ * Today's measure against a past session's, the part of `todaySummary` that
+ * does not depend on where the two sessions came from (the live card, or two
+ * stored sessions in `liftVerdict`). The gates stay with the callers: whether
+ * there is a past session, whether the units agree, whether the lift has a
+ * measure at all.
+ *
+ * `measure` is how a session's sets become one number, passed in so the one
+ * comparison serves weight × reps and the reps-only lifts of `liftVerdict`. It
+ * is applied to today's sets by the caller (`today.volume`) and to the past
+ * sets here, once on the whole session or on its first N sets.
+ *
+ * **Direction has a tolerance** (`VERDICT_SAME_TOLERANCE`): two totals that
+ * differ by no more than the float noise of summing decimal plates are the
+ * same, so 3 × 1.1 against 3.3 is not a "better". Rejected: an exact
+ * comparison (the old `todaySummary`), which turns that noise into a verdict;
+ * a tolerance in percent of volume, which would call a real +0.5% "Same".
+ */
+export function compareVolumes(
+  today: { sets: readonly SegmentedSet[]; volume: SessionVolume | null },
+  past: { sets: readonly SegmentedSet[]; performedAt: number },
+  measure: (sets: readonly SegmentedSet[]) => SessionVolume
+): VolumeComparison {
+  const setCount = today.sets.length;
+  if (setCount === 0) return { kind: "none", reason: "noSets" };
+  const todayValue = today.volume?.value;
+  if (todayValue == null) return { kind: "none", reason: "todayUnavailable" };
+
+  const base: VolumeBase =
+    setCount < past.sets.length
+      ? { kind: "firstN", n: setCount }
+      : { kind: "session", performedAt: past.performedAt };
+  const pastSets = base.kind === "firstN" ? past.sets.slice(0, base.n) : past.sets;
+  const pastVolume = measure(pastSets);
+
+  if (pastVolume.value === null) return { kind: "none", reason: "pastUnavailable", pastVolume };
+  if (pastVolume.value === 0) return { kind: "none", reason: "pastZero" };
+
+  const percent = ((todayValue - pastVolume.value) / pastVolume.value) * 100;
+  const gap = todayValue - pastVolume.value;
+  const within = Math.abs(gap) <= VERDICT_SAME_TOLERANCE * Math.max(Math.abs(todayValue), Math.abs(pastVolume.value));
+  return { kind: "percent", percent, direction: within ? 0 : sign(gap), base };
 }
 
 /** "1,955" — grouped thousands, up to one decimal. Manual: Hermes' Intl varies. */

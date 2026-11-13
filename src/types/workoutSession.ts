@@ -108,6 +108,55 @@ export type SessionTotalVolume = {
   exercisesTotal: number;
 };
 
+/** How a lift compares with its previous session. Rule and reasons: `utils/liftVerdict.ts`. */
+export type LiftVerdict = "better" | "lower" | "same";
+
+/**
+ * Why a lift has no verdict. Stored as written, so renaming one orphans every
+ * record already saved.
+ *
+ * - `first_time`: no previous session of this exact exercise.
+ * - `unit_changed`: the two sessions do not measure the same way (kg then lb,
+ *   or a weight × reps lift then a time one). Never converted, never a number.
+ * - `no_volume`: nothing to total: a lift with no weight × reps pair and not
+ *   reps-only (time, distance, assisted), no sets, or a previous total of 0.
+ * - `unreadable`: a set on either side did not parse. Not treated as 0.
+ * - `pending`: not computed yet. Written by the first phase of a save, before
+ *   the stats transaction ran; also left in place when the previous session is
+ *   older than the rollup's window (see `previousSessionOf`), for a repair.
+ */
+export type LiftReason = "first_time" | "unit_changed" | "no_volume" | "unreadable" | "pending";
+
+/**
+ * One lift of a workout as History reads it (TICKET-081, shape B of TICKET-087):
+ * what was done, with its sets, and how it compared. `sessions.lifts` is the one
+ * source of truth for sets; `exercise_sessions` is written beside it until
+ * TICKET-085 retires the old History page.
+ *
+ * `verdict` is null exactly when `reason` is set. Optional keys are left out,
+ * never `undefined`: Firestore here rejects it.
+ */
+export type LiftRecord = {
+  /** The exercise done (a swapped-in exercise's own id), as in `exerciseIds`. */
+  id: string;
+  /** The session's name snapshot (TICKET-042), as `ExerciseSessionDoc.exerciseName`. */
+  name: string;
+  /**
+   * The plan's exercise this slot replaced (TICKET-047), by id and name: the
+   * row says "swapped from X" and a custom exercise is not in the catalog.
+   * Absent when the slot held what the plan has.
+   */
+  swappedFrom?: { id: string; name: string };
+  /** Added during the workout (TICKET-056). Never set on Freestyle, where every slot is added. */
+  added?: true;
+  /** As `ExerciseSessionDoc.fields`: this session's snapshot, so a unit change is detectable. */
+  fields: ExerciseField[];
+  /** As `ExerciseSessionDoc.sets`, as stored. */
+  sets: StoredSet[];
+  verdict: LiftVerdict | null;
+  reason: LiftReason | null;
+};
+
 /**
  * One workout session.
  */
@@ -117,7 +166,24 @@ export type WorkoutSessionDoc = {
   workoutName: string;
   startedAt: number;
   endedAt: number;
+  /** Derived from `lifts`, in order: what `recents`, `freestyleHistory` and the held copy's validator read. */
   exerciseIds: string[];
+  /**
+   * Every lift with sets, in workout order (TICKET-081). Written in two phases
+   * (`saveWorkoutSession`): first with `reason: "pending"`, then with verdicts.
+   * Readers validate it (`readLifts`): `firestore.rules` has no field whitelist.
+   */
+  lifts: LiftRecord[];
+  /**
+   * Set by the read boundary (`sessionFromDoc`), never stored: the doc's `lifts`
+   * were missing or unreadable (a session from before TICKET-081, or a bad
+   * write), so `lifts` is `[]`. A screen says "details not available" instead
+   * of showing a workout with no lifts. Without it an empty list would read as
+   * data (CLAUDE.md 2.4).
+   */
+  liftsUnreadable?: true;
+  /** The workout's note, written by the Session screen (TICKET-083), never by Finish. */
+  note?: string;
   /**
    * Always written. Optional only because dev sessions saved before TICKET-022
    * lack it; readers treat absence as unavailable, never as 0.

@@ -1,13 +1,18 @@
 // src/scripts/rebuildExerciseStats.ts
 //
-// Recompute the exercise_stats rollup from exercise_sessions, which is the
-// source of truth.
+// Recompute the exercise_stats rollup, and the verdicts stored on `sessions`,
+// from the sets in `sessions.lifts`, which are the source of truth (TICKET-081;
+// before it, `exercise_sessions`, which is still written beside them until
+// TICKET-085 and is not read here).
 //
-//   npx tsx src/scripts/rebuildExerciseStats.ts <userId> [exerciseId ...] [--confirm]
+//   npx tsx src/scripts/rebuildExerciseStats.ts <userId> [exerciseId ...] [--confirm] [--ignore-unreadable]
 //
 // Admin SDK (firebaseAdmin.ts): the client rules refuse a script. Without
 // `--confirm` it is a dry run: it still reads the sessions (so it needs the key)
-// but writes nothing, and prints each stats doc it would write.
+// but writes nothing, and prints each stats doc and each session it would write.
+// Finds what compareHistory.ts reports and writes the fix: a verdict a late
+// upload or a replayed save left wrong (081's known gaps (a) and (b)), a verdict
+// still pending, a rollup that drifted.
 //
 // When to run it:
 //  - a workout saved with no summary and lost from the phone before its queue
@@ -19,45 +24,81 @@
 // Idempotent: it writes a value derived purely from the sessions it reads. Pass
 // exercise ids to limit what a run touches.
 //
-// Warning: sets stored before TICKET-055 (a bare map, no `segments`) do not decode
-// today, so a rebuild does not count them. On the test account the 26 Oct session
-// is in that format, and a rebuild drops a 34 kg best to 5 kg (found in TICKET-077;
-// TICKET-032 decides what to do). Running this on such an account lowers real bests.
+// Sessions with no readable `lifts` (written before TICKET-081) and sets stored before
+// TICKET-055 (a bare map, no `segments`) are not counted, so a rebuild would lower bests
+// that came only from them. The dry run lists the sessions left out; `--confirm` is
+// REFUSED while any exist, unless `--ignore-unreadable` says to rebuild without them
+// (`rebuildRefusal`). On the test account the 26 Oct session was in the older format and a
+// rebuild dropped a 34 kg best to 5 kg (TICKET-077; TICKET-032 decides what to do).
 
 import { FieldValue } from "firebase-admin/firestore";
-import { ExerciseSessionDoc } from "../types/workoutSession";
+import { WorkoutSessionDoc } from "../types/workoutSession";
 import { rebuildStatsFromSessions } from "../utils/exerciseStats";
+import { exerciseSessionsOf, judgeableBefore, readLifts, repairedSessions } from "../utils/liftRecord";
 import { getAdminFirestore } from "./firebaseAdmin";
+import { rebuildRefusal } from "./historyCompare";
 import { isConfirmedRun } from "./wipe";
 
 const BATCH_LIMIT = 400;
 const DRY_RUN = !isConfirmedRun(process.argv);
+const IGNORE_UNREADABLE = process.argv.includes("--ignore-unreadable");
 
 const rebuild = async (userId: string, onlyExerciseIds: string[]) => {
   const db = await getAdminFirestore();
-  const sessionsSnap = await db.collection("users").doc(userId).collection("exercise_sessions").get();
-  const sessions = sessionsSnap.docs.map((d) => d.data() as ExerciseSessionDoc);
+  const user = db.collection("users").doc(userId);
+  const all = (await user.collection("sessions").get()).docs.map((d) => d.data() as WorkoutSessionDoc);
+  const sessions = all.filter((s) => readLifts(s.lifts) !== null);
+  if (sessions.length < all.length) {
+    console.warn(`  NOT COUNTED: ${all.length - sessions.length} session(s) with no readable lifts:`);
+    all.filter((s) => !sessions.includes(s)).forEach((s) => console.warn(`    ${s.sessionId}`));
+  }
+  const refusal = rebuildRefusal(all.length - sessions.length, { confirm: !DRY_RUN, ignoreUnreadable: IGNORE_UNREADABLE });
+  if (refusal) throw new Error(refusal);
 
   if (sessions.length === 0) {
-    console.log("No exercise_sessions found — nothing to rebuild.");
+    console.log("No sessions with lifts found — nothing to rebuild.");
     return;
   }
 
+  const lifts = exerciseSessionsOf(sessions);
   const exerciseIds =
     onlyExerciseIds.length > 0
       ? onlyExerciseIds
-      : [...new Set(sessions.map((s) => s.exerciseId))];
+      : [...new Set(lifts.map((s) => s.exerciseId))];
 
   console.log(
-    `Read ${sessions.length} sessions; rebuilding ${exerciseIds.length} exercise(s).`
+    `Read ${sessions.length} sessions, ${lifts.length} lifts; rebuilding ${exerciseIds.length} exercise(s).`
   );
+
+  // Verdicts first: a lift limited by id keeps the others' as stored.
+  // Not those starting after an unreadable session: their previous session is unknown, and the
+  // sets would give a false First time (`judgeableBefore`).
+  const before = judgeableBefore(all.filter((s) => !sessions.includes(s)));
+  const skipped = sessions.filter((s) => !(s.startedAt < before)).length;
+  if (skipped > 0) console.warn(`  verdicts of ${skipped} session(s) not corrected: they start after an unreadable session.`);
+  const repaired = repairedSessions(sessions, new Set(exerciseIds), before);
+  repaired.forEach((s) => console.log(`  ${DRY_RUN ? "would correct" : "correcting"} verdicts of sessions/${s.sessionId}`));
 
   let batch = db.batch();
   let pending = 0;
   let written = 0;
+  const commitWhenFull = async () => {
+    if (++pending >= BATCH_LIMIT) {
+      await batch.commit();
+      batch = db.batch();
+      pending = 0;
+    }
+  };
+
+  for (const session of repaired) {
+    if (DRY_RUN) continue;
+    // Merge: a `note` added on the phone stays. The stamp moves, so phones' change checks find it.
+    batch.set(user.collection("sessions").doc(session.sessionId), { lifts: session.lifts, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    await commitWhenFull();
+  }
 
   for (const exerciseId of exerciseIds) {
-    const stats = rebuildStatsFromSessions(exerciseId, sessions);
+    const stats = rebuildStatsFromSessions(exerciseId, lifts);
     if (!stats) {
       console.warn(`  skip ${exerciseId} — no sessions for it`);
       continue;
@@ -68,23 +109,20 @@ const rebuild = async (userId: string, onlyExerciseIds: string[]) => {
       console.log(`  would write exercise_stats/${exerciseId}`);
       continue;
     }
-    batch.set(db.collection("users").doc(userId).collection("exercise_stats").doc(exerciseId), { ...stats, updatedAt: FieldValue.serverTimestamp() });
-    pending += 1;
-    if (pending >= BATCH_LIMIT) {
-      await batch.commit();
-      batch = db.batch();
-      pending = 0;
-    }
+    batch.set(user.collection("exercise_stats").doc(exerciseId), { ...stats, updatedAt: FieldValue.serverTimestamp() });
+    await commitWhenFull();
   }
   if (pending > 0) await batch.commit();
 
-  console.log(`${DRY_RUN ? "Dry run: would rebuild" : "Rebuilt"} ${written} exercise_stats doc(s).${DRY_RUN ? " Pass --confirm to write." : ""}`);
+  console.log(
+    `${DRY_RUN ? "Dry run: would correct" : "Corrected"} ${repaired.length} session(s) and ${DRY_RUN ? "rebuild" : "rebuilt"} ${written} exercise_stats doc(s).${DRY_RUN ? " Pass --confirm to write." : ""}`
+  );
 };
 
 const [userId, ...exerciseIds] = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 if (!userId) {
   console.error(
-    "Usage: npx tsx src/scripts/rebuildExerciseStats.ts <userId> [exerciseId ...] [--confirm]"
+    "Usage: npx tsx src/scripts/rebuildExerciseStats.ts <userId> [exerciseId ...] [--confirm] [--ignore-unreadable]"
   );
   process.exit(1);
 }

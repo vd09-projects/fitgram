@@ -878,11 +878,11 @@ function uploadPendingWorkout(entry: PendingUpload): Promise<boolean> {
 async function attemptUpload(entry: PendingUpload): Promise<boolean> {
   try {
     console.log("Uploading workout to database:", entry.sessionId);
-    const { summaries } = await saveWorkoutSession(entry.uid, entry.workout, entry.endedAt);
+    const { session, summaries } = await saveWorkoutSession(entry.uid, entry.workout, entry.endedAt);
     // TICKET-075: the recent workouts hold it at once, 0 reads. Before the
     // entry leaves the queue below, so no screen shows its plan without it
     // between the two (`buildPlanRows` merges the queue).
-    useRecentWorkoutsStore.getState().applyFinished(entry.uid, buildSessionDocs(entry.workout, entry.endedAt).session);
+    useRecentWorkoutsStore.getState().applyFinished(entry.uid, session);
     // TICKET-076: "last time" updates at once, with no read.
     useExerciseHistoryStore.getState().applyFinished(entry.uid, summaries);
     updateEntry(entry.sessionId, () => null);

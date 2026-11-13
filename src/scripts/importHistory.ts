@@ -15,14 +15,17 @@
 //                                             `updatedAt` = the server's time
 //                                             (TICKET-070 D3) and `version` =
 //                                             the next one (TICKET-073)
-//   sessions/{sessionId}                      one per session, with
+//   sessions/{sessionId}                      one per session, with `lifts`
+//                                             (sets and verdicts from the full
+//                                             history, TICKET-081) and
 //                                             `updatedAt` = the server's time
 //                                             (TICKET-075: phones holding recent
 //                                             workouts see the import on their
 //                                             next check)
 //   exercise_sessions/{sessionId}__{exercise} one per exercise per session
-//   exercise_stats/{exerciseId}               REBUILT from every exercise_session
-//                                             the user has, imported or not,
+//   exercise_stats/{exerciseId}               REBUILT from the lifts of every
+//                                             session the user has (readable
+//                                             `lifts`), imported or not,
 //                                             with `updatedAt` = the server's
 //                                             time (TICKET-076)
 //
@@ -37,11 +40,12 @@ import { readFileSync } from "fs";
 import { getAuth } from "firebase-admin/auth";
 import { FieldValue } from "firebase-admin/firestore";
 import { tables } from "../constants/tables";
-import type { ExerciseSessionDoc, WorkoutSessionDoc } from "../types/workoutSession";
+import type { WorkoutSessionDoc } from "../types/workoutSession";
 import { buildExerciseSessionId, rebuildStatsFromSessions } from "../utils/exerciseStats";
+import { exerciseSessionsOf, readLifts } from "../utils/liftRecord";
 import { NO_VERSION, nextVersion, toPlanVersion, versionOf } from "../utils/planVersion";
 import { getAdminFirestore } from "./firebaseAdmin";
-import { buildImport, type ImportFile } from "./historyImport";
+import { buildImport, settleVerdicts, type ImportFile } from "./historyImport";
 import { isConfirmedRun } from "./wipe";
 
 const USERS = tables.users.collection;
@@ -61,7 +65,7 @@ const day = (ms: number) => new Date(ms).toDateString();
 const run = async () => {
   if (!path) throw new Error("Usage: npx tsx src/scripts/importHistory.ts <file.json> [--inspect | --confirm]");
   const file = JSON.parse(readFileSync(path, "utf8")) as ImportFile;
-  const built = buildImport(file);
+  let built = buildImport(file);
 
   const exerciseIds = new Set(built.sessions.flatMap((s) => s.exerciseSessions.map((e) => e.exerciseId)));
   console.log(`${file.email}: ${built.plans.length} plans, ${built.sessions.length} sessions, ${exerciseIds.size} exercises`);
@@ -85,6 +89,8 @@ const run = async () => {
   console.log(`Existing: ${plansSnap.size} plans, ${sessionsSnap.size} sessions`);
   for (const plan of plansSnap.docs) console.log(`  plan ${plan.id} "${plan.get("name")}"`);
 
+  // Verdicts against the whole history, the user's own sessions included.
+  built = settleVerdicts(built, sessionsSnap.docs.map((d) => d.data() as WorkoutSessionDoc));
   const ours = new Set(built.sessions.map((s) => s.session.sessionId));
   const importDays = new Set(built.sessions.map((s) => day(s.session.startedAt)));
   const clashes = sessionsSnap.docs
@@ -137,15 +143,22 @@ const run = async () => {
   console.log("Wrote plans, sessions and exercise_sessions.");
 
   // Rebuilt from everything the user has, so sessions logged on the phone
-  // before the import keep their place in records and trends.
-  const all = (await user.collection(EXERCISE_SESSIONS).get()).docs.map((d) => d.data() as ExerciseSessionDoc);
+  // before the import keep their place in records and trends. From `sessions`
+  // (the sets' one source of truth), so a session without readable `lifts`
+  // (the old shape) is not in it: said below, never silent.
+  const stored = (await user.collection(SESSIONS).get()).docs.map((d) => d.data() as WorkoutSessionDoc);
+  const readable = stored.filter((s) => readLifts(s.lifts) !== null);
+  if (readable.length < stored.length) {
+    console.log(`  NOTE: ${stored.length - readable.length} session(s) with no readable lifts are left out of the rollups.`);
+  }
+  const all = exerciseSessionsOf(readable);
   const statsBatch = firestore.batch();
   for (const exerciseId of exerciseIds) {
     const stats = rebuildStatsFromSessions(exerciseId, all);
     if (stats) statsBatch.set(user.collection(EXERCISE_STATS).doc(exerciseId), { ...stats, updatedAt: FieldValue.serverTimestamp() });
   }
   await statsBatch.commit();
-  console.log(`Rebuilt ${exerciseIds.size} exercise_stats docs from ${all.length} exercise_sessions.`);
+  console.log(`Rebuilt ${exerciseIds.size} exercise_stats docs from ${all.length} lifts in ${readable.length} sessions.`);
 };
 
 run()

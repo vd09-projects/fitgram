@@ -11,6 +11,7 @@ import type { WorkoutSessionDoc } from "../types/workoutSession";
 import { FREESTYLE_ID } from "../constants/freestyle";
 import { compareStamps, isStamp, lastSeenAfter, openEnvelope, type SyncStamp } from "./syncCore";
 import { WORKOUTS_FORMAT_VERSION } from "../config/storageKeys";
+import { readLifts } from "./liftRecord";
 
 // WORKOUTS_PER_PLAN: value and reason in src/config/sync.ts.
 // WORKOUTS_FORMAT_VERSION: value and reason in src/config/storageKeys.ts.
@@ -146,13 +147,15 @@ const isStringArray = (value: unknown): value is string[] =>
 /** The fields readers and merges use. Anything else in the doc is carried, not checked. */
 const isSession = (value: unknown): value is WorkoutSessionDoc => {
   if (typeof value !== "object" || value === null) return false;
-  const { sessionId, workoutId, startedAt, endedAt, exerciseIds, updatedAt } = value as Partial<WorkoutSessionDoc>;
+  const { sessionId, workoutId, startedAt, endedAt, exerciseIds, lifts, note, updatedAt } = value as Partial<WorkoutSessionDoc>;
   return (
     typeof sessionId === "string" &&
     typeof workoutId === "string" &&
     Number.isFinite(startedAt) &&
     Number.isFinite(endedAt) &&
     isStringArray(exerciseIds) &&
+    readLifts(lifts) !== null &&
+    (note === undefined || typeof note === "string") &&
     (updatedAt === undefined || isStamp(updatedAt))
   );
 };

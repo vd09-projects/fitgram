@@ -4,10 +4,13 @@
 // No Firestore, no React — the write path and the rebuild script both call
 // these, so the rollup they produce is identical by construction.
 
-import { ActiveWorkout } from "../types/zustandWorkoutType";
+import { ExerciseField } from "../types/workoutType";
+import { ActiveWorkout, LoggedExercise } from "../types/zustandWorkoutType";
+import { FREESTYLE_ID } from "../constants/freestyle";
 import {
   ExerciseSessionDoc,
   ExerciseStatsDoc,
+  LiftRecord,
   WorkoutSessionDoc,
   SessionTotalVolume,
   SessionVolumeUnavailableReason,
@@ -15,7 +18,7 @@ import {
   StatsSessionEntry,
   StatsVolumePoint,
 } from "../types/workoutSession";
-import { NumericFieldMap, parseSet, resolveNumericFields } from "./exerciseFields";
+import { NumericFieldMap, parseNumericValue, parseSet, resolveNumericFields } from "./exerciseFields";
 import { comparisonSegment, decodeStoredSets, SegmentedSet, toStoredSets } from "./storedSets";
 import { STATS_RECENT_SESSION_CAP, STATS_VOLUME_HISTORY_CAP } from "../config/storedData";
 
@@ -73,6 +76,36 @@ export function computeSessionVolume(
     setsCounted,
     setsTotal,
   };
+}
+
+/**
+ * Total reps across a session's sets, for a lift measured in reps alone
+ * (`bodyweight_reps`: Dips, chin-ups), in the `SessionVolume` shape so
+ * `compareVolumes` takes either. Same rules as `computeSessionVolume`: every
+ * segment of a split set counts, and one set that does not parse empties the
+ * total rather than leaving it short.
+ */
+export function computeSessionReps(
+  sets: readonly SegmentedSet[],
+  repsField: ExerciseField | null
+): SessionVolume {
+  const setsTotal = sets.length;
+  if (!repsField || setsTotal === 0) return { value: null, setsCounted: 0, setsTotal };
+
+  let total = 0;
+  let setsCounted = 0;
+  sets.forEach((set) => {
+    if (set.segmentsIncomplete) return;
+    let setReps = 0;
+    for (const row of set.segments) {
+      const reps = parseNumericValue(row[repsField.name]);
+      if (reps === null) return;
+      setReps += reps;
+    }
+    total += setReps;
+    setsCounted += 1;
+  });
+  return { value: setsCounted === setsTotal ? total : null, setsCounted, setsTotal };
 }
 
 /**
@@ -322,6 +355,10 @@ export function buildSessionDocs(
       sets: toStoredSets(exercise.sets),
     }));
 
+  const lifts = workout.exercises
+    .filter((exercise) => exercise.sets.length > 0)
+    .map((exercise, index) => buildLiftRecord(workout.id, exercise, exerciseSessions[index]));
+
   return {
     session: {
       sessionId,
@@ -329,9 +366,38 @@ export function buildSessionDocs(
       workoutName: workout.name,
       startedAt: workout.startTime,
       endedAt,
-      exerciseIds: exerciseSessions.map((e) => e.exerciseId),
+      // Derived from `lifts`, so the two can never name different exercises.
+      exerciseIds: lifts.map((lift) => lift.id),
+      lifts,
       volume: computeSessionTotalVolume(exerciseSessions),
     },
     exerciseSessions,
+  };
+}
+
+/**
+ * One lift's record, with no verdict yet (`pending`): the stats transaction
+ * computes it (`withVerdicts`). Its name, fields and sets are the
+ * `exercise_sessions` doc's, shared by reference, so the two copies cannot
+ * differ.
+ *
+ * `swappedFrom` and `added` are the live slot's facts, which this builder used
+ * to drop (a deviation from TICKET-047's "not recorded", written in 081).
+ * Freestyle's slots are never `added`: `addExercise` sets it on every added
+ * slot, and a Freestyle workout is nothing but added slots, so the mark would
+ * say nothing there. Rejected: recording it for Freestyle and hiding it in the
+ * reader, which every reader would have to repeat.
+ */
+function buildLiftRecord(workoutId: string, exercise: LoggedExercise, doc: ExerciseSessionDoc): LiftRecord {
+  const planned = exercise.planned;
+  return {
+    id: doc.exerciseId,
+    name: doc.exerciseName,
+    ...(planned ? { swappedFrom: { id: planned.id, name: planned.nameSnapshot?.trim() || planned.name } } : {}),
+    ...(exercise.added && workoutId !== FREESTYLE_ID ? { added: true as const } : {}),
+    fields: doc.fields,
+    sets: doc.sets,
+    verdict: null,
+    reason: "pending",
   };
 }
