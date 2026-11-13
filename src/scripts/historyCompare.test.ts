@@ -45,7 +45,7 @@ describe("compareHistory", () => {
     const lateLifts = new Set(late.lifts.map((l) => l.id));
     // Known gap (a): the successors' stored verdicts are stale, no other lift's.
     report.verdictMismatches.forEach((m) => expect(lateLifts.has(m.liftId)).toBe(true));
-    // Known gap (c): it is older than the 10 sessions each lift's rollup holds, so its own lifts stay pending, not First time.
+    // Known gap (c): it is older than the `STATS_RECENT_SESSION_CAP` sessions each lift's rollup holds, so its own lifts stay pending, not First time.
     const own = report.verdictMismatches.filter((m) => m.sessionId === late.sessionId);
     expect(own.length).toBe(late.lifts.length);
     own.forEach((m) => expect(m.stored.reason).toBe("pending"));

@@ -122,6 +122,24 @@ Setup that worked (TICKET-081, `pinky`, Pixel_9_Pro_XL, `emulator-5554`):
 - Old-shape data: say "cannot be checked", never "0 mismatches", about sets
   nobody read.
 
+- **A backfill is a test of the model's assumptions.** TICKET-081, `vikrantdhawan9`
+  (the manual-testing account): the dry run of "lifts from exercise_sessions" found
+  6 docs in the pre-055 shape that the app's decoder cannot read; the compare script
+  then showed exactly those 6 rollups differing. Inspecting one raw doc showed the
+  old shape was lossless to convert (bare map per set, marks in a parallel array, no
+  splits). Order that worked: dry run printing counts and anything unreadable, write,
+  compare, look at what differs before running the repair, convert, rebuild, compare.
+  Accounts used for manual testing should hold data in the current shape, or the
+  first manual test starts from a state no user can reach.
+
+- **Test a repair by breaking the data on purpose, on a test account.** TICKET-081:
+  the rebuild's verdict-repair write had never executed for real (every real run
+  had 0 sessions to correct), and "a replay keeps a note" had only a mocked merge
+  behind it. A scratch script wrote a wrong verdict and a note, the compare script
+  found it, the repair fixed it, the note survived, and a replayed phase-1 write
+  left the note too. Ten minutes; it turned two "unverified" lines into measured
+  ones. Always restore the session and finish with the compare script at 0.
+
 ## 5. Open questions for the skill
 
 - What a scenario writer should take as input: the diff, the ticket, or both?

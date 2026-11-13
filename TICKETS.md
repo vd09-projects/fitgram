@@ -49,7 +49,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Folded into 087 stage 1 (2026-11-13).** Before the next real repair: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
 | 071 | History page redesign | Medium-Large | Raised 2026-11-05 (user). **Design done 2026-11-13**; the build is 081-086 |
 | 087 | History analysis: measure, decide the schema, fix the design | Med-Large | **Done 2026-11-13 (shape B, held window, Views graph, boards redrawn). Unblocks 081-086.** Raised 2026-11-13 (user). Folds in 049 (scripts to the admin SDK). Embed the sets or not, the verdict split on real data, the graph library, then edits 081-086 |
-| 081 | History data foundation: the lift record and the verdict | Large | **Built 2026-11-14, in review (PR #68); one test account still in the old shape.** Raised 2026-11-13 (user). No screen. `lifts[]` (with the sets) and `note` on the session doc, one verdict function, a compare script. After 087. Reps-only lifts and the count word are decided |
+| 081 | History data foundation: the lift record and the verdict | Large | **Built 2026-11-14, in review (PR #68).** Raised 2026-11-13 (user). No screen. `lifts[]` (with the sets) and `note` on the session doc, one verdict function, a compare script. After 087. Reps-only lifts and the count word are decided |
 | 082 | Hold recent workouts on the phone | Med-Large | After 081. Replaces the 5-per-plan window with the newest whole months; month shards; older months fetched on tap |
 | 083 | Session screen and landing after Finish | Large | After 081, 082. Ships alone: the user lands on it after Finish |
 | 084 | Exercise screen | Med-Large | After 083. Graph drawn from Views (decided in 087) |
@@ -9878,7 +9878,7 @@ wait for this; its two settle-first tests do not.
 
 ### TICKET-081: History Data Foundation — the Lift Record and the Verdict
 
-**Priority:** Medium | **Effort:** Large (three stages) | **Status: BUILT, in review (PR #68)** — raised 2026-11-13 (user). Stages 1–3 done and device-tested on the emulator 2026-11-14; open: the `vikrantdhawan9` old-shape data (wipe or backfill, the user's call).
+**Priority:** Medium | **Effort:** Large (three stages) | **Status: BUILT, in review (PR #68)** — raised 2026-11-13 (user). Stages 1–3 done and device-tested on the emulator 2026-11-14; all three test accounts with history are in the new shape (`vikrantdhawan9` backfilled 2026-11-14).
 First of the History build (design: TICKET-071, PR #64). No screen; the proof is a script. No open decisions
 
 **Description:**
@@ -9983,8 +9983,15 @@ what the History screens read, once, at Finish, and defines the verdict in one f
 one user, nothing else; `info` and `workouts` kept). Re-imported the 15 workouts (4 plans overwritten, each at rev 2).
 `compareHistory.ts` read back 15 sessions, 122 lifts, 122 `exercise_sessions`, 48 `exercise_stats`: 0 mismatches of
 every kind; a rebuild dry run would correct 0 sessions. The same on `vdhawan.personal` (2026-11-14): re-imported over
-its old-shape docs with no wipe (same ids, plain `set`), 0 mismatches. `vikrantdhawan9` (19 sessions, no source file)
-is still the old shape: the compare script reports its sessions as unreadable, not as agreeing. Not on the account: the late upload and the replayed phase 2
+its old-shape docs with no wipe (same ids, plain `set`), 0 mismatches. `vikrantdhawan9` (19 sessions, no source file, the
+manual-testing account) was backfilled by a disposable script (not in the repo): `lifts` built from its `exercise_sessions` (38
+lifts, `exerciseIds` unchanged, `swappedFrom` and `added` unknowable and left out), 6 `exercise_sessions` docs in the
+pre-055 shape (a bare map per set, marks in a parallel `setEffort`, no splits) converted losslessly to the stored-set shape,
+verdicts recomputed, rollups rebuilt: 0 mismatches. Before the conversion those 6 rollups differed from a rebuild (the
+stored ones counted old-format values the decoder cannot read), which is why a plain rebuild would have lowered bests. Run for real on `pinky` after the PR #68 review (one session, then restored): a wrong verdict and a `note` written, the
+compare script found the 1 mismatch, `rebuildExerciseStats` (dry run, then `--confirm`) corrected it with the note kept; a
+replay of phase 1's write (whole record, lifts `pending`, merge, no `note` key) left the note in place, and the rebuild
+repaired the pending lifts; final compare 0 mismatches. So Firestore's merge does what the tests assumed. Not on the account: the late upload and the replayed phase 2
 (unit-simulated on fixtures with the code the transaction runs), phase 2 latency, a Finish on a phone.
 
 **Device test (emulator, 2026-11-14, signed in as `pinky`; three Finishes, then removed).** T1 Freestyle online, two lifts
