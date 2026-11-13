@@ -55,7 +55,11 @@ const compare = async (userId: string): Promise<number> => {
     ids.forEach((id) => console.log(`  ${id}`));
   }
   const total = totalMismatches(report);
-  console.log(total === 0 ? "0 mismatches." : `${total} mismatches. Repair: rebuildExerciseStats.ts.`);
+  if (total === 0) console.log("0 mismatches.");
+  else if (report.unreadable.length > 0) {
+    // The rebuild cannot fix these: it reads sets from `lifts`, and there are none to read.
+    console.log(`${total} to look at. ${report.unreadable.length} session(s) in the old shape cannot be checked or rebuilt: wipe and re-import them (no migration).`);
+  } else console.log(`${total} mismatches. Repair: rebuildExerciseStats.ts.`);
   return total === 0 ? 0 : 1;
 };
 

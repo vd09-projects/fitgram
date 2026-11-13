@@ -46,9 +46,12 @@ const canonical = (value: unknown): string =>
       : v
   );
 
-/** How many mismatches of every kind: 0 is the proof. */
+/**
+ * How many mismatches of every kind: 0 is the proof. A session this run could not read counts: "0
+ * mismatches" must not be said of sets nobody checked.
+ */
 export const totalMismatches = (r: HistoryReport) =>
-  r.verdictMismatches.length + r.exerciseIdsMismatches.length + r.exerciseSessionsDiffer.length +
+  r.unreadable.length + r.verdictMismatches.length + r.exerciseIdsMismatches.length + r.exerciseSessionsDiffer.length +
   r.exerciseSessionsOrphan.length + r.statsDiffer.length;
 
 export function compareHistory(
@@ -100,12 +103,16 @@ export function compareHistory(
   const liftIds = new Set(readable.flatMap((s) => s.lifts.map((l) => l.id)));
   const all = exerciseSessionsOf(readable);
   for (const id of liftIds) rebuilt.set(id, rebuildStatsFromSessions(id, all));
+  // A rollup that an unreadable session's lifts fed is not judged: it cannot be rebuilt from sets this run
+  // cannot read, so "differs" would be a plausible wrong answer. The session is the finding (`unreadable`).
+  const unreadableIds = new Set(unreadable);
+  const notJudged = new Set(exerciseSessions.filter((e) => unreadableIds.has(e.sessionId)).map((e) => e.exerciseId));
   const statsDiffer = [
     ...[...liftIds].filter((id) => {
       const have = stats.find((s) => s.exerciseId === id);
-      return !have || canonical(have) !== canonical(rebuilt.get(id));
+      return !notJudged.has(id) && (!have || canonical(have) !== canonical(rebuilt.get(id)));
     }),
-    ...stats.filter((s) => !liftIds.has(s.exerciseId)).map((s) => s.exerciseId),
+    ...stats.filter((s) => !liftIds.has(s.exerciseId) && !notJudged.has(s.exerciseId)).map((s) => s.exerciseId),
   ];
 
   return {

@@ -92,10 +92,17 @@ describe("compareHistory", () => {
 
   it("skips a session in the old shape and says so, instead of counting it as agreeing or not", () => {
     const { sessions, stats } = saveInOrder(inStartOrder);
-    const old = { ...sessions[0], lifts: undefined } as unknown as WorkoutSessionDoc;
-    const report = compare([old, ...sessions.slice(1)], stats);
+    // The newest, so no later verdict was judged against it.
+    const old = { ...sessions[sessions.length - 1], lifts: undefined } as unknown as WorkoutSessionDoc;
+    // Its exercise_sessions docs exist, as an old-shape session's do.
+    const docs = exerciseSessionsOf(sessions);
+    const report = compareHistory([...sessions.slice(0, -1), old], docs, stats);
     expect(report.unreadable).toEqual([old.sessionId]);
-    expect(report.verdictMismatches.every((m) => m.sessionId !== old.sessionId)).toBe(true);
+    expect(report.verdictMismatches).toEqual([]);
+    // Not 0 mismatches: sets nobody checked. And no rollup is called different for what it cannot be rebuilt from.
+    expect(totalMismatches(report)).toBe(1);
+    expect(report.statsDiffer).toEqual([]);
+    expect(report.exerciseSessionsOrphan).toEqual([]);
   });
 });
 
