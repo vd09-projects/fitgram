@@ -5,7 +5,7 @@
 // previous session and putting verdicts on the record, and reading a stored
 // array without trusting it. Pure; tests in liftRecord.test.ts.
 
-import type { ExerciseStatsDoc, LiftReason, LiftRecord, LiftVerdict, WorkoutSessionDoc } from "../types/workoutSession";
+import type { ExerciseSessionDoc, ExerciseStatsDoc, LiftReason, LiftRecord, LiftVerdict, WorkoutSessionDoc } from "../types/workoutSession";
 import { STATS_RECENT_SESSION_CAP } from "../config/storedData";
 import { liftVerdict, LiftSession } from "./liftVerdict";
 
@@ -96,4 +96,87 @@ function isLift(value: unknown): value is LiftRecord {
  */
 export function readLifts(value: unknown): LiftRecord[] | null {
   return Array.isArray(value) && value.every(isLift) ? value : null;
+}
+
+const byStart = (a: Pick<WorkoutSessionDoc, "startedAt" | "sessionId">, b: Pick<WorkoutSessionDoc, "startedAt" | "sessionId">) =>
+  a.startedAt - b.startedAt || a.sessionId.localeCompare(b.sessionId);
+
+/**
+ * Every lift's verdict recomputed from the sets in `sessions` alone, against
+ * the lift's true previous session: the one before it in start order among
+ * all the sessions given, however far back. So never "too old" and never a
+ * late upload's wrong neighbour. What the import writes (the full history is
+ * in hand), what the compare script checks the stored verdicts against, and
+ * what the rebuild repairs them with. The save's transaction cannot do this:
+ * it sees only a lift's last `STATS_RECENT_SESSION_CAP` sessions.
+ *
+ * Ties in start time order by `sessionId`, so the answer does not depend on
+ * the order the sessions came in. Returns new sessions, in the order given.
+ * Sessions must have valid `lifts` (`readLifts`).
+ */
+export function verdictsFromHistory(sessions: readonly WorkoutSessionDoc[]): WorkoutSessionDoc[] {
+  const previousOf = new Map<string, LiftSession | null>();
+  const lastByLift = new Map<string, LiftSession>();
+  for (const session of [...sessions].sort(byStart)) {
+    for (const lift of session.lifts) {
+      const current = { fields: lift.fields, sets: lift.sets, performedAt: session.startedAt };
+      previousOf.set(`${session.sessionId}|${lift.id}`, lastByLift.get(lift.id) ?? null);
+      lastByLift.set(lift.id, current);
+    }
+  }
+  return sessions.map((session) => ({
+    ...session,
+    lifts: session.lifts.map((lift) => {
+      const current = { fields: lift.fields, sets: lift.sets, performedAt: session.startedAt };
+      return { ...lift, ...liftVerdict(current, previousOf.get(`${session.sessionId}|${lift.id}`) ?? null) };
+    }),
+  }));
+}
+
+/**
+ * The `exercise_sessions` docs the sessions' lifts stand for, as the save
+ * writes them beside the record until TICKET-085. How the rebuild gets its
+ * input from `sessions` (the one source of truth for sets) and how the compare
+ * script checks `exercise_sessions` agrees. Sessions must have valid `lifts`.
+ */
+export function exerciseSessionsOf(sessions: readonly WorkoutSessionDoc[]): ExerciseSessionDoc[] {
+  return sessions.flatMap((session) =>
+    session.lifts.map((lift) => ({
+      exerciseId: lift.id,
+      exerciseName: lift.name,
+      sessionId: session.sessionId,
+      workoutId: session.workoutId,
+      workoutName: session.workoutName,
+      performedAt: session.startedAt,
+      fields: lift.fields,
+      sets: lift.sets,
+    }))
+  );
+}
+
+/**
+ * The sessions whose stored verdicts differ from what their sets give
+ * (`verdictsFromHistory`), with the verdicts corrected: what the rebuild
+ * writes. With `onlyExerciseIds`, only those lifts are corrected, so a run
+ * limited to one exercise leaves the others' verdicts alone. Sessions with
+ * nothing to correct are not returned.
+ */
+export function repairedSessions(
+  sessions: readonly WorkoutSessionDoc[],
+  onlyExerciseIds?: ReadonlySet<string>
+): WorkoutSessionDoc[] {
+  const expected = verdictsFromHistory(sessions);
+  const changed: WorkoutSessionDoc[] = [];
+  sessions.forEach((stored, i) => {
+    let differs = false;
+    const lifts = stored.lifts.map((lift, j) => {
+      const want = expected[i].lifts[j];
+      if (onlyExerciseIds && !onlyExerciseIds.has(lift.id)) return lift;
+      if (lift.verdict === want.verdict && lift.reason === want.reason) return lift;
+      differs = true;
+      return { ...lift, verdict: want.verdict, reason: want.reason };
+    });
+    if (differs) changed.push({ ...stored, lifts });
+  });
+  return changed;
 }

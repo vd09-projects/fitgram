@@ -9972,10 +9972,27 @@ what the History screens read, once, at Finish, and defines the verdict in one f
 - The provisional verdict for a workout still uploading is `withVerdicts` over the held rollups; wiring it to the
   phone's held copy and marking it provisional is 082's.
 
+**Stage 3 decisions (2026-11-13, built):**
+- One pure `verdictsFromHistory(sessions)` recomputes every verdict from the sets, against each lift's true previous
+  session in start order (ties by session id). The import, the compare script and the rebuild all use it, so they
+  cannot disagree. `settleVerdicts` adds the user's existing sessions to the import's history; it reads them and
+  never rewrites them.
+- `compareHistory.ts` has no write mode (nothing to forget). It checks verdicts (a pending one counts), `exerciseIds`,
+  `exercise_sessions` against the lifts (until 085), and `exercise_stats` against a rebuild; exit 1 on any
+  difference. The repair is `rebuildExerciseStats.ts`: from `sessions.lifts`, it corrects verdicts (merge, new
+  stamp, only the exercises named if any) and rewrites the rollups, a dry run unless `--confirm`.
+- Found while proving it: a late upload also leaves a rollup different from a rebuild (which session holds a tied
+  best), not only verdicts. The rebuild fixes both. Added to known gap (a).
+- A rebuild of an account whose sessions have no readable `lifts` counts none of them and says so (on the test
+  account it reads 15 such sessions and writes nothing). A mixed account would lower bests that came only from the
+  unreadable sessions: the script lists them first.
+- No duration for an imported session needed no new code: `sessionMinutes` returns null when the end equals the
+  start, and a test now pins that for the imported sessions.
+
 **Known gaps, named on purpose:** (a) (confirmed by `measureDrainOrder.test.ts`: a failed upload is skipped, so a
 later workout reaches the server first) a workout uploaded late from the offline queue has an old start,
 so its verdict compares against the wrong neighbour and the next session's stored verdict is not
-recomputed; (b) a replayed phase 2 after a neighbour changed rewrites the verdict. Both are rare;
+recomputed; (b) a replayed phase 2 after a neighbour changed rewrites the verdict (tested: a replay right after its own fold writes the same lifts, so this needs the neighbour's sets to change, which nothing does until a set-edit exists); (c) a workout older than the 10 sessions in a lift's rollup keeps that lift `pending` until a repair (never a false First time). All rare;
 the compare script finds them and `rebuildExerciseStats` repairs them. TICKET-086 repairs the
 successor on delete.
 
@@ -10068,8 +10085,9 @@ History stays the History entry until 085.
 - Resolution: the pending queue, then the held workouts (082), then an older workout fetched by id (one read,
   sets included) with a "needs a connection" state. Opened from the queue, it follows the move to held when
   the upload lands (`applyFinished`).
-- Lift cards from `lifts` (name, verdict word, captions "Swapped in for X", "Added", "Changed from
-  kg to lb") with their sets, from the same record: no further read for a held or fetched workout. Aligned compare of a lift against
+- Lift cards from `lifts` (name, verdict word, captions "Swapped in for X" from `swappedFrom.name`, "Added", "Changed from
+  kg to lb") with their sets (081 stage 2: a lift with `reason: "pending"` shows no word, neither First time nor
+  Not compared; every record is read through `readLifts`, which refuses a bad array whole), from the same record: no further read for a held or fetched workout. Aligned compare of a lift against
   its last 3–4 sessions (from the held summaries) (columns share the width up to 4 sets, scroll sideways beyond: needs a device
   check, since a split set makes row heights differ).
 - States: waiting to upload and did not upload (the threshold for "did not" is a decision: today only
@@ -10147,8 +10165,8 @@ Back from a deeper screen keeps tab, filter, scroll and which months are open.
   which is then split and its Earlier row counts only what is left); Earlier month rows open in place in one
   list (`SectionList` or `FlatList` with row types, not nested lists); months older than the held window are
   one "Older" row (boards `HistHome19OlderEnd`, `HistHome20OlderOffline`) that loads a month on tap (082's `getWorkoutsOfMonth`, needs a connection, no count until it
-  is loaded: never a total the phone does not have); filter sheet and counts from 082's selectors (held months); a workout waiting to upload merged in with provisional verdicts; "Not compared" for a
-  workout with no verdict (081's reason).
+  is loaded: never a total the phone does not have); filter sheet and counts from 082's selectors (held months); a workout waiting to upload merged in with provisional verdicts (`withVerdicts` over the held summaries; 081 stage 2 built the function, not the wiring); "Not compared" for a
+  workout with no verdict (081's reason), and no word at all for one whose `workoutVerdict` is `pending` (a lift not yet computed, or older than a lift's rollup window).
 - **Stage 3, Exercises:** search, one row per lift from the held summaries (Better/Lower/Same by 081's
   function, last sets, days ago), filter by workout through `lifts` membership (held months), "Most recent first".
 - **Stage 4, retire `exercise_sessions`:** stop writing it in `saveWorkoutSession`, drop its readers
@@ -10185,7 +10203,7 @@ which then reuses it.
   records: `sessions` by `exerciseIds`, 084's index, one stamped replace, no sessions left means a `deleted` marker on the stats doc).
 - One `writeBatch`: a `deleted: true` marker on the `sessions` doc with a server stamp (never a hard
   delete: a change check cannot see one), (until 085, also delete that workout's `exercise_sessions` docs) replace each lift's
-  summary, and rewrite each successor session's `lifts` verdict against its new previous session.
+  summary, and rewrite each successor session's `lifts` verdict against its new previous session (081 stage 3 built the pure parts: `verdictsFromHistory` and `repairedSessions` recompute from the sets in hand; the successor is the lift's next session in start order).
 - Refused offline. A Finish landing between the read and the write can overwrite the rebuild: decided in
   the ticket (re-read the stamps, or accept and heal with the rebuild script).
 - Enable the option on the Session screen with the confirm; after it, Back to Workouts.
