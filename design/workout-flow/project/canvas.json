@@ -879,7 +879,7 @@
     "HistHome01Workouts.dc.html": {"h": 844, "title": "Workouts · the top (current month in full)", "w": 390, "x": 0, "y": 41400},
     "HistHome02WorkoutsEnd.dc.html": {"h": 844, "title": "Workouts · the end: a split month, then Earlier", "w": 390, "x": 470, "y": 41400},
     "HistHome03OctOpen.dc.html": {"h": 844, "title": "Workouts · October opened in place, the list just continues", "w": 390, "x": 940, "y": 41400},
-    "HistHome04SeptOpen.dc.html": {"h": 844, "title": "Workouts · September opened in place, too old to compare", "w": 390, "x": 1410, "y": 41400},
+    "HistHome04SeptOpen.dc.html": {"h": 844, "title": "Workouts · September opened in place; one workout not compared (a unit changed)", "w": 390, "x": 1410, "y": 41400},
     "HistHome05FilterSheet.dc.html": {"h": 844, "title": "Workouts · the filter sheet", "w": 390, "x": 1880, "y": 41400},
     "HistHome06Push.dc.html": {"h": 844, "title": "Workouts · filtered to Push", "w": 390, "x": 2350, "y": 41400},
     "HistHome07PushEnd.dc.html": {"h": 844, "title": "Workouts · filtered to Push, the end: same rule, counted within Push", "w": 390, "x": 2820, "y": 41400},
@@ -922,7 +922,10 @@
     "HistExercise10NewLift.dc.html": {"h": 844, "title": "Exercise · a new lift, no graph yet", "w": 390, "x": 4230, "y": 44600},
     "HistExercise11Waiting.dc.html": {"h": 844, "title": "Exercise · the latest workout waiting to upload", "w": 390, "x": 4700, "y": 44600},
     "HistExercise12Failed.dc.html": {"h": 844, "title": "Exercise · the latest workout did not upload", "w": 390, "x": 5170, "y": 44600},
-    "HistExercise13Map.dc.html": {"h": 1040, "title": "How the History screens link (final)", "w": 1280, "x": 5640, "y": 44600}
+    "HistExercise13Map.dc.html": {"h": 1300, "title": "How the History screens link (final)", "w": 1280, "x": 5640, "y": 44600},
+    "HistSession17Imported.dc.html": {"h": 844, "title": "Session \u00b7 an imported workout, no duration", "w": 390, "x": 7520, "y": 43000},
+    "HistHome19OlderEnd.dc.html": {"h": 844, "title": "Workouts \u00b7 a long history: the months on the phone, then Older", "w": 390, "x": 8460, "y": 41400},
+    "HistHome20OlderOffline.dc.html": {"h": 844, "title": "Workouts \u00b7 offline, the Older row needs a connection", "w": 390, "x": 8930, "y": 41400}
   },
   "createdOnFiles": {
     "at": "2026-10-03T12:00:00Z",
@@ -1220,12 +1223,12 @@
     "removeexwhy": {"fill": "orange", "text": "DECIDED (user, 2026-11-05).\n\nExercise \u22ef \u2192 Remove from today, in its own group under Split and Swap. Not red: danger is Discard's only, and nothing is lost.\n\nOnly at 0 sets, with Swap's reason (2). Logged sets are work done.\n\nThe next exercise takes its place; the last one lands on the new last; the only one leaves Freestyle's empty screen.\n\nUndo: one bar under the header, untimed, until the next log, page, removal or Finish. \u2296, bold white name, grey \"removed\".\n\nRejected: Undo above Finish (stray tap), a timed toast, a confirm with sets.\n\nExplorations: Drafts canvas, row TICKET-069.", "w": 320, "x": 2820, "y": 37140},
     "lockex": {"kind": "title1", "maxW": 2340, "text": "TICKET-080 — rest timer on the Android lock screen", "x": 0, "y": 38300},
     "lockexwhy": {"fill": "orange", "text": "DECIDED (user, 2026-11-10).\n\nA custom card with the time as the big ticking number, not Android's small header time. Pulse-bar barbell icon (the logo's two ideas in one colour). Text: Catch your breath / Go time. Time teal while resting; at 0:00 soft grey (light card) or white (dark card).\n\nNo buttons: each needs a native receiver that acts while the app is closed. The permission sheet appears once, at the first rest; the way back is a settings row.\n\nRejected: a Live Update status-bar chip (a custom card cannot be promoted; it also did not run on the emulator image), the stopwatch icon, the full-colour logo (Android keeps only the shape of the icon), black resting time.\n\nUnproven: a real phone, the lock screen with this exact design, the automatic swap to 0:00.\n\nExplorations: the Lock-Screen Rest Timer canvas, https://claude.ai/artifact/1CbFHZUdAm8H1FysYLxV9A.", "w": 320, "x": 2020, "y": 38600},
-    "historyA": {"kind": "title1", "maxW": 8380, "text": "TICKET-071 — History 1 of 3: Workouts and Exercises, every screen and state", "x": 0, "y": 41100},
-    "historyAwhy": {"fill": "orange", "text": "DECIDED (user, 2026-11-13).\n\nTwo tabs, Workouts | Exercises, with one workout filter (the same sheet on both). Workouts is a rail, newest first, grouped by month: date, a dot (amber = beat last time), plan, one word, and every lift as a capsule (▲ better, ▼ lower, none = same or not comparable).\n\nHome shows the current month in full; if that is under 10 workouts it runs on into the month before, whose Earlier row counts only what is left. An Earlier month opens in place in the same list; there is no page for a month. A month too old to compare says Not compared.\n\nHistory always opens on Workouts with All selected. The whole workout block opens the Session.\n\nNot drawn: the footer (the existing one) and the keyboard on search.", "w": 320, "x": 8460, "y": 41400},
-    "historyB": {"kind": "title1", "maxW": 7440, "text": "TICKET-071 — History 2 of 3: Session, with the options pages", "x": 0, "y": 42700},
-    "historyBwhy": {"fill": "orange", "text": "DECIDED (user, 2026-11-13).\n\nEach lift a card with one word; a lift opens an aligned compare (3–4 sets fill the width, 5 or more scroll sideways). Better, Lower, Same for a lift is the app’s existing rule: this session’s total (weight × reps) against last time, kept in one function.\n\nOptions sheet: Edit session is shown, switched off for now. Its screen is parked and not drawn here (decide the UI later). Add a note and Delete (one question first) are final.\n\nAfter finishing a workout you land here. All Push workouts, at the end, opens Workouts filtered to Push.", "w": 320, "x": 7520, "y": 43000},
+    "historyA": {"kind": "title1", "maxW": 9320, "text": "TICKET-071 — History 1 of 3: Workouts and Exercises, every screen and state", "x": 0, "y": 41100},
+    "historyAwhy": {"fill": "orange", "text": "DECIDED (user, 2026-11-13).\n\nTwo tabs, Workouts | Exercises, with one workout filter (the same sheet on both). Workouts is a rail, newest first, grouped by month: date, a dot (amber = beat last time), plan, one word, and every lift as a capsule (▲ better, ▼ lower, none = same or not comparable).\n\nHome shows the current month in full; if that is under 10 workouts it runs on into the month before, whose Earlier row counts only what is left. An Earlier month opens in place in the same list; there is no page for a month. The phone holds the newest months. The list ends in an Older row that loads one month when tapped (no count until it is loaded, and it says it needs a connection when offline). A workout with no verdict says Not compared; a workout is never marked Same without a comparison.\n\nHistory always opens on Workouts with All selected. The whole workout block opens the Session.\n\nNot drawn: the footer (the existing one; History is not in it, you open History from the Workout hub) and the keyboard on search.", "w": 320, "x": 9400, "y": 41400},
+    "historyB": {"kind": "title1", "maxW": 7910, "text": "TICKET-071 — History 2 of 3: Session, with the options pages", "x": 0, "y": 42700},
+    "historyBwhy": {"fill": "orange", "text": "DECIDED (user, 2026-11-13).\n\nEach lift a card with one word; a lift opens an aligned compare (3–4 sets fill the width, 5 or more scroll sideways). Better, Lower, Same for a lift is the app’s existing rule: this session’s total (weight × reps) against last time, kept in one function, worked out when the workout is saved and stored with it.\n\nOptions sheet: Edit session is shown, switched off for now. Its screen is parked and not drawn here (decide the UI later). Add a note and Delete (one question first) are final. The note belongs to the workout; a lift has none. An imported workout has no duration.\n\nAfter finishing a workout you land here. All Push workouts, at the end, opens Workouts filtered to Push.", "w": 320, "x": 7990, "y": 43000},
     "historyC": {"kind": "title1", "maxW": 6920, "text": "TICKET-071 — History 3 of 3: Exercise, and how the screens link", "x": 0, "y": 44300},
-    "historyCwhy": {"fill": "orange", "text": "DECIDED (user, 2026-11-13).\n\nThe Exercise screen is unchanged from its earlier decision: one scrolling log for every set count, quiet view options. New here: the kg to lb divider, a new lift with no graph yet, and the waiting and did-not-upload rows.\n\nThe last board is the link map: every screen, how you get there, where it goes. Nothing here was seen on a phone, and the data is invented.", "w": 320, "x": 7000, "y": 44600}
+    "historyCwhy": {"fill": "orange", "text": "DECIDED (user, 2026-11-13).\n\nThe Exercise screen keeps its earlier decision, with two changes from the stage 5 review of TICKET-087: the header says Average weight (the average of the session\u2019s set weights, a drop set counting its first weight) and has no trend word, since the graph shows the direction. one scrolling log for every set count, quiet view options. New here: the kg to lb divider, a new lift with no graph yet, and the waiting and did-not-upload rows.\n\nThe last board is the link map: every screen, how you get there, where it goes (History opens from the Workout hub). Nothing here was seen on a phone, and the data is invented.", "w": 320, "x": 7000, "y": 44600}
   },
   "order": [
     "Main.dc.html",
@@ -1403,7 +1406,10 @@
     "HistExercise10NewLift.dc.html",
     "HistExercise11Waiting.dc.html",
     "HistExercise12Failed.dc.html",
-    "HistExercise13Map.dc.html"
+    "HistExercise13Map.dc.html",
+    "HistSession17Imported.dc.html",
+    "HistHome19OlderEnd.dc.html",
+    "HistHome20OlderOffline.dc.html"
   ],
   "pages": [],
   "title": "Fitgram Workout Flow Redesign"

@@ -48,7 +48,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 068 | Drag to close: every sheet on a real phone | Small | Low. From 065's device run (2026-11-03): only `PlanCard` drags; decide drag on every sheet with a handle, or drop the handles |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Folded into 087 stage 1 (2026-11-13).** Before the next real repair: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
 | 071 | History page redesign | Medium-Large | Raised 2026-11-05 (user). **Design done 2026-11-13**; the build is 081-086 |
-| 087 | History analysis: measure, decide the schema, fix the design | Med-Large | **Stages 1-4 done 2026-11-13 (shape B, held window, Views graph); stage 5, the boards, open. Blocks 081-086.** Raised 2026-11-13 (user). Folds in 049 (scripts to the admin SDK). Embed the sets or not, the verdict split on real data, the graph library, then edits 081-086 |
+| 087 | History analysis: measure, decide the schema, fix the design | Med-Large | **Done 2026-11-13 (shape B, held window, Views graph, boards redrawn). Unblocks 081-086.** Raised 2026-11-13 (user). Folds in 049 (scripts to the admin SDK). Embed the sets or not, the verdict split on real data, the graph library, then edits 081-086 |
 | 081 | History data foundation: the lift record and the verdict | Large | Raised 2026-11-13 (user). No screen. `lifts[]` (with the sets) and `note` on the session doc, one verdict function, a compare script. After 087. Reps-only lifts and the count word are decided |
 | 082 | Hold recent workouts on the phone | Med-Large | After 081. Replaces the 5-per-plan window with the newest whole months; month shards; older months fetched on tap |
 | 083 | Session screen and landing after Finish | Large | After 081, 082. Ships alone: the user lands on it after Finish |
@@ -10127,7 +10127,7 @@ Back from a deeper screen keeps tab, filter, scroll and which months are open.
   workout is one tap target; the current month in full (under 10 workouts it runs into the month before,
   which is then split and its Earlier row counts only what is left); Earlier month rows open in place in one
   list (`SectionList` or `FlatList` with row types, not nested lists); months older than the held window are
-  one "Older" row that loads a month on tap (082's `getWorkoutsOfMonth`, needs a connection, no count until it
+  one "Older" row (boards `HistHome19OlderEnd`, `HistHome20OlderOffline`) that loads a month on tap (082's `getWorkoutsOfMonth`, needs a connection, no count until it
   is loaded: never a total the phone does not have); filter sheet and counts from 082's selectors (held months); a workout waiting to upload merged in with provisional verdicts; "Not compared" for a
   workout with no verdict (081's reason).
 - **Stage 3, Exercises:** search, one row per lift from the held summaries (Better/Lower/Same by 081's
@@ -10188,8 +10188,8 @@ mismatches after a delete; two phones: the deleted workout leaves the other phon
 
 ### TICKET-087: History Analysis — Measure, Decide the Schema, Fix the Design (do first)
 
-**Priority:** Medium | **Effort:** Medium-Large (five stages) | **Status: IN PROGRESS** — raised 2026-11-13 (user).
-Stages 1 to 4 done 2026-11-13 (decision: B, with a held window); stage 5 (the boards) is open. Blocks TICKET-081 to 086. Folds in TICKET-049. Builds no app feature: scripts, numbers, a decision record
+**Priority:** Medium | **Effort:** Medium-Large (five stages) | **Status: DONE** — raised 2026-11-13 (user).
+All five stages done 2026-11-13 (decision: B, with a held window); nothing was seen on a phone. Blocks TICKET-081 to 086. Folds in TICKET-049. Builds no app feature: scripts, numbers, a decision record
 
 **Description:**
 The History build (081 to 086) rests on estimates: sizes, read counts, how the verdict rule behaves on real
@@ -10365,6 +10365,30 @@ purpose.
 4. The unmeasured items above, each needing a device.
 5. Decision 5, the rollup size.
 
+**Stage 5 record (2026-11-13).** Existing boards were edited from the canvas copies, not redrawn (the
+`design/workout-flow/project/` mirror matched the canvas file for file before the change), and published to the
+main canvas and mirrored in the same change. What changed:
+- **Per-lift note:** removed from every Session board that had one (10 boards). The workout note stays.
+- **Link map (`HistExercise13Map`):** History opens from the Workout hub; the footer has no History tab. It also
+  records the count word, "Not compared" (a workout with no verdict, never "Same"), no duration for an imported
+  workout, the Older row, and the definition below.
+- **Count word and "Not compared":** the Session summary line separated first-time lifts from not-compared ones
+  ("1 not compared · 2 new", where it said "3 not compared"); the September and August boards now show real
+  marks for old months (stored verdicts), with one workout left as "Not compared" (a unit changed).
+- **Duration:** a new board, `HistSession17Imported`, shows an imported workout with no duration.
+- **"Typical weight" and "Going up" (user's choice was define or remove):** "Typical weight" is renamed "Average
+  weight" and defined in the view-options sheet and the link map: the average of a session's set weights, a drop
+  set counting its first weight. "Going up" is removed from all 10 Exercise boards: the graph shows the
+  direction, and defining a trend rule and its three states was more than an MVP needs.
+- **Older row (known gap 1 above):** two new boards, `HistHome19OlderEnd` and `HistHome20OlderOffline`, and the
+  Offline strip now says "your recent workouts are saved on your phone".
+Not drawn, left for 085 to build against the link map's text: the filter sheet's note that its counts are for the
+workouts on the phone (the sample data holds every workout, so the counts there are true), and the Older row's
+loading state.
+Not verified (CLAUDE.md 1.4): the edited boards were not rendered or looked at, only checked as text (the old
+strings are gone, the tags balance, the files published); the new boards' layout (an extra row, a strip) is
+untested; nothing here was seen on a phone and the data is invented.
+
 **Output:** the decision record and the measurements, written here; changed text in 081 to 086; the redrawn
 boards; the scripts. No app code outside `src/scripts/`.
 
@@ -10374,7 +10398,7 @@ boards; the scripts. No app code outside `src/scripts/`.
 - [x] A and B measured at 150, 500 and 1500 workouts (and C, and a window), and the choice recorded with what was rejected
 - [x] The graph decision made, with the spike's result
 - [x] 081 to 086 edited to match
-- [ ] The boards and link map redrawn and mirrored (stage 5)
+- [x] The boards and link map redrawn and mirrored (stage 5)
 
 **Out of scope:** any screen or store change; the verdict code (081); editing or deleting data on a real
 account (any write to a real database is asked for first, and `--dry-run` comes before it).
