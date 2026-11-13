@@ -48,11 +48,11 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 068 | Drag to close: every sheet on a real phone | Small | Low. From 065's device run (2026-11-03): only `PlanCard` drags; decide drag on every sheet with a handle, or drop the handles |
 | 049 | Move the client-SDK scripts to the admin SDK | Small | **Folded into 087 stage 1 (2026-11-13).** Before the next real repair: `rebuildExerciseStats` (the app's own log names it) already gets PERMISSION_DENIED; the open rule expired 2025-08-25 |
 | 071 | History page redesign | Medium-Large | Raised 2026-11-05 (user). **Design done 2026-11-13**; the build is 081-086 |
-| 087 | History analysis: measure, decide the schema, fix the design | Med-Large | **Do first; blocks 081-086.** Raised 2026-11-13 (user). Folds in 049 (scripts to the admin SDK). Embed the sets or not, the verdict split on real data, the graph library, then edits 081-086 |
-| 081 | History data foundation: the lift record and the verdict | Large | Raised 2026-11-13 (user). No screen. `lifts[]` and `note` on the session doc, one verdict function, a compare script. After 087. Reps-only lifts and the count word are decided |
-| 082 | Hold every workout on the phone | Med-Large | After 081. Replaces the 5-per-plan window; month shards; counts and filters offline |
+| 087 | History analysis: measure, decide the schema, fix the design | Med-Large | **Stages 1-4 done 2026-11-13 (shape B, held window, Views graph); stage 5, the boards, open. Blocks 081-086.** Raised 2026-11-13 (user). Folds in 049 (scripts to the admin SDK). Embed the sets or not, the verdict split on real data, the graph library, then edits 081-086 |
+| 081 | History data foundation: the lift record and the verdict | Large | Raised 2026-11-13 (user). No screen. `lifts[]` (with the sets) and `note` on the session doc, one verdict function, a compare script. After 087. Reps-only lifts and the count word are decided |
+| 082 | Hold recent workouts on the phone | Med-Large | After 081. Replaces the 5-per-plan window with the newest whole months; month shards; older months fetched on tap |
 | 083 | Session screen and landing after Finish | Large | After 081, 082. Ships alone: the user lands on it after Finish |
-| 084 | Exercise screen | Med-Large | After 083. Graph library is a decision first (none installed) |
+| 084 | Exercise screen | Med-Large | After 083. Graph drawn from Views (decided in 087) |
 | 085 | History home: Workouts and Exercises tabs | Large | After 081-084. Replaces the old History page; closes 029 |
 | 086 | Delete a workout | Med-Large | After 083. Shares `rebuildExerciseSummary` with 032 |
 | (parked) | Edit session UI | Design only | The option is shown switched off; the user decides the UI later |
@@ -9900,23 +9900,24 @@ what the History screens read, once, at Finish, and defines the verdict in one f
   `workoutVerdict(lifts)`: the count word and the amber dot (rule in "To decide"). The user wants the
   rule generic later: if the code cannot be made generic cheaply, a separate ticket does it.
   Tests: 6–8 cases (CLAUDE.md 3.2), each seen failing.
-- **Stage 2, the record.** `sessions` gains `lifts: [{ id, name, swappedFrom?, added?, verdict,
-  reason }]` (`verdict` is null whenever there is a `reason`: first_time, unit_changed, no_volume,
+- **Stage 2, the record.** `sessions` gains `lifts: [{ id, name, swappedFrom?, added?, fields, sets, verdict,
+  reason }]` (`fields` and `sets` are `ExerciseSessionDoc`'s, as stored) (`verdict` is null whenever there is a `reason`: first_time, unit_changed, no_volume,
   unreadable, pending) and `note?`. **`exerciseIds` stays**, derived from `lifts`: `recents.ts`,
   `freestyleHistory.ts`, `workoutsSync.ts` (its validator) and `startWorkout.ts` read it, and
   keeping it breaks none of them (a reviewer found removing it would). The builder records
   `swappedFrom` and `added` (a deviation from TICKET-047's "not recorded", written in 047), and
   must not mark every Freestyle slot `added` (`addExercise` sets it on every added slot).
-  Phase 1 (the batch) writes `lifts` with `reason: pending` using merge, so a replayed upload keeps
-  a note. Phase 2 (the stats transaction, which already reads each `exercise_stats` doc and its
+  Phase 1 (the batch) writes `lifts` with their sets and `reason: pending` using merge, so a replayed upload
+  keeps a note, and until 085 the `exercise_sessions` docs too. Phase 2 (the stats transaction, which already reads each `exercise_stats` doc and its
   `recentSessions`) computes the verdicts and writes the whole `lifts` array to the session doc.
   `saveWorkoutSession` returns the session, and `attemptUpload` uses it instead of rebuilding it.
   A workout still waiting to upload gets its verdicts on the phone from the same function, marked
-  provisional, never stored.
-- **Stage 3, scripts and proof.** `importHistory`/`historyImport` and `rebuildExerciseStats` write
-  `lifts` from the full history (the true previous session, so never "too old"). A `--dry-run`
-  compare script recomputes every verdict from `exercise_sessions` and reports differences from
-  the stored ones. Wipe the pre-launch test data in the old shape first (the user: no migration).
+  provisional, never stored. Reuse `src/scripts/historyFixtures.ts` (seeded workouts built by the importer's own
+  path) for the compare script's tests and the proof.
+- **Stage 3, scripts and proof.** `importHistory`/`historyImport` write `lifts` with their sets from the full history (the true
+  previous session, so never "too old"); `rebuildExerciseStats` rebuilds from `sessions` (`lifts[].sets`), not
+  `exercise_sessions`. A `--dry-run` compare script recomputes every verdict from the sets in `sessions`, reports
+  differences from the stored ones, and until 085 checks `exercise_sessions` agrees with them. Wipe the pre-launch test data in the old shape first (the user: no migration).
   An imported session has `endedAt` equal to `startedAt`: nothing may show a duration for it.
 
 **Load-bearing facts, checked in code 2026-11-13 (CLAUDE.md 2.1):**
@@ -9946,60 +9947,85 @@ what the History screens read, once, at Finish, and defines the verdict in one f
   sessions "Not compared".
 - **No per-lift note.** The boards show a note on a lift; no field or input exists. Dropped from the design
   (the boards still show it until they are redrawn); only the workout note (`note`) is built.
+- **The shape is B (TICKET-087, 2026-11-13).** Each `lifts` entry also holds the lift's `fields` and `sets`, and
+  `sessions.lifts` is the one source of truth for sets (it replaces TICKET-072 D5's `exercise_sessions`, and
+  reverses D7 for the held window). `exercise_sessions` is still written until 085 retires the old History page,
+  then dropped. Measured on fixtures of 8 lifts x 5 sets with drop sets: a record is 3.3 KB in Firestore (median
+  3262, max 3429; the 1 MiB limit is not near) and 4.6 KB held; one Finish is 18 writes and 8 reads while both are
+  written, 10 after (9 if the session is written once, which drops the offline-safe first phase 077 chose); bytes
+  written about 56 KB either way, most of it the 8 `exercise_stats` docs. Rejected: `lifts` only (A) and also
+  holding `exercise_sessions` on the phone (C): see 087's decision record.
 
-**Known gaps, named on purpose:** (a) a workout uploaded late from the offline queue has an old start,
+**Known gaps, named on purpose:** (a) (confirmed by `measureDrainOrder.test.ts`: a failed upload is skipped, so a
+later workout reaches the server first) a workout uploaded late from the offline queue has an old start,
 so its verdict compares against the wrong neighbour and the next session's stored verdict is not
 recomputed; (b) a replayed phase 2 after a neighbour changed rewrites the verdict. Both are rare;
 the compare script finds them and `rebuildExerciseStats` repairs them. TICKET-086 repairs the
 successor on delete.
 
 **Proof (CLAUDE.md 3.1):** the compare script reports 0 mismatches on the imported account, also after
-a simulated late upload and a replayed phase 2; writes per Finish before and after (17 for 8 lifts, 18
-expected); phase 2 latency.
+a simulated late upload and a replayed phase 2; writes per Finish before and after (17 for 8 lifts today; 18 while
+`exercise_sessions` is also written, 10 after 085); phase 2 latency.
 
 **Out of scope:** every screen; holding sessions on the phone (082); deleting a workout (086).
 
 **CLAUDE.md rules skipped:** none.
 
-**Dependencies:** TICKET-087, which decides the stored shape (whether sets live in the workout record) and edits this ticket to match. Touches TICKET-047 (swap now recorded), 032, 077.
+**Dependencies:** TICKET-087, which decided the stored shape: B, `lifts` with their sets (its decision record). Touches TICKET-047 (swap now recorded), 032 (reads sets from `sessions.lifts`), 072 (D5 and D7), 077.
 
 ---
 
-### TICKET-082: Hold Every Workout on the Phone
+### TICKET-082: Hold Recent Workouts on the Phone
 
-**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN** — raised 2026-11-13 (user)
+**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN** — raised 2026-11-13 (user); window decided in TICKET-087
 
 **Description:**
-The Workouts list, its month rows, the filter counts ("Push · 14 workouts") and opening an old month
-offline all need every workout's summary on the phone. TICKET-075 keeps the last 5 per plan
+The Workouts list, its month rows, the filter counts ("Push · 14 workouts") and opening a recent month
+offline all need the workouts' summaries on the phone. TICKET-075 keeps the last 5 per plan
 (`WORKOUTS_PER_PLAN`): the newest 5 overall are always held, the newest 10 are not (8 of them could
 be one plan). Firestore here has only a memory cache (`firebase.ts`), so anything not held fails
-offline. With `lifts` (081) a workout doc is about 1 KB, estimated, not measured.
+offline. With `lifts` and their sets (081) a workout doc is 3.3 KB in Firestore, measured on fixtures. Holding every
+workout was measured and rejected (087): it grows with history, a new phone reads all of it, and it reaches the
+Android 6 MB database cap at about 1250 workouts. Nobody opens old data often, so the phone holds a window and fetches
+the rest when asked.
 
 **Build:**
-- The workouts store (`useRecentWorkoutsStore`) holds **every** session doc, newest first, in place
-  of the per-plan N. First load is one query ordered by `startedAt` (the single-field index needs no
-  new entry); then the change check as today. The one shared copy of D2 stays: no second store.
-- Saved in shards by month with the TICKET-076 head key and `multiSet` pattern (Android is said to
-  fail on one entry of about 2 MB: check). `WORKOUTS_FORMAT_VERSION` 2: a version 1 copy is
-  discarded and refilled, as D3 does for N.
+- The workouts store (`useRecentWorkoutsStore`) holds the newest **whole months** of session docs, newest first,
+  until at least `WORKOUTS_HELD_MIN` workouts are held (config, in `src/config/sync.ts`; its value and the
+  reason are written there), in place of the per-plan N. First load is two queries ordered by `startedAt`
+  (the single-field index needs no new entry): the newest `WORKOUTS_HELD_MIN`, then the rest of the oldest of
+  those months, so a held month is always complete. Then the change check as today. The one shared copy of D2
+  stays: no second store. When a Finish starts a new month and the newest months already cover
+  `WORKOUTS_HELD_MIN` without the oldest one, the oldest month is dropped from the copy.
+- Saved in shards by UTC start month with the TICKET-076 head key and `multiSet` pattern. The largest measured
+  shard is 279 KB (a busy month of 62 workouts); Android is said to fail on one entry of about 2 MB, which is not
+  checked in the library source and is not reached. `WORKOUTS_FORMAT_VERSION` 2: a version 1 copy is discarded
+  and refilled, as D3 does for N.
+- **Older months, on demand:** `getWorkoutsOfMonth(month)`, one query by `startedAt` range, shown and kept in
+  memory only, never saved; refused offline with a state. About 62 reads and 198 KB for a busy month; its
+  records hold the sets, so opening one of its workouts reads nothing more.
 - Retire `WORKOUTS_PER_PLAN`, `loaded` and `followPlans`. Selectors for the later screens: by month,
-  by plan with counts, newest N. The hub, Start, Manage and the picker keep reading what they read.
+  by plan with counts (**of the held months only**), newest N. The hub, Start, Manage and the picker keep
+  reading what they read.
 - `isSession` accepts `lifts` and `deleted` markers, and the merge drops marked docs (086 writes
   them; the rule is TICKET-032's).
 - Fix the gap `recents.ts` names: a custom exercise no plan holds has no name; `lifts[].name` gives it.
 - Filter identity is the plan id; the label is the current plan name, else the newest `workoutName`
   snapshot of that plan (a rename must not split a filter).
 
-**Proof:** reads and bytes of a first load and of a restart, before (today's numbers first) and after, with
-150, 500 and 1500 fixture sessions; the size of one stored entry and the save time at each; a cold
-start in airplane mode shows the list with 0 reads; a Finish on another phone appears on the next check.
+**Proof:** reads and bytes of a first load and of a restart, before (today's numbers first) and after: fixtures
+measured in TICKET-087 give about 200 held workouts as 198-222 reads and 0.62-0.69 MB on a first load, 0.87-0.97 MB
+held, 0 reads on a restart (rerun with `measureWindow.ts` and the same fixtures); the size of one stored shard and
+the save time at 500 and 1500 workouts on the server; a cold start in airplane mode shows the list with 0 reads;
+a Finish on another phone appears on the next check.
 
-**Offline, stated per screen once the History build is done:** Workouts list, month rows, counts,
-filter, Exercises list: held. A lift's last 10 sessions: held. Older sets, a note, a delete: need a
-connection. Opening the app on a phone that never held the copy: needs a connection once.
+**Offline, stated per screen once the History build is done:** Workouts list, month rows, counts, filter, a
+workout's sets and a lift's whole log, within the held months: held. Exercises list and a lift's last 10 sessions:
+held. Older months, a lift's log past the window, a note, a delete: need a connection. Opening the app on a phone that never held the copy:
+needs a connection once.
 
-**Out of scope:** any screen; holding `exercise_sessions` (TICKET-072 D7 stands: sets are not held).
+**Out of scope:** any screen; holding `exercise_sessions` as well (087 measured it: 9x the first-load reads). The
+held window's sets live in the records, which reverses TICKET-072 D7 for the window.
 
 **CLAUDE.md rules skipped:** 3.3 (the proof is a script and a debug readout on the existing debug page).
 
@@ -10020,12 +10046,12 @@ History stays the History entry until 085.
 - A `Session` route in the Workout stack with its own `getId` (by session id). Every screen is
   `singleCopy` today, which would move the one Session instead of opening another (Session → Exercise →
   Session of another day).
-- Resolution: the pending queue, then the held workouts (082). Opened from the queue, it follows the
-  move to held when the upload lands (`applyFinished`).
+- Resolution: the pending queue, then the held workouts (082), then an older workout fetched by id (one read,
+  sets included) with a "needs a connection" state. Opened from the queue, it follows the move to held when
+  the upload lands (`applyFinished`).
 - Lift cards from `lifts` (name, verdict word, captions "Swapped in for X", "Added", "Changed from
-  kg to lb"), with sets from the held summaries; a lift older than its 10 held sessions reads its
-  `exercise_sessions` doc, with a "needs a connection" state per lift. Aligned compare of a lift against
-  its last 3–4 sessions (columns share the width up to 4 sets, scroll sideways beyond: needs a device
+  kg to lb") with their sets, from the same record: no further read for a held or fetched workout. Aligned compare of a lift against
+  its last 3–4 sessions (from the held summaries) (columns share the width up to 4 sets, scroll sideways beyond: needs a device
   check, since a split set makes row heights differ).
 - States: waiting to upload and did not upload (the threshold for "did not" is a decision: today only
   `failedAttempts` and `lastError` exist), first workout, Freestyle, no duration for an imported one.
@@ -10059,13 +10085,19 @@ log, view options with a dot when not default. Reached from the Session compare 
 from the Exercises tab.
 
 **Build:**
-- **Graph first, as a decision.** No chart or SVG library is installed (`react-native-svg` is not in
-  `package.json`). Either add it (a native dependency and a dev build) or draw the line from Views.
-  A short spike settles it; peek card and point taps decide which.
+- **Graph: drawn from Views (decided in TICKET-087; `react-native-svg` is not added).** The spike drew 10 points,
+  a break where a value is missing, and a tap opening a peek card on the emulator with no native change.
+  A segment is a thin rotated View between two points, a point is a pressable dot with a hit slop; keep the
+  placement maths in a pure function and test it (empty, one point, a gap, equal values). Place the peek card
+  clear of the line (it covered the neighbouring segment in the spike). Revisit `react-native-svg` only for a
+  graph past 10 sessions (TICKET-036), curves or fills.
 - Pin the definitions the header uses ("Typical weight", the trend word "Going up"): no code defines them
   today (CLAUDE.md 2.3).
-- Log from the held summaries (the last 10), then pages of `getExerciseSessions` (needs a connection,
-  with a state for it); per-set marks from `sheetSession`; unit-change divider; a new lift with 1–2
+- Log from the held records within the window (a filter of `lifts` by lift id, newest first: 0 reads,
+  measured at about 0.1 ms on 1500 fixture workouts), then pages past the window from a `sessions` query on
+  `exerciseIds` (array-contains, `startedAt` descending; needs a connection, with a state for it; a page of 20 is
+  20 reads and about 64 KB, measured on fixtures, since each record carries every lift's sets). The query needs a
+  new composite index in `firestore.indexes.json`, deployed by the user; the proof runs it on the emulator; per-set marks from `sheetSession`; unit-change divider; a new lift with 1–2
   sessions and no graph; waiting and did-not-upload rows; measure and view-options sheets.
 - Link in the Session compare is added here.
 
@@ -10081,7 +10113,7 @@ from the Exercises tab.
 
 ### TICKET-085: History Home — Workouts and Exercises Tabs
 
-**Priority:** Medium | **Effort:** Large (three stages) | **Status: OPEN** — raised 2026-11-13 (user)
+**Priority:** Medium | **Effort:** Large (four stages) | **Status: OPEN** — raised 2026-11-13 (user)
 
 **Description:**
 The new History home replaces the old History page. Opened from the Workout hub (the footer has no History
@@ -10094,11 +10126,16 @@ Back from a deeper screen keeps tab, filter, scroll and which months are open.
 - **Stage 2, Workouts:** the rail from the held workouts. Every lift a capsule, in the workout's order; a
   workout is one tap target; the current month in full (under 10 workouts it runs into the month before,
   which is then split and its Earlier row counts only what is left); Earlier month rows open in place in one
-  list (`SectionList` or `FlatList` with row types, not nested lists); filter sheet and counts from 082's
-  selectors; a workout waiting to upload merged in with provisional verdicts; "Not compared" for a
+  list (`SectionList` or `FlatList` with row types, not nested lists); months older than the held window are
+  one "Older" row that loads a month on tap (082's `getWorkoutsOfMonth`, needs a connection, no count until it
+  is loaded: never a total the phone does not have); filter sheet and counts from 082's selectors (held months); a workout waiting to upload merged in with provisional verdicts; "Not compared" for a
   workout with no verdict (081's reason).
 - **Stage 3, Exercises:** search, one row per lift from the held summaries (Better/Lower/Same by 081's
-  function, last sets, days ago), filter by workout through `lifts` membership, "Most recent first".
+  function, last sets, days ago), filter by workout through `lifts` membership (held months), "Most recent first".
+- **Stage 4, retire `exercise_sessions`:** stop writing it in `saveWorkoutSession`, drop its readers
+  (`getExerciseSessions` and the old page's queries) and its index, and remove the pre-launch test data in the old
+  shape. A Finish is then 10 writes (9 if the session is written once). The rebuild and compare scripts already
+  read `sessions` (081).
 - The guided tour names the old screen (`WORKOUT_LOGS` in `commonStepNames.ts`): repoint it, or log a tour note for TICKET-053.
 - Removes `WorkoutLogsScreen`, `WorkoutHistoricalLogsFilter`, the log table components, `freestyleHistory`
   and the two window constants. Their reads (Freestyle's 50 on every visit, up to 50 sets per tap) go.
@@ -10126,13 +10163,17 @@ which then reuses it.
 
 **Build:**
 - `rebuildExerciseSummary(userId, exerciseId)` as TICKET-032 specifies (a server read of the lift's
-  `exercise_sessions`, one stamped replace, no sessions left means a `deleted` marker on the stats doc).
+  records: `sessions` by `exerciseIds`, 084's index, one stamped replace, no sessions left means a `deleted` marker on the stats doc).
 - One `writeBatch`: a `deleted: true` marker on the `sessions` doc with a server stamp (never a hard
-  delete: a change check cannot see one), delete that workout's `exercise_sessions` docs, replace each lift's
+  delete: a change check cannot see one), (until 085, also delete that workout's `exercise_sessions` docs) replace each lift's
   summary, and rewrite each successor session's `lifts` verdict against its new previous session.
 - Refused offline. A Finish landing between the read and the write can overwrite the rebuild: decided in
   the ticket (re-read the stamps, or accept and heal with the rebuild script).
 - Enable the option on the Session screen with the confirm; after it, Back to Workouts.
+
+**Cost, measured on fixtures of 8 lifts (087):** the rebuild reads each lift's records: 370 reads (1.15 MB) at
+150 workouts, 1000 (3.11 MB) at 500, 3000 (9.33 MB) at 1500, with 10 writes after 085 (18 until then). The reads
+could come from the held copy for held months. Acceptable for a rare action that is refused offline.
 
 **Proof:** read and write counts for a lift with about 100 sessions; the 081 compare script reports 0
 mismatches after a delete; two phones: the deleted workout leaves the other phone's list on its next check.
@@ -10147,8 +10188,8 @@ mismatches after a delete; two phones: the deleted workout leaves the other phon
 
 ### TICKET-087: History Analysis — Measure, Decide the Schema, Fix the Design (do first)
 
-**Priority:** Medium | **Effort:** Medium-Large (five stages) | **Status: OPEN** — raised 2026-11-13 (user).
-Blocks TICKET-081 to 086. Folds in TICKET-049. Builds no app feature: scripts, numbers, a decision record
+**Priority:** Medium | **Effort:** Medium-Large (five stages) | **Status: IN PROGRESS** — raised 2026-11-13 (user).
+Stages 1 to 4 done 2026-11-13 (decision: B, with a held window); stage 5 (the boards) is open. Blocks TICKET-081 to 086. Folds in TICKET-049. Builds no app feature: scripts, numbers, a decision record
 
 **Description:**
 The History build (081 to 086) rests on estimates: sizes, read counts, how the verdict rule behaves on real
@@ -10202,15 +10243,138 @@ Workout hub, the footer has no History tab); the workout count word and the Not-
 081; no duration for an imported session; define "Typical weight" and "Going up" for the Exercise header (or
 remove them); mirror the changes into `design/workout-flow/` in the same PR.
 
+**Decision record (stage 4, 2026-11-13).** Everything below was measured on fixtures and on one real account,
+read-only (`pinky` test account, 15 imported workouts, 185 billed reads). Nothing was run on a phone: see
+"Not measured".
+
+*What stages 1 to 3 found*
+- **Stage 1.** The three scripts run on the admin SDK with `--dry-run`; all three were run once against the real
+  project and wrote nothing (4b1c1dc). `src/scripts/firebase.ts` is removed.
+- **Stage 2, today's code.** One Finish of 8 lifts is 17 writes and 8 reads (the real `saveWorkoutSession`, counted).
+  Docs, Firestore bytes median/max: `sessions` 651/735, `exercise_sessions` 523/753, `exercise_stats` 1581/3385.
+  Old-format sets: 0. The upload queue skips a failed entry and retries it on the next trigger, so a later workout
+  reaches the server first (`measureDrainOrder.test.ts`): 081's known gap (a) is real. The old History page's reads
+  are from the code (Freestyle up to 50 sessions on every visit, a lift's log up to 50), not run.
+- **Verdict split, 122 lift-sessions of one lifter over one month.** First time 46, Better 36, Same 21, Lower 15,
+  reps-only 3, unit changed 1. Of the 72 compared lifts, Better is 50%, 36 of them moved less than 5%, and 2 of the
+  36 Better are Better only because of more sets. "Better is most of them" is not met, so the rule stands as
+  written in 081. It is one lifter and one month: a longer history may differ, and 081's compare script will say.
+- **Stage 3, shapes** (fixtures: 8 lifts x 5 sets, 20% drop sets, built by the importer's own path). A = the workout
+  record holds `lifts` only. B = it also holds each lift's `fields` and sets, `exercise_sessions` dropped. C = as A
+  on the server, and the phone also holds the `exercise_sessions` of the workouts it holds.
+
+| 1500 workouts, hold everything | A | B | C |
+|---|---|---|---|
+| One record, Firestore bytes (median) | 1207 | 3262 | 1207 + 8 docs of 523 |
+| Held on the phone | 1.91 MB | 6.59 MB | 9.00 MB |
+| Android AsyncStorage cap, 6 MB for the whole database | 32%, fits to about 4300 workouts | **110%, fits to about 1250** | over |
+| First load on a new phone | 1500 reads | 1500 reads | 13500 reads |
+| Finish writes (8 lifts) | 18 | 10 (9 if the session is written once); **18 while the old History page still reads `exercise_sessions`** | 18 |
+| Open an old workout | 0 reads inside a lift's last 10 sessions (about 40 workouts back), else 8 | 0 | 0 |
+| A lift's Exercise log past 10 sessions | queries of 20 | filter of held data | filter of held data |
+| Delete one workout | 3000 reads, 18 writes | 10 writes (0 reads if rebuilt from the held copy) | as A |
+| Rebuild script, whole user | 12000 reads, 6.5 MB | 1500 reads, 4.7 MB | as A |
+
+The held copy of every workout is what breaks B at the Android cap. The user's point settles it: nobody reads
+old data often, so hold the newest workouts and fetch the rest (2 workouts a day for 90 days is 180).
+
+| Window of the newest workouts (2 a day, whole months) | A | B | C |
+|---|---|---|---|
+| About 200 workouts held (the 180 setting) | 0.25-0.28 MB | 0.87-0.97 MB | 1.19-1.33 MB |
+| About 400 workouts held (the 360 setting) | 0.49-0.52 MB | 1.68-1.78 MB | 2.29-2.44 MB |
+| Largest month shard (62 workouts) | 81 KB | 279 KB | 382 KB |
+| First load on a new phone, about 200 workouts | 198-222 reads, 0.23-0.25 MB | same reads, 0.62-0.69 MB | **1782-1998 reads**, 1.08-1.21 MB |
+| Cold load, every shard / newest shard only (desktop ms) | 1.0-1.1 / 0.1-0.2 | 6.0-6.9 / 0.4-1.2 | 7.3-8.1 / 0.5-1.3 |
+| A lift's Exercise log inside the window | 90-194 reads for the busiest lift | 0 | 0 |
+| Past the window: browse an old month (62 workouts) | 62 reads, 73 KB | 62 reads, **198 KB** | as A |
+| Past the window: open one workout from that list | 8 reads | 0 | 8 reads |
+| Past the window: one page (20) of a lift's log | 20 reads, 11 KB | 20 reads, **64 KB** | as A |
+
+*Decisions*
+1. **Shape B, with the window.** The workout record holds `lifts`, each with its `fields` and `sets`. It becomes the
+   one source of truth for sets: TICKET-072 D5 moves from `exercise_sessions` to `sessions.lifts`, and D7 (sets
+   are not on the phone) is reversed for the held window. `exercise_sessions` is written beside it until 085
+   retires the old History page (18 writes per Finish, as A), then dropped (10 writes).
+   *Why.* The test the user set is cost and fast load, with change size cheap (MVP, pre-launch, no migration).
+   Money is not the case for B: 8 fewer writes per Finish is about 58,000 writes a year for 10 users at 2
+   workouts a day, about 10 cents at Firestore's list price (from memory, not checked) and inside the free tier.
+   Speed is. Inside the window, opening a workout, a lift's log past its 10 held sessions and a longer graph are
+   local: 0 reads, instant and offline, where A waits on the network (8 reads to open a workout, 90-194 reads to
+   page the busiest lift's log). The network wait on a gym phone is an estimate, not measured.
+   *What it costs.* 0.87-0.97 MB held instead of 0.25-0.28 MB (about 15% of the 6 MB cap with the summaries and
+   catalog); a few ms more on a desktop cold load; 0.62-0.69 MB instead of 0.23-0.25 MB on a new phone's first
+   load, in the same number of reads; past the window 198 KB instead of 73 KB for a month and 64 KB instead of
+   11 KB for a log page; a dual-write window; the reversal of D5; rebuild, delete and TICKET-032 are written
+   against `sessions`; a new composite index on `sessions` (`exerciseIds` array-contains, `startedAt` descending)
+   that the user deploys (CLAUDE.md 1.3).
+   **Rejected: A** (the first pick of this record, on change size alone: the numbers did not change, the test
+   did) and **C** (B's offline reach at 1.4x B's bytes and 9x its first-load reads, and a third copy of the
+   sets). **Revisit if** the window's local reads turn out never to be used: then A is the smaller shape, and
+   going back means putting `exercise_sessions` back.
+2. **The held window.** The phone holds the records of the newest whole months until at least `WORKOUTS_HELD_MIN`
+   workouts (180: the user's 2 a day for 90 days), saved one shard per UTC start month with the TICKET-076 head key.
+   Measured held size under B is 0.87-0.97 MB; with the rollup summaries (237 KB) and the catalog (283 KB) about
+   1.4 MB of the 6 MB cap, and it no longer grows with history. First load is two queries (the newest N, then the rest of
+   the oldest month). Rejected: holding everything (1500 reads on a new phone; B breaks the cap near 1250
+   workouts, 6.59 MB at 1500); an exact count (leaves a part-month, which a month row cannot show as complete); shard size tuning
+   (a shard write took about 1 ms, so there is nothing to tune).
+3. **Older months** are fetched when asked, one query per month, shown and not saved, with a "needs a connection"
+   state: about 62 reads and 198 KB for a busy month, and opening one of its workouts needs nothing more (the
+   record holds the sets). A lift's log past the window pages `sessions` by `exerciseIds`: 20 reads, 64 KB a page.
+4. **Lazy load at start: not built.** Loading only the newest shard saves under 10 ms of desktop time at this
+   window. Revisit only if a device cold start shows it.
+5. **Deferred, by the user: drop `recentSessions` from the rollup** (the rollup docs are about 6 KB each and are
+   most of the 56 KB written per Finish on fixtures; under B the window's sets are held twice, in the record and in
+   `recentSessions`, which is what makes this worth doing). It is a size
+   cost, not a count of reads or writes, and touches the rollup writer and the ghost and delta readers. Look at it
+   after 081 to 085 are done, whether or not it is significant then.
+6. **Verdicts are stored** (081) and **the verdict rule is kept**: stored verdicts give an old month a verdict with
+   no 10-session window, and the split above is not "mostly Better".
+7. **The graph is drawn from Views; `react-native-svg` is not added.** Spike (emulator, the installed dev build,
+   code thrown away): 10 points, a gap where a value is missing, a tap on a point turning it amber and opening a
+   peek card, about 19 views, no native change and no rebuild. `react-native-svg` is not installed; Expo SDK 52's
+   list pins it at 15.8.0 and its peer dependencies are `react` and `react-native` at any version, but it is a
+   native module, so the installed dev client lacks it and adding it means a new native build (the app has no
+   `expo-updates`, so a build is how any change ships). The svg build was not run. Revisit if a graph past 10
+   sessions (TICKET-036), curves, fills or pinch are wanted. Placement detail for 084: the card covered the
+   neighbouring line in the spike.
+
+*Corrections to the planning numbers.* "A record is about 1 KB, with the sets 4-5 KB": 1.2 KB with `lifts` only
+and 3.3 KB with the sets in Firestore (1.3 and 4.6 KB held), close to the estimate. "10 reads to open an old workout in A": at most 8 (the 10 held sessions already cover about 40 recent
+workouts). "9 writes for B": 10 with 081's two phases, 9 only if the session is written once (which drops the
+offline-safe first phase 077 chose), and 18 until the old page stops reading `exercise_sessions`. "B halves the
+writes" holds only after that. Bytes written per Finish are about equal in A and B (56 KB), because the rollup
+docs dominate.
+
+*Not measured (CLAUDE.md 1.4).* A phone: times are `node:sqlite` plus JSON on this computer, a ratio between
+shapes, not Hermes or flash. The network time and the poor-signal behaviour of the old-data fetch (counted in reads
+and bytes only). The old History page's reads (from the code). The 2 MB single-row limit (library lore, not read in
+the source; the largest B shard is 279 KB, so it is not reached). The 6 MB cap is read from the library's
+`config.gradle`; search words, plans and the upload queue are not in the totals. Finish writes are a model of 081,
+which is not built. Fixture lifts are 30 shared across 4 plans, so the busiest lift is heavier than a real user's
+and A's reads for the Exercise log are an upper bound; the fixture's drop-set share is higher than the real one on
+purpose.
+
+*Known gaps, in the order their cost lands (CLAUDE.md 3.6).*
+1. **The new index.** Paging a lift's log past the window fails until the `sessions` index is deployed, which is
+   the user's to trigger; 084 lists it and its proof runs the query against the emulator.
+2. **Counts and "Earlier" rows only cover held months.** A filter count ("Push · 14 workouts") over a window is not
+   the user's whole history, and it fails silently as a plausible number. 085 must not show a total it does not
+   have: older months load on tap with no count until loaded. The stage 5 boards are checked for it.
+3. 081's gaps (a) and (b), unchanged (a late upload compares with the wrong neighbour; a replayed phase 2).
+4. The unmeasured items above, each needing a device.
+5. Decision 5, the rollup size.
+
 **Output:** the decision record and the measurements, written here; changed text in 081 to 086; the redrawn
 boards; the scripts. No app code outside `src/scripts/`.
 
 **Acceptance Criteria:**
-- [ ] The three scripts run on the admin SDK with `--dry-run`, and one real dry run is recorded
-- [ ] The verdict split on the real account is in the ticket, with the rule kept or changed
-- [ ] A and B measured at 150, 500 and 1500 workouts, and the choice recorded with what was rejected
-- [ ] The graph decision made, with the spike's result
-- [ ] 081 to 086 edited to match, and the boards and link map redrawn and mirrored
+- [x] The three scripts run on the admin SDK with `--dry-run`, and one real dry run is recorded
+- [x] The verdict split on the real account is in the ticket, with the rule kept or changed
+- [x] A and B measured at 150, 500 and 1500 workouts (and C, and a window), and the choice recorded with what was rejected
+- [x] The graph decision made, with the spike's result
+- [x] 081 to 086 edited to match
+- [ ] The boards and link map redrawn and mirrored (stage 5)
 
 **Out of scope:** any screen or store change; the verdict code (081); editing or deleting data on a real
 account (any write to a real database is asked for first, and `--dry-run` comes before it).
@@ -10262,7 +10426,7 @@ that order; 086 (delete a workout) any time after 083.
 ```
 1. TICKET-087  (History analysis)            — Measure, decide the schema, fix the design; folds in 049
 2. TICKET-081  (Lift record and verdict)     — No screen; stored shape per 087
-3. TICKET-082  (Hold every workout)
+3. TICKET-082  (Hold recent workouts)
 4. TICKET-083  (Session screen, landing)
 5. TICKET-084  (Exercise screen)
 6. TICKET-085  (History home; replaces the old page)
