@@ -63,7 +63,7 @@ const fly = buildExercise("Chest Fly");
 const PUSH = { id: "push", name: "Push", exercises: [bench, fly] };
 
 const workoutSession = (workoutId: string, startedAt: number, exerciseIds: string[]): WorkoutSessionDoc => ({
-  sessionId: `${workoutId}_${startedAt}`,
+  lifts: [], sessionId: `${workoutId}_${startedAt}`,
   workoutId,
   workoutName: workoutId,
   startedAt,

@@ -9958,6 +9958,20 @@ what the History screens read, once, at Finish, and defines the verdict in one f
   written about 56 KB either way, most of it the 8 `exercise_stats` docs. Rejected: `lifts` only (A) and also
   holding `exercise_sessions` on the phone (C): see 087's decision record.
 
+**Stage 2 decisions (2026-11-13, built; written where the ticket lives, CLAUDE.md 2.2):**
+- `swappedFrom` is `{ id, name }`, not an id: the row says "swapped from X" and a custom exercise is not in the catalog.
+- The previous session is the lift's newest one *before this start time* in its rollup, not the newest one held. So a
+  late upload finds its true neighbour while that neighbour is inside the 10-session window; known gap (a) is then
+  only the successor's stale verdict.
+- A session older than a full window has a previous session the rollup cannot show. It is left `pending` (a repair
+  settles it), never a false First time. A workout word is "pending" (no word) while any lift is pending.
+- Phase 2 writes the verdicts with merge and a new `updatedAt`, so a phone that fetched the pending record fetches
+  the final one. Phase 1 writes with merge and no `note`, so a replay keeps a note.
+- `WorkoutSessionDoc.lifts` is required, and the held copy's validator (`workoutsSync`) refuses a session with no
+  or bad `lifts` (`readLifts`): a copy from an older build is refilled, no format bump. 082 reads through it.
+- The provisional verdict for a workout still uploading is `withVerdicts` over the held rollups; wiring it to the
+  phone's held copy and marking it provisional is 082's.
+
 **Known gaps, named on purpose:** (a) (confirmed by `measureDrainOrder.test.ts`: a failed upload is skipped, so a
 later workout reaches the server first) a workout uploaded late from the offline queue has an old start,
 so its verdict compares against the wrong neighbour and the next session's stored verdict is not

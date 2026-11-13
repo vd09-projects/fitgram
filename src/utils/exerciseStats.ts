@@ -5,10 +5,12 @@
 // these, so the rollup they produce is identical by construction.
 
 import { ExerciseField } from "../types/workoutType";
-import { ActiveWorkout } from "../types/zustandWorkoutType";
+import { ActiveWorkout, LoggedExercise } from "../types/zustandWorkoutType";
+import { FREESTYLE_ID } from "../constants/freestyle";
 import {
   ExerciseSessionDoc,
   ExerciseStatsDoc,
+  LiftRecord,
   WorkoutSessionDoc,
   SessionTotalVolume,
   SessionVolumeUnavailableReason,
@@ -353,6 +355,10 @@ export function buildSessionDocs(
       sets: toStoredSets(exercise.sets),
     }));
 
+  const lifts = workout.exercises
+    .filter((exercise) => exercise.sets.length > 0)
+    .map((exercise, index) => buildLiftRecord(workout.id, exercise, exerciseSessions[index]));
+
   return {
     session: {
       sessionId,
@@ -360,9 +366,38 @@ export function buildSessionDocs(
       workoutName: workout.name,
       startedAt: workout.startTime,
       endedAt,
-      exerciseIds: exerciseSessions.map((e) => e.exerciseId),
+      // Derived from `lifts`, so the two can never name different exercises.
+      exerciseIds: lifts.map((lift) => lift.id),
+      lifts,
       volume: computeSessionTotalVolume(exerciseSessions),
     },
     exerciseSessions,
+  };
+}
+
+/**
+ * One lift's record, with no verdict yet (`pending`): the stats transaction
+ * computes it (`withVerdicts`). Its name, fields and sets are the
+ * `exercise_sessions` doc's, shared by reference, so the two copies cannot
+ * differ.
+ *
+ * `swappedFrom` and `added` are the live slot's facts, which this builder used
+ * to drop (a deviation from TICKET-047's "not recorded", written in 081).
+ * Freestyle's slots are never `added`: `addExercise` sets it on every added
+ * slot, and a Freestyle workout is nothing but added slots, so the mark would
+ * say nothing there. Rejected: recording it for Freestyle and hiding it in the
+ * reader, which every reader would have to repeat.
+ */
+function buildLiftRecord(workoutId: string, exercise: LoggedExercise, doc: ExerciseSessionDoc): LiftRecord {
+  const planned = exercise.planned;
+  return {
+    id: doc.exerciseId,
+    name: doc.exerciseName,
+    ...(planned ? { swappedFrom: { id: planned.id, name: planned.nameSnapshot?.trim() || planned.name } } : {}),
+    ...(exercise.added && workoutId !== FREESTYLE_ID ? { added: true as const } : {}),
+    fields: doc.fields,
+    sets: doc.sets,
+    verdict: null,
+    reason: "pending",
   };
 }

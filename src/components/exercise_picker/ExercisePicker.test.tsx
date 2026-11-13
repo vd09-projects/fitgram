@@ -23,7 +23,7 @@ const closeGrip = bench.versions.find((v) => v.id === "bench_press__barbell__clo
 const LOGGED_AT = Date.now() - 2 * 86_400_000;
 const history = (): RecentHistory => {
   const session: WorkoutSessionDoc = {
-    sessionId: "s1", workoutId: "push", workoutName: "Push", startedAt: LOGGED_AT, endedAt: LOGGED_AT + 1,
+    lifts: [], sessionId: "s1", workoutId: "push", workoutName: "Push", startedAt: LOGGED_AT, endedAt: LOGGED_AT + 1,
     exerciseIds: [closeGrip.id, "pec_deck__machine"],
   };
   return buildRecentHistory([session], [], "me", buildCatalogIndex(CATALOG), [])!;

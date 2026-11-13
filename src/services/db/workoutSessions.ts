@@ -41,6 +41,7 @@ import {
   buildExerciseSessionId,
   buildSessionDocs,
 } from "../../utils/exerciseStats";
+import { withVerdicts } from "../../utils/liftRecord";
 import { toStamp, type SyncStamp } from "../../utils/syncCore";
 
 const USERS = tables.users.collection;
@@ -75,10 +76,16 @@ const sessionFromDoc = (snapshot: QueryDocumentSnapshot<DocumentData>): WorkoutS
  *
  * Two phases, on purpose:
  *
- *  1. A `writeBatch` for the session and its exercise_sessions docs. Offline it
- *     waits in Firestore's memory cache and completes on reconnect. That cache
- *     dies with the app: the upload queue is what makes an offline Finish safe.
- *  2. A transaction that folds those sessions into the exercise_stats rollup.
+ *  1. A `writeBatch` for the session (its `lifts`, with their sets and
+ *     `reason: "pending"`) and its exercise_sessions docs, which stay until
+ *     TICKET-085 retires the old History page. The session is written with
+ *     merge, so a replayed upload keeps a `note` the user added since and
+ *     writes none itself. Offline it waits in Firestore's memory cache and
+ *     completes on reconnect. That cache dies with the app: the upload queue is
+ *     what makes an offline Finish safe.
+ *  2. A transaction that folds those sessions into the exercise_stats rollup
+ *     and, from the rollups it reads (no extra read), puts each lift's verdict
+ *     on the session's `lifts`: one more write, 18 per Finish of 8 lifts.
  *     Transactions need a server round trip, so this can fail after phase 1
  *     landed. It then rejects, and the upload queue keeps the workout and runs
  *     both phases again at its next trigger (TICKET-077). Safe to repeat: same
@@ -109,7 +116,7 @@ export const saveWorkoutSession = async (
    * session must record the end, not the upload.
    */
   endedAt: number
-): Promise<{ sessionId: string; summaries: ExerciseStatsDoc[] }> => {
+): Promise<{ sessionId: string; session: WorkoutSessionDoc; summaries: ExerciseStatsDoc[] }> => {
   if (!userId || !workout) throw new Error("Missing userId or workout.");
 
   const { session, exerciseSessions } = buildSessionDocs(workout, endedAt);
@@ -120,7 +127,8 @@ export const saveWorkoutSession = async (
 
   // Phase 1 — canonical data. Offline-safe.
   const batch = writeBatch(db);
-  batch.set(doc(sessionsRef(userId), session.sessionId), { ...session, updatedAt: serverTimestamp() });
+  const sessionRef = doc(sessionsRef(userId), session.sessionId);
+  batch.set(sessionRef, { ...session, updatedAt: serverTimestamp() }, { merge: true });
   for (const exerciseSession of exerciseSessions) {
     const id = buildExerciseSessionId(
       exerciseSession.sessionId,
@@ -135,24 +143,36 @@ export const saveWorkoutSession = async (
   // that won, so a retry after a conflict returns its own fold, and an upload
   // retried from the queue returns the fold of the server's current docs. They
   // carry no `updatedAt`: the server's stamp is not known here.
-  const summaries = await runTransaction(db, async (tx) => {
+  const folded = await runTransaction(db, async (tx) => {
     const refs = exerciseSessions.map((e) =>
       doc(exerciseStatsRef(userId), e.exerciseId)
     );
     // Firestore requires every read before any write.
     const snapshots = await Promise.all(refs.map((ref) => tx.get(ref)));
 
-    return exerciseSessions.map((exerciseSession, index) => {
-      const existing = snapshots[index].exists()
-        ? (snapshots[index].data() as ExerciseStatsDoc)
-        : null;
-      const summary = applySessionToStats(existing, exerciseSession);
+    const existing = snapshots.map((snapshot) =>
+      snapshot.exists() ? (snapshot.data() as ExerciseStatsDoc) : null
+    );
+    // Verdicts from the rollups as they stand before this session is folded in.
+    const statsById = new Map(exerciseSessions.map((e, index) => [e.exerciseId, existing[index]]));
+    const lifts = withVerdicts(session, (exerciseId) => statsById.get(exerciseId) ?? null);
+    // Merge, as phase 1: a note added since stays. The stamp moves again, so a
+    // phone that fetched the pending record fetches this one.
+    tx.set(sessionRef, { lifts, updatedAt: serverTimestamp() }, { merge: true });
+
+    const summaries = exerciseSessions.map((exerciseSession, index) => {
+      const summary = applySessionToStats(existing[index], exerciseSession);
       tx.set(refs[index], { ...summary, updatedAt: serverTimestamp() });
       return summary;
     });
+    return { lifts, summaries };
   });
 
-  return { sessionId: session.sessionId, summaries };
+  return {
+    sessionId: session.sessionId,
+    session: { ...session, lifts: folded.lifts },
+    summaries: folded.summaries,
+  };
 };
 
 // ---------------------------------------------------------------------------

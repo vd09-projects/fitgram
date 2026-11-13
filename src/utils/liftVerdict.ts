@@ -6,29 +6,12 @@
 // than judged off a screen. The one comparison is `compareVolumes`, shared with
 // the live card (`todaySummary`), so the two can never disagree about a lift.
 
-import { StoredSet } from "../types/workoutSession";
+import type { LiftReason, LiftVerdict, StoredSet } from "../types/workoutSession";
 import { ExerciseField } from "../types/workoutType";
 import { areFieldsComparable, resolveNumericFields } from "./exerciseFields";
 import { computeSessionReps, computeSessionVolume, SessionVolume } from "./exerciseStats";
 import { compareVolumes } from "./setDeltas";
 import { decodeStoredSets, SegmentedSet } from "./storedSets";
-
-export type LiftVerdict = "better" | "lower" | "same";
-
-/**
- * Why a lift has no verdict. Stored as written, so renaming one orphans every
- * record already saved.
- *
- * - `first_time`: no previous session of this exact exercise.
- * - `unit_changed`: the two sessions do not measure the same way (kg then lb,
- *   or a weight × reps lift then a time one). Never converted, never a number.
- * - `no_volume`: nothing to total: a lift with no weight × reps pair and not
- *   reps-only (time, distance, assisted), no sets, or a previous total of 0.
- * - `unreadable`: a set on either side did not parse. Not treated as 0.
- * - `pending`: written at the first phase of a save, before the stats
- *   transaction computed the verdict. Never returned here.
- */
-export type LiftReason = "first_time" | "unit_changed" | "no_volume" | "unreadable" | "pending";
 
 /** `verdict` is null exactly when there is a `reason`. */
 export type LiftVerdictResult =

@@ -1,4 +1,5 @@
-// TICKET-087 stage 2: Firestore operations of one Finish, counted by running
+// TICKET-087 stage 2, updated by TICKET-081 stage 2 (17 writes before it put the verdicts on the
+// session in the stats transaction; 10 after TICKET-085 drops exercise_sessions): Firestore operations of one Finish, counted by running
 // the real `saveWorkoutSession` with the Firestore calls replaced by counters.
 // A measurement that also guards: if a later change adds a write per Finish,
 // this goes red and the History tickets' write counts need the new number.
@@ -19,7 +20,7 @@ jest.mock("firebase/firestore", () => ({
 const LIFTS = 8;
 const SETS = 5;
 
-it("one Finish of 8 lifts issues 17 writes and 8 reads", async () => {
+it("one Finish of 8 lifts issues 18 writes and 8 reads", async () => {
   const batchSet = jest.fn();
   const commit = jest.fn().mockResolvedValue(undefined);
   (writeBatch as jest.Mock).mockReturnValue({ set: batchSet, commit });
@@ -41,5 +42,5 @@ it("one Finish of 8 lifts issues 17 writes and 8 reads", async () => {
     reads: txGet.mock.calls.length,
   };
   console.log(`Finish, ${LIFTS} lifts: ${JSON.stringify(measured)}`);
-  expect(measured).toEqual({ batchCommits: 1, transactions: 1, writes: 2 * LIFTS + 1, reads: LIFTS });
+  expect(measured).toEqual({ batchCommits: 1, transactions: 1, writes: 2 * LIFTS + 2, reads: LIFTS });
 });

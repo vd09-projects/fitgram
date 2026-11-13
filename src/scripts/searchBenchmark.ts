@@ -120,7 +120,7 @@ export function runSearchBenchmark(now: () => number): BenchmarkResult {
   // catalog index is not timed: the loaded catalog already carries it.
   const versionIds = CATALOG.flatMap((m) => m.versions.map((v) => v.id));
   const sessions: WorkoutSessionDoc[] = Array.from({ length: 20 }, (_, i) => ({
-    sessionId: `s${i}`,
+    lifts: [], sessionId: `s${i}`,
     workoutId: "w",
     workoutName: "W",
     startedAt: 20 - i,

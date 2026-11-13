@@ -11,7 +11,7 @@ import type { SyncStamp } from "./syncCore";
 
 const stamp = (seconds: number): SyncStamp => ({ seconds, nanoseconds: 0 });
 const session = (id: string, startedAt: number, extra: Partial<WorkoutSessionDoc> = {}): WorkoutSessionDoc => ({
-  sessionId: id,
+  lifts: [], sessionId: id,
   workoutId: "push",
   workoutName: "Push",
   startedAt,
@@ -93,5 +93,16 @@ describe("the stored copy", () => {
   it("refuses a copy with a session in an unknown shape whole, never in part", () => {
     const broken = { ...held, byPlan: { push: [...held.byPlan.push, { sessionId: "x" }] } } as unknown as HeldWorkouts;
     expect(readStoredWorkouts(serializeStoredWorkouts("u1", 5, broken), "u1", 5).held).toBeNull();
+  });
+
+  // TICKET-081: no rules whitelist, so a session with bad or missing `lifts` is refused, not shown with fewer lifts.
+  it("refuses a copy whose session has no lifts or a lift with a verdict and a reason", () => {
+    const bad = (extra: object) =>
+      ({ ...held, byPlan: { push: [{ ...held.byPlan.push[0], ...extra }] } }) as unknown as HeldWorkouts;
+    const noLifts = bad({ lifts: undefined });
+    const badLift = bad({ lifts: [{ id: "a", name: "A", fields: [], sets: [], verdict: "better", reason: "first_time" }] });
+    for (const copy of [noLifts, badLift]) {
+      expect(readStoredWorkouts(serializeStoredWorkouts("u1", 5, copy), "u1", 5).held).toBeNull();
+    }
   });
 });

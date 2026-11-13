@@ -1,3 +1,4 @@
+import type { WorkoutSessionDoc } from "../types/workoutSession";
 // TICKET-087 stage 2: the real order in which the upload queue reaches the server,
 // from the real `drainPendingUploads` with `saveWorkoutSession` replaced by a log.
 //
@@ -52,7 +53,7 @@ it("a failed first upload lets the later workout reach the server first", async 
     .mockRejectedValueOnce(new Error("rollup failed"))
     .mockImplementation(async (_uid, workout) => {
       arrived.push(workout.startTime);
-      return { sessionId: "s", summaries: [] };
+      return { sessionId: "s", session: {} as WorkoutSessionDoc, summaries: [] };
     });
 
   await drainPendingUploads(); // first fails and is skipped; second lands

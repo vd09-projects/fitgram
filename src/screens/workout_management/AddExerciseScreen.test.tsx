@@ -271,7 +271,7 @@ it("Save changes keeps its fill and centring on the button itself, not on the to
 it("Recent comes from the recent workouts' check on open, none per picker open or keystroke", async () => {
   // TICKET-075: served through the store's reads; the plan held is Pull, so the session is Pull's.
   [getNewestSessionStamp, getPlanSessionsFromServer, getChangedSessions].forEach((read) => jest.mocked(read).mockClear());
-  serveRecentWorkouts([{ sessionId: "s1", workoutId: "pull", workoutName: "Pull", startedAt: Date.now(), endedAt: Date.now(),
+  serveRecentWorkouts([{ lifts: [], sessionId: "s1", workoutId: "pull", workoutName: "Pull", startedAt: Date.now(), endedAt: Date.now(),
     exerciseIds: ["bench_press__barbell__close_grip"] }]);
   await openPlan([pull()], "Pull");
 

@@ -23,7 +23,7 @@ jest.mock("../services/db/userDB", () => ({
 
 const UID = "u1";
 const session = (id: string, workoutId: string, startedAt: number, extra: Partial<WorkoutSessionDoc> = {}) =>
-  ({ sessionId: id, workoutId, workoutName: workoutId, startedAt, endedAt: startedAt + 60, exerciseIds: [], ...extra }) as WorkoutSessionDoc;
+  ({ sessionId: id, workoutId, workoutName: workoutId, startedAt, endedAt: startedAt + 60, exerciseIds: [], lifts: [], ...extra }) as WorkoutSessionDoc;
 const planQueries = () => jest.mocked(getPlanSessionsFromServer).mock.calls.map(([, planId]) => planId).sort();
 
 beforeEach(async () => {

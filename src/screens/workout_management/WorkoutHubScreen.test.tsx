@@ -43,7 +43,7 @@ const PULL = plan("pull", "Pull", 1);
 const LEGS = plan("legs", "Legs");
 
 const session = (workoutId: string, startedAt: number): WorkoutSessionDoc => ({
-  sessionId: `${workoutId}_${startedAt}`,
+  lifts: [], sessionId: `${workoutId}_${startedAt}`,
   workoutId,
   workoutName: workoutId,
   startedAt,
