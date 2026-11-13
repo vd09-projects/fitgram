@@ -4,6 +4,7 @@
 // No Firestore, no React — the write path and the rebuild script both call
 // these, so the rollup they produce is identical by construction.
 
+import { ExerciseField } from "../types/workoutType";
 import { ActiveWorkout } from "../types/zustandWorkoutType";
 import {
   ExerciseSessionDoc,
@@ -15,7 +16,7 @@ import {
   StatsSessionEntry,
   StatsVolumePoint,
 } from "../types/workoutSession";
-import { NumericFieldMap, parseSet, resolveNumericFields } from "./exerciseFields";
+import { NumericFieldMap, parseNumericValue, parseSet, resolveNumericFields } from "./exerciseFields";
 import { comparisonSegment, decodeStoredSets, SegmentedSet, toStoredSets } from "./storedSets";
 import { STATS_RECENT_SESSION_CAP, STATS_VOLUME_HISTORY_CAP } from "../config/storedData";
 
@@ -73,6 +74,36 @@ export function computeSessionVolume(
     setsCounted,
     setsTotal,
   };
+}
+
+/**
+ * Total reps across a session's sets, for a lift measured in reps alone
+ * (`bodyweight_reps`: Dips, chin-ups), in the `SessionVolume` shape so
+ * `compareVolumes` takes either. Same rules as `computeSessionVolume`: every
+ * segment of a split set counts, and one set that does not parse empties the
+ * total rather than leaving it short.
+ */
+export function computeSessionReps(
+  sets: readonly SegmentedSet[],
+  repsField: ExerciseField | null
+): SessionVolume {
+  const setsTotal = sets.length;
+  if (!repsField || setsTotal === 0) return { value: null, setsCounted: 0, setsTotal };
+
+  let total = 0;
+  let setsCounted = 0;
+  sets.forEach((set) => {
+    if (set.segmentsIncomplete) return;
+    let setReps = 0;
+    for (const row of set.segments) {
+      const reps = parseNumericValue(row[repsField.name]);
+      if (reps === null) return;
+      setReps += reps;
+    }
+    total += setReps;
+    setsCounted += 1;
+  });
+  return { value: setsCounted === setsTotal ? total : null, setsCounted, setsTotal };
 }
 
 /**

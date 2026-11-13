@@ -9895,15 +9895,17 @@ what the History screens read, once, at Finish, and defines the verdict in one f
   shared `compareVolumes`; `todaySummary` keeps its gates and calls it. Rule: the app's existing
   one (user, 2026-11-13): session total weight × reps against last time, first N sets when there
   are fewer sets today, totals otherwise. Pinned in a comment on the function: "Same" means no
-  difference after a pinned rounding tolerance (decimal plates), a swapped lift has no previous
-  session (First time), a unit change or an unreadable set is Not compared, never a number.
+  difference after a pinned rounding tolerance (decimal plates), a unit change or an unreadable set is Not compared, never a number. A swap does not
+  change the verdict (deviation, stage 1: the lift's id is the exercise done, and its previous session is that
+  exercise's own, as the live card compares it; First time only when it has none. The first wording, "a swapped
+  lift has no previous session", would call a Bench Press First time because it replaced an Incline Press).
   `workoutVerdict(lifts)`: the count word and the amber dot (rule in "To decide"). The user wants the
   rule generic later: if the code cannot be made generic cheaply, a separate ticket does it.
   Tests: 6–8 cases (CLAUDE.md 3.2), each seen failing.
 - **Stage 2, the record.** `sessions` gains `lifts: [{ id, name, swappedFrom?, added?, fields, sets, verdict,
   reason }]` (`fields` and `sets` are `ExerciseSessionDoc`'s, as stored) (`verdict` is null whenever there is a `reason`: first_time, unit_changed, no_volume,
   unreadable, pending) and `note?`. **`exerciseIds` stays**, derived from `lifts`: `recents.ts`,
-  `freestyleHistory.ts`, `workoutsSync.ts` (its validator) and `startWorkout.ts` read it, and
+  `freestyleHistory.ts` and `workoutsSync.ts` (its validator) read it (`startWorkout.ts` does not: checked in stage 1), and
   keeping it breaks none of them (a reviewer found removing it would). The builder records
   `swappedFrom` and `added` (a deviation from TICKET-047's "not recorded", written in 047), and
   must not mark every Freestyle slot `added` (`addExercise` sets it on every added slot).
