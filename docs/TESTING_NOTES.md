@@ -197,3 +197,32 @@ Setup that worked (TICKET-081, `pinky`, Pixel_9_Pro_XL, `emulator-5554`):
   `windowStart` inside sentences ("windowStart back to the window"). tsc found the first
   (one test property), reading found the second. Rewrite the prose of a renamed
   module by hand; run tsc and the suite after.
+
+### TICKET-082 stage 2 (floor, store, readers)
+- **[read] A review caught what I had called a cost.** I wrote that a plan idle longer than the
+  window "costs a plan done rarely". The reviewer pointed at `chooseHubTiles`, which sorts by
+  longest-since-done, and the idle plan has no date under a window. Re-reading the two
+  functions showed the claim was backwards (it hid the plan most due). Always trace what a
+  reader does with the absent value before calling it cheap.
+- **[run] A screen test found a race in code I was replacing.** The hub test for "Legs: not in recent
+  workouts" read "last session unknown": the plans arrived while the first check ran, so the
+  trigger joined that check, which did not have them. The old `followPlans` had the same blind
+  spot, hidden because its plans were few. Fixed by re-checking when a check ends, once per set
+  of ids. Seen red (3 tests) with the re-run removed; the loop guard's mutation did not fail, it hung (killed the
+  orphaned jest worker by hand).
+- **[run] Mutations seen red (stage 2):** floor: Finish does not replace (3 red), late upload older replaces (1),
+  drop empties the floor (1), unlooked-up plan claims a workout (1), plan filter counts the floor (1),
+  pre-floor copy errors (1), marker leaves the entry (1). Store and readers: no re-run after a
+  check ends (3), lookups skipped inside the skip (5), lookups never applied (6), old month's
+  shard stays on disk (1), unlooked-up plan reads never done (1), pending upload dates an
+  unlooked-up plan (1), loop guard removed (hang).
+- **[run] A before/after harness caught a wrong plan for "before".** The old per-plan code is
+  gone from the tree, so its numbers had to come from a worktree at the stage 1 commit with
+  the idle plans patched into the harness. Take "before" numbers before replacing the code;
+  here they were taken for four plans only and the idle scenario had to be rebuilt after.
+- **[run] Read-only probes on a real account for index claims, twice.** Window queries (stage 1)
+  and the per-plan limit-1 lookup including a plan never done (stage 2): no
+  FAILED_PRECONDITION, 1 read each. Admin SDK, not the client; the same server rule.
+- **[waste] Two shell mistakes cost a run each:** `timeout` does not exist on macOS (a silent
+  no-output run looked like a hang), and a `--testPathIgnorePatterns` on the command line
+  replaces the config's list and ran the emulator-only rules tests.

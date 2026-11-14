@@ -15,8 +15,9 @@ import { unitLabel } from "./exerciseFields";
 import { buildSessionDocs, computeSessionTotalVolume } from "./exerciseStats";
 import { HUB_TILE_LIMIT } from "../config/display";
 
-// What `sessions` holds: each plan's newest `WORKOUTS_PER_PLAN`, value and
-// reason in src/config/sync.ts (TICKET-075; it was the newest 20 overall).
+// What `sessions` holds: the workout window's months and the newest workout of
+// every plan (TICKET-082, `utils/workoutWindow.ts`; it was each plan's newest 5,
+// and before that the newest 20 overall).
 
 export type PlanRow = {
   id: string;
@@ -29,6 +30,12 @@ export type PlanRow = {
    * time" (TICKET-065). null with `lastDoneAt`.
    */
   lastEndedAt: number | null;
+  /**
+   * False when the date is unknown, not absent: the workouts are not loaded, or this plan's
+   * newest workout is not looked up yet. Then `lastDoneAt` is null and a screen says "last
+   * session unknown". True with `lastDoneAt` null means never done (CLAUDE.md 2.4).
+   */
+  lastDoneKnown: boolean;
   /** "pending" when the latest session is finished but not uploaded yet. */
   lastDoneSource: "uploaded" | "pending" | null;
   /**
@@ -75,7 +82,13 @@ export function buildPlanRows(
   sessions: WorkoutSessionDoc[] | null,
   pendingUploads: PendingUpload[],
   uid: string | null | undefined,
-  query: string
+  query: string,
+  /**
+   * Plans whose newest workout is not looked up yet (`useLastDoneUnknown`). Ignored here, pending
+   * uploads too: a pending entry can be older than the workout not read yet, so a date would be
+   * a wrong date, not a missing one.
+   */
+  lastDoneUnknown: ReadonlySet<string> = new Set()
 ): PlanRow[] {
   const latest = new Map<string, Candidate>();
 
@@ -96,6 +109,7 @@ export function buildPlanRows(
     };
 
     for (const session of sessions) {
+      if (lastDoneUnknown.has(session.workoutId)) continue;
       consider(session.workoutId, {
         startedAt: session.startedAt,
         endedAt: session.endedAt,
@@ -105,7 +119,7 @@ export function buildPlanRows(
     }
 
     for (const entry of pendingUploads) {
-      if (!uid || entry.uid !== uid) continue;
+      if (!uid || entry.uid !== uid || lastDoneUnknown.has(entry.workout.id)) continue;
       // Same builder the upload will use, so this figure is what gets stored.
       const { exerciseSessions } = buildSessionDocs(entry.workout, entry.endedAt);
       consider(entry.workout.id, {
@@ -128,6 +142,7 @@ export function buildPlanRows(
         exerciseCount: plan.exercises.length,
         lastDoneAt: candidate?.startedAt ?? null,
         lastEndedAt: candidate?.endedAt ?? null,
+        lastDoneKnown: sessions !== null && !lastDoneUnknown.has(plan.id),
         lastDoneSource: candidate?.source ?? null,
         volume: candidate?.volume ?? null,
         archived: isArchived(plan),
@@ -142,9 +157,10 @@ export function buildPlanRows(
  * after every dated one; those, and ties, go A–Z so the order never depends on
  * Firestore's document order, which is what the list showed before.
  *
- * Since TICKET-075 "no date" is never done, or a plan whose workouts are not
- * loaded yet (they load as soon as the plan is held); it no longer mixes in
- * plans done long ago, which the old 20-session window dropped.
+ * Since TICKET-082 "no date" is never done, or a plan whose newest workout is not
+ * looked up yet (`lastDoneKnown`); it no longer mixes in plans done long ago,
+ * which the old 20-session window and then the per-plan newest 5 dropped for a
+ * plan idle that long: the floor holds every plan's newest.
  *
  * Known limit: until the recent workouts' first load answers (a fresh install
  * or sign-in; otherwise the stored copy shows at once), no plan has a date, so
@@ -170,8 +186,8 @@ const compareNames = (a: PlanRow, b: PlanRow) =>
 /**
  * The Workout hub's tiles (TICKET-066), from `buildPlanRows(…, "")`.
  *
- * - **Recent** = a non-archived plan with a known last-done date, i.e. a session
- *   among its plan's held workouts (TICKET-075) or one of this user's pending
+ * - **Recent** = a non-archived plan with a known last-done date, i.e. its newest
+ *   workout (the window's or the floor's, TICKET-082) or one of this user's pending
  *   uploads (both via `buildPlanRows`). These come first, **longest since done
  *   first** (oldest `lastDoneAt` at the top), the reverse of All plans' order:
  *   the hub suggests what is due, All plans finds what was just done.
@@ -193,7 +209,7 @@ const compareNames = (a: PlanRow, b: PlanRow) =>
  * you abandoned (user, 2026-11-02).
  *
  * A Freestyle session (TICKET-067) matches no plan id in `buildPlanRows`, so it
- * never becomes a tile; its workouts are held under `FREESTYLE_ID`, apart from the plans'.
+ * never becomes a tile; it has no floor entry because nothing shows its date.
  */
 export function chooseHubTiles(rows: PlanRow[]): PlanRow[] {
   const active = rows.filter((row) => !row.archived);
@@ -223,26 +239,21 @@ export type HubTileFace = {
  *
  * No date is an explicit absence, never "new" or 0 (CLAUDE.md 2.4), with the
  * card's `sessionsKnown` rule:
- * - sessions read, plan not among them → "—" "not in recent workouts". Not
- *   "never done": kept from the 20-session window, though since TICKET-075 it
- *   is never done but for a plan not loaded yet (until the next check after
- *   the check skip). A copy change is a
- *   follow-up (TICKET-075 known gaps), not part of this ticket
- * - nothing held yet, or the first load failed (`useRecentWorkouts` is null) →
- *   "—" "last session unknown", the card's own words
+ * - the date is known and absent (`lastDoneKnown`) → "—" "not in recent workouts".
+ *   Since TICKET-082 that is never done (every plan's newest is held). The words
+ *   are kept from the 20-session window; a copy change is a follow-up
+ * - the date is not known (`lastDoneKnown` false: nothing held yet, the first load
+ *   failed, or this plan is not looked up yet) → "—" "last session unknown", the
+ *   card's own words
  */
-export function hubTileFace(
-  row: Pick<PlanRow, "exerciseCount" | "lastDoneAt">,
-  sessionsKnown: boolean,
-  now: number
-): HubTileFace {
+export function hubTileFace(row: Pick<PlanRow, "exerciseCount" | "lastDoneAt" | "lastDoneKnown">, now: number): HubTileFace {
   const count = [
     txt(" · "),
     num(String(row.exerciseCount)),
     txt(row.exerciseCount === 1 ? " exercise" : " exercises"),
   ];
   if (row.lastDoneAt === null) {
-    const status = sessionsKnown ? "not in recent workouts" : "last session unknown";
+    const status = row.lastDoneKnown ? "not in recent workouts" : "last session unknown";
     return { big: [txt("—")], caption: [txt(status), ...count] };
   }
   const days = daysSince(row.lastDoneAt, now);

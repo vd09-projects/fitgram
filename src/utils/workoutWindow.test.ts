@@ -4,6 +4,12 @@ import { localMonthKey, localMonthStart, utcMonthKey } from "./monthWindow";
 import {
   secondQueryStart,
   addToWindow,
+  compareSessions,
+  lastSeenAfterCheck,
+  plansToLookUp,
+  sessionsByMonth,
+  sessionsWithLastOfEachPlan,
+  withPlanLookups,
   planFilterRows,
   readStoredWorkouts,
   serializeStoredWorkouts,
@@ -29,7 +35,11 @@ const session = (id: string, startedAt: number, extra: Partial<WorkoutSessionDoc
   lifts: [],
   ...extra,
 });
-const windowOf = (sessions: WorkoutSessionDoc[], windowStart: number | null = null): WorkoutWindow => ({ sessions, windowStart });
+const windowOf = (sessions: WorkoutSessionDoc[], windowStart: number | null = null, lastByPlan: WorkoutWindow["lastByPlan"] = {}): WorkoutWindow => ({
+  sessions,
+  windowStart,
+  lastByPlan,
+});
 const ids = (h: WorkoutWindow) => h.sessions.map((s) => s.sessionId);
 
 describe("the month is the phone's local one; the shard is the UTC one", () => {
@@ -133,7 +143,7 @@ describe("plan filters", () => {
 });
 
 describe("the stored copy", () => {
-  const saved = { sessions: [session("b", at("2026-11-03T10:00:00Z")), session("a", at("2026-10-03T10:00:00Z"))], windowStart: new Date(2026, 9, 1).getTime(), lastSeen: { seconds: 7, nanoseconds: 1 }, lastFullAt: 9 };
+  const saved = { lastByPlan: {}, sessions: [session("b", at("2026-11-03T10:00:00Z")), session("a", at("2026-10-03T10:00:00Z"))], windowStart: new Date(2026, 9, 1).getTime(), lastSeen: { seconds: 7, nanoseconds: 1 }, lastFullAt: 9 };
   const rowsOf = (pairs: [string, string][], drop?: string) => pairs.filter(([k]) => k !== drop);
 
   it("round-trips through one head and one shard per UTC month", () => {
@@ -148,5 +158,128 @@ describe("the stored copy", () => {
     expect(readStoredWorkouts(pairs, "someone-else").saved).toBeNull();
     const v1 = JSON.stringify({ formatVersion: 1, uid: "u", n: 5, byPlan: {}, loaded: [], lastSeen: null, lastFullAt: null });
     expect(readStoredWorkouts([["recentWorkouts", v1]], "u")).toEqual({ saved: null, error: expect.stringContaining("format version 1") });
+  });
+});
+
+describe("the floor: the newest workout of each plan, apart from the months", () => {
+  const OCT = new Date(2026, 9, 1).getTime();
+  const push = (id: string, iso: string, extra: Partial<WorkoutSessionDoc> = {}) => session(id, at(iso), { workoutId: "push", ...extra });
+  const legs = (id: string, iso: string) => session(id, at(iso), { workoutId: "legs", workoutName: "Legs" });
+  const oldLegs = legs("legs-old", "2026-03-10T10:00:00Z"); // a plan idle for longer than the window
+
+  it("a first load gives every plan with a workout in the window its newest, and leaves the others to be looked up", () => {
+    const w = windowFromFirstLoad([push("p2", "2026-10-20T10:00:00Z"), push("p1", "2026-10-05T10:00:00Z")], [], 2);
+    expect(Object.keys(w.lastByPlan)).toEqual(["push"]);
+    expect(w.lastByPlan.push!.sessionId).toBe("p2");
+    expect(plansToLookUp(w, ["push", "legs", "arms"])).toEqual(["legs", "arms"]);
+  });
+
+  it("a lookup fills a plan idle for longer than the window, never overwrites a newer entry, and null means never done", () => {
+    const w0 = windowOf([push("p1", "2026-10-05T10:00:00Z")], OCT, { push: push("p1", "2026-10-05T10:00:00Z") });
+    const w = withPlanLookups(w0, { legs: oldLegs, arms: null, push: push("older", "2026-02-01T10:00:00Z") });
+    expect(w.lastByPlan.legs).toBe(oldLegs);
+    expect(w.lastByPlan.arms).toBeNull();
+    expect(w.lastByPlan.push!.sessionId).toBe("p1");
+    expect(plansToLookUp(w, ["push", "legs", "arms"])).toEqual([]);
+  });
+
+  it("a Finish replaces its plan's entry", () => {
+    const w0 = windowOf([push("p1", "2026-10-05T10:00:00Z")], OCT, { push: push("p1", "2026-10-05T10:00:00Z") });
+    const w = addToWindow(w0, [push("p2", "2026-10-25T10:00:00Z")], 10);
+    expect(w.lastByPlan.push!.sessionId).toBe("p2");
+  });
+
+  it("a Finish for a plan never done makes its first entry; for a plan not looked up yet it claims nothing", () => {
+    const w0 = windowOf([], null, { arms: null });
+    const w = addToWindow(w0, [session("a1", at("2026-10-25T10:00:00Z"), { workoutId: "arms" }), legs("l1", "2026-10-26T10:00:00Z")], 10);
+    expect(w.lastByPlan.arms!.sessionId).toBe("a1");
+    expect("legs" in w.lastByPlan).toBe(false); // one workout is not known to be the plan's newest
+  });
+
+  it("dropping the oldest month keeps every plan's newest, and a plan idle for longer than the window keeps its entry", () => {
+    const sep = [legs("l-sep", "2026-09-10T10:00:00Z"), push("p-sep", "2026-09-12T10:00:00Z")];
+    const oct = [push("p-oct", "2026-10-10T10:00:00Z")];
+    const w0 = addToWindow(windowOf([], null, { push: null, legs: oldLegs }), [...sep, ...oct], 2);
+    expect(w0.sessions).toHaveLength(3);
+    const w = addToWindow(w0, [push("p-nov", "2026-11-02T10:00:00Z")], 2); // November + October reach the minimum: September goes
+    expect(w.sessions.map((s) => s.sessionId)).toEqual(["p-nov", "p-oct"]);
+    expect(w.lastByPlan.push!.sessionId).toBe("p-nov");
+    expect(w.lastByPlan.legs!.sessionId).toBe("l-sep"); // newest legs, from the dropped month, not the older one looked up before
+  });
+
+  it("a late upload from before the window is an entry only if newer than the plan's current one", () => {
+    const w0 = windowOf([push("p1", "2026-10-05T10:00:00Z")], OCT, { push: push("p1", "2026-10-05T10:00:00Z"), legs: oldLegs });
+    const older = addToWindow(w0, [legs("legs-older", "2026-01-05T10:00:00Z")], 10);
+    expect(older.lastByPlan.legs).toBe(oldLegs);
+    expect(ids(older)).toEqual(["p1"]); // and it is not in a month either
+    const newer = addToWindow(w0, [legs("legs-newer", "2026-08-05T10:00:00Z")], 10);
+    expect(newer.lastByPlan.legs!.sessionId).toBe("legs-newer");
+    expect(ids(newer)).toEqual(["p1"]);
+  });
+
+  it("a deleted marker for an entry's workout removes the entry, so the plan is looked up again", () => {
+    const w0 = windowOf([], OCT, { legs: oldLegs });
+    const w = addToWindow(w0, [{ ...oldLegs, deleted: true, updatedAt: { seconds: 9, nanoseconds: 0 } }], 10);
+    expect(plansToLookUp(w, ["legs"])).toEqual(["legs"]);
+  });
+
+  it("a floor doc never appears in a month, a count or a plan filter", () => {
+    const w = windowOf([push("p1", "2026-10-05T10:00:00Z")], OCT, { push: push("p1", "2026-10-05T10:00:00Z"), legs: oldLegs });
+    expect(sessionsByMonth(w.sessions).flatMap((m) => m.sessions.map((s) => s.sessionId))).toEqual(["p1"]);
+    expect(planFilterRows(w, []).rows.map((r) => [r.planId, r.workoutCount])).toEqual([["push", 1]]);
+    // The two old readers do get it, once: the plan row and Recent need the doc.
+    expect(sessionsWithLastOfEachPlan(w).map((s) => s.sessionId)).toEqual(["p1", "legs-old"]);
+  });
+
+  it("is saved in the head and read back; a copy written before the floor reads as no floor, not as an error", () => {
+    const withFloor = { sessions: [push("p1", "2026-10-05T10:00:00Z")], windowStart: OCT, lastByPlan: { legs: oldLegs, arms: null }, lastSeen: null, lastFullAt: null };
+    const pairs = serializeStoredWorkouts("u", withFloor);
+    expect(readStoredWorkouts(pairs, "u").saved).toEqual(withFloor);
+    const head = JSON.parse(pairs[0][1]);
+    delete head.lastByPlan;
+    const beforeTheFloor = [[pairs[0][0], JSON.stringify(head)], ...pairs.slice(1)] as [string, string][];
+    expect(readStoredWorkouts(beforeTheFloor, "u").saved).toEqual({ ...withFloor, lastByPlan: {} });
+    head.lastByPlan = { legs: { not: "a session" } };
+    expect(readStoredWorkouts([[pairs[0][0], JSON.stringify(head)], ...pairs.slice(1)], "u").saved).toBeNull();
+  });
+});
+
+// Rules carried over from the per-plan copy (TICKET-075), now on the window.
+describe("carried over: stamps, ties, last seen, a bad copy", () => {
+  const stamp = (seconds: number) => ({ seconds, nanoseconds: 0 });
+
+  it("a workout is on the phone once: the stamped copy replaces this phone's unstamped one, never the other way", () => {
+    const own = session("a", 100);
+    const server = session("a", 100, { updatedAt: stamp(5), endedAt: 999 });
+    expect(addToWindow(windowOf([own]), [server], 10).sessions).toEqual([server]);
+    expect(addToWindow(windowOf([server]), [own], 10).sessions).toEqual([server]);
+    const newer = { ...server, updatedAt: stamp(6), endedAt: 1000 };
+    expect(addToWindow(windowOf([newer]), [server], 10).sessions).toEqual([newer]);
+  });
+
+  it("a startedAt tie goes by sessionId, newest id first, as Firestore orders the query", () => {
+    expect([session("a", 100), session("b", 100)].sort(compareSessions).map((s) => s.sessionId)).toEqual(["b", "a"]);
+  });
+
+  it("lastSeen: a change check moves forward only; a full reload takes the baseline, even an older one (S1)", () => {
+    const changed = [session("a", 1, { updatedAt: stamp(30) }), session("b", 2, { updatedAt: stamp(20) })];
+    expect(lastSeenAfterCheck("change", stamp(10), { baseline: null, changed })).toEqual(stamp(30));
+    expect(lastSeenAfterCheck("change", stamp(40), { baseline: null, changed })).toEqual(stamp(40));
+    expect(lastSeenAfterCheck("full", stamp(99_999), { baseline: stamp(50), changed: [] })).toEqual(stamp(50));
+    expect(lastSeenAfterCheck("full", stamp(10), { baseline: null, changed: [] })).toBeNull();
+  });
+
+  it("a saved copy with a workout in an unknown shape, or bad lifts, is refused whole", () => {
+    const good = session("p1", at("2026-10-05T10:00:00Z"));
+    // The shard's text is replaced after serializing: what is on disk is what may be wrong.
+    const save = (docs: unknown[]) => {
+      const pairs = serializeStoredWorkouts("u", { sessions: [good], windowStart: null, lastByPlan: {}, lastSeen: null, lastFullAt: null });
+      pairs[1] = [pairs[1][0], JSON.stringify(docs)];
+      return readStoredWorkouts(pairs, "u").saved;
+    };
+    expect(save([good])).not.toBeNull();
+    expect(save([good, { sessionId: "x" }])).toBeNull();
+    expect(save([{ ...good, lifts: undefined }])).toBeNull();
+    expect(save([{ ...good, lifts: [{ id: "a", name: "A", fields: [], sets: [], verdict: "better", reason: "first_time" }] }])).toBeNull();
   });
 });

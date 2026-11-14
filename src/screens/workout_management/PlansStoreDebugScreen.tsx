@@ -34,8 +34,8 @@
 // (or skips) again, and the log shows it.
 //
 // The recent workouts store (TICKET-075) has its own section under the plans
-// (`WorkoutsSection`): per plan, the workouts held and the newest date;
-// `lastSeen`; each check with its queries and docs; and the reads Firestore
+// (`WorkoutsSection`): the window (workouts, months, where it starts) and each
+// plan's newest workout (the floor); `lastSeen`; each check with its queries and docs; and the reads Firestore
 // bills this app run, which is the ticket's measure (a query that returns
 // nothing bills 1). Remove with the page: the section, and in
 // useRecentWorkoutsStore the `billedReads` field and `bill` (marked "debug readout").
@@ -56,6 +56,7 @@ import { usePlansStore } from "../../stores/usePlansStore";
 import { useRecentWorkoutsStore } from "../../stores/useRecentWorkoutsStore";
 import { useExerciseHistoryStore } from "../../stores/useExerciseHistoryStore";
 import { FREESTYLE_ID } from "../../constants/freestyle";
+import { localMonthKey } from "../../utils/monthWindow";
 import type { PlanStamp } from "../../types/workoutType";
 import { storedSummariesKeys } from "../../utils/exerciseSummariesSync";
 import { BORDER_RADIUS, SPACING } from "../../constants/styles";
@@ -66,7 +67,7 @@ import {
   EXERCISE_SUMMARIES_SHARDS,
   PLANS_CHECK_SKIP_MS,
   WORKOUTS_CHECK_SKIP_MS,
-  WORKOUTS_PER_PLAN,
+  WORKOUTS_ON_PHONE_MIN,
 } from "../../config/sync";
 import { EXERCISE_SUMMARIES_STORAGE_KEY, PLANS_STORAGE_KEY, WORKOUTS_STORAGE_KEY } from "../../config/storageKeys";
 
@@ -175,14 +176,18 @@ async function readWorkoutsDisk(): Promise<string> {
     const raw = await AsyncStorage.getItem(WORKOUTS_STORAGE_KEY);
     if (raw === null) return "key absent";
     const parsed = JSON.parse(raw);
-    const plans = parsed?.byPlan ? Object.keys(parsed.byPlan).length : "?";
-    return `${plans} plans · N ${parsed?.n} · format ${parsed?.formatVersion} · user ${String(parsed?.uid).slice(0, 6)} · ${raw.length} chars`;
+    const shards: string[] = Array.isArray(parsed?.shards) ? parsed.shards : [];
+    const rows = await AsyncStorage.multiGet(shards.map((month) => `${WORKOUTS_STORAGE_KEY}.${month}`));
+    const chars = rows.reduce((sum, [, value]) => sum + (value?.length ?? 0), raw.length);
+    return `${shards.length} shards · ${Object.keys(parsed?.lastByPlan ?? {}).length} plans looked up · format ${parsed?.formatVersion} · user ${String(parsed?.uid).slice(0, 6)} · ${chars} chars`;
   } catch (error) {
     return `unreadable: ${error instanceof Error ? error.message : String(error)}`;
   }
 }
 
-/** The recent workouts store (TICKET-075). Same buttons and log as the plans, for this store. */
+const windowMonths = (sessions: readonly { startedAt: number }[]) => new Set(sessions.map((s) => localMonthKey(s.startedAt))).size;
+
+/** The recent workouts store (TICKET-075, TICKET-082). Same buttons and log as the plans, for this store. */
 function WorkoutsSection({ planNames }: { planNames: Map<string, string> }) {
   const { styles } = useThemeStyles(createStyles);
   const w = useRecentWorkoutsStore();
@@ -194,10 +199,17 @@ function WorkoutsSection({ planNames }: { planNames: Map<string, string> }) {
   React.useEffect(() => {
     const timer = setTimeout(refreshDisk, 300);
     return () => clearTimeout(timer);
-  }, [w.byPlan, w.uid, refreshDisk]);
+  }, [w.workoutWindow, w.uid, refreshDisk]);
 
   const rows: [string, string][] = [
-    ["Holds", w.byPlan === null ? "nothing (readers say last session unknown)" : `${Object.keys(w.byPlan).length} plans · newest ${WORKOUTS_PER_PLAN} each · ${w.loaded.length} loaded`],
+    [
+      "Holds",
+      w.workoutWindow === null
+        ? "nothing (readers say last session unknown)"
+        : `${w.workoutWindow.sessions.length} workouts in the window (at least ${WORKOUTS_ON_PHONE_MIN}) · ${windowMonths(w.workoutWindow.sessions)} months · ${
+            w.workoutWindow.windowStart === null ? "the whole history" : `from ${new Date(w.workoutWindow.windowStart).toLocaleDateString()}`
+          } · ${Object.keys(w.workoutWindow.lastByPlan).length} plans looked up`,
+    ],
     ["On disk", disk],
     ["Check", w.checking ? (w.waitOver ? "running, wait over" : "running") : "idle"],
     ["Last result", w.lastResult ?? "none"],
@@ -247,12 +259,11 @@ function WorkoutsSection({ planNames }: { planNames: Map<string, string> }) {
         ))
       )}
 
-      <TextBase style={styles.section}>Workouts held, per plan</TextBase>
-      {Object.entries(w.byPlan ?? {}).map(([planId, sessions]) => (
+      <TextBase style={styles.section}>Each plan's newest workout (the floor)</TextBase>
+      {Object.entries(w.workoutWindow?.lastByPlan ?? {}).map(([planId, newest]) => (
         <TextBase key={planId} style={styles.line}>
-          {planId === FREESTYLE_ID ? "Freestyle" : (planNames.get(planId) ?? `${planId} (not a held plan)`)} · {sessions.length} held
-          {sessions[0] ? ` · newest ${new Date(sessions[0].startedAt).toLocaleString()}` : " · never done"}
-          {sessions.some((session) => !session.updatedAt) ? ` · ${sessions.filter((session) => !session.updatedAt).length} unstamped` : ""}
+          {planId === FREESTYLE_ID ? "Freestyle" : (planNames.get(planId) ?? `${planId} (not a held plan)`)}
+          {newest ? ` · ${new Date(newest.startedAt).toLocaleString()}${newest.updatedAt ? "" : " · unstamped"}` : " · never done"}
         </TextBase>
       ))}
     </>

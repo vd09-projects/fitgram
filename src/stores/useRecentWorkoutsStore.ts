@@ -1,66 +1,71 @@
 import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getChangedSessions, getNewestSessionStamp, getPlanSessionsFromServer } from "../services/db/workoutSessions";
+import {
+  getChangedSessions,
+  getLastWorkoutOfPlan,
+  getNewestSessionStamp,
+  getWorkoutWindowFromServer,
+} from "../services/db/workoutSessions";
 import type { WorkoutSessionDoc } from "../types/workoutSession";
 import { changeCheckAfter, fullReloadDue, type SyncStamp } from "../utils/syncCore";
 import {
-  mergeIntoPlans,
-  planIdsToHold,
+  addToWindow,
+  lastSeenAfterCheck,
+  lookUpPlanIds,
+  plansToLookUp,
   readStoredWorkouts,
   serializeStoredWorkouts,
-  workoutsLastSeenAfter,
-  type HeldWorkouts,
-  type WorkoutsByPlan,
-} from "../utils/workoutsSync";
+  shardKeysNamedBy,
+  windowFromFirstLoad,
+  withPlanLookups,
+  type WorkoutWindow,
+} from "../utils/workoutWindow";
 import { createSyncRunner, type CheckRun as RunBase, type ReadoutEntry as SyncReadoutEntry, type SyncFields } from "./syncRunner";
 import { usePlansStore } from "./usePlansStore";
-import {
-  WORKOUTS_CHECK_SKIP_MS,
-  WORKOUTS_CHECK_WAIT_MS,
-  WORKOUTS_PER_PLAN,
-} from "../config/sync";
+import { WORKOUTS_CHECK_SKIP_MS, WORKOUTS_CHECK_WAIT_MS, WORKOUTS_ON_PHONE_MIN } from "../config/sync";
 import { WORKOUTS_STORAGE_KEY } from "../config/storageKeys";
 
 /**
- * The signed-in user's recent workouts on the phone (TICKET-075): the newest
- * `WORKOUTS_PER_PLAN` sessions of each plan, Freestyle counted as a plan.
- * One shared copy for the hub, Start, Manage and the mid-workout picker,
- * where each screen used to read the newest 20 on every focus
- * (`useRecentSessions`, removed). Saved to AsyncStorage, so the dates show
- * at once and offline.
+ * The signed-in user's workouts on the phone (TICKET-082, replacing TICKET-075's
+ * newest 5 per plan): the window, the newest whole months of workouts until at
+ * least `WORKOUTS_ON_PHONE_MIN`, and the floor, the newest workout of every plan
+ * (rules and reasons: `utils/workoutWindow.ts`). One shared copy for the hub,
+ * Start, Manage and the mid-workout picker, which read `useRecentWorkouts`, and
+ * for the History screens, which will read the window. Saved to AsyncStorage, one
+ * key per UTC start month and a head key, so the dates show at once and offline.
  *
- * A check is one of two kinds (the merge and `lastSeen` rules are pure
- * functions in `workoutsSync.ts`):
- * - full: a baseline read (the newest stamp, 1 read), then one query per
- *   plan, newest N by `startedAt`. Replaces what is held, so a session
- *   deleted on the server goes. On the first load, after a copy with another
- *   N was discarded, and when asked for; never on a timer (`fullReloadDue`).
- *   All or nothing: one failed query fails the check.
- * - change: sessions with `updatedAt > lastSeen`, any plan (1 read when
- *   nothing changed), plus a per-plan query for any plan not loaded yet.
- * Inside the check skip nothing is read, plans not loaded yet included:
- * a plan's sessions written since `lastSeen` already came with the change
- * check. Its older ones wait for the next check after the skip (a focus or
- * foreground once the skip is over); until then a plan with only older
- * sessions shows "not in recent workouts". Accepted (PR #53 pass 2).
+ * A check is one of two kinds (the merge and `lastSeen` rules are pure functions
+ * in `workoutWindow.ts`):
+ * - full: a baseline read (the newest stamp, 1 read), then the window's two
+ *   queries, then one limit-1 query for each plan that has no workout in the window
+ *   (the floor). Replaces what is held, so a session deleted on the server goes. On
+ *   the first load, when nothing saved reads back, and when asked for; never on a
+ *   timer (`fullReloadDue`). All or nothing: one failed query fails the check.
+ * - change: sessions with `updatedAt > lastSeen`, any plan (1 read when nothing
+ *   changed), plus a limit-1 query for each plan not looked up yet.
+ * Inside the check skip nothing is read, unless a plan is not looked up yet: that
+ * is looked up at once, because until then it reads "last session unknown".
  * Every read is from the server (`serverOnly` in workoutSessions.ts).
  *
- * Plans arriving later (PR #52 review): on a first launch the plans store may
- * hold nothing when a screen's check runs, so there is nothing to load. The
- * store follows the plans store's ids (`followPlans` below) and checks when
- * ids appear that are not loaded, with no focus needed.
+ * Plans arriving later (PR #52's case, still true): the plan ids come from the plans
+ * store, and on a first launch it may hold nothing when the first check runs, so the
+ * window loads and the floor waits. `lookUpPlansWhenTheyArrive` checks once when
+ * plan ids appear that are not looked up. It replaces `followPlans`, which tracked a
+ * `loaded` list the floor makes unnecessary: a plan's state is in the window itself.
  *
  * Own Finish, 0 reads: `applyFinished` puts the uploaded session in unstamped
- * (ordering is by `startedAt`, so it needs no stamp). `lastSeen` does not
- * move, so the next change check returns it once and the stamped copy
- * replaces it. Known gap, accepted: a Finish uploaded while a full reload's
- * query for its plan has already run is missing from that answer, and the
- * replace drops it until the next check, which returns it (its stamp is past
- * the baseline). Only when a Finish lands inside a first load or an explicit
- * reload; it costs a date shown as older for a few minutes, never a lost
- * workout. Rejected:
- * tracking own Finishes through a reload (an id list kept and stored), and a
- * read back after the upload (+1 read per workout, and the race stays).
+ * (ordering is by `startedAt`, so it needs no stamp) and it becomes its plan's
+ * floor entry. `lastSeen` does not move, so the next change check returns it once
+ * and the stamped copy replaces it. Known gap, accepted: a Finish uploaded while a
+ * full reload's queries have already run is missing from that answer, and the
+ * replace drops it until the next check, which returns it (its stamp is past the
+ * baseline). Only when a Finish lands inside a first load or an explicit reload;
+ * it costs a date shown as older for a few minutes, never a lost workout.
+ *
+ * The saved copy is written whole on every change (head and every shard), as the
+ * exercise summaries are. Rejected for now: writing only the shards that changed,
+ * which needs a record of what is on disk to stay right; TICKET-082's proof says
+ * whether the whole write is slow enough to matter.
  *
  * Sign-out clears it (`initAuth`), as the plans store.
  */
@@ -69,10 +74,8 @@ export type WorkoutsCheckKind = "full" | "change";
 export type WorkoutsReadoutEntry = SyncReadoutEntry<WorkoutsCheckKind>;
 
 interface WorkoutsStore extends SyncFields<WorkoutsCheckKind> {
-  /** Null: nothing stored for `uid` and no answer yet. Readers then say "last session unknown". */
-  byPlan: WorkoutsByPlan | null;
-  /** Plans whose own query answered: their list is their newest N. */
-  loaded: string[];
+  /** Null: nothing saved for `uid` and no answer yet. Readers then say "last session unknown". */
+  workoutWindow: WorkoutWindow | null;
   /** The newest `updatedAt` a change check or baseline returned (server clock); null: none yet. */
   lastSeen: SyncStamp | null;
   /** When the last full reload answered (phone clock). Debug page only; nothing is scheduled on it. */
@@ -80,7 +83,7 @@ interface WorkoutsStore extends SyncFields<WorkoutsCheckKind> {
   /** Debug readout: Firestore reads billed this app run (a query that returns nothing bills 1). */
   billedReads: number;
 
-  /** A reader opened: load the stored copy for `uid`, then check. */
+  /** A reader opened: load the saved copy for `uid`, then check. */
   open: (uid: string) => Promise<void>;
   /** Ask the server now unless skipped or one is running. `force`: past the skip. `full`: a full reload. */
   check: (options?: { force?: boolean; full?: boolean }) => Promise<void>;
@@ -94,8 +97,7 @@ type State = Omit<WorkoutsStore, "open" | "check" | "applyFinished" | "clear">;
 
 const initialState = {
   uid: null,
-  byPlan: null,
-  loaded: [],
+  workoutWindow: null,
   storedRead: false,
   checking: false,
   waitOver: false,
@@ -107,15 +109,23 @@ const initialState = {
   readout: { reads: 0, log: [] }, // debug readout (Plans Store page)
 };
 
-type CheckRun = RunBase<WorkoutsCheckKind> & { planIds: string[]; seenAtStart: SyncStamp | null };
+type CheckRun = RunBase<WorkoutsCheckKind> & {
+  /** The plans store's plan ids when the check started; null: it held none yet. */
+  planIds: string[] | null;
+  /** Plans to look up. Null for a full check: it knows only after the window's answer. */
+  lookUp: string[] | null;
+  seenAtStart: SyncStamp | null;
+};
 
 type Answer = {
-  /** The full reload's baseline stamp; null for the other kinds, or when no session has a stamp. */
+  /** The full reload's baseline stamp; null for the other kind, or when no session has a stamp. */
   baseline: SyncStamp | null;
-  /** Each queried plan's newest N. */
-  perPlan: WorkoutsByPlan;
+  /** A full reload's window; null for a change check. */
+  firstLoad: WorkoutWindow | null;
   /** The change check's docs. */
   changed: WorkoutSessionDoc[];
+  /** Each looked-up plan's newest workout, or null: never done. */
+  lookups: Record<string, WorkoutSessionDoc | null>;
   /** Debug readout: queries and docs, for the readout line. */
   queries: number;
   docs: number;
@@ -129,91 +139,114 @@ type Answer = {
 const bill = (docs: number) =>
   useRecentWorkoutsStore.setState((s) => ({ billedReads: s.billedReads + Math.max(1, docs) }));
 
-async function readPlans(uid: string, planIds: string[]): Promise<WorkoutsByPlan> {
+async function lookUpPlans(uid: string, planIds: readonly string[]): Promise<Record<string, WorkoutSessionDoc | null>> {
   const answers = await Promise.all(
     planIds.map(async (planId) => {
-      const sessions = await getPlanSessionsFromServer(uid, planId, WORKOUTS_PER_PLAN);
-      bill(sessions.length);
-      return [planId, sessions] as const;
+      const doc = await getLastWorkoutOfPlan(uid, planId);
+      bill(doc ? 1 : 0);
+      return [planId, doc] as const;
     })
   );
   return Object.fromEntries(answers);
 }
 
 async function readFromServer(run: CheckRun): Promise<Answer> {
-  let baseline: SyncStamp | null = null;
-  let changed: WorkoutSessionDoc[] = [];
-  let perPlan: WorkoutsByPlan;
   if (run.kind === "full") {
-    // First, then the plans: see `workoutsLastSeenAfter`.
-    baseline = await getNewestSessionStamp(run.uid);
+    // The baseline first, then the window: see `lastSeenAfterCheck`.
+    const baseline = await getNewestSessionStamp(run.uid);
     bill(baseline ? 1 : 0);
-    perPlan = await readPlans(run.uid, run.planIds);
-  } else {
-    [changed, perPlan] = await Promise.all([
-      getChangedSessions(run.uid, changeCheckAfter(run.seenAtStart)).then((docs) => {
-        bill(docs.length);
-        return docs;
-      }),
-      readPlans(run.uid, run.planIds),
-    ]);
+    const { newest, rest } = await getWorkoutWindowFromServer(run.uid, WORKOUTS_ON_PHONE_MIN);
+    bill(newest.length);
+    if (rest !== null) bill(rest.length);
+    const firstLoad = windowFromFirstLoad(newest, rest ?? [], WORKOUTS_ON_PHONE_MIN);
+    const lookUp = run.planIds === null ? [] : plansToLookUp(firstLoad, run.planIds);
+    const lookups = await lookUpPlans(run.uid, lookUp);
+    return {
+      baseline,
+      firstLoad,
+      changed: [],
+      lookups,
+      queries: 1 + (rest === null ? 1 : 2) + lookUp.length,
+      docs: (baseline ? 1 : 0) + newest.length + (rest?.length ?? 0) + Object.values(lookups).filter(Boolean).length,
+    };
   }
-  const planDocs = Object.values(perPlan).reduce((sum, sessions) => sum + sessions.length, 0);
+  const lookUp = run.lookUp ?? [];
+  const [changed, lookups] = await Promise.all([
+    getChangedSessions(run.uid, changeCheckAfter(run.seenAtStart)).then((docs) => {
+      bill(docs.length);
+      return docs;
+    }),
+    lookUpPlans(run.uid, lookUp),
+  ]);
   return {
-    baseline,
-    perPlan,
+    baseline: null,
+    firstLoad: null,
     changed,
-    queries: run.planIds.length + 1,
-    docs: planDocs + changed.length + (baseline ? 1 : 0),
+    lookups,
+    queries: 1 + lookUp.length,
+    docs: changed.length + Object.values(lookups).filter(Boolean).length,
   };
 }
 
-async function readStoredCopy(uid: string): Promise<HeldWorkouts | null> {
+/** The shard keys on disk as this run knows them, so a write removes exactly the ones it no longer needs. */
+let keysOnDisk = new Set<string>();
+
+async function readStoredCopy(uid: string) {
   try {
-    const read = readStoredWorkouts(await AsyncStorage.getItem(WORKOUTS_STORAGE_KEY), uid, WORKOUTS_PER_PLAN);
+    const head = await AsyncStorage.getItem(WORKOUTS_STORAGE_KEY);
+    const shardKeys = shardKeysNamedBy(head);
+    const rows = shardKeys.length > 0 ? await AsyncStorage.multiGet(shardKeys) : [];
+    const read = readStoredWorkouts([[WORKOUTS_STORAGE_KEY, head], ...rows], uid);
     if (read.error) console.warn("Stored workouts discarded; will fetch:", read.error);
-    return read.held;
+    if (!read.saved) return null;
+    keysOnDisk = new Set(shardKeys);
+    const { lastSeen, lastFullAt, ...workoutWindow } = read.saved;
+    return { workoutWindow, lastSeen, lastFullAt };
   } catch (error) {
     console.warn("Stored workouts unreadable; will fetch:", error);
     return null;
   }
 }
 
+/** Every key of the saved copy: the head and any key that starts with it and a dot (a shard). */
+const isWorkoutsKey = (key: string) => key === WORKOUTS_STORAGE_KEY || key.startsWith(`${WORKOUTS_STORAGE_KEY}.`);
+
 // ---------------------------------------------------------------------------
 // What the store becomes. Pure: state in, changes out.
 // ---------------------------------------------------------------------------
 
 /**
- * The run a trigger starts, or null to skip. Nothing while the plans store
- * holds nothing (`planIdsToHold`). A full reload when due (`fullReloadDue`):
- * nothing held, or asked for, which always comes with `force`, so no skip.
+ * The run a trigger starts, or null to skip. A full reload when due
+ * (`fullReloadDue`): nothing held, or asked for, which always comes with
+ * `force`, so no skip. It does not wait for the plans store: the window needs no
+ * plan ids, and the floor looks up what the plans store names once it can.
+ * Otherwise a change check, which also looks up the plans not looked up yet; one
+ * of those is not skipped, as it reads "last session unknown" until looked up.
  */
 export function workoutsRunFor(
-  state: Pick<State, "byPlan" | "loaded" | "lastSeen">,
+  state: Pick<State, "workoutWindow" | "lastSeen">,
   planIds: string[] | null,
   skipped: boolean,
   fullRequested: boolean
 ): Omit<CheckRun, "uid" | "epoch" | "seq"> | null {
-  if (planIds === null) return null;
   const seenAtStart = state.lastSeen;
-  if (fullReloadDue({ requested: fullRequested, hasStored: state.byPlan !== null })) return { kind: "full", planIds, seenAtStart };
-  if (skipped) return null;
-  const loaded = new Set(state.loaded);
-  return { kind: "change", planIds: planIds.filter((id) => !loaded.has(id)), seenAtStart };
+  if (fullReloadDue({ requested: fullRequested, hasStored: state.workoutWindow !== null }))
+    return { kind: "full", planIds, lookUp: null, seenAtStart };
+  const lookUp = planIds === null || state.workoutWindow === null ? [] : plansToLookUp(state.workoutWindow, planIds);
+  if (skipped && lookUp.length === 0) return null;
+  return { kind: "change", planIds, lookUp, seenAtStart };
 }
 
 /** After a check's answer. The runner adds what every success sets. */
 function stateAfterAnswer(state: State, run: CheckRun, answer: Answer, now: number): Partial<State> {
-  const full = run.kind === "full";
   // A full reload starts from nothing, so a session deleted on the server goes.
-  const withPlans = mergeIntoPlans(full ? {} : (state.byPlan ?? {}), Object.values(answer.perPlan).flat(), WORKOUTS_PER_PLAN);
-  // A plan never done answers no docs: it is still loaded, with an empty list.
-  for (const planId of run.planIds) withPlans[planId] ??= [];
+  const base = answer.firstLoad ?? state.workoutWindow;
+  if (base === null) return {};
+  const merged = addToWindow(base, answer.changed, WORKOUTS_ON_PHONE_MIN);
   return {
-    byPlan: mergeIntoPlans(withPlans, answer.changed, WORKOUTS_PER_PLAN),
-    loaded: full ? run.planIds : [...new Set([...state.loaded, ...run.planIds])],
-    lastSeen: workoutsLastSeenAfter(run.kind, state.lastSeen, answer),
-    ...(full && { lastFullAt: now }),
+    workoutWindow: withPlanLookups(merged, answer.lookups),
+    lastSeen: lastSeenAfterCheck(run.kind, state.lastSeen, answer),
+    ...(run.kind === "full" && { lastFullAt: now }),
   };
 }
 
@@ -229,14 +262,22 @@ export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
     waitMs: WORKOUTS_CHECK_WAIT_MS,
     skipMs: WORKOUTS_CHECK_SKIP_MS,
     readStored: readStoredCopy,
-    writeStored: async ({ uid, byPlan, loaded, lastSeen, lastFullAt }) => {
+    writeStored: async ({ uid, workoutWindow, lastSeen, lastFullAt }) => {
       if (uid === null) {
-        await AsyncStorage.removeItem(WORKOUTS_STORAGE_KEY);
-      } else if (byPlan !== null) {
-        await AsyncStorage.setItem(
-          WORKOUTS_STORAGE_KEY,
-          serializeStoredWorkouts(uid, WORKOUTS_PER_PLAN, { byPlan, loaded, lastSeen, lastFullAt })
-        );
+        const keys = (await AsyncStorage.getAllKeys()).filter(isWorkoutsKey);
+        keysOnDisk = new Set();
+        if (keys.length > 0) await AsyncStorage.multiRemove(keys);
+      } else if (workoutWindow !== null) {
+        const entries = serializeStoredWorkouts(uid, { ...workoutWindow, lastSeen, lastFullAt });
+        const shardKeys = new Set(entries.slice(1).map(([key]) => key));
+        const stale = [...keysOnDisk].filter((key) => !shardKeys.has(key));
+        keysOnDisk = shardKeys;
+        // Both issued before anything is awaited, in this order: the new copy, then the shards it
+        // no longer names. A kill between them leaves an orphan shard, which nothing reads and
+        // the next sign-out removes.
+        const written = AsyncStorage.multiSet(entries);
+        const removed = stale.length > 0 ? AsyncStorage.multiRemove(stale) : Promise.resolve();
+        await Promise.all([written, removed]);
       }
     },
     read: readFromServer,
@@ -258,16 +299,18 @@ export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
     check: ({ force = false, full = false } = {}) =>
       runner.check({ force }, (state, skipped) => {
         const plans = usePlansStore.getState();
-        const planIds = plans.uid === state.uid ? planIdsToHold(plans.plans) : null;
-        return workoutsRunFor(state, planIds, skipped, full);
+        const planIds = plans.uid === state.uid ? lookUpPlanIds(plans.plans) : null;
+        const run = workoutsRunFor(state, planIds, skipped, full);
+        if (run) idsOfLastCheck = idsKey(state.uid, state.epoch, planIds);
+        return run;
       }),
 
     applyFinished: (uid, session) => {
       const state = get();
       // Nothing held: one workout is not the user's history (CLAUDE.md 2.4);
       // the next check loads it all.
-      if (state.uid !== uid || state.byPlan === null) return;
-      set({ byPlan: mergeIntoPlans(state.byPlan, [session], WORKOUTS_PER_PLAN) });
+      if (state.uid !== uid || state.workoutWindow === null) return;
+      set({ workoutWindow: addToWindow(state.workoutWindow, [session], WORKOUTS_ON_PHONE_MIN) });
       runner.persist();
     },
 
@@ -276,32 +319,33 @@ export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
 });
 
 // ---------------------------------------------------------------------------
-// Following the plans store (PR #52 review).
+// Looking up plans when they arrive (PR #52's case).
 // ---------------------------------------------------------------------------
 
-/** The plan ids last acted on, so a plans store change that adds no id costs nothing. */
-let followedIds = "";
+/** The plan ids the last check that started was given, so only a change of ids triggers another. */
+let idsOfLastCheck = "";
+
+const idsKey = (uid: string | null, epoch: number, ids: string[] | null) => `${uid}:${epoch}:${ids === null ? "" : ids.join(",")}`;
 
 /**
- * Ids appeared that are not loaded: check now. Once: what it is for is the
- * check that found no plans (first launch, sign-in), which leaves no skip
- * window. Ids arriving within the skip of a check wait for the next one
- * (see the header), as do ids arriving while a check runs: that check is
- * joined. Not a loop: a check that fails leaves the next trigger to try.
+ * Plan ids appeared that the last check did not have, and some are not looked up: check now.
+ * Once per set of ids, so a check that fails, or a lookup that cannot answer (a `deleted` marker
+ * as a plan's newest), does not loop: the next trigger is a screen's focus. What it is for is the
+ * check that ran before the plans arrived (first launch, sign-in). If a check is running, the
+ * trigger joins it (`runner.check`), which did not have the new ids, so it runs again when that
+ * check ends (the subscription below).
  */
-function followPlans() {
+function lookUpPlansWhenTheyArrive() {
   const plans = usePlansStore.getState();
   const workouts = useRecentWorkoutsStore.getState();
   if (workouts.uid === null || plans.uid !== workouts.uid || !workouts.storedRead) return;
-  const ids = planIdsToHold(plans.plans);
-  const key = ids === null ? "" : `${workouts.uid}:${workouts.epoch}:${ids.join(",")}`;
-  if (ids === null || key === followedIds) return;
-  followedIds = key;
-  if (workouts.byPlan === null || ids.some((id) => !workouts.loaded.includes(id))) void workouts.check();
+  const ids = lookUpPlanIds(plans.plans);
+  if (ids === null || idsKey(workouts.uid, workouts.epoch, ids) === idsOfLastCheck) return;
+  if (workouts.workoutWindow === null || plansToLookUp(workouts.workoutWindow, ids).length > 0) void workouts.check();
 }
 
-usePlansStore.subscribe(followPlans);
-// The workouts' stored copy may be read after the plans arrived.
+usePlansStore.subscribe(lookUpPlansWhenTheyArrive);
+// The saved copy may be read after the plans arrived, and a check that ended may have started without them.
 useRecentWorkoutsStore.subscribe((state, previous) => {
-  if (state.storedRead && !previous.storedRead) followPlans();
+  if ((state.storedRead && !previous.storedRead) || (previous.checking && !state.checking)) lookUpPlansWhenTheyArrive();
 });

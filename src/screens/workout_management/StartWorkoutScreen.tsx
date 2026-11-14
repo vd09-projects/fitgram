@@ -3,7 +3,7 @@ import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useWorkoutPlansOnFocus } from "../../hooks/useWorkoutPlansOnFocus";
 import { useAuthUser } from "../../hooks/useAuthUser";
-import { useRecentWorkouts } from "../../hooks/useRecentWorkouts";
+import { useLastDoneUnknown, useRecentWorkouts } from "../../hooks/useRecentWorkouts";
 import { SPACING } from "../../constants/styles";
 import ScrollableScreen from "../../components/ScrollableScreen";
 import { BackTitle } from "../../components/BackButton";
@@ -50,11 +50,12 @@ export default function StartWorkoutScreen() {
   useFocusEffect(useCallback(() => setShowArchived(false), []));
 
   const sessions = useRecentWorkouts(uid);
+  const lastDoneUnknown = useLastDoneUnknown(uid, workoutPlans);
 
   const rows = useMemo(
     () =>
-      buildPlanRows(workoutPlans, sessions, pendingUploads, uid, searchQuery),
-    [workoutPlans, sessions, pendingUploads, uid, searchQuery],
+      buildPlanRows(workoutPlans, sessions, pendingUploads, uid, searchQuery, lastDoneUnknown),
+    [workoutPlans, sessions, pendingUploads, uid, searchQuery, lastDoneUnknown],
   );
   const groups = useMemo(() => groupPlanRows(rows, showArchived), [rows, showArchived]);
   const archivedCount = useMemo(() => workoutPlans.filter(isArchived).length, [workoutPlans]);
@@ -223,7 +224,6 @@ export default function StartWorkoutScreen() {
       <PlanCard
         plan={selectedPlan}
         row={selectedRow}
-        sessionsKnown={sessions !== null}
         onClose={() => setSelectedId(null)}
       />
 

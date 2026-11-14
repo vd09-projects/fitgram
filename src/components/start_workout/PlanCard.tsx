@@ -52,8 +52,6 @@ type Props = {
   plan: WorkoutPlan | null;
   /** That plan's row from `buildPlanRows`, for its last-done session. */
   row: PlanRow | null;
-  /** False while no recent workouts are held: not loaded yet, or the first load failed. */
-  sessionsKnown: boolean;
   onClose: () => void;
 };
 
@@ -88,7 +86,7 @@ type Props = {
  *   There is no role token for it.
  * - Closing changes nothing: the card only reads until Start or Resume.
  */
-export function PlanCard({ plan, row, sessionsKnown, onClose }: Props) {
+export function PlanCard({ plan, row, onClose }: Props) {
   const { styles, t } = useThemeStyles(createStyles);
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
@@ -165,8 +163,13 @@ export function PlanCard({ plan, row, sessionsKnown, onClose }: Props) {
   const isRunning = !!activeWorkout && activeWorkout.id === plan.id;
   const blockedBy = !!activeWorkout && !isRunning ? activeWorkout : null;
   const header = planCardHeader(
-    { exerciseCount: plan.exercises.length, lastDoneAt: row?.lastDoneAt ?? null, lastEndedAt: row?.lastEndedAt ?? null },
-    sessionsKnown,
+    {
+      exerciseCount: plan.exercises.length,
+      lastDoneAt: row?.lastDoneAt ?? null,
+      lastEndedAt: row?.lastEndedAt ?? null,
+      // No row for the plan: nothing says its date is known.
+      lastDoneKnown: row?.lastDoneKnown ?? false,
+    },
     now
   );
   const elapsed = activeWorkout ? formatElapsed(activeWorkout.startTime, now) : null;

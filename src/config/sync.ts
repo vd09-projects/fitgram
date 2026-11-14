@@ -26,23 +26,6 @@ export const PLANS_CHECK_SKIP_MS = 60 * 1000;
 export const PLANS_CHECK_WAIT_MS = 10_000;
 
 /**
- * How many workouts the phone keeps per plan (TICKET-075), Freestyle counted
- * as one plan. What it feeds: each plan's last-done date, time and volume
- * (needs 1), and the picker's Recent, newest 10 movements across every held
- * workout. 5, not 1: Recent needs a few workouts per plan to find 10
- * movements, and a plan's last 5 cover a movement swapped out of it lately.
- * Not 20 (the old window across all plans): the first load reads N per plan,
- * so 20 would cost up to 20 × plans reads on a fresh install. A movement whose
- * newest use is in a plan's 6th-or-older workout is not in Recent (TICKET-075
- * fact 2); search still finds it.
- *
- * Changes stored data: the stored copy records the N it was built with, and a
- * copy with another N is discarded and refilled at the next check (one first
- * load: up to N reads per plan, plus 1).
- */
-export const WORKOUTS_PER_PLAN = 5;
-
-/**
  * How many workouts the phone keeps at least (TICKET-082, decided in TICKET-087).
  * It keeps whole months, newest first, until it has this many, so the number
  * floats up by the last month it takes. What it feeds: the Workouts list, its
@@ -51,6 +34,9 @@ export const WORKOUTS_PER_PLAN = 5;
  * Not everything: a copy of every workout grows with history, a new phone reads
  * all of it, and it reaches Android's database cap at about a thousand workouts.
  * Older months are fetched when asked (`getWorkoutsOfMonth`) and not kept.
+ * Not part of this number: the newest workout of every plan is kept as well, however
+ * old (the floor, `utils/workoutWindow.ts`), so a plan idle for longer than the window
+ * still has a date.
  *
  * Changes stored data only at the next trim: a copy built with another value
  * is read as it is, and the next Finish or first load applies the new one.
