@@ -1,5 +1,5 @@
 // TICKET-087 stage 2, updated by TICKET-081 stage 2 (17 writes before it put the verdicts on the
-// session in the stats transaction; 10 after TICKET-085 drops exercise_sessions): Firestore operations of one Finish, counted by running
+// session in the stats transaction; 10 after TICKET-085c drops exercise_sessions): Firestore operations of one Finish, counted by running
 // the real `saveWorkoutSession` with the Firestore calls replaced by counters.
 // A measurement that also guards: if a later change adds a write per Finish,
 // this goes red and the History tickets' write counts need the new number.

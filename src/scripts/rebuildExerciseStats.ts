@@ -3,7 +3,7 @@
 // Recompute the exercise_stats rollup, and the verdicts stored on `sessions`,
 // from the sets in `sessions.lifts`, which are the source of truth (TICKET-081;
 // before it, `exercise_sessions`, which is still written beside them until
-// TICKET-085 and is not read here).
+// TICKET-085c and is not read here).
 //
 //   npx tsx src/scripts/rebuildExerciseStats.ts <userId> [exerciseId ...] [--confirm] [--ignore-unreadable]
 //

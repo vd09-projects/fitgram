@@ -135,7 +135,7 @@ export function verdictsFromHistory(sessions: readonly WorkoutSessionDoc[]): Wor
 
 /**
  * The `exercise_sessions` docs the sessions' lifts stand for, as the save
- * writes them beside the record until TICKET-085. How the rebuild gets its
+ * writes them beside the record until TICKET-085c. How the rebuild gets its
  * input from `sessions` (the one source of truth for sets) and how the compare
  * script checks `exercise_sessions` agrees. Sessions must have valid `lifts`.
  */

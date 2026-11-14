@@ -9910,7 +9910,7 @@ what the History screens read, once, at Finish, and defines the verdict in one f
   `swappedFrom` and `added` (a deviation from TICKET-047's "not recorded", written in 047), and
   must not mark every Freestyle slot `added` (`addExercise` sets it on every added slot).
   Phase 1 (the batch) writes `lifts` with their sets and `reason: pending` using merge, so a replayed upload
-  keeps a note, and until 085 the `exercise_sessions` docs too. Phase 2 (the stats transaction, which already reads each `exercise_stats` doc and its
+  keeps a note, and until 085c the `exercise_sessions` docs too. Phase 2 (the stats transaction, which already reads each `exercise_stats` doc and its
   `recentSessions`) computes the verdicts and writes the whole `lifts` array to the session doc.
   `saveWorkoutSession` returns the session, and `attemptUpload` uses it instead of rebuilding it.
   A workout still waiting to upload gets its verdicts on the phone from the same function, marked
@@ -9919,7 +9919,7 @@ what the History screens read, once, at Finish, and defines the verdict in one f
 - **Stage 3, scripts and proof.** `importHistory`/`historyImport` write `lifts` with their sets from the full history (the true
   previous session, so never "too old"); `rebuildExerciseStats` rebuilds from `sessions` (`lifts[].sets`), not
   `exercise_sessions`. A `--dry-run` compare script recomputes every verdict from the sets in `sessions`, reports
-  differences from the stored ones, and until 085 checks `exercise_sessions` agrees with them. Wipe the pre-launch test data in the old shape first (the user: no migration).
+  differences from the stored ones, and until 085c checks `exercise_sessions` agrees with them. Wipe the pre-launch test data in the old shape first (the user: no migration).
   An imported session has `endedAt` equal to `startedAt`: nothing may show a duration for it.
 
 **Load-bearing facts, checked in code 2026-11-13 (CLAUDE.md 2.1):**
@@ -9951,7 +9951,7 @@ what the History screens read, once, at Finish, and defines the verdict in one f
   (the boards still show it until they are redrawn); only the workout note (`note`) is built.
 - **The shape is B (TICKET-087, 2026-11-13).** Each `lifts` entry also holds the lift's `fields` and `sets`, and
   `sessions.lifts` is the one source of truth for sets (it replaces TICKET-072 D5's `exercise_sessions`, and
-  reverses D7 for the held window). `exercise_sessions` is still written until 085 retires the old History page,
+  reverses D7 for the held window). `exercise_sessions` is still written until 085c retires it (085b removes the old History page),
   then dropped. Measured on fixtures of 8 lifts x 5 sets with drop sets: a record is 3.3 KB in Firestore (median
   3262, max 3429; the 1 MiB limit is not near) and 4.6 KB held; one Finish is 18 writes and 8 reads while both are
   written, 10 after (9 if the session is written once, which drops the offline-safe first phase 077 chose); bytes
@@ -10013,7 +10013,7 @@ copy still lists the removed sessions (a hard delete is invisible to the change 
   cannot disagree. `settleVerdicts` adds the user's existing sessions to the import's history; it reads them and
   never rewrites them.
 - `compareHistory.ts` has no write mode (nothing to forget). It checks verdicts (a pending one counts), `exerciseIds`,
-  `exercise_sessions` against the lifts (until 085), and `exercise_stats` against a rebuild; exit 1 on any
+  `exercise_sessions` against the lifts (until 085c), and `exercise_stats` against a rebuild; exit 1 on any
   difference. The repair is `rebuildExerciseStats.ts`: from `sessions.lifts`, it corrects verdicts (merge, new
   stamp, only the exercises named if any) and rewrites the rollups, a dry run unless `--confirm`.
 - Found while proving it: a late upload also leaves a rollup different from a rebuild (which session holds a tied
@@ -10042,7 +10042,7 @@ successor on delete.
 122 lifts, on two accounts). On fixtures, with the code the transaction runs: saves in start order give 0 mismatches; a
 replay right after its own fold writes the same lifts (0); a late upload gives mismatches (wrong verdicts on the
 successors, a different tied best in a rollup) which the compare script finds and the rebuild repairs to 0. Writes per
-Finish before and after (17 for 8 lifts today; 18 while `exercise_sessions` is also written, 10 after 085), counted by
+Finish before and after (17 for 8 lifts today; 18 while `exercise_sessions` is also written, 10 after 085c), counted by
 the harness; phase 2 latency, not measured.
 
 **Out of scope:** every screen; holding sessions on the phone (082); deleting a workout (086).
@@ -10234,7 +10234,7 @@ seen on a phone, and cold start in airplane mode is not yet run.
   month once, and asks again after a refusal. States: `loading` (with `waitOver`), `ready`, `offline` (Firestore `unavailable`), `failed`.
   `localMonthRange` is the local calendar month, so a month with a clock change is not 30 days; a key that is not `YYYY-MM` throws.
 - *Deviation found on the device:* offline, Firestore took roughly 10 to 30 s to reject, so a bare `loading` would leave a screen on a
-  spinner. `loading` now carries `waitOver` after `WORKOUTS_CHECK_WAIT_MS`, as a check's wait. 085 shows "needs a connection, still
+  spinner. `loading` now carries `waitOver` after `WORKOUTS_CHECK_WAIT_MS`, as a check's wait. 085a shows "needs a connection, still
   trying" from `waitOver` on instead of waiting for the rejection.
 - *Debug page* (the ticket's "debug readout"): the window, the floor, last save time, older months, and two buttons: load the month
   before the window, and a TEMPORARY probe that saves and reads back a window-sized copy under its own keys (remove with the page).
@@ -10303,13 +10303,13 @@ keep their date; a restart reads 0 to show the list and 1 for the check; a Finis
 
 **Description:**
 The Session screen of the History design (boards `HistSession*`) and, after Finish, landing on the
-Session of the workout just done. It ships alone: the user lands there after every Finish; the old
-History stays the History entry until 085.
+Session of the workout just done. It replaces the placeholder `Session` route that 085a registered, so a
+workout opened from the History home (085a) shows the real screen, and the user lands there after every Finish.
 
 **Build:**
-- A `Session` route in the Workout stack with its own `getId` (by session id). Every screen is
-  `singleCopy` today, which would move the one Session instead of opening another (Session → Exercise →
-  Session of another day).
+- The `Session` route 085a registered (its own `getId`, by session id; every screen is `singleCopy` today, which
+  would move the one Session instead of opening another: Session → Exercise → Session of another day) gets the
+  real screen in place of the placeholder.
 - Resolution: the pending queue, then the held workouts (082), then an older workout fetched by id through `createOnDemandReads` (`stores/onDemandReads.ts`, 082) (one read,
   sets included) with a "needs a connection" state. Opened from the queue, it follows the move to held when
   the upload lands (`applyFinished`).
@@ -10324,19 +10324,18 @@ History stays the History entry until 085.
   Delete session shown switched off with a reason. A same-day label helper for compare headers (the
   collision TICKET-037 describes).
 - Landing: `EndWorkoutResult` gains `sessionId`; the effect that pops to the hub after Finish
-  (`ActiveWorkoutScreen`) navigates to the Session instead, Back goes to the hub until 085 makes it
-  History; the duplicate "Saved" toast is suppressed there. The footer highlight after crossing stacks
+  (`ActiveWorkoutScreen`) navigates to the Session instead, Back goes to the History home (085a); the duplicate "Saved" toast is suppressed there. The footer highlight after crossing stacks
   is TICKET-025's problem and is fixed here for this path.
 
 **Proof:** emulator run: finish a workout online, offline and with a failed upload; open a workout from
-each of the three sources; compare screenshots to the boards (role tokens and `t.fonts`, never board px).
+each of the three sources (the History home's held and Older rows, the waiting queue, and the landing); compare screenshots to the boards (role tokens and `t.fonts`, never board px).
 
 **Out of scope:** Edit and Delete (086, and the Edit UI is parked); the Exercise link inside the compare
 (084 adds it).
 
 **CLAUDE.md rules skipped:** none.
 
-**Dependencies:** TICKET-081, 082. Touches 025, 037, 029 (the waiting state).
+**Dependencies:** TICKET-081, 082, 085a. Touches 025, 037, 029 (the waiting state).
 
 ---
 
@@ -10346,8 +10345,8 @@ each of the three sources; compare screenshots to the boards (role tokens and `t
 
 **Description:**
 The Exercise screen of the design (`HistExercise*`): header "History · Bench Press", graph, one scrolling
-log, view options with a dot when not default. Reached from the Session compare ("History" link) and later
-from the Exercises tab.
+log, view options with a dot when not default. Reached from the Session compare ("History" link) and from
+the Exercises tab (085b).
 
 **Build:**
 - **Graph: drawn from Views (decided in TICKET-087; `react-native-svg` is not added).** The spike drew 10 points,
@@ -10368,7 +10367,7 @@ from the Exercises tab.
 
 **Proof:** the log agrees with the held summaries (a test); emulator run of every state against its board.
 
-**Out of scope:** the Exercises tab list (085).
+**Out of scope:** the Exercises tab list (085b).
 
 **CLAUDE.md rules skipped:** none.
 
@@ -10376,44 +10375,101 @@ from the Exercises tab.
 
 ---
 
-### TICKET-085: History Home — Workouts and Exercises Tabs
+### TICKET-085a: History Home — Shell and Workouts Tab
 
-**Priority:** Medium | **Effort:** Large (four stages) | **Status: OPEN** — raised 2026-11-13 (user)
+**Priority:** Medium | **Effort:** Large | **Status: OPEN** — raised 2026-11-13 (user); split from TICKET-085 on 2026-11-15 (user): the home page first, so every later screen is reached by tapping through it, with no debug page
 
 **Description:**
-The new History home replaces the old History page. Opened from the Workout hub (the footer has no History
-tab; the design's link map says it does, and is corrected). It always opens on Workouts with All selected;
-Back from a deeper screen keeps tab, filter, scroll and which months are open.
+The first half of the new History home: the shell and the Workouts tab. Opened from the Workout hub (the
+footer has no History tab; the design's link map says it does, and is corrected). It always opens on Workouts
+with All selected; Back from a deeper screen keeps tab, filter, scroll and which months are open. It is built
+before the Session screen (083) so that screen is reached by tapping a workout, and so that a Finish, Back and
+the footer have their final destination from the start. It needs only 081 and 082; a workout opens a
+**placeholder** `Session` route until 083 replaces it.
+
+**Entry (proposed here, not confirmed by the user):** the hub's History button keeps opening the old page until
+085b, because the old page is the only place a lift's history is shown and the home has no Exercises tab yet. The
+new home is reached from a **TEMPORARY** second button on the hub ("History (new)"); 085b makes it the entry and
+removes the button and the old page.
 
 **Build:**
-- **Stage 1, shell:** tabs header with the workout filter, the notice strip (waiting, did not upload with Try
-  again, offline), the entry switch from the hub. Closes TICKET-029 and removes the debug screen.
+- **Stage 1, shell:** tabs header with the workout filter (the Exercises tab is shown switched off with a
+  reason until 085b), the notice strip (waiting, did not upload with Try again, offline), the TEMPORARY hub
+  button. The `Session` route in the Workout stack with its own `getId` (by session id; every screen is
+  `singleCopy` today, which would move the one Session instead of opening another): a **TEMPORARY** placeholder
+  that shows the workout name and date, replaced by 083. Closes TICKET-029 and removes the debug screen.
 - **Stage 2, Workouts:** the rail from the held workouts. Every lift a capsule, in the workout's order; a
-  workout is one tap target; the current month in full (under 10 workouts it runs into the month before,
+  workout is one tap target, opening the `Session` route; the current month in full (under 10 workouts it runs into the month before,
   which is then split and its Earlier row counts only what is left); Earlier month rows open in place in one
   list (`SectionList` or `FlatList` with row types, not nested lists); months older than the held window are
   one "Older" row (boards `HistHome19OlderEnd`, `HistHome20OlderOffline`) that loads a month on tap (082's `getWorkoutsOfMonth` through the store's `loadMonth`: states `loading` (with `waitOver`: say "needs a connection, still trying" from there, as Firestore takes 10 to 30 s to refuse offline), `ready`, `offline`, `failed`; no count until it
-  is loaded: never a total the phone does not have); filter sheet and counts from 082's selectors (`planFilterRows` over the window: a plan idle for longer than the window has no row, and its newest workout is in `lastByPlan`, which no month or count includes); a workout waiting to upload merged in with provisional verdicts (`withVerdicts` over the held summaries; 081 stage 2 built the function, not the wiring); "Not compared" for a
-  workout with no verdict (081's reason), and no word at all for one whose `workoutVerdict` is `pending` (a lift not yet computed, or older than a lift's rollup window).
-- **Stage 3, Exercises:** search, one row per lift from the held summaries (Better/Lower/Same by 081's
-  function, last sets, days ago), filter by workout through `lifts` membership (held months), "Most recent first".
-- **Stage 4, retire `exercise_sessions`:** stop writing it in `saveWorkoutSession`, drop its readers
-  (`getExerciseSessions` and the old page's queries) and its index, and remove the pre-launch test data in the old
-  shape. A Finish is then 10 writes (9 if the session is written once). The rebuild and compare scripts already
-  read `sessions` (081).
-- The guided tour names the old screen (`WORKOUT_LOGS` in `commonStepNames.ts`): repoint it, or log a tour note for TICKET-053.
-- Removes `WorkoutLogsScreen`, `WorkoutHistoricalLogsFilter`, the log table components, `freestyleHistory`
-  and the two window constants. Their reads (Freestyle's 50 on every visit, up to 50 sets per tap) go.
+  is loaded: never a total the phone does not have); filter sheet and counts from 082's selectors (`planFilterRows` over the window: a plan idle for longer than the window has no row, and its newest workout is in `lastByPlan`, which no month or count includes); a workout waiting to upload merged in with provisional verdicts (`withVerdicts` over the held summaries; 081 stage 2 built the function, not the wiring); "Not
+  compared" for a workout with no verdict (081's reason), and no word at all for one whose `workoutVerdict` is `pending` (a lift not yet computed, or older than a lift's rollup window).
 
 **Proof:** reads of a History visit before and after (the old page's reads are the baseline); cold start
-offline shows Workouts and Exercises with 0 reads; 20 workouts of 8 lifts scroll without dropped frames on
-the emulator (virtualization, tall capsule rows).
+offline shows Workouts with 0 reads; 20 workouts of 8 lifts scroll without dropped frames on the emulator
+(virtualization, tall capsule rows); every row and state tapped through on the emulator against the existing
+account (no new workouts needed).
 
-**Out of scope:** Edit session; calendar, streaks, weekly view (cut in design on purpose).
+**Out of scope:** the Exercises tab (085b); the real Session screen (083); removing the old page (085b); Edit
+session; calendar, streaks, weekly view (cut in design on purpose).
+
+**CLAUDE.md rules skipped:** none. 3.3 is met by the placeholder and the hub button, both marked TEMPORARY with their removal steps.
+
+**Dependencies:** TICKET-081, 082.
+
+---
+
+### TICKET-085b: History Home — Exercises Tab and the Switch
+
+**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN** — split from TICKET-085 on 2026-11-15 (user)
+
+**Description:**
+The second half of the History home: the Exercises tab, and making the new home the History entry in place of
+the old page. Until it ships, the old page is still the hub's History button.
+
+**Build:**
+- **Exercises tab:** search, one row per lift from the held summaries (Better/Lower/Same by 081's
+  function, last sets, days ago), filter by workout through `lifts` membership (held months), "Most recent first".
+  A row opens 084's Exercise screen.
+- **The switch:** the hub's History button opens the new home; the TEMPORARY "History (new)" button (085a) goes.
+- Removes `WorkoutLogsScreen`, `WorkoutHistoricalLogsFilter`, the log table components, `freestyleHistory`
+  and the two window constants. Their reads (Freestyle's 50 on every visit, up to 50 sets per tap) go.
+- The guided tour names the old screen (`WORKOUT_LOGS` in `commonStepNames.ts`): repoint it, or log a tour note for TICKET-053.
+
+**Proof:** reads of a whole History visit (Workouts and Exercises) before and after, the old page's reads
+measured before it is removed; cold start offline shows Workouts and Exercises with 0 reads; the Exercises tab
+tapped through to 084's screen on the emulator.
+
+**Out of scope:** stopping the `exercise_sessions` writes (085c).
 
 **CLAUDE.md rules skipped:** none.
 
-**Dependencies:** TICKET-081, 082, 083, 084.
+**Dependencies:** TICKET-081, 082, 083, 084, 085a.
+
+---
+
+### TICKET-085c: Retire `exercise_sessions`
+
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — split from TICKET-085 on 2026-11-15 (user); last of the History build
+
+**Description:**
+The stored-data half of the old stage 4, as its own ticket because it is hard to reverse and has no screen.
+It runs last, once nothing reads `exercise_sessions` (085b removed the old page).
+
+**Build:** stop writing `exercise_sessions` in `saveWorkoutSession`, drop its readers (`getExerciseSessions` and the
+old page's queries) and its index, and remove the pre-launch test data in the old shape. A Finish is then 10 writes
+(9 if the session is written once). The rebuild and compare scripts already read `sessions` (081). Dropping the
+index means editing `firestore.indexes.json`, which the user deploys.
+
+**Proof:** writes per Finish before (18) and after (10), counted as 081 counted them; the compare script reports 0
+mismatches on the imported account before and after; nothing in `src/` reads the collection (a grep).
+
+**Out of scope:** any screen.
+
+**CLAUDE.md rules skipped:** none.
+
+**Dependencies:** TICKET-085b (and 081).
 
 ---
 
@@ -10431,14 +10487,14 @@ which then reuses it.
 - `rebuildExerciseSummary(userId, exerciseId)` as TICKET-032 specifies (a server read of the lift's
   records: `sessions` by `exerciseIds`, 084's index, one stamped replace, no sessions left means a `deleted` marker on the stats doc).
 - One `writeBatch`: a `deleted: true` marker on the `sessions` doc with a server stamp (never a hard
-  delete: a change check cannot see one), (until 085, also delete that workout's `exercise_sessions` docs) replace each lift's
+  delete: a change check cannot see one), (until 085c, also delete that workout's `exercise_sessions` docs) replace each lift's
   summary, and rewrite each successor session's `lifts` verdict against its new previous session (081 stage 3 built the pure parts: `verdictsFromHistory` and `repairedSessions` recompute from the sets in hand; the successor is the lift's next session in start order).
 - Refused offline. A Finish landing between the read and the write can overwrite the rebuild: decided in
   the ticket (re-read the stamps, or accept and heal with the rebuild script).
 - Enable the option on the Session screen with the confirm; after it, Back to Workouts.
 
 **Cost, measured on fixtures of 8 lifts (087):** the rebuild reads each lift's records: 370 reads (1.15 MB) at
-150 workouts, 1000 (3.11 MB) at 500, 3000 (9.33 MB) at 1500, with 10 writes after 085 (18 until then). The reads
+150 workouts, 1000 (3.11 MB) at 500, 3000 (9.33 MB) at 1500, with 10 writes after 085c (18 until then). The reads
 could come from the held copy for held months. Acceptable for a rare action that is refused offline.
 
 **Proof:** read and write counts for a lift with about 100 sessions; the 081 compare script reports 0
@@ -10448,7 +10504,7 @@ mismatches after a delete; two phones: the deleted workout leaves the other phon
 
 **CLAUDE.md rules skipped:** none.
 
-**Dependencies:** TICKET-081, 082, 083 (not 084 or 085: it can ship any time after 083; Back goes to the hub until 085). Shares work with 032.
+**Dependencies:** TICKET-081, 082, 083, 085a (the list it deletes from, and Back's destination). Not 084, 085b or 085c: it can ship any time after 083. Shares work with 032.
 
 ---
 
@@ -10715,17 +10771,22 @@ one before it.
 5. TICKET-078  (Simplify the sync code)    — Analysis first, then small PRs; after 076
 ```
 
-**The History build, decided 2026-11-13:** 087 (analysis, first) then 081, 082, 083, 084, 085 in
-that order; 086 (delete a workout) any time after 083.
+**The History build, decided 2026-11-13, reordered 2026-11-15 (user):** 087 (analysis, first), 081, 082, then the
+home page first (085a) so each later screen is reached by tapping through it: 083, 084, 085b, 086, and 085c
+(retire `exercise_sessions`) last. TICKET-085 is split in three: 085a shell and Workouts tab, 085b Exercises tab
+and the switch, 085c retire `exercise_sessions`. In the TICKET-087 record below, "085" means those three: the
+parts about the old page and the screens are 085a and 085b, the parts about `exercise_sessions` are 085c.
 
 ```
 1. TICKET-087  (History analysis)            — Measure, decide the schema, fix the design; folds in 049
 2. TICKET-081  (Lift record and verdict)     — No screen; stored shape per 087
 3. TICKET-082  (Hold recent workouts)
-4. TICKET-083  (Session screen, landing)
-5. TICKET-084  (Exercise screen)
-6. TICKET-085  (History home; replaces the old page)
-   TICKET-086  (Delete a workout)            — After 083, independent of 084 and 085
+4. TICKET-085a (History home: shell and Workouts tab) — Placeholder Session; TEMPORARY hub button; needs 081, 082 only
+5. TICKET-083  (Session screen, landing)     — After 085a; replaces the placeholder
+6. TICKET-084  (Exercise screen)
+7. TICKET-085b (Exercises tab; the switch; removes the old page)
+8. TICKET-086  (Delete a workout)            — After 083 and 085a, independent of 084, 085b, 085c
+9. TICKET-085c (Retire exercise_sessions)    — Last; after 085b
 ```
 
 **Next after that:** TICKET-012 Phase 2 (account linking), the user's pick

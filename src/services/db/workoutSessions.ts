@@ -89,7 +89,7 @@ const sessionFromDoc = (snapshot: QueryDocumentSnapshot<DocumentData>): WorkoutS
  *
  *  1. A `writeBatch` for the session (its `lifts`, with their sets and
  *     `reason: "pending"`) and its exercise_sessions docs, which stay until
- *     TICKET-085 retires the old History page. The session is written with
+ *     TICKET-085c retires them (TICKET-085b removes the old History page). The session is written with
  *     merge, so a replayed upload keeps a `note` the user added since and
  *     writes none itself. Offline it waits in Firestore's memory cache and
  *     completes on reconnect. That cache dies with the app: the upload queue is

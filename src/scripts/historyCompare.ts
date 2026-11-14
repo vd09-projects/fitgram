@@ -10,7 +10,7 @@
 //    ones included: the late upload and the replayed phase 2 of 081's known
 //    gaps (a) and (b), and a first phase whose second never ran
 //  - `exerciseIds` that are not the lifts' ids
-//  - `exercise_sessions` that disagree with the lifts, until TICKET-085 drops them
+//  - `exercise_sessions` that disagree with the lifts, until TICKET-085c drops them
 //  - `exercise_stats` that are not what the sets rebuild
 import type { ExerciseSessionDoc, ExerciseStatsDoc, LiftReason, LiftVerdict, WorkoutSessionDoc } from "../types/workoutSession";
 import { buildExerciseSessionId, rebuildStatsFromSessions } from "../utils/exerciseStats";
