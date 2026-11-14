@@ -10055,7 +10055,7 @@ the harness; phase 2 latency, not measured.
 
 ### TICKET-082: Hold Recent Workouts on the Phone
 
-**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN** — raised 2026-11-13 (user); window decided in TICKET-087
+**Priority:** Medium | **Effort:** Medium-Large | **Status: IN PROGRESS, stage 1 of 3 built (pure layer)** — raised 2026-11-13 (user); window decided in TICKET-087
 
 **Description:**
 The Workouts list, its month rows, the filter counts ("Push · 14 workouts") and opening a recent month
@@ -10069,12 +10069,12 @@ the rest when asked.
 
 **Build:**
 - The workouts store (`useRecentWorkoutsStore`) holds the newest **whole months** of session docs, newest first,
-  until at least `WORKOUTS_HELD_MIN` workouts are held (config, in `src/config/sync.ts`; its value and the
+  until at least `WORKOUTS_ON_PHONE_MIN` workouts are held (config, in `src/config/sync.ts`; its value and the
   reason are written there), in place of the per-plan N. First load is two queries ordered by `startedAt`
-  (the single-field index needs no new entry): the newest `WORKOUTS_HELD_MIN`, then the rest of the oldest of
+  (the single-field index needs no new entry): the newest `WORKOUTS_ON_PHONE_MIN`, then the rest of the oldest of
   those months, so a held month is always complete. Then the change check as today. The one shared copy of D2
   stays: no second store. When a Finish starts a new month and the newest months already cover
-  `WORKOUTS_HELD_MIN` without the oldest one, the oldest month is dropped from the copy.
+  `WORKOUTS_ON_PHONE_MIN` without the oldest one, the oldest month is dropped from the copy.
 - Saved in shards by UTC start month with the TICKET-076 head key and `multiSet` pattern. The window is cut at
   the start of the phone's local month, the one the month rows use; a shard is storage only, so the oldest held
   shard can hold a few workouts before the cut (a UTC month and a local month differ by up to a day), which
@@ -10109,6 +10109,45 @@ needs a connection once.
 held window's sets live in the records, which reverses TICKET-072 D7 for the window.
 
 **CLAUDE.md rules skipped:** 3.3 (the proof is a script and a debug readout on the existing debug page).
+
+**Stage 1 built (2026-11-14, nothing pushed): the pure layer.** `src/utils/monthWindow.ts` (moved from
+`src/scripts/`; `chooseMonthsToKeep` plus the month helpers; `measureWindow.ts` imports it), `src/utils/workoutWindow.ts`
+(window, `addToWindow`, selectors, shards, saved copy), `WORKOUTS_ON_PHONE_MIN`, `WORKOUTS_FORMAT_VERSION` 2, the `deleted` marker
+on the type and in `isSession`, the `recents.ts` fix. The old per-plan code and the store are untouched until stage 2, so
+the app runs as before. "Before" numbers (`measureWindowLoad.test.ts`, the real store on the 087 fixtures, 500 and 1500
+workouts): **first load 22 reads** (1 baseline, 5 per plan for 4 plans, 1 for the empty Freestyle query), 20 docs, 0.07 MB,
+**92 KB held in 1 key**; **restart 0 reads to show the list, 1 read for the check after**.
+
+**Names (user, 2026-11-14: "what is the held workout?"):** *the window* is the newest whole months of workouts kept on
+the phone (`WorkoutWindow`: `sessions` and `windowStart`, the first instant of its oldest local month, `null` when nothing
+older exists). Functions say what they do: `windowFromFirstLoad`, `secondQueryStart`, `addToWindow`, `chooseMonthsToKeep`,
+`planFilterRows` (`workoutCount`, `coversWholeHistory`). "Held" and "cut" are no longer used. The text above is the ticket as
+written and still says "held".
+
+**Deviations from the text above, found by reading the code (CLAUDE.md 2.2):**
+1. *"The oldest held shard can hold workouts before the cut ... which a Finish drops": not true as built.* A first load fetches
+   from the cut forward, so no held workout is before it; a Finish drops a whole local month by filtering docs, then re-shards.
+   What is true is the other direction: the oldest shard is a part-month in UTC terms (only what is at or after the cut).
+   Nothing reads completeness from a shard; `windowStart` carries it, in local months. Pinned by a test.
+2. *`windowStart` is stored* (head key; `null` = the whole history is held). Without it a phone with a short history could not tell
+   "nothing older exists" from "older months exist, not held", and a late upload from an older month would be dropped or kept
+   by accident. A workout before `cut` (a late upload) is not held: a part-month would read as complete.
+3. *The second first-load query continues after the first's last doc (a cursor), not from its `startedAt`:* two workouts with
+   the same `startedAt` at the edge would otherwise be lost. Both queries ran read-only on `pinky`: no new index
+   (the single-field `startedAt` index serves the limit query, the range-with-cursor query and a month's range query).
+4. *The store no longer waits on the plans store.* The first load is no longer per plan, so `followPlans`, `loaded` and
+   `planIdsToHold` go in stage 2. **Reader behaviour changes, and "keep reading what they read" does not cover it:** a plan
+   whose last workout is before the window now reads "not in recent workouts" on the hub and Start where it used to show its
+   date (it kept its newest 5 whatever their age). The copy already exists (`hubTileFace`); the cost is a plan done rarely.
+   Accepted by the window decision (087), recorded here so it is not found by surprise.
+5. *`recents.ts`:* `lifts[].name` names a custom exercise no plan holds, but a lift stores no flag saying custom or removed
+   catalog id, so a removed catalog version a held workout used also reads as a Custom row. How often a version is removed
+   is not known (not checked); the clean fix is a field on the lift at write time (081's builder). Not built: shared stored shape.
+6. *The newest `WORKOUTS_ON_PHONE_MIN` query can return `deleted` markers* (086 not built), which count toward the minimum and are
+   not held: the window could hold a few fewer than the minimum. Harmless; noted for 086.
+7. *Test time zone.* `process.env.TZ` set inside a test does not reach `Date` under Jest (caught by a guard assertion; the
+   machine is IST). `src/test/globalSetup.js` pins the whole suite to Los Angeles unless `TZ` is set (a one-line `jest.config.js`
+   change, outside the ticket's files; the full suite passes under Los Angeles and UTC alike).
 
 **Dependencies:** TICKET-087 and 081 (the `lifts` shape and validation).
 
@@ -10394,7 +10433,7 @@ old data often, so hold the newest workouts and fetch the rest (2 workouts a day
    did) and **C** (B's offline reach at 1.4x B's bytes and 9x its first-load reads, and a third copy of the
    sets). **Revisit if** the window's local reads turn out never to be used: then A is the smaller shape, and
    going back means putting `exercise_sessions` back.
-2. **The held window.** The phone holds the records of the newest whole months until at least `WORKOUTS_HELD_MIN`
+2. **The held window.** The phone holds the records of the newest whole months until at least `WORKOUTS_ON_PHONE_MIN`
    workouts (180: the user's 2 a day for 90 days), saved one shard per UTC start month with the TICKET-076 head key.
    The month is defined once for the window: it is cut at the start of the phone's local month, the one the
    month rows use. A shard is storage only, so the oldest held shard can hold a few workouts before the cut (a

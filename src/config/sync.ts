@@ -43,6 +43,22 @@ export const PLANS_CHECK_WAIT_MS = 10_000;
 export const WORKOUTS_PER_PLAN = 5;
 
 /**
+ * How many workouts the phone keeps at least (TICKET-082, decided in TICKET-087).
+ * It keeps whole months, newest first, until it has this many, so the number
+ * floats up by the last month it takes. What it feeds: the Workouts list, its
+ * month rows, the filter counts and a recent month opened offline. Sized for
+ * the busiest user the ticket named, two workouts a day for three months.
+ * Not everything: a copy of every workout grows with history, a new phone reads
+ * all of it, and it reaches Android's database cap at about a thousand workouts.
+ * Older months are fetched when asked (`getWorkoutsOfMonth`) and not kept.
+ *
+ * Changes stored data only at the next trim: a copy built with another value
+ * is read as it is, and the next Finish or first load applies the new one.
+ * Raising it fetches nothing by itself.
+ */
+export const WORKOUTS_ON_PHONE_MIN = 180;
+
+/**
  * The workouts' check skip and wait: the plans' values (D4, D9), own names so
  * either can be tuned alone. One hub → Start → Manage visit costs one check.
  */

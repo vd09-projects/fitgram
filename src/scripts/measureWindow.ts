@@ -27,7 +27,7 @@ import path from "path";
 import { buildShapes, generateFixture, monthKey, type Shapes } from "./historyFixtures";
 import { firestoreBytes } from "./docSize";
 import { kb, mb, median, ms, openDb, timed } from "./benchSupport";
-import { selectHeldMonths } from "./heldWindow";
+import { chooseMonthsToKeep } from "../utils/monthWindow";
 import { STATS_RECENT_SESSION_CAP } from "../config/storedData";
 
 /** Workouts on the server: a few months and a few years of the busy user. */
@@ -48,7 +48,7 @@ async function measure(total: number, windowSize: number, dir: string) {
 
   const months = new Map<string, number[]>();
   shapes.a.forEach((r, i) => months.set(monthKey(r.startedAt), [...(months.get(monthKey(r.startedAt)) ?? []), i]));
-  const { held: heldMonths, older: oldMonths } = selectHeldMonths(new Map([...months].map(([k, idx]) => [k, idx.length])), windowSize);
+  const { keptMonths: heldMonths, olderMonths: oldMonths } = chooseMonthsToKeep(new Map([...months].map(([k, idx]) => [k, idx.length])), windowSize);
   const monthKeys = [...months.keys()].sort().reverse();
 
   const shardOf = (shape: "a" | "b" | "c", k: string): string => {

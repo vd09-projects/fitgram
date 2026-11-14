@@ -163,3 +163,37 @@ Setup that worked (TICKET-081, `pinky`, Pixel_9_Pro_XL, `emulator-5554`):
 - Emulator: T1 online Freestyle, T2 swap + added on "Test 070", T3 offline then
   reconnect, 0 mismatches after each; cleaned up. Not tested: late upload on a
   device, phase 2 failing after phase 1, phase 2 latency, server write count.
+
+### TICKET-082 stage 1 (held window, pure layer)
+- **[run] A guard assertion caught a test that could not test.** The boundary tests set
+  `process.env.TZ` in the test file; the guard (`getTimezoneOffset()` is the expected
+  480) failed on the first run: Jest's sandbox copies `process.env`, so `Date` never saw
+  it, and the machine's own zone (IST) was in force. Without the guard every
+  local-vs-UTC test would have passed or failed by the developer's location. Fix: a
+  `globalSetup` pin. Any test that depends on an environment fact should assert the fact first.
+- **[run] A negative assertion passed against broken code.** "A late upload from a month
+  not held is not held" stayed green with the cut filter removed, because the month trim
+  dropped the workout anyway (minimum 2, October already held 2). Found by mutating each
+  rule in a throwaway worktree; fixed by setting the minimum above what October holds,
+  so only the cut keeps it out, then seen red. Mutation-check every "not held / not
+  called" test; they are the ones that lie.
+- **[run] Mutations seen red (7):** cut at UTC month start (4 red), local month key as UTC
+  (1), never drop the oldest month (1), marker not dropped (2), label from the oldest
+  snapshot (1), late upload kept (1, after the fix), no `lifts[].name` fallback (1).
+- **[read] The ticket's claim was backwards.** 082 said the oldest shard can hold workouts
+  before the cut. Reading the first-load queries showed it holds none; it is the oldest
+  shard that may hold only part of its UTC month. Written down as a deviation, pinned by a test.
+- **[read] "The readers keep working" hid a behaviour change.** Per-plan loading gave a
+  rarely-done plan its last date at any age; a window by time does not. Found by tracing
+  what `hubTileFace` does with a plan with no held session, before writing the store.
+- **[run] Read-only run on a real account for an index claim.** Both first-load queries
+  and a month-range query ran against `pinky` with the admin SDK: no
+  FAILED_PRECONDITION, and the two first-load answers together equal the docs at or after the cut (14 of 14).
+  Cost: a 20-line scratch script, 3 queries plus one full read of 15 docs.
+- **[waste] One jest timeout:** `setTimeout` inside a test under `jest.useFakeTimers()`
+  (the suite's setup) never fires. Use `waitFor` on the observable instead.
+- **[waste] A mechanical rename needs a read-through.** A word-boundary replace of
+  `heldWorkouts` also renamed an output property in a script, and `cut` became
+  `windowStart` inside sentences ("windowStart back to the window"). tsc found the first
+  (one test property), reading found the second. Rewrite the prose of a renamed
+  module by hand; run tsc and the suite after.

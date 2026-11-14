@@ -145,9 +145,9 @@ const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
 
 /** The fields readers and merges use. Anything else in the doc is carried, not checked. */
-const isSession = (value: unknown): value is WorkoutSessionDoc => {
+export const isSession = (value: unknown): value is WorkoutSessionDoc => {
   if (typeof value !== "object" || value === null) return false;
-  const { sessionId, workoutId, startedAt, endedAt, exerciseIds, lifts, note, updatedAt } = value as Partial<WorkoutSessionDoc>;
+  const { sessionId, workoutId, startedAt, endedAt, exerciseIds, lifts, note, deleted, updatedAt } = value as Partial<WorkoutSessionDoc>;
   return (
     typeof sessionId === "string" &&
     typeof workoutId === "string" &&
@@ -156,6 +156,7 @@ const isSession = (value: unknown): value is WorkoutSessionDoc => {
     isStringArray(exerciseIds) &&
     readLifts(lifts) !== null &&
     (note === undefined || typeof note === "string") &&
+    (deleted === undefined || deleted === true) &&
     (updatedAt === undefined || isStamp(updatedAt))
   );
 };
