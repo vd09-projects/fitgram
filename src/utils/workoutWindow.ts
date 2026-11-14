@@ -191,9 +191,13 @@ export function addToWindow(current: WorkoutWindow, incoming: readonly WorkoutSe
       if (floorDoc && floorDoc.sessionId === session.sessionId && compareStamps(session.updatedAt, floorDoc.updatedAt) >= 0) {
         // The plan's newest workout is gone. Every workout since `windowStart` is in the window and
         // anything the window left out is older than all of them, so the plan's newest remaining
-        // workout in the window is its new newest, with no read. A plan with none there is not
+        // workout in the window is its new newest, with no read. Only a workout since `windowStart`
+        // counts: one in this same batch from before it (a late upload) is not the plan's newest,
+        // a newer one may sit in a month the phone does not hold. A plan with none there is not
         // looked up, and the lookup finds its next newest (`getLastWorkoutOfPlan` skips markers).
-        const next = [...byId.values()].filter((s) => s.workoutId === session.workoutId).sort(compareSessions)[0];
+        const next = [...byId.values()]
+          .filter((s) => s.workoutId === session.workoutId && (current.windowStart === null || s.startedAt >= current.windowStart))
+          .sort(compareSessions)[0];
         if (next) lastByPlan[session.workoutId] = next;
         else delete lastByPlan[session.workoutId];
       }

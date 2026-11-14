@@ -225,12 +225,22 @@ describe("the floor: the newest workout of each plan, apart from the months", ()
   });
 
   it("a deleted marker for a plan's newest workout makes the plan's next newest in the window its entry, with no lookup", () => {
-    const newest = push("p-new", "2026-10-10T10:00:00Z");
-    const w0 = windowOf([newest, push("p-old", "2026-10-05T10:00:00Z")], OCT, { push: newest });
+    const newest = push("p-new", "2026-10-20T10:00:00Z");
+    const mid = push("p-mid", "2026-10-10T10:00:00Z");
+    const w0 = windowOf([newest, mid, push("p-old", "2026-10-05T10:00:00Z"), legs("l-other", "2026-10-25T10:00:00Z")], OCT, { push: newest });
     const w = addToWindow(w0, [{ ...newest, deleted: true, updatedAt: { seconds: 9, nanoseconds: 0 } }], 10);
-    expect(ids(w)).toEqual(["p-old"]);
-    expect(w.lastByPlan.push!.sessionId).toBe("p-old");
+    expect(w.lastByPlan.push!.sessionId).toBe("p-mid"); // the second newest of the plan, not the oldest, and not another plan's
     expect(plansToLookUp(w, ["push"])).toEqual([]);
+  });
+
+  it("a late upload from before the window, in the same batch as the marker, is not taken for the plan's newest", () => {
+    const newest = push("p-new", "2026-10-20T10:00:00Z");
+    const w0 = windowOf([newest, legs("l-other", "2026-10-25T10:00:00Z")], OCT, { push: newest });
+    const late = push("p-late", "2026-01-05T10:00:00Z"); // older than the window's start; the plan's real newest may be a month the phone does not hold
+    const w = addToWindow(w0, [late, { ...newest, deleted: true, updatedAt: { seconds: 9, nanoseconds: 0 } }], 10);
+    expect("push" in w.lastByPlan).toBe(false);
+    expect(plansToLookUp(w, ["push"])).toEqual(["push"]);
+    expect(ids(w)).toEqual(["l-other"]);
   });
 
   it("a floor doc never appears in a month, a count or a plan filter", () => {

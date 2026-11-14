@@ -367,3 +367,29 @@ Finish on the test plan; kill and airplane-mode cold start; the picker's recents
 - **[waste] A scratch script outside the repo could not import `firebase-admin`** (module resolution, as noted
   before); it ran once copied into `src/scripts/` and was deleted. Check `git status` for the temp file at the
   end of the run.
+
+### TICKET-082, handling pass 2 of the PR review (2026-11-15)
+- **[read] A fix for a case nothing can produce yet was paid for by every real run.** The lookup read 3 docs
+  per plan to step past markers, so each idle plan's first load cost up to 3 reads, while the test mocked one
+  doc per call and the readout billed 1. Neither the mock nor the readout could show it. For a rule about data
+  that does not exist yet, make the common path cost what it did before and charge only the rare path.
+- **[run] The mock hid the cost because nothing asserted on the query.** Mutating the page size from 1 to 3
+  left the old tests green; the new test asserts `limit` was called with 1, and went red when the size was
+  changed. If a test mocks the query builder, assert what it was asked for, not only what it answered.
+- **[run] A cursor test must check the cursor, not the order of the answers.** The old paging test served
+  pages in order, so removing `startAfter` stayed green. The new one asserts each `startAfter` receives the
+  marker before it.
+- **[read] A rule that holds for the window held for the batch only if the batch was filtered the same way.** The
+  marker rule picked a plan's next newest from the window plus the batch, before the window cut applied; a late
+  upload from before the cut in the same batch could be taken for the newest. Found by a reviewer tracing the
+  order of two steps. Test it with the late upload and the marker in the same call, and with a second plan and a
+  third session so the plan filter and the sort are both exercised (the first test had one plan and two
+  sessions, so mutating either stayed green).
+- **[run] Mutation testing found three guards in a helper nobody tested:** the timer cleared on settle, the
+  timer ignoring a sign-out, and the clock. Each needed a test that advances the clock after the event
+  (after settle, after sign-out), not only before it.
+- **[run] Setting the clock back needed `jest.setSystemTime`:** with fake timers it moves `Date.now()`, and the
+  test showed a refused key stayed refused until the clock caught up, which the fix removes.
+- **[waste] One mutation did nothing:** the search text matched, the test stayed green, and I nearly read it as
+  a passing guard. The `limitFn(1)` text appears twice in the file (a second query uses it), so my "once"
+  assertion on a longer string had failed before any change. Count occurrences before mutating.

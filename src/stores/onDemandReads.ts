@@ -51,7 +51,11 @@ export function createOnDemandReads<Ready extends { status: "ready" }>({ waitMs,
 
   return async function ask(key: string, { current, setState, isCurrent, read }: OnDemandAsk<Ready>): Promise<void> {
     if (current?.status === "ready" || (current?.status === "loading" && !current.waitOver)) return;
-    if ((current?.status === "offline" || current?.status === "failed") && Date.now() - (refusedAt.get(key) ?? 0) < retryGapMs) return;
+    if (current?.status === "offline" || current?.status === "failed") {
+      // A clock set back since the refusal makes the difference negative: that is not "inside the gap".
+      const sinceRefusal = Date.now() - (refusedAt.get(key) ?? 0);
+      if (sinceRefusal >= 0 && sinceRefusal < retryGapMs) return;
+    }
 
     const attempt = (attempts.get(key) ?? 0) + 1;
     attempts.set(key, attempt);

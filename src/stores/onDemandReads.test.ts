@@ -67,6 +67,23 @@ describe("a read that outlasts its wait", () => {
   });
 });
 
+describe("the wait timer", () => {
+  it("does not overwrite an answer that landed before the wait was over", async () => {
+    const { call, states } = setup();
+    await call("k", async () => ready("quick"));
+    jest.advanceTimersByTime(WAIT * 2);
+    expect(states.get("k")).toEqual(ready("quick"));
+  });
+
+  it("does not write into the state after a sign-out", () => {
+    const { call, states, signOut } = setup();
+    void call("k", never);
+    signOut();
+    jest.advanceTimersByTime(WAIT);
+    expect(states.get("k")).toEqual({ status: "loading", waitOver: false });
+  });
+});
+
 describe("a refusal", () => {
   it("is offline for Firestore's unavailable and failed for anything else", async () => {
     const { call, states } = setup();
@@ -88,6 +105,17 @@ describe("a refusal", () => {
     expect(read).toHaveBeenCalledTimes(2);
     expect(states.get("k")).toEqual(ready("ok"));
   });
+});
+
+it("a clock set back after a refusal does not keep the key refused until it catches up", async () => {
+  const { call, states } = setup();
+  const read = jest.fn(async (): Promise<Ready> => { throw new Error("denied"); });
+  await call("k", read);
+  jest.setSystemTime(Date.now() - 60_000);
+  read.mockResolvedValueOnce(ready("ok"));
+  await call("k", read);
+  expect(read).toHaveBeenCalledTimes(2);
+  expect(states.get("k")).toEqual(ready("ok"));
 });
 
 it("an answer that lands after a sign-out is dropped", async () => {
