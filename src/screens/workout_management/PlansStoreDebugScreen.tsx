@@ -34,11 +34,12 @@
 // (or skips) again, and the log shows it.
 //
 // The recent workouts store (TICKET-075) has its own section under the plans
-// (`WorkoutsSection`): per plan, the workouts held and the newest date;
-// `lastSeen`; each check with its queries and docs; and the reads Firestore
+// (`WorkoutsSection`): the window (workouts, months, where it starts) and each
+// plan's newest workout (the floor); `lastSeen`; each check with its queries and docs; and the reads Firestore
 // bills this app run, which is the ticket's measure (a query that returns
 // nothing bills 1). Remove with the page: the section, and in
-// useRecentWorkoutsStore the `billedReads` field and `bill` (marked "debug readout").
+// useRecentWorkoutsStore the `billedReads` field and `bill`, and `lastSaveMs` with the line that sets
+// it (each marked "debug readout"); the "Last save" row reads `lastSaveMs`.
 //
 // TEMPORARY: `SummariesSection` (TICKET-076, CLAUDE.md 3.3): the exercise
 // summaries store's held count, `lastSeen`, last full load, last checks and
@@ -56,6 +57,7 @@ import { usePlansStore } from "../../stores/usePlansStore";
 import { useRecentWorkoutsStore } from "../../stores/useRecentWorkoutsStore";
 import { useExerciseHistoryStore } from "../../stores/useExerciseHistoryStore";
 import { FREESTYLE_ID } from "../../constants/freestyle";
+import { localMonthKey } from "../../utils/monthWindow";
 import type { PlanStamp } from "../../types/workoutType";
 import { storedSummariesKeys } from "../../utils/exerciseSummariesSync";
 import { BORDER_RADIUS, SPACING } from "../../constants/styles";
@@ -66,7 +68,7 @@ import {
   EXERCISE_SUMMARIES_SHARDS,
   PLANS_CHECK_SKIP_MS,
   WORKOUTS_CHECK_SKIP_MS,
-  WORKOUTS_PER_PLAN,
+  WORKOUTS_ON_PHONE_MIN,
 } from "../../config/sync";
 import { EXERCISE_SUMMARIES_STORAGE_KEY, PLANS_STORAGE_KEY, WORKOUTS_STORAGE_KEY } from "../../config/storageKeys";
 
@@ -175,18 +177,63 @@ async function readWorkoutsDisk(): Promise<string> {
     const raw = await AsyncStorage.getItem(WORKOUTS_STORAGE_KEY);
     if (raw === null) return "key absent";
     const parsed = JSON.parse(raw);
-    const plans = parsed?.byPlan ? Object.keys(parsed.byPlan).length : "?";
-    return `${plans} plans · N ${parsed?.n} · format ${parsed?.formatVersion} · user ${String(parsed?.uid).slice(0, 6)} · ${raw.length} chars`;
+    const shards: string[] = Array.isArray(parsed?.shards) ? parsed.shards : [];
+    const rows = await AsyncStorage.multiGet(shards.map((month) => `${WORKOUTS_STORAGE_KEY}.${month}`));
+    const chars = rows.reduce((sum, [, value]) => sum + (value?.length ?? 0), raw.length);
+    return `${shards.length} shards · ${Object.keys(parsed?.lastByPlan ?? {}).length} plans looked up · format ${parsed?.formatVersion} · user ${String(parsed?.uid).slice(0, 6)} · ${chars} chars`;
   } catch (error) {
     return `unreadable: ${error instanceof Error ? error.message : String(error)}`;
   }
 }
 
-/** The recent workouts store (TICKET-075). Same buttons and log as the plans, for this store. */
+const windowMonths = (sessions: readonly { startedAt: number }[]) => new Set(sessions.map((s) => localMonthKey(s.startedAt))).size;
+
+/**
+ * TEMPORARY (TICKET-082 stage 3, CLAUDE.md 3.3): how long this phone takes to save and read back a copy the
+ * size of a full window (the proof's fixtures: a head and four shards), under keys of its own, with the
+ * JSON work the real copy needs: building and stringifying records of the app's shape before the save, and
+ * parsing after the read. What it leaves out: `isSession` validation of every record and `readLifts`, which
+ * the real restart also runs. Phone storage only: nothing is sent anywhere and the real saved copy is
+ * untouched; its keys are removed even when a step throws. Remove: this function, `PROBE_SHARD_BYTES`,
+ * `probeRecord`, the `probe` state, the "Probe" row and the button in `WorkoutsSection`.
+ */
+const PROBE_SHARD_BYTES = [19_000, 286_000, 286_000, 286_000, 120_000];
+const probeRecord = () => ({
+  sessionId: "probe",
+  lifts: Array.from({ length: 8 }, (_, i) => ({
+    id: `exercise_${i}__machine`,
+    name: `Exercise ${i}`,
+    sets: Array.from({ length: 5 }, (_set, n) => ({ id: n + 1, segments: [{ Weight: 30, Reps: 8 }] })),
+  })),
+});
+async function timeWindowSizedCopy(): Promise<string> {
+  const keys = PROBE_SHARD_BYTES.map((_, i) => `debugTimingProbe.${i}`);
+  const oneRecord = JSON.stringify(probeRecord()).length;
+  try {
+    const t0 = Date.now();
+    const rows = keys.map((key, i): [string, string] => [key, JSON.stringify(Array.from({ length: Math.ceil(PROBE_SHARD_BYTES[i] / oneRecord) }, probeRecord))]);
+    const t1 = Date.now();
+    await AsyncStorage.multiSet(rows);
+    const t2 = Date.now();
+    const read = await AsyncStorage.multiGet(keys);
+    const t3 = Date.now();
+    read.forEach(([, value]) => JSON.parse(value ?? "[]"));
+    const t4 = Date.now();
+    await AsyncStorage.multiSet(rows.slice(0, 2)); // what a Finish would rewrite if only changed shards were saved
+    const t5 = Date.now();
+    const bytes = rows.reduce((total, [, value]) => total + value.length, 0);
+    return `whole copy (${(bytes / 1e6).toFixed(2)} MB, ${keys.length} keys): stringify ${t1 - t0} ms · save ${t2 - t1} ms · read ${t3 - t2} ms · parse ${t4 - t3} ms · head + one shard save ${t5 - t4} ms (no validation)`;
+  } finally {
+    await AsyncStorage.multiRemove(keys);
+  }
+}
+
+/** The recent workouts store (TICKET-075, TICKET-082). Same buttons and log as the plans, for this store. */
 function WorkoutsSection({ planNames }: { planNames: Map<string, string> }) {
   const { styles } = useThemeStyles(createStyles);
   const w = useRecentWorkoutsStore();
   const [disk, setDisk] = useState("…");
+  const [probe, setProbe] = useState("not run"); // TEMPORARY, see `timeWindowSizedCopy`
   const refreshDisk = useCallback(() => {
     readWorkoutsDisk().then(setDisk);
   }, []);
@@ -194,11 +241,21 @@ function WorkoutsSection({ planNames }: { planNames: Map<string, string> }) {
   React.useEffect(() => {
     const timer = setTimeout(refreshDisk, 300);
     return () => clearTimeout(timer);
-  }, [w.byPlan, w.uid, refreshDisk]);
+  }, [w.workoutWindow, w.uid, refreshDisk]);
 
   const rows: [string, string][] = [
-    ["Holds", w.byPlan === null ? "nothing (readers say last session unknown)" : `${Object.keys(w.byPlan).length} plans · newest ${WORKOUTS_PER_PLAN} each · ${w.loaded.length} loaded`],
+    [
+      "Holds",
+      w.workoutWindow === null
+        ? "nothing (readers say last session unknown)"
+        : `${w.workoutWindow.sessions.length} workouts in the window (at least ${WORKOUTS_ON_PHONE_MIN}) · ${windowMonths(w.workoutWindow.sessions)} months · ${
+            w.workoutWindow.windowStart === null ? "the whole history" : `from ${new Date(w.workoutWindow.windowStart).toLocaleDateString()}`
+          } · ${Object.keys(w.workoutWindow.lastByPlan).length} plans looked up`,
+    ],
     ["On disk", disk],
+    ["Probe", probe], // TEMPORARY, see `timeWindowSizedCopy`
+    ["Last save", w.lastSaveMs === null ? "none this app run" : `${w.lastSaveMs} ms for the whole copy`],
+    ["Older months", Object.keys(w.olderMonths).length === 0 ? "none asked for" : Object.entries(w.olderMonths).map(([month, state]) => `${month}: ${state.status === "ready" ? `${state.sessions.length} workouts` : state.status === "loading" ? (state.waitOver ? "loading, wait over" : "loading") : `${state.status} (${state.error})`}`).join(" · ")],
     ["Check", w.checking ? (w.waitOver ? "running, wait over" : "running") : "idle"],
     ["Last result", w.lastResult ?? "none"],
     ["Last ok", w.lastOkAt ? `${time(w.lastOkAt)} · checks skipped until ${time(w.lastOkAt + WORKOUTS_CHECK_SKIP_MS)}` : "never"],
@@ -230,6 +287,14 @@ function WorkoutsSection({ planNames }: { planNames: Map<string, string> }) {
       {button("Workouts: force check now", () => useRecentWorkoutsStore.getState().check({ force: true }))}
       {button("Workouts: expire the skip", () => useRecentWorkoutsStore.setState({ lastOkAt: null }))}
       {button("Workouts: full reload now", () => useRecentWorkoutsStore.getState().check({ force: true, full: true }))}
+      {button("Workouts: load the month before the window", () => {
+        const start = useRecentWorkoutsStore.getState().workoutWindow?.windowStart;
+        if (start) void useRecentWorkoutsStore.getState().loadMonth(localMonthKey(start - 1));
+      })}
+      {button("TEMPORARY: time a window-sized save and read", () => {
+        setProbe("running…");
+        timeWindowSizedCopy().then(setProbe, (error) => setProbe(`failed: ${String(error)}`));
+      })}
       {button("Workouts: zero the read counters", () =>
         useRecentWorkoutsStore.setState({ billedReads: 0, readout: { reads: 0, log: [] } })
       )}
@@ -247,12 +312,11 @@ function WorkoutsSection({ planNames }: { planNames: Map<string, string> }) {
         ))
       )}
 
-      <TextBase style={styles.section}>Workouts held, per plan</TextBase>
-      {Object.entries(w.byPlan ?? {}).map(([planId, sessions]) => (
+      <TextBase style={styles.section}>Each plan's newest workout (the floor)</TextBase>
+      {Object.entries(w.workoutWindow?.lastByPlan ?? {}).map(([planId, newest]) => (
         <TextBase key={planId} style={styles.line}>
-          {planId === FREESTYLE_ID ? "Freestyle" : (planNames.get(planId) ?? `${planId} (not a held plan)`)} · {sessions.length} held
-          {sessions[0] ? ` · newest ${new Date(sessions[0].startedAt).toLocaleString()}` : " · never done"}
-          {sessions.some((session) => !session.updatedAt) ? ` · ${sessions.filter((session) => !session.updatedAt).length} unstamped` : ""}
+          {planId === FREESTYLE_ID ? "Freestyle" : (planNames.get(planId) ?? `${planId} (not a held plan)`)}
+          {newest ? ` · ${new Date(newest.startedAt).toLocaleString()}${newest.updatedAt ? "" : " · unstamped"}` : " · never done"}
         </TextBase>
       ))}
     </>

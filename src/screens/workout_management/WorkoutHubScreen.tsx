@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AppState, StyleSheet, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useAuthUser } from "../../hooks/useAuthUser";
-import { useRecentWorkouts } from "../../hooks/useRecentWorkouts";
+import { useLastDoneUnknown, useRecentWorkouts } from "../../hooks/useRecentWorkouts";
 import { useWorkoutPlansOnFocus } from "../../hooks/useWorkoutPlansOnFocus";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
 import { SPACING } from "../../constants/styles";
@@ -66,11 +66,11 @@ export default function WorkoutHubScreen() {
 
   const { workoutPlans, loadingWorkoutPlans, failedToLoad, retry } = useWorkoutPlansOnFocus();
   const sessions = useRecentWorkouts(uid);
-  const sessionsKnown = sessions !== null;
+  const lastDoneUnknown = useLastDoneUnknown(uid, workoutPlans);
 
   const rows = useMemo(
-    () => buildPlanRows(workoutPlans, sessions, pendingUploads, uid, ""),
-    [workoutPlans, sessions, pendingUploads, uid]
+    () => buildPlanRows(workoutPlans, sessions, pendingUploads, uid, "", lastDoneUnknown),
+    [workoutPlans, sessions, pendingUploads, uid, lastDoneUnknown]
   );
   const tiles = useMemo(() => chooseHubTiles(rows), [rows]);
 
@@ -151,7 +151,6 @@ export default function WorkoutHubScreen() {
     <HubTile
       key={row.id}
       row={row}
-      sessionsKnown={sessionsKnown}
       now={now}
       running={activeWorkout?.id === row.id ? { startTime: activeWorkout.startTime, setsLogged } : null}
       onPress={() => setSelectedId(row.id)}
@@ -236,7 +235,6 @@ export default function WorkoutHubScreen() {
       <PlanCard
         plan={selectedPlan}
         row={selectedRow}
-        sessionsKnown={sessionsKnown}
         onClose={() => setSelectedId(null)}
       />
       <FreestyleBlockedCard

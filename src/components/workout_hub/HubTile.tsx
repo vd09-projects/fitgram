@@ -11,8 +11,6 @@ import { formatElapsed } from "../../utils/workoutProgress";
 
 type Props = {
   row: PlanRow;
-  /** False while no recent workouts are held: not loaded yet, or the first load failed (`hubTileFace`). */
-  sessionsKnown: boolean;
   /** The screen's clock, read on focus: days since are counted from it. */
   now: number;
   /** Set when this tile's plan is the running workout. */
@@ -29,9 +27,9 @@ type Props = {
  * Type sizes: name 15 → medium (row title), number 24–28 → xLarge, caption
  * 11 → small.
  */
-export function HubTile({ row, sessionsKnown, now, running, onPress }: Props) {
+export function HubTile({ row, now, running, onPress }: Props) {
   const { styles } = useThemeStyles(createStyles);
-  const face = hubTileFace(row, sessionsKnown, now);
+  const face = hubTileFace(row, now);
   return (
     <TouchableOpacity
       style={[styles.tile, running && styles.tileRunning]}

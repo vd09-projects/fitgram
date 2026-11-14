@@ -35,21 +35,27 @@ export const PLANS_FORMAT_VERSION = 3;
 // --- Recent workouts (useRecentWorkoutsStore, TICKET-075) ---
 
 /**
- * AsyncStorage key of the recent workouts: the newest `WORKOUTS_PER_PLAN` per
- * plan. ACCOUNT DATA: cleared on sign-out. One key with the user id inside,
- * as the plans' (`PLANS_STORAGE_KEY`).
+ * AsyncStorage key of the recent workouts' head: format, user id, the window's
+ * windowStart and the check times. ACCOUNT DATA: cleared on sign-out. One head key with
+ * the user id inside, as the plans' (`PLANS_STORAGE_KEY`). The workouts
+ * themselves are in one key per UTC start month (`workoutsShardKey`), listed
+ * in the head, so a Finish rewrites one shard and the head. Sign-out removes
+ * every key with this prefix, so a shard the head no longer lists goes too.
  */
 export const WORKOUTS_STORAGE_KEY = "recentWorkouts";
+export const workoutsShardKey = (utcMonth: string) => `${WORKOUTS_STORAGE_KEY}.${utcMonth}`;
 
 /**
- * Format of the stored recent workouts, written inside the value. Bump it when
- * `StoredWorkouts` (utils/workoutsSync.ts) or the session shape it holds
- * changes. `WORKOUTS_PER_PLAN` is not part of it: the copy records its own N.
+ * Format of the stored recent workouts, written in the head. Bump it when
+ * `StoredWorkoutsHead` (utils/workoutWindow.ts) or the session shape it holds
+ * changes. The first format held the newest N per plan in one key; the current one
+ * (TICKET-082) holds whole months in shards. A copy of an older format is discarded
+ * and refilled.
  *
  * Changes stored data: bumping it discards every phone's stored workouts on
- * the next launch; each refills with one first load (up to N reads per plan, plus 1).
+ * the next launch; each refills with one first load (`WORKOUTS_ON_PHONE_MIN` reads, rounded up to a month).
  */
-export const WORKOUTS_FORMAT_VERSION = 1;
+export const WORKOUTS_FORMAT_VERSION = 2;
 
 // --- Exercise summaries (useExerciseHistoryStore, TICKET-076) ---
 

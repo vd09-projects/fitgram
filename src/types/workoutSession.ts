@@ -166,7 +166,7 @@ export type WorkoutSessionDoc = {
   workoutName: string;
   startedAt: number;
   endedAt: number;
-  /** Derived from `lifts`, in order: what `recents`, `freestyleHistory` and the held copy's validator read. */
+  /** Derived from `lifts`, in order: what `recents`, `freestyleHistory` and the saved workouts' validator read. */
   exerciseIds: string[];
   /**
    * Every lift with sets, in workout order (TICKET-081). Written in two phases
@@ -182,6 +182,12 @@ export type WorkoutSessionDoc = {
    * data (CLAUDE.md 2.4).
    */
   liftsUnreadable?: true;
+  /**
+   * A deleted workout's marker (TICKET-086 writes it; the rule is TICKET-032's): the doc stays,
+   * with a server stamp, so a change check on another phone can see the delete. Workouts on the phone
+   * drop a marked doc (`addToWindow`) and never save one.
+   */
+  deleted?: true;
   /** The workout's note, written by the Session screen (TICKET-083), never by Finish. */
   note?: string;
   /**

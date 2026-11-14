@@ -15,6 +15,8 @@ module.exports = {
   transform: {
     "\\.mjs$": ["babel-jest", { caller: { name: "metro", bundler: "metro", platform: "ios" } }],
   },
+  // Pins the time zone for every test (see the file for why).
+  globalSetup: "./src/test/globalSetup.js",
   setupFilesAfterEnv: ["./src/test/jest.setup.ts"],
   // Tests sit next to the code they cover. `src/scripts/` holds hand-run
   // scripts; only their I/O-free cores have suites (wipe.test.ts).

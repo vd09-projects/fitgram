@@ -4,8 +4,8 @@ import { partsToString } from "./startWorkout";
 const at = (day: number, hour: number, minute = 0) => new Date(2026, 10, day, hour, minute).getTime();
 const NOW = at(20, 8);
 
-const header = (lastDoneAt: number | null, lastEndedAt: number | null, exerciseCount = 6, sessionsKnown = true) => {
-  const h = planCardHeader({ exerciseCount, lastDoneAt, lastEndedAt }, sessionsKnown, NOW);
+const header = (lastDoneAt: number | null, lastEndedAt: number | null, exerciseCount = 6, lastDoneKnown = true) => {
+  const h = planCardHeader({ exerciseCount, lastDoneAt, lastEndedAt, lastDoneKnown }, NOW);
   return {
     big: partsToString(h.big),
     caption: h.caption,

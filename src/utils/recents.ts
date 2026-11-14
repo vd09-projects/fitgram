@@ -6,7 +6,7 @@
 // this phone and not uploaded yet. No read of its own.
 
 import type { Movement, MovementVersion } from "../types/catalog";
-import type { WorkoutSessionDoc } from "../types/workoutSession";
+import type { LiftRecord, WorkoutSessionDoc } from "../types/workoutSession";
 import type { Exercise } from "../types/workoutType";
 import type { PendingUpload } from "../types/zustandWorkoutType";
 import type { CatalogIndex } from "./catalog";
@@ -38,22 +38,25 @@ export type RecentHistory = {
  * versions of one movement in the same session (bench and close-grip bench):
  * the first one listed wins; either was used that day.
  *
- * **KNOWN GAP: only as deep as `sessions`**, the newest `WORKOUTS_PER_PLAN`
- * (5) uploaded sessions of each plan (TICKET-075; it was the newest 20 across
- * all plans). A movement last logged before them is not recent and its sheet
- * preselects nothing: one dropped from a plan more than 5 workouts ago, or
- * logged only in a Freestyle older than the last 5. Accepted for the MVP (user,
- * 2026-10-27, D0); `exercise_stats` ordered by `lastPerformedAt` is the
+ * **KNOWN GAP: only as deep as `sessions`**, the months on the phone (TICKET-082; it was
+ * the newest 5 of each plan, TICKET-075). A movement last logged before them is
+ * not recent and its sheet preselects nothing: one not used in those months.
+ * Accepted for the MVP (user, 2026-10-27, D0); `exercise_stats` ordered by `lastPerformedAt` is the
  * deeper source if it matters.
  *
  * `sessions === null` (the query has not returned, or failed) gives null,
  * pending workouts included, like `buildPlanRows`: a pending workout alone
  * would pass itself off as the whole history (user, 2026-10-27).
  *
- * Skipped: ids no longer in the catalog (no sheet to open, nothing to add),
- * and custom exercises no plan holds any more (session docs carry ids only, so
- * there is no name without a read). A custom exercise a plan holds is a
- * recent row of its own (D5).
+ * Skipped: ids no longer in the catalog that no plan holds and no workout
+ * named. A custom exercise a plan holds is a recent row of its own (D5); one no
+ * plan holds any more is named by the workout that logged it (`lifts[].name`,
+ * TICKET-082), with the fields it was logged with.
+ *
+ * Known gap: a lift cannot say whether its id was a custom exercise or a catalog
+ * version removed since (neither stores a flag), so a removed catalog version
+ * that a workout on the phone used also reads as a Custom row, under its logged name.
+ * The fix is a field on the lift at write time; raised in TICKET-082, not built.
  */
 export function buildRecentHistory(
   sessions: readonly WorkoutSessionDoc[] | null,
@@ -64,15 +67,13 @@ export function buildRecentHistory(
 ): RecentHistory | null {
   if (sessions === null) return null;
 
-  const logged: Array<{ exerciseIds: readonly string[]; performedAt: number }> = sessions.map((s) => ({
-    exerciseIds: s.exerciseIds,
-    performedAt: s.startedAt,
-  }));
+  const logged: Array<{ exerciseIds: readonly string[]; lifts: ReadonlyArray<Pick<LiftRecord, "id" | "name" | "fields">>; performedAt: number }> =
+    sessions.map((s) => ({ exerciseIds: s.exerciseIds, lifts: s.lifts, performedAt: s.startedAt }));
   for (const entry of pendingUploads) {
     if (!uid || entry.uid !== uid) continue;
     // Same builder the upload uses, so an exercise with no sets is not "logged" here either.
     const { session } = buildSessionDocs(entry.workout, entry.endedAt);
-    logged.push({ exerciseIds: session.exerciseIds, performedAt: session.startedAt });
+    logged.push({ exerciseIds: session.exerciseIds, lifts: session.lifts, performedAt: session.startedAt });
   }
   // Stable sort: on a tie (one session both uploaded and still pending) either copy names the same ids.
   logged.sort((a, b) => b.performedAt - a.performedAt);
@@ -81,7 +82,8 @@ export function buildRecentHistory(
   const lastUsed = new Map<string, LastUsed>();
   const recents: RecentRow[] = [];
   const seenCustom = new Set<string>();
-  for (const { exerciseIds, performedAt } of logged) {
+  for (const { exerciseIds, lifts, performedAt } of logged) {
+    const liftById = new Map(lifts.map((lift) => [lift.id, lift]));
     for (const id of exerciseIds) {
       const entry = index.get(id);
       if (entry) {
@@ -91,8 +93,13 @@ export function buildRecentHistory(
         recents.push({ kind: "movement", ...last });
         continue;
       }
-      const custom = customById.get(id);
-      if (custom && !seenCustom.has(id)) {
+      if (seenCustom.has(id)) continue;
+      // A plan's own copy first; else the name the workout was logged under (`lifts[].name`, the
+      // newest session's, as sessions are newest first). A session whose `lifts` are unreadable
+      // names nothing, and its custom exercise is skipped: no name, no row (CLAUDE.md 2.4).
+      const lift = liftById.get(id);
+      const custom = customById.get(id) ?? (lift?.name.trim() ? { id, name: lift.name, fields: lift.fields } : undefined);
+      if (custom) {
         seenCustom.add(id);
         recents.push({ kind: "custom", exercise: custom, performedAt });
       }

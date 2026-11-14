@@ -43,6 +43,8 @@ import {
 } from "../../utils/exerciseStats";
 import { readLifts, withVerdicts } from "../../utils/liftRecord";
 import { toStamp, type SyncStamp } from "../../utils/syncCore";
+import { secondQueryStart } from "../../utils/workoutWindow";
+import { localMonthRange } from "../../utils/monthWindow";
 
 const USERS = tables.users.collection;
 const SESSIONS = tables.users.fields.sessions.collection;
@@ -302,22 +304,81 @@ export const getNewestSessionStamp = async (userId: string): Promise<SyncStamp |
 };
 
 /**
- * One plan's newest `count` sessions by `startedAt`, the first load's read
- * per plan. Uses the index `sessions (workoutId, startedAt desc)`. A plan never
- * done: no docs, billed 1 read.
+ * The workout window's first load (TICKET-082): two queries by `startedAt`.
+ * The newest `min` workouts; then, when `min` came back, the rest of the oldest
+ * of their local months, continuing after the first query's last doc, so the
+ * month is complete and two workouts with the same `startedAt` at the edge are
+ * neither lost nor read twice (`secondQueryStart`). `rest` is null when no
+ * second query ran: fewer than `min` came back, so the whole history is in
+ * `newest`. Both use the automatic single-field index on `startedAt` (a range
+ * and an order on one field); `firestore.indexes.json` needs no entry for them
+ * (checked read-only against a real account, TICKET-082).
  */
-export const getPlanSessionsFromServer = async (
+export const getWorkoutWindowFromServer = async (
   userId: string,
-  planId: string,
-  count: number
-): Promise<WorkoutSessionDoc[]> => {
+  min: number
+): Promise<{ newest: WorkoutSessionDoc[]; rest: WorkoutSessionDoc[] | null }> => {
   if (!userId) throw new Error("Missing user");
-  const snapshot = serverOnly(
+  const first = serverOnly(
+    await getDocsFromServer(query(sessionsRef(userId), orderBy("startedAt", "desc"), limitFn(min)))
+  );
+  const newest = first.docs.map(sessionFromDoc);
+  const from = secondQueryStart(newest, min);
+  if (from === null) return { newest, rest: null };
+  const second = serverOnly(
     await getDocsFromServer(
-      query(sessionsRef(userId), where("workoutId", "==", planId), orderBy("startedAt", "desc"), limitFn(count))
+      query(
+        sessionsRef(userId),
+        where("startedAt", ">=", from),
+        orderBy("startedAt", "desc"),
+        startAfter(first.docs[first.docs.length - 1])
+      )
     )
   );
-  return snapshot.docs.map(sessionFromDoc);
+  return { newest, rest: second.docs.map(sessionFromDoc) };
+};
+
+/**
+ * Every workout of one local month (`YYYY-MM`), newest first: how a month older than the window
+ * is shown, on tap (TICKET-082). The caller keeps it in memory only. A range and an order on
+ * `startedAt`: the automatic single-field index. `deleted` markers are left out (`docsRead` still counts them). Rejects when
+ * offline (`serverOnly`, `getDocsFromServer`); the store turns that into a state.
+ */
+export const getWorkoutsOfMonth = async (
+  userId: string,
+  month: string
+): Promise<{ sessions: WorkoutSessionDoc[]; docsRead: number }> => {
+  if (!userId) throw new Error("Missing user");
+  const { from, to } = localMonthRange(month);
+  const snapshot = serverOnly(
+    await getDocsFromServer(
+      query(sessionsRef(userId), where("startedAt", ">=", from), where("startedAt", "<", to), orderBy("startedAt", "desc"))
+    )
+  );
+  return { sessions: snapshot.docs.map(sessionFromDoc).filter((session) => session.deleted !== true), docsRead: snapshot.size };
+};
+
+/**
+ * One plan's newest workout, or null when it has none: the floor's lookup, for a plan with no
+ * workout in the window (TICKET-082). 1 read, billed 1 when the plan was never done. Uses the
+ * index `sessions (workoutId, startedAt desc)`. A `deleted` marker is not a workout: it is
+ * skipped (a marker keeps its `startedAt`, so as the answer it would leave the plan undated and
+ * asked again on every check). One doc is read at a time, so the usual lookup costs 1 read; each
+ * marker in a row costs one more, which the debug readout (1 per lookup) does not count.
+ */
+export const getLastWorkoutOfPlan = async (userId: string, planId: string): Promise<WorkoutSessionDoc | null> => {
+  if (!userId) throw new Error("Missing user");
+  let after: QueryDocumentSnapshot<DocumentData> | null = null;
+  for (;;) {
+    const ofPlan = [where("workoutId", "==", planId), orderBy("startedAt", "desc")];
+    const page = serverOnly(
+      await getDocsFromServer(query(sessionsRef(userId), ...ofPlan, ...(after ? [startAfter(after)] : []), limitFn(1)))
+    );
+    if (page.empty) return null;
+    const session = sessionFromDoc(page.docs[0]);
+    if (session.deleted !== true) return session;
+    after = page.docs[0];
+  }
 };
 
 /**

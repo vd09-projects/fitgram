@@ -26,21 +26,24 @@ export const PLANS_CHECK_SKIP_MS = 60 * 1000;
 export const PLANS_CHECK_WAIT_MS = 10_000;
 
 /**
- * How many workouts the phone keeps per plan (TICKET-075), Freestyle counted
- * as one plan. What it feeds: each plan's last-done date, time and volume
- * (needs 1), and the picker's Recent, newest 10 movements across every held
- * workout. 5, not 1: Recent needs a few workouts per plan to find 10
- * movements, and a plan's last 5 cover a movement swapped out of it lately.
- * Not 20 (the old window across all plans): the first load reads N per plan,
- * so 20 would cost up to 20 × plans reads on a fresh install. A movement whose
- * newest use is in a plan's 6th-or-older workout is not in Recent (TICKET-075
- * fact 2); search still finds it.
+ * How many workouts the phone keeps at least (TICKET-082, decided in TICKET-087).
+ * It keeps whole months, newest first, until it has this many, so the number
+ * floats up by the last month it takes. What it feeds: the Workouts list, its
+ * month rows, the filter counts and a recent month opened offline. Sized for
+ * the busiest user the ticket named, two workouts a day for three months.
+ * Not everything: a copy of every workout grows with history, a new phone reads
+ * all of it, and it reaches Android's database cap at about a thousand workouts.
+ * Older months are fetched when asked (`getWorkoutsOfMonth`) and not kept.
+ * Not part of this number: the newest workout of every plan is kept as well, however
+ * old (the floor, `utils/workoutWindow.ts`), so a plan idle for longer than the window
+ * still has a date.
  *
- * Changes stored data: the stored copy records the N it was built with, and a
- * copy with another N is discarded and refilled at the next check (one first
- * load: up to N reads per plan, plus 1).
+ * Changes stored data only at a trim or a full reload: a copy built with another value
+ * is read as it is. A Finish trims when the value is lower than the copy holds and never
+ * widens it, and a held copy does not first-load, so a raised value reaches a phone only
+ * with a full reload.
  */
-export const WORKOUTS_PER_PLAN = 5;
+export const WORKOUTS_ON_PHONE_MIN = 180;
 
 /**
  * The workouts' check skip and wait: the plans' values (D4, D9), own names so
@@ -48,6 +51,16 @@ export const WORKOUTS_PER_PLAN = 5;
  */
 export const WORKOUTS_CHECK_SKIP_MS = PLANS_CHECK_SKIP_MS;
 export const WORKOUTS_CHECK_WAIT_MS = PLANS_CHECK_WAIT_MS;
+
+/**
+ * The least time between a refused read of an older month (`offline` or `failed`) and the next
+ * read of it. A caller that asks again from an effect, or a screen focused twice, must not turn a
+ * refusal that comes back at once (a permission error) into a read per render. Short: a person
+ * who reconnects and taps again should not be made to wait. An ask inside it is ignored and the
+ * refusal stays shown. Not applied to a month still loading (that ask joins the read, or after the
+ * wait starts a new one) or to a month already loaded.
+ */
+export const WORKOUTS_MONTH_RETRY_GAP_MS = 2_000;
 
 /**
  * The exercise summaries' check skip and wait (TICKET-076): the plans' values

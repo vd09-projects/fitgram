@@ -4,7 +4,12 @@ import StartWorkoutScreen from "./StartWorkoutScreen";
 import { renderScreen, TEST_USER_ID } from "../../test/renderScreen";
 import { buildExercise, buildStats, buildWorkout } from "../../test/fixtures";
 import { getAllWorkoutPlans } from "../../services/db/userDB";
-import { getAllExerciseStats, getNewestSessionStamp, getPlanSessionsFromServer } from "../../services/db/workoutSessions";
+import {
+  getAllExerciseStats,
+  getLastWorkoutOfPlan,
+  getNewestSessionStamp,
+  getWorkoutWindowFromServer,
+} from "../../services/db/workoutSessions";
 import { serveRecentWorkouts } from "../../test/recentWorkouts";
 import { LayoutRoutes } from "../../constants/routes";
 import { WorkoutPlan } from "../../types/workoutType";
@@ -21,14 +26,15 @@ jest.mock("../../services/db/userDB", () => ({
 jest.mock("../../services/db/workoutSessions", () => ({
   ...jest.requireActual("../../services/db/workoutSessions"),
   getNewestSessionStamp: jest.fn(),
-  getPlanSessionsFromServer: jest.fn(),
+  getWorkoutWindowFromServer: jest.fn(),
+  getLastWorkoutOfPlan: jest.fn(),
   getChangedSessions: jest.fn(),
   getAllExerciseStats: jest.fn(),
   getChangedExerciseStats: jest.fn(async () => []),
 }));
 
 const mockPlans = getAllWorkoutPlans as jest.Mock;
-const mockSessions = getPlanSessionsFromServer as jest.Mock;
+const mockSessions = getWorkoutWindowFromServer as jest.Mock;
 const mockStats = getAllExerciseStats as jest.Mock;
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -99,9 +105,11 @@ describe("StartWorkoutScreen", () => {
     expect(summary("pull")).toHaveTextContent(
       "1 exercise · last done yesterday · 500 kg · not uploaded yet"
     );
-    // TICKET-075's first load: the baseline, then one query per plan.
+    // TICKET-082's first load: the baseline and the window's query. Both plans have a workout in
+    // it, so neither is looked up.
     expect(getNewestSessionStamp).toHaveBeenCalledTimes(1);
-    expect(new Set(mockSessions.mock.calls.map(([, planId]) => planId))).toEqual(new Set(["push", "pull", "freestyle"]));
+    expect(mockSessions).toHaveBeenCalledTimes(1);
+    expect(getLastWorkoutOfPlan).not.toHaveBeenCalled();
     // Nothing is prefetched on mount.
     expect(mockStats).not.toHaveBeenCalled();
   });

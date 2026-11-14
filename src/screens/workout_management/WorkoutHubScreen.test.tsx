@@ -4,7 +4,13 @@ import WorkoutHubScreen from "./WorkoutHubScreen";
 import { renderScreen, TEST_USER_ID } from "../../test/renderScreen";
 import { buildExercise, buildWorkout } from "../../test/fixtures";
 import { getAllWorkoutPlans, getChangedPlans } from "../../services/db/userDB";
-import { getAllExerciseStats, getNewestSessionStamp, getPlanSessionsFromServer } from "../../services/db/workoutSessions";
+import {
+  getAllExerciseStats,
+  getLastWorkoutOfPlan,
+  getNewestSessionStamp,
+  getWorkoutWindowFromServer,
+} from "../../services/db/workoutSessions";
+import { WORKOUTS_ON_PHONE_MIN } from "../../config/sync";
 import { failRecentWorkouts, serveRecentWorkouts } from "../../test/recentWorkouts";
 import { WorkoutRoutes } from "../../constants/routes";
 import { WorkoutPlan } from "../../types/workoutType";
@@ -21,14 +27,15 @@ jest.mock("../../services/db/userDB", () => ({
 jest.mock("../../services/db/workoutSessions", () => ({
   ...jest.requireActual("../../services/db/workoutSessions"),
   getNewestSessionStamp: jest.fn(),
-  getPlanSessionsFromServer: jest.fn(),
+  getWorkoutWindowFromServer: jest.fn(),
+  getLastWorkoutOfPlan: jest.fn(),
   getChangedSessions: jest.fn(),
   getAllExerciseStats: jest.fn(),
   getChangedExerciseStats: jest.fn(async () => []),
 }));
 
 const mockPlans = getAllWorkoutPlans as jest.Mock;
-const mockSessions = getPlanSessionsFromServer as jest.Mock;
+const mockSessions = getWorkoutWindowFromServer as jest.Mock;
 const mockStats = getAllExerciseStats as jest.Mock;
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -85,15 +92,27 @@ describe("WorkoutHubScreen", () => {
     expect(tile("legs")).toHaveTextContent("Legs—not in recent workouts · 2 exercises");
     expect(screen.getByRole("button", { name: "All plans, 4" })).toBeOnTheScreen();
 
-    // TICKET-075's first load: the baseline, then one query per plan, archived
-    // and Freestyle included.
+    // TICKET-082's first load: the baseline, the window's one query (a history this short fits in
+    // it), and a lookup for the one plan with no workout in the window: Legs, never done.
     expect(getNewestSessionStamp).toHaveBeenCalledTimes(1);
-    expect(mockSessions.mock.calls.map(([uid, planId, count]) => [uid, planId, count]).sort()).toEqual(
-      ["freestyle", "legs", "old", "pull", "push"].map((id) => [TEST_USER_ID, id, 5])
-    );
+    expect(mockSessions.mock.calls).toEqual([[TEST_USER_ID, WORKOUTS_ON_PHONE_MIN]]);
+    expect(jest.mocked(getLastWorkoutOfPlan).mock.calls).toEqual([[TEST_USER_ID, "legs"]]);
     expect(mockPlans).toHaveBeenCalledTimes(1);
     // Nothing is prefetched until a card opens.
     expect(mockStats).not.toHaveBeenCalled();
+  });
+
+  // The floor (TICKET-082): the window alone would give the plan idle the longest no date, and the
+  // hub's "longest since done first" would drop it from the suggestions when it is most due.
+  it("a plan idle for longer than the window still shows its date and sorts first", async () => {
+    const days = WORKOUTS_ON_PHONE_MIN + 10;
+    const busy = Array.from({ length: days }, (_, i) => session("push", Date.now() - (i + 1) * DAY));
+    await renderHub([PUSH, LEGS], [...busy, session("legs", Date.now() - 400 * DAY)]);
+
+    await waitFor(() => expect(tile("legs")).toHaveTextContent("Legs400dsince last · 2 exercises"));
+    expect(tileIds()).toEqual(["legs", "push"]);
+    // Not in the window, so found by its own lookup.
+    expect(jest.mocked(getLastWorkoutOfPlan).mock.calls).toEqual([[TEST_USER_ID, "legs"]]);
   });
 
   // Nothing held after a failed first load: no tile may claim the plan is

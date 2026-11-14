@@ -1,5 +1,5 @@
-import { Timestamp, getDocs, getDocsFromServer, runTransaction, serverTimestamp, writeBatch } from "firebase/firestore";
-import { getAllExerciseStats, getWorkoutSessions, saveWorkoutSession } from "./workoutSessions";
+import { Timestamp, getDocs, getDocsFromServer, limit, runTransaction, serverTimestamp, startAfter, writeBatch } from "firebase/firestore";
+import { getAllExerciseStats, getLastWorkoutOfPlan, getWorkoutSessions, saveWorkoutSession } from "./workoutSessions";
 import { buildExercise, buildStats, buildWorkout } from "../../test/fixtures";
 import * as liftRecord from "../../utils/liftRecord";
 
@@ -11,6 +11,7 @@ jest.mock("firebase/firestore", () => ({
   where: jest.fn(),
   orderBy: jest.fn(),
   limit: jest.fn(),
+  startAfter: jest.fn(),
   doc: jest.fn((_ref: unknown, id: string) => id),
   getDocs: jest.fn(),
   getDocsFromServer: jest.fn(),
@@ -197,4 +198,41 @@ it("a summary read keeps a server stamp as plain numbers and drops a phone-clock
     { exerciseId: "new", updatedAt: { seconds: 5, nanoseconds: 400 } },
     { exerciseId: "old" },
   ]);
+});
+
+// TICKET-082 review: a `deleted` marker keeps its `startedAt`, so as the newest of a plan it would
+// answer the floor's lookup with no date and be asked again on every check.
+describe("a plan's newest workout, for the floor", () => {
+  const docOf = (sessionId: string, extra: object = {}) => ({ data: () => ({ sessionId, workoutId: "p", startedAt: 1, ...extra }) });
+  const page = (docs: ReturnType<typeof docOf>[]) => ({ metadata: { fromCache: false }, empty: docs.length === 0, size: docs.length, docs });
+  const reset = () => {
+    (getDocsFromServer as jest.Mock).mockReset();
+    (limit as jest.Mock).mockClear();
+    (startAfter as jest.Mock).mockClear();
+  };
+
+  it("reads one doc, so the usual lookup costs one read", async () => {
+    reset();
+    (getDocsFromServer as jest.Mock).mockResolvedValue(page([docOf("live")]));
+    await expect(getLastWorkoutOfPlan("u1", "p")).resolves.toMatchObject({ sessionId: "live" });
+    expect(limit).toHaveBeenCalledWith(1);
+    expect(getDocsFromServer).toHaveBeenCalledTimes(1);
+    expect(startAfter).not.toHaveBeenCalled();
+  });
+
+  it("skips markers: each page continues after the marker before it, and the first workout that is not one is the answer", async () => {
+    reset();
+    const m1 = docOf("m1", { deleted: true });
+    const m2 = docOf("m2", { deleted: true });
+    (getDocsFromServer as jest.Mock).mockResolvedValueOnce(page([m1])).mockResolvedValueOnce(page([m2])).mockResolvedValueOnce(page([docOf("live")]));
+    await expect(getLastWorkoutOfPlan("u1", "p")).resolves.toMatchObject({ sessionId: "live" });
+    expect(getDocsFromServer).toHaveBeenCalledTimes(3);
+    expect((startAfter as jest.Mock).mock.calls).toEqual([[m1], [m2]]);
+  });
+
+  it("answers never done when only markers exist", async () => {
+    reset();
+    (getDocsFromServer as jest.Mock).mockResolvedValueOnce(page([docOf("m1", { deleted: true })])).mockResolvedValueOnce(page([]));
+    await expect(getLastWorkoutOfPlan("u1", "p")).resolves.toBeNull();
+  });
 });

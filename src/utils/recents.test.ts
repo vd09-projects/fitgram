@@ -61,6 +61,19 @@ test("one row per movement, newest first, as the version last logged; pending me
   expect(history.lastUsed.get("bench_press")?.version.id).toBe("bench_press__barbell__close_grip");
 });
 
+test("a custom exercise no plan holds is named by the workout that logged it (TICKET-082)", () => {
+  const lift = (id: string, name: string) => ({ id, name, fields: [], sets: [], verdict: null, reason: null }) as WorkoutSessionDoc["lifts"][number];
+  const logged = (startedAt: number, lifts: WorkoutSessionDoc["lifts"]): WorkoutSessionDoc => ({ ...session(startedAt, lifts.map((l) => l.id)), lifts });
+  const rows = (sessions: WorkoutSessionDoc[], plans: Exercise[] = []) =>
+    buildRecentHistory(sessions, [], "me", index, plans)!.recents.map((r) => (r.kind === "custom" ? `${r.exercise.id}:${r.exercise.name}` : r.version.id));
+
+  // Newest session's name wins; a plan's own copy wins over both.
+  expect(rows([logged(2 * DAY, [lift("sled", "Sled push")]), logged(DAY, [lift("sled", "Sled")])])).toEqual(["sled:Sled push"]);
+  expect(rows([logged(DAY, [lift("custom_1", "Logged name")])], [custom])).toEqual(["custom_1:Gym Sled Thing"]);
+  // Unreadable `lifts` name nothing: skipped, as before, never a row with no name.
+  expect(rows([{ ...session(DAY, ["sled"]), liftsUnreadable: true }])).toEqual([]);
+});
+
 test("no sessions result yet (or a failed query): no history at all, pending workouts included", () => {
   expect(buildRecentHistory(null, [pending("me", DAY, ["bench_press__dumbbell"])], "me", index, [])).toBeNull();
   expect(buildRecentHistory([], [], "me", index, [])).toEqual({ lastUsed: new Map(), recents: [] });

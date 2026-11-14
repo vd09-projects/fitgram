@@ -14,7 +14,12 @@ import { getAllWorkoutPlans, getChangedPlans, getPlanFromServer, newVersionId, o
 import { usePlansStore } from "../../stores/usePlansStore";
 import { loadCatalog } from "../../utils/catalog";
 import { LayoutRoutes } from "../../constants/routes";
-import { getChangedSessions, getNewestSessionStamp, getPlanSessionsFromServer } from "../../services/db/workoutSessions";
+import {
+  getChangedSessions,
+  getLastWorkoutOfPlan,
+  getNewestSessionStamp,
+  getWorkoutWindowFromServer,
+} from "../../services/db/workoutSessions";
 import { serveRecentWorkouts } from "../../test/recentWorkouts";
 import { WorkoutPlan } from "../../types/workoutType";
 import * as planDraft from "../../utils/planDraft";
@@ -34,7 +39,8 @@ jest.mock("../../services/db/userDB", () => ({
 jest.mock("../../services/db/workoutSessions", () => ({
   ...jest.requireActual("../../services/db/workoutSessions"),
   getNewestSessionStamp: jest.fn(async () => null),
-  getPlanSessionsFromServer: jest.fn(async () => []),
+  getWorkoutWindowFromServer: jest.fn(async () => ({ newest: [], rest: null })),
+  getLastWorkoutOfPlan: jest.fn(async () => null),
   getChangedSessions: jest.fn(async () => []),
 }));
 // Manage Workout checks the catalog's hash on focus; nothing uploaded here.
@@ -269,8 +275,8 @@ it("Save changes keeps its fill and centring on the button itself, not on the to
 });
 
 it("Recent comes from the recent workouts' check on open, none per picker open or keystroke", async () => {
-  // TICKET-075: served through the store's reads; the plan held is Pull, so the session is Pull's.
-  [getNewestSessionStamp, getPlanSessionsFromServer, getChangedSessions].forEach((read) => jest.mocked(read).mockClear());
+  // TICKET-082: served through the store's reads; the plan held is Pull, so the session is Pull's.
+  [getNewestSessionStamp, getWorkoutWindowFromServer, getLastWorkoutOfPlan, getChangedSessions].forEach((read) => jest.mocked(read).mockClear());
   serveRecentWorkouts([{ lifts: [], sessionId: "s1", workoutId: "pull", workoutName: "Pull", startedAt: Date.now(), endedAt: Date.now(),
     exerciseIds: ["bench_press__barbell__close_grip"] }]);
   await openPlan([pull()], "Pull");
@@ -283,12 +289,11 @@ it("Recent comes from the recent workouts' check on open, none per picker open o
   fireEvent.press(within(picker).getByLabelText("Back"));
   fireEvent.press(screen.getByLabelText("Add exercise"));
 
-  // One first load: the baseline, then Pull's and Freestyle's queries. No change check followed.
+  // One first load: the baseline and the window's query; Pull has a workout in it, so no lookup.
+  // No change check followed.
   expect(getNewestSessionStamp).toHaveBeenCalledTimes(1);
-  expect(jest.mocked(getPlanSessionsFromServer).mock.calls.map(([uid, planId]) => [uid, planId]).sort()).toEqual([
-    [TEST_USER_ID, "freestyle"],
-    [TEST_USER_ID, "pull"],
-  ]);
+  expect(getWorkoutWindowFromServer).toHaveBeenCalledTimes(1);
+  expect(getLastWorkoutOfPlan).not.toHaveBeenCalled();
   expect(getChangedSessions).not.toHaveBeenCalled();
 });
 

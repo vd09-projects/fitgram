@@ -10,6 +10,7 @@ import {
   formatSince,
   formatVolume,
   groupPlanRows,
+  hubTileFace,
   partsToString,
 } from "./startWorkout";
 
@@ -169,6 +170,23 @@ describe("buildPlanRows", () => {
     const [row] = buildPlanRows([push], null, [pending("me", "push", 500)], "me", "");
     expect(row.lastDoneAt).toBeNull();
     expect(row.volume).toBeNull();
+  });
+
+  // TICKET-082: "never done" and "not looked up yet" are different, and only the first may be said.
+  it("a plan not looked up yet has no date and is not known, pending upload or not; never done is known and dateless", () => {
+    const rows = buildPlanRows([push, pull, legs], [session("pull", 300)], [pending("me", "push", 500)], "me", "", new Set(["push"]));
+    const by = Object.fromEntries(rows.map((r) => [r.id, r]));
+    expect(by.push).toMatchObject({ lastDoneAt: null, lastDoneKnown: false });
+    expect(by.pull).toMatchObject({ lastDoneAt: 300, lastDoneKnown: true });
+    expect(by.legs).toMatchObject({ lastDoneAt: null, lastDoneKnown: true });
+    expect(buildPlanRows([push], null, [], "me", "")[0].lastDoneKnown).toBe(false);
+  });
+
+  it("the hub tile says 'not in recent workouts' only for a plan known to be never done", () => {
+    const face = (lastDoneKnown: boolean) =>
+      partsToString(hubTileFace({ exerciseCount: 2, lastDoneAt: null, lastDoneKnown }, Date.now()).caption);
+    expect(face(true)).toBe("not in recent workouts · 2 exercises");
+    expect(face(false)).toBe("last session unknown · 2 exercises");
   });
 
   it("filters by name, case- and whitespace-insensitively", () => {

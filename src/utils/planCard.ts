@@ -31,13 +31,12 @@ const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
  * the card and the row it was opened from read the same "3 weeks".
  *
  * No date is an explicit absence, never "new" or 0 (CLAUDE.md 2.4). Since
- * TICKET-075 every held plan's newest workouts are loaded, so "no recent
- * session" is now never done, except for a plan whose workouts are not loaded
- * yet (created a moment ago, or on another phone); "new" would still be a
- * guess there:
- * - sessions read, plan not among them → "—" "no recent session"
- * - sessions not read yet, or the read failed (`sessionsKnown` false) →
- *   "—" "last session unknown"; "no recent session" would be a claim
+ * TICKET-082 every plan's newest workout is held (the floor), so "no recent
+ * session" is never done, and a plan not looked up yet is a different case:
+ * - the date is known and absent (`lastDoneKnown`) → "—" "no recent session"
+ * - not known (`lastDoneKnown` false: the workouts are not read yet, the read
+ *   failed, or this plan is not looked up yet) → "—" "last session unknown";
+ *   "no recent session" would be a claim
  *
  * **about N min last time** = that same session's minutes (`sessionMinutes`,
  * shared with the "Saved" message after Finish). Dropped, not shown as 0, when
@@ -46,8 +45,7 @@ const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
  * plausible wrong number.
  */
 export function planCardHeader(
-  row: Pick<PlanRow, "exerciseCount" | "lastDoneAt" | "lastEndedAt">,
-  sessionsKnown: boolean,
+  row: Pick<PlanRow, "exerciseCount" | "lastDoneAt" | "lastEndedAt" | "lastDoneKnown">,
   now: number
 ): PlanCardHeader {
   const count = [
@@ -56,7 +54,7 @@ export function planCardHeader(
   ];
 
   if (row.lastDoneAt === null) {
-    const caption = sessionsKnown ? "no recent session" : "last session unknown";
+    const caption = row.lastDoneKnown ? "no recent session" : "last session unknown";
     return { big: [txt("—")], caption, meta: count, compact: [txt(caption), txt(" · "), ...count] };
   }
 

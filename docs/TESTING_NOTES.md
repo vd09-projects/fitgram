@@ -163,3 +163,233 @@ Setup that worked (TICKET-081, `pinky`, Pixel_9_Pro_XL, `emulator-5554`):
 - Emulator: T1 online Freestyle, T2 swap + added on "Test 070", T3 offline then
   reconnect, 0 mismatches after each; cleaned up. Not tested: late upload on a
   device, phase 2 failing after phase 1, phase 2 latency, server write count.
+
+### TICKET-082 stage 1 (held window, pure layer)
+- **[run] A guard assertion caught a test that could not test.** The boundary tests set
+  `process.env.TZ` in the test file; the guard (`getTimezoneOffset()` is the expected
+  480) failed on the first run: Jest's sandbox copies `process.env`, so `Date` never saw
+  it, and the machine's own zone (IST) was in force. Without the guard every
+  local-vs-UTC test would have passed or failed by the developer's location. Fix: a
+  `globalSetup` pin. Any test that depends on an environment fact should assert the fact first.
+- **[run] A negative assertion passed against broken code.** "A late upload from a month
+  not held is not held" stayed green with the cut filter removed, because the month trim
+  dropped the workout anyway (minimum 2, October already held 2). Found by mutating each
+  rule in a throwaway worktree; fixed by setting the minimum above what October holds,
+  so only the cut keeps it out, then seen red. Mutation-check every "not held / not
+  called" test; they are the ones that lie.
+- **[run] Mutations seen red (7):** cut at UTC month start (4 red), local month key as UTC
+  (1), never drop the oldest month (1), marker not dropped (2), label from the oldest
+  snapshot (1), late upload kept (1, after the fix), no `lifts[].name` fallback (1).
+- **[read] The ticket's claim was backwards.** 082 said the oldest shard can hold workouts
+  before the cut. Reading the first-load queries showed it holds none; it is the oldest
+  shard that may hold only part of its UTC month. Written down as a deviation, pinned by a test.
+- **[read] "The readers keep working" hid a behaviour change.** Per-plan loading gave a
+  rarely-done plan its last date at any age; a window by time does not. Found by tracing
+  what `hubTileFace` does with a plan with no held session, before writing the store.
+- **[run] Read-only run on a real account for an index claim.** Both first-load queries
+  and a month-range query ran against `pinky` with the admin SDK: no
+  FAILED_PRECONDITION, and the two first-load answers together equal the docs at or after the cut (14 of 14).
+  Cost: a 20-line scratch script, 3 queries plus one full read of 15 docs.
+- **[waste] One jest timeout:** `setTimeout` inside a test under `jest.useFakeTimers()`
+  (the suite's setup) never fires. Use `waitFor` on the observable instead.
+- **[waste] A mechanical rename needs a read-through.** A word-boundary replace of
+  `heldWorkouts` also renamed an output property in a script, and `cut` became
+  `windowStart` inside sentences ("windowStart back to the window"). tsc found the first
+  (one test property), reading found the second. Rewrite the prose of a renamed
+  module by hand; run tsc and the suite after.
+
+### TICKET-082 stage 2 (floor, store, readers)
+- **[read] A review caught what I had called a cost.** I wrote that a plan idle longer than the
+  window "costs a plan done rarely". The reviewer pointed at `chooseHubTiles`, which sorts by
+  longest-since-done, and the idle plan has no date under a window. Re-reading the two
+  functions showed the claim was backwards (it hid the plan most due). Always trace what a
+  reader does with the absent value before calling it cheap.
+- **[run] A screen test found a race in code I was replacing.** The hub test for "Legs: not in recent
+  workouts" read "last session unknown": the plans arrived while the first check ran, so the
+  trigger joined that check, which did not have them. The old `followPlans` had the same blind
+  spot, hidden because its plans were few. Fixed by re-checking when a check ends, once per set
+  of ids. Seen red (3 tests) with the re-run removed; the loop guard's mutation did not fail, it hung (killed the
+  orphaned jest worker by hand).
+- **[run] Mutations seen red (stage 2):** floor: Finish does not replace (3 red), late upload older replaces (1),
+  drop empties the floor (1), unlooked-up plan claims a workout (1), plan filter counts the floor (1),
+  pre-floor copy errors (1), marker leaves the entry (1). Store and readers: no re-run after a
+  check ends (3), lookups skipped inside the skip (5), lookups never applied (6), old month's
+  shard stays on disk (1), unlooked-up plan reads never done (1), pending upload dates an
+  unlooked-up plan (1), loop guard removed (hang).
+- **[run] A before/after harness caught a wrong plan for "before".** The old per-plan code is
+  gone from the tree, so its numbers had to come from a worktree at the stage 1 commit with
+  the idle plans patched into the harness. Take "before" numbers before replacing the code;
+  here they were taken for four plans only and the idle scenario had to be rebuilt after.
+- **[run] Read-only probes on a real account for index claims, twice.** Window queries (stage 1)
+  and the per-plan limit-1 lookup including a plan never done (stage 2): no
+  FAILED_PRECONDITION, 1 read each. Admin SDK, not the client; the same server rule.
+- **[waste] Two shell mistakes cost a run each:** `timeout` does not exist on macOS (a silent
+  no-output run looked like a hang), and a `--testPathIgnorePatterns` on the command line
+  replaces the config's list and ran the emulator-only rules tests.
+
+### TICKET-082 stage 3 (older months, proof, device run)
+- **[run] A device run found what no unit test could: offline does not refuse at once.** The store test
+  mocks a rejection, which is instant. On the emulator the older-month read sat in `loading` for 10 to 30 s
+  before Firestore rejected with `unavailable`. Added `waitOver` and a test (seen red with the timer
+  removed). Any "refused offline" claim needs a device run with airplane mode on, not a mocked rejection.
+- **[run] Desktop timing was two orders of magnitude off the emulator for storage.** Whole-copy write 2.8 ms
+  in `node:sqlite`, 233 ms for the same 1.00 MB in the emulator's AsyncStorage (read 56 ms). The desktop
+  number is a ratio between shapes, never a time; the probe button on the debug page is what answered it.
+- **[run] An airplane-mode cold start needs `adb reverse`.** A dev build loads its bundle from Metro, which
+  airplane mode cuts; `adb reverse tcp:8081 tcp:8081` and "Enter URL manually" with `http://localhost:8081`
+  worked. Then: force-stop, airplane on, launch, hub dates shown, 0 reads billed.
+- **[run] The device found a state I had not written down:** the first read after leaving airplane mode took
+  about 45 s to answer. Nothing to fix (the checks have a bounded wait); recorded so a test plan expects it.
+- **[run] A reboot of the emulator can come back with "System UI isn't responding";** tapping Wait cleared it.
+  Network was down for the first minute after boot (the hub read "last session unknown", then filled in).
+- **[read] A test passed for the wrong reason, again:** "a key that is not a month is refused" stayed green
+  with the guard removed, because `match[1]` on null threw a TypeError. Asserting the message made the
+  mutation red. When a test says "throws", pin which error.
+- **[waste] A scripted edit landed in the wrong component:** `str.replace(a, b, 1)` on a line that
+  appears in two components put a `useState` in the Plans section, and the page crashed on the device
+  with a render error ("Property 'probe' doesn't exist"). tsc had flagged it first; I read it late. Anchor
+  an edit on the enclosing function, not on a line that repeats.
+- **[waste] Two scratch scripts failed on module resolution:** a script outside the repo cannot import
+  `firebase-admin`; import it by absolute path.
+
+### TICKET-082 stage 3, second device run (emulator, `pinky`, 2026-11-15)
+Plan, in order: hub dates and sort; restart reads; older month online, offline, then retry online; a real
+Finish on the test plan; kill and airplane-mode cold start; the picker's recents. Results are in TICKETS.md.
+
+- **[run] A changed config constant does not re-window a phone that already holds a copy.** I set the
+  minimum low for the older-month cases, did a full reload, then reverted it. After the revert the
+  phone still held the low-minimum window (14 workouts from 1 Oct) until another full reload, because a
+  restart only reads the stored copy and then asks for changes. In any test plan that changes a window
+  constant: press "full reload" after setting it and again after reverting it, and read "Last full reload"
+  on the debug page to know which one is held. (A raised or lowered constant in a release also does not
+  re-window existing copies; harmless pre-launch, noted in the ticket.)
+- **[run] The first check after a Finish returned 0 docs, and that is correct.** The Finish adds its workout
+  to the held copy at once (hub shows "Today" before any read), marked "unstamped" on the debug page
+  because it has no server time yet. The check one second later saw nothing, because the upload had not
+  landed. A forced check a minute later returned 1 doc and the entry was stamped. So a phone's own Finish
+  costs 1 read when it comes back, and 0 at Finish. A plan that expects "Finish adds 0 reads" has to say
+  which of the two it means.
+- **[waste] Two taps missed because the page shifted, and two identical screenshots looked like success.**
+  An error line appearing under "Older months" moved every button down. I tapped the old coordinates twice
+  and could not tell a fresh "offline" from the stale one, because the text is the same. Re-screenshot
+  after any state change before the next tap, and read a field that changes on a retry (the billed-read
+  count did: 16 to 17 on the successful retry). A debug row that reads the same before and after a retry
+  is a poor probe; a per-attempt counter would have settled it.
+- **[run] Offline older month: `loading` then `offline`, rejected inside about 50 s, and the retry works.**
+  Not timed more finely than that (screenshots were 10 to 15 s apart and I missed the `loading` frame in
+  both attempts, so the `waitOver` text itself was not seen on this run; it was seen on the first run).
+  After airplane mode off and 25 s for the network, the same button gave "2026-09: 1 workouts" and billed
+  1 read. A rejected month is not stuck. A read that never settles was not seen and cannot be made to
+  happen from the debug page.
+- **[run] A real Finish on a never-done plan fills the floor and the hub at once, and survives a kill.**
+  Test 070 went from "not in recent workouts" to "Today", the floor row appeared, and after force-stop plus
+  airplane-mode cold start the hub still read "Today" with 0 reads billed and the failed check keeping the
+  copy. This is the case the whole floor exists for, seen on a device.
+- **[run] The picker reads the window.** Add exercise: the newest lift (just done, 15 Nov) is first, then the
+  older lifts by date. This closes the "reasoned, not measured" note for recents.
+- **[run] Offline cold start shows a dev-only red LogBox** (Firestore's own `console.error` "Could not reach
+  Cloud Firestore backend"); Dismiss clears it. Not an app error. The Feed also read "Hi, Guest" on that
+  start; not attributed to this ticket, not checked against `main`.
+- **[waste] Not testable here, so not run:** another phone's Finish (needs a second writer, one test write to
+  the real account); a second account signing in after sign-out (needs that account's login); a busy month
+  of 60+ workouts (pinky has 15). Unit tests cover the sign-out and epoch rules.
+
+### TICKET-082, handling the PR review (2026-11-15)
+- **[read] A fresh reviewer found a bug the builder's own tests and a device run could not: a case that only
+  exists in a later ticket.** A `deleted` marker keeps its `startedAt`, so as a plan's newest it answered the
+  floor's lookup with no date, and the plan was asked again on every check. No test or screen could show it,
+  because nothing writes markers until TICKET-086. When a store stores a rule for data a later ticket will
+  write, test that rule's resolution too, not only its removal.
+- **[read] A proof harness had two assertions that could not fail.** "A restart reads 0 to show the list" was
+  a hardcoded `0` compared with itself; "a Finish adds 0 reads" read the store's own `billedReads` counter,
+  which the code under test can never increment. Fixed by counting calls into the mocked services, at the
+  moment the list first appears and around the Finish. Both seen red by adding one service call to the code.
+  A counter the code maintains about itself is not a measurement of what the code does.
+- **[run] Mutation testing found two guards no test covered.** Removing the "no window yet" guard and the
+  "already loading" guard from `loadMonth` left 15 of 15 tests green. The test for the first called `clear()`,
+  which nulls `uid`, so an earlier guard returned first; the second was never exercised because the "once" test
+  awaited each call. Write the test so the guard under test is the first one that can fire.
+- **[run] A negative assertion that cannot fail was deleted, not strengthened.** "The saved copy does not
+  contain the older month" passed whatever the store did, because the save is built from the window alone.
+  The real claim (the window still holds only the held month) was already asserted.
+- **[waste] My first mutation of the bad-key guard tested nothing:** it changed the argument but the throw still
+  happened inside the `try`. The test stayed green and I almost read that as a passing test. Make the mutation
+  remove the behaviour (rethrow in the catch), then confirm it goes red.
+- **[run] Restoring a mutated file by copy, not by git, kept the unstaged work safe.** Each mutation copied the
+  file aside, changed one line, ran the one test file, copied it back; `git diff --stat` after the batch matched
+  the size before. Do not `git checkout` a file with unstaged work to undo a probe.
+- **[run] A review's "could not verify" can be closed cheaply:** the 199, 223, 215 and 239 reads the ticket
+  quotes were confirmed by running the harness under `TZ=UTC`; the suite default is Los Angeles.
+- **[run] A claim in the ticket was false and a cheap run showed it:** "the full suite passes under Los Angeles
+  and UTC alike". Under `TZ=UTC`, `Asia/Kolkata` and `Pacific/Auckland` 31 tests fail (30 already at the stage 2
+  commit, found by running the committed tree in a throwaway worktree). Those tests assert a boundary where the
+  UTC month and the local month disagree, which needs a zone behind UTC. Corrected in the ticket and the
+  `globalSetup.js` comment. When a test is built on a time zone, run it under two other zones before writing
+  "passes under any zone".
+- **[run] A throttle added after a review question broke an earlier test, which was the right signal.** The
+  "retried on the next ask" test asked three times back to back; with the retry gap it had to advance the fake
+  clock between asks. The new test (three asks right after a refusal read once, an ask after the gap reads
+  again) was seen red with the check replaced by `false`. A test that makes several asks in a row is a test of
+  the rate, whether it meant to be or not.
+- **[run] Mutation testing of an extracted helper found dead code, and the right fix was to delete it.** After
+  moving the on-demand read rules out of the store into `onDemandReads.ts`, one of seven mutations survived:
+  the "newest read" check in the wait timer. Tracing it showed a new read only starts after the old read's timer
+  has fired or been cleared, so the check could never matter, and the test written for it passed against
+  broken code. Removed the guard and the test. A mutation that survives means a missing test or an unreachable
+  line; decide which before adding a test.
+- **[run] Extracting kept the old tests as the proof of "same behaviour":** the store's 20 `loadMonth` tests ran
+  unchanged on the helper before any new test was written, and only then did the helper get its own 7.
+
+### TICKET-082, device run after the review fixes (emulator, `pinky`, 2026-11-15)
+- **[run] The blocker was only testable by writing the data a later ticket will write.** Nothing in the app
+  writes a `deleted` marker until 086, so the case could not be reached by using the app. A scratch admin
+  script (dry run first) set `deleted: true` on the one Test 070 workout I had made, then restored it.
+  Seen: the hub read "last session unknown" until the next trigger, a forced check ran the lookup once and
+  the plan settled as "never done", and the following check made no lookup (`1 queries`, not `2`). Before the
+  fix the lookup would have returned the marker and the plan would have stayed unknown, with a lookup on every
+  check. When a bug needs data the app cannot yet write, write one real example through the admin SDK, on a
+  doc you own, and put it back.
+- **[run] "Unknown" between the marker and the next focus is by design and looks like the bug.** The check that
+  carries the marker ends with the plan not looked up; the lookup runs on the next trigger (a focus), by the
+  once-per-set-of-ids rule. A tester who stops after 8 seconds sees the broken state. A plan for this test must
+  say: after the marker, force a second check.
+- **[run] The restore needed a second look, not an assumption:** after `deleted` was removed the floor went
+  from "never done" back to the date on the next check (`1 queries, 1 docs`). A null entry being replaced by a
+  restored workout is a path no unit test named.
+- **[run] The probe with JSON in it changed the number that matters.** The old probe saved plain strings: save
+  233 ms, read 56 ms. With stringify and parse: stringify 153, save 227, read 128, parse 94 ms. A restart pays
+  about 220 ms (read plus parse) and a save about 380 ms, before validation. A storage-only probe understates
+  the cost by the whole CPU part; time the JSON in the same run.
+- **[waste] Taps missed twice on the debug page** because scroll position and layout differ between visits. A
+  tap that changes nothing looks like a result; check the check log for a new line before reading anything.
+- **[run] The throttle cannot be seen on a device:** a refused read bills nothing and the row text is the same,
+  so unit tests are the only proof. Say so in a plan instead of looking for it.
+- **[waste] A scratch script outside the repo could not import `firebase-admin`** (module resolution, as noted
+  before); it ran once copied into `src/scripts/` and was deleted. Check `git status` for the temp file at the
+  end of the run.
+
+### TICKET-082, handling pass 2 of the PR review (2026-11-15)
+- **[read] A fix for a case nothing can produce yet was paid for by every real run.** The lookup read 3 docs
+  per plan to step past markers, so each idle plan's first load cost up to 3 reads, while the test mocked one
+  doc per call and the readout billed 1. Neither the mock nor the readout could show it. For a rule about data
+  that does not exist yet, make the common path cost what it did before and charge only the rare path.
+- **[run] The mock hid the cost because nothing asserted on the query.** Mutating the page size from 1 to 3
+  left the old tests green; the new test asserts `limit` was called with 1, and went red when the size was
+  changed. If a test mocks the query builder, assert what it was asked for, not only what it answered.
+- **[run] A cursor test must check the cursor, not the order of the answers.** The old paging test served
+  pages in order, so removing `startAfter` stayed green. The new one asserts each `startAfter` receives the
+  marker before it.
+- **[read] A rule that holds for the window held for the batch only if the batch was filtered the same way.** The
+  marker rule picked a plan's next newest from the window plus the batch, before the window cut applied; a late
+  upload from before the cut in the same batch could be taken for the newest. Found by a reviewer tracing the
+  order of two steps. Test it with the late upload and the marker in the same call, and with a second plan and a
+  third session so the plan filter and the sort are both exercised (the first test had one plan and two
+  sessions, so mutating either stayed green).
+- **[run] Mutation testing found three guards in a helper nobody tested:** the timer cleared on settle, the
+  timer ignoring a sign-out, and the clock. Each needed a test that advances the clock after the event
+  (after settle, after sign-out), not only before it.
+- **[run] Setting the clock back needed `jest.setSystemTime`:** with fake timers it moves `Date.now()`, and the
+  test showed a refused key stayed refused until the clock caught up, which the fix removes.
+- **[waste] One mutation did nothing:** the search text matched, the test stayed green, and I nearly read it as
+  a passing guard. The `limitFn(1)` text appears twice in the file (a second query uses it), so my "once"
+  assertion on a longer string had failed before any change. Count occurrences before mutating.
