@@ -78,7 +78,16 @@ async function measure(total: number, windowSize: number, dir: string) {
       put.run(`m_${newest}`, shardOf(shape, newest));
       put.run("head", JSON.stringify({ formatVersion: 1, uid: UID, shards: shards.length }));
     });
+    // TICKET-082 stage 3: what the app does (`writeStored`): head and every shard, in one go. The
+    // measurement above rewrites one shard; this is the whole copy, so the two can be compared.
+    const writeAll = timed(() => {
+      db.exec("BEGIN");
+      shards.forEach((h) => put.run(h.key, h.value));
+      put.run("head", JSON.stringify({ formatVersion: 1, uid: UID, shards: shards.length }));
+      db.exec("COMMIT");
+    });
     return {
+      writeAllMs: writeAll.ms,
       heldBytes: bytes(shards),
       heldAllBytes: bytes(everyShard),
       shardCount: shards.length,
@@ -163,6 +172,7 @@ async function main() {
         console.log(`held on the phone (records, no summaries)   A ${mb(st.a.heldBytes)} MB | B ${mb(st.b.heldBytes)} MB | C ${mb(st.c.heldBytes)} MB      hold all: A ${mb(st.a.heldAllBytes)} | B ${mb(st.b.heldAllBytes)} | C ${mb(st.c.heldAllBytes)} MB`);
         console.log(`shards: newest / largest KB                 A ${kb(st.a.newestBytes)}/${kb(st.a.maxShardBytes)} | B ${kb(st.b.newestBytes)}/${kb(st.b.maxShardBytes)} | C ${kb(st.c.newestBytes)}/${kb(st.c.maxShardBytes)}`);
         console.log(`Finish rewrites newest shard + head, ms     A ${ms(st.a.finishShardMs)} | B ${ms(st.b.finishShardMs)} | C ${ms(st.c.finishShardMs)}`);
+        console.log(`Finish rewrites the WHOLE copy (the app), ms   A ${ms(st.a.writeAllMs)} | B ${ms(st.b.writeAllMs)} | C ${ms(st.c.writeAllMs)}`);
         console.log(`cold load, every held shard, ms (4)         A ${ms(st.a.loadWindowMs)} | B ${ms(st.b.loadWindowMs)} | C ${ms(st.c.loadWindowMs)}`);
         console.log(`cold load, newest shard only, ms (4)        A ${ms(st.a.loadNewestMs)} | B ${ms(st.b.loadNewestMs)} | C ${ms(st.c.loadNewestMs)}`);
         console.log(`new-phone first load, window: reads / MB    A ${f.aReads}/${mb(f.aBytes)} | B ${f.bReads}/${mb(f.bBytes)} | C ${f.cReads}/${mb(f.cBytes)}      hold all: A ${f.allAReads} | B ${f.allBReads} | C ${f.allCReads} reads`);

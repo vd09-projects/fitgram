@@ -44,6 +44,7 @@ import {
 import { readLifts, withVerdicts } from "../../utils/liftRecord";
 import { toStamp, type SyncStamp } from "../../utils/syncCore";
 import { secondQueryStart } from "../../utils/workoutWindow";
+import { localMonthRange } from "../../utils/monthWindow";
 
 const USERS = tables.users.collection;
 const SESSIONS = tables.users.fields.sessions.collection;
@@ -335,6 +336,26 @@ export const getWorkoutWindowFromServer = async (
     )
   );
   return { newest, rest: second.docs.map(sessionFromDoc) };
+};
+
+/**
+ * Every workout of one local month (`YYYY-MM`), newest first: how a month older than the window
+ * is shown, on tap (TICKET-082). The caller keeps it in memory only. A range and an order on
+ * `startedAt`: the automatic single-field index. `deleted` markers are left out (`docsRead` still counts them). Rejects when
+ * offline (`serverOnly`, `getDocsFromServer`); the store turns that into a state.
+ */
+export const getWorkoutsOfMonth = async (
+  userId: string,
+  month: string
+): Promise<{ sessions: WorkoutSessionDoc[]; docsRead: number }> => {
+  if (!userId) throw new Error("Missing user");
+  const { from, to } = localMonthRange(month);
+  const snapshot = serverOnly(
+    await getDocsFromServer(
+      query(sessionsRef(userId), where("startedAt", ">=", from), where("startedAt", "<", to), orderBy("startedAt", "desc"))
+    )
+  );
+  return { sessions: snapshot.docs.map(sessionFromDoc).filter((session) => session.deleted !== true), docsRead: snapshot.size };
 };
 
 /**

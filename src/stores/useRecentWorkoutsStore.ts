@@ -4,12 +4,14 @@ import {
   getChangedSessions,
   getLastWorkoutOfPlan,
   getNewestSessionStamp,
+  getWorkoutsOfMonth,
   getWorkoutWindowFromServer,
 } from "../services/db/workoutSessions";
 import type { WorkoutSessionDoc } from "../types/workoutSession";
 import { changeCheckAfter, fullReloadDue, type SyncStamp } from "../utils/syncCore";
 import {
   addToWindow,
+  isMonthOnPhone,
   lastSeenAfterCheck,
   lookUpPlanIds,
   plansToLookUp,
@@ -67,8 +69,26 @@ import { WORKOUTS_STORAGE_KEY } from "../config/storageKeys";
  * which needs a record of what is on disk to stay right; TICKET-082's proof says
  * whether the whole write is slow enough to matter.
  *
+ * Months older than the window are fetched on tap (`loadMonth`) and kept in memory only.
+ *
  * Sign-out clears it (`initAuth`), as the plans store.
  */
+
+/**
+ * A month older than the window, fetched on tap (TICKET-082). Memory only, never saved: it is
+ * gone at the next app start and at sign-out.
+ * - `loading`: `waitOver` once the read has outlasted `WORKOUTS_CHECK_WAIT_MS`, as a check's
+ *   (`SyncFields.waitOver`). Offline, Firestore takes a while to reject (about 10 to 30 s on the
+ *   emulator, TICKET-082), so a screen shows "needs a connection, still trying" from `waitOver` on
+ *   and does not wait for the rejection.
+ * - `offline`: the read was refused for want of a connection (a Firestore `unavailable`), so the
+ *   screen says "needs a connection" and offers a retry. Nothing was guessed from the empty cache.
+ * - `failed`: any other rejection. Also retryable.
+ */
+export type OlderMonth =
+  | { status: "loading"; waitOver: boolean }
+  | { status: "ready"; sessions: WorkoutSessionDoc[] }
+  | { status: "offline" | "failed"; error: string };
 
 export type WorkoutsCheckKind = "full" | "change";
 export type WorkoutsReadoutEntry = SyncReadoutEntry<WorkoutsCheckKind>;
@@ -82,18 +102,28 @@ interface WorkoutsStore extends SyncFields<WorkoutsCheckKind> {
   lastFullAt: number | null;
   /** Debug readout: Firestore reads billed this app run (a query that returns nothing bills 1). */
   billedReads: number;
+  /** Debug readout: how long the last save of the whole copy took, ms on this phone; null: none yet. */
+  lastSaveMs: number | null;
+  /** Months older than the window that were asked for, by local month key. Memory only. */
+  olderMonths: Record<string, OlderMonth>;
 
   /** A reader opened: load the saved copy for `uid`, then check. */
   open: (uid: string) => Promise<void>;
   /** Ask the server now unless skipped or one is running. `force`: past the skip. `full`: a full reload. */
   check: (options?: { force?: boolean; full?: boolean }) => Promise<void>;
+  /**
+   * Fetch one month older than the window (`getWorkoutsOfMonth`), once, into `olderMonths`. Nothing
+   * for a month the phone already holds (read it from the window) or one already loaded or
+   * loading; a month that was refused offline or failed is asked again. 1 read per workout.
+   */
+  loadMonth: (month: string) => Promise<void>;
   /** This phone's upload of `session` was confirmed by the server: hold it, 0 reads. */
   applyFinished: (uid: string, session: WorkoutSessionDoc) => void;
   /** Sign-out. */
   clear: () => void;
 }
 
-type State = Omit<WorkoutsStore, "open" | "check" | "applyFinished" | "clear">;
+type State = Omit<WorkoutsStore, "open" | "check" | "loadMonth" | "applyFinished" | "clear">;
 
 const initialState = {
   uid: null,
@@ -106,6 +136,8 @@ const initialState = {
   lastOkAt: null,
   lastSeen: null,
   lastFullAt: null,
+  olderMonths: {},
+  lastSaveMs: null,
   readout: { reads: 0, log: [] }, // debug readout (Plans Store page)
 };
 
@@ -275,9 +307,11 @@ export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
         // Both issued before anything is awaited, in this order: the new copy, then the shards it
         // no longer names. A kill between them leaves an orphan shard, which nothing reads and
         // the next sign-out removes.
+        const startedAt = Date.now();
         const written = AsyncStorage.multiSet(entries);
         const removed = stale.length > 0 ? AsyncStorage.multiRemove(stale) : Promise.resolve();
         await Promise.all([written, removed]);
+        useRecentWorkoutsStore.setState({ lastSaveMs: Date.now() - startedAt }); // debug readout
       }
     },
     read: readFromServer,
@@ -304,6 +338,36 @@ export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
         if (run) idsOfLastCheck = idsKey(state.uid, state.epoch, planIds);
         return run;
       }),
+
+    loadMonth: async (month) => {
+      const { uid, workoutWindow, olderMonths } = get();
+      // Not knowing the window, nothing is known to be older than it.
+      if (uid === null || workoutWindow === null || isMonthOnPhone(workoutWindow, month)) return;
+      const current = olderMonths[month];
+      if (current?.status === "loading" || current?.status === "ready") return;
+      const epoch = get().epoch;
+      set((s) => ({ olderMonths: { ...s.olderMonths, [month]: { status: "loading", waitOver: false } } }));
+      // The wait is bounded for the screen, not for the read, as a check's (D9): the answer still applies.
+      const waitTimer = setTimeout(() => {
+        const state = get().olderMonths[month];
+        if (runner.isCurrent(epoch) && state?.status === "loading")
+          set((s) => ({ olderMonths: { ...s.olderMonths, [month]: { status: "loading", waitOver: true } } }));
+      }, WORKOUTS_CHECK_WAIT_MS);
+      let next: OlderMonth;
+      try {
+        const { sessions, docsRead } = await getWorkoutsOfMonth(uid, month);
+        bill(docsRead);
+        next = { status: "ready", sessions };
+      } catch (error) {
+        // Firestore says `unavailable` when it cannot reach the server; anything else is a failure.
+        const offline = (error as { code?: string } | null)?.code === "unavailable";
+        next = { status: offline ? "offline" : "failed", error: error instanceof Error ? error.message : String(error) };
+      }
+      clearTimeout(waitTimer);
+      // A sign-out while it ran: the next user must not receive this user's month.
+      if (!runner.isCurrent(epoch)) return;
+      set((s) => ({ olderMonths: { ...s.olderMonths, [month]: next } }));
+    },
 
     applyFinished: (uid, session) => {
       const state = get();

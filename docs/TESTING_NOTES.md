@@ -226,3 +226,70 @@ Setup that worked (TICKET-081, `pinky`, Pixel_9_Pro_XL, `emulator-5554`):
 - **[waste] Two shell mistakes cost a run each:** `timeout` does not exist on macOS (a silent
   no-output run looked like a hang), and a `--testPathIgnorePatterns` on the command line
   replaces the config's list and ran the emulator-only rules tests.
+
+### TICKET-082 stage 3 (older months, proof, device run)
+- **[run] A device run found what no unit test could: offline does not refuse at once.** The store test
+  mocks a rejection, which is instant. On the emulator the older-month read sat in `loading` for 10 to 30 s
+  before Firestore rejected with `unavailable`. Added `waitOver` and a test (seen red with the timer
+  removed). Any "refused offline" claim needs a device run with airplane mode on, not a mocked rejection.
+- **[run] Desktop timing was two orders of magnitude off the emulator for storage.** Whole-copy write 2.8 ms
+  in `node:sqlite`, 233 ms for the same 1.00 MB in the emulator's AsyncStorage (read 56 ms). The desktop
+  number is a ratio between shapes, never a time; the probe button on the debug page is what answered it.
+- **[run] An airplane-mode cold start needs `adb reverse`.** A dev build loads its bundle from Metro, which
+  airplane mode cuts; `adb reverse tcp:8081 tcp:8081` and "Enter URL manually" with `http://localhost:8081`
+  worked. Then: force-stop, airplane on, launch, hub dates shown, 0 reads billed.
+- **[run] The device found a state I had not written down:** the first read after leaving airplane mode took
+  about 45 s to answer. Nothing to fix (the checks have a bounded wait); recorded so a test plan expects it.
+- **[run] A reboot of the emulator can come back with "System UI isn't responding";** tapping Wait cleared it.
+  Network was down for the first minute after boot (the hub read "last session unknown", then filled in).
+- **[read] A test passed for the wrong reason, again:** "a key that is not a month is refused" stayed green
+  with the guard removed, because `match[1]` on null threw a TypeError. Asserting the message made the
+  mutation red. When a test says "throws", pin which error.
+- **[waste] A scripted edit landed in the wrong component:** `str.replace(a, b, 1)` on a line that
+  appears in two components put a `useState` in the Plans section, and the page crashed on the device
+  with a render error ("Property 'probe' doesn't exist"). tsc had flagged it first; I read it late. Anchor
+  an edit on the enclosing function, not on a line that repeats.
+- **[waste] Two scratch scripts failed on module resolution:** a script outside the repo cannot import
+  `firebase-admin`; import it by absolute path.
+
+### TICKET-082 stage 3, second device run (emulator, `pinky`, 2026-11-15)
+Plan, in order: hub dates and sort; restart reads; older month online, offline, then retry online; a real
+Finish on the test plan; kill and airplane-mode cold start; the picker's recents. Results are in TICKETS.md.
+
+- **[run] A changed config constant does not re-window a phone that already holds a copy.** I set the
+  minimum to 5 for the older-month cases, did a full reload, then reverted to 180. After the revert the
+  phone still held the 5-minimum window (14 workouts from 1 Oct) until another full reload, because a
+  restart only reads the stored copy and then asks for changes. In any test plan that changes a window
+  constant: press "full reload" after setting it and again after reverting it, and read "Last full reload"
+  on the debug page to know which one is held. (A raised or lowered constant in a release also does not
+  re-window existing copies; harmless pre-launch, noted in the ticket.)
+- **[run] The first check after a Finish returned 0 docs, and that is correct.** The Finish adds its workout
+  to the held copy at once (hub shows "Today" before any read), marked "unstamped" on the debug page
+  because it has no server time yet. The check one second later saw nothing, because the upload had not
+  landed. A forced check a minute later returned 1 doc and the entry was stamped. So a phone's own Finish
+  costs 1 read when it comes back, and 0 at Finish. A plan that expects "Finish adds 0 reads" has to say
+  which of the two it means.
+- **[waste] Two taps missed because the page shifted, and two identical screenshots looked like success.**
+  An error line appearing under "Older months" moved every button down. I tapped the old coordinates twice
+  and could not tell a fresh "offline" from the stale one, because the text is the same. Re-screenshot
+  after any state change before the next tap, and read a field that changes on a retry (the billed-read
+  count did: 16 to 17 on the successful retry). A debug row that reads the same before and after a retry
+  is a poor probe; a per-attempt counter would have settled it.
+- **[run] Offline older month: `loading` then `offline`, rejected inside about 50 s, and the retry works.**
+  Not timed more finely than that (screenshots were 10 to 15 s apart and I missed the `loading` frame in
+  both attempts, so the `waitOver` text itself was not seen on this run; it was seen on the first run).
+  After airplane mode off and 25 s for the network, the same button gave "2026-09: 1 workouts" and billed
+  1 read. A rejected month is not stuck. A read that never settles was not seen and cannot be made to
+  happen from the debug page.
+- **[run] A real Finish on a never-done plan fills the floor and the hub at once, and survives a kill.**
+  Test 070 went from "not in recent workouts" to "Today", the floor row appeared, and after force-stop plus
+  airplane-mode cold start the hub still read "Today" with 0 reads billed and the failed check keeping the
+  copy. This is the case the whole floor exists for, seen on a device.
+- **[run] The picker reads the window.** Add exercise: the newest lift (just done, 15 Nov) is first, then the
+  older lifts by date. This closes the "reasoned, not measured" note for recents.
+- **[run] Offline cold start shows a dev-only red LogBox** (Firestore's own `console.error` "Could not reach
+  Cloud Firestore backend"); Dismiss clears it. Not an app error. The Feed also read "Hi, Guest" on that
+  start; not attributed to this ticket, not checked against `main`.
+- **[waste] Not testable here, so not run:** another phone's Finish (needs a second writer, one test write to
+  the real account); a second account signing in after sign-out (needs that account's login); a busy month
+  of 60+ workouts (pinky has 15). Unit tests cover the sign-out and epoch rules.

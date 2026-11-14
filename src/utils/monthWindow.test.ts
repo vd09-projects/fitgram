@@ -1,5 +1,5 @@
 // TICKET-082 / 087: which months the phone keeps; the rule that measureWindow.ts measures.
-import { chooseMonthsToKeep } from "./monthWindow";
+import { chooseMonthsToKeep, localMonthRange } from "./monthWindow";
 
 const months = (counts: Record<string, number>) => new Map(Object.entries(counts));
 
@@ -28,5 +28,24 @@ describe("chooseMonthsToKeep", () => {
     const w = chooseMonthsToKeep(months({ "2026-01": 10, "2025-12": 10, "2025-11": 10 }), 15);
     expect(w.keptMonths).toEqual(["2026-01", "2025-12"]);
     expect(w.olderMonths).toEqual(["2025-11"]);
+  });
+});
+
+describe("localMonthRange", () => {
+  // The suite runs in Los Angeles (src/test/globalSetup.js), where the clock goes back on 1 Nov 2026.
+  it("is the local calendar month, so a month with a clock change is not 30 days long", () => {
+    const { from, to } = localMonthRange("2026-11");
+    expect(from).toBe(new Date(2026, 10, 1).getTime());
+    expect(to).toBe(new Date(2026, 11, 1).getTime());
+    expect(to - from).toBe(30 * 86_400_000 + 3_600_000); // the repeated hour
+  });
+
+  it("December ends at the first instant of January, and the months do not overlap", () => {
+    expect(localMonthRange("2026-12").to).toBe(new Date(2027, 0, 1).getTime());
+    expect(localMonthRange("2026-10").to).toBe(localMonthRange("2026-11").from);
+  });
+
+  it("refuses a key that is not a month, never a range that reads as an empty month", () => {
+    for (const bad of ["2026-13", "2026-00", "2026-1", "Nov 2026", ""]) expect(() => localMonthRange(bad)).toThrow("Not a month key");
   });
 });

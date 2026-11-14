@@ -60,3 +60,17 @@ export const localMonthStart = (time: number): number => {
  * a shard is storage, and nothing is read from its name but where to find a doc.
  */
 export const utcMonthKey = (time: number): string => new Date(time).toISOString().slice(0, 7);
+
+/**
+ * The ms range of a local month key: `from` is its first instant, `to` the first instant of
+ * the next month, so a workout is in the month when `from <= startedAt < to`. Built from the
+ * local calendar, not from 30 days, so a month with a clock change is the right length.
+ * Throws for a key that is not `YYYY-MM`: a wrong range would read as an empty month.
+ */
+export function localMonthRange(month: string): { from: number; to: number } {
+  const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(month);
+  if (!match) throw new Error(`Not a month key: ${month}`);
+  const year = Number(match[1]);
+  const index = Number(match[2]) - 1;
+  return { from: new Date(year, index, 1).getTime(), to: new Date(year, index + 1, 1).getTime() };
+}

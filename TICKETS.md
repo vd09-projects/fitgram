@@ -10055,7 +10055,7 @@ the harness; phase 2 latency, not measured.
 
 ### TICKET-082: Hold Recent Workouts on the Phone
 
-**Priority:** Medium | **Effort:** Medium-Large | **Status: IN PROGRESS, stages 1 and 2 of 3 built (pure layer; store, floor and readers); the floor was added to the plan after stage 1 (2026-11-14, design review); stage 3 not built** — raised 2026-11-13 (user); window decided in TICKET-087
+**Priority:** Medium | **Effort:** Medium-Large | **Status: IN PROGRESS, stages 1 and 2 committed, stage 3 built and not committed (2026-11-14); one proof item open: a Finish on another phone, which needs one test write the user has not yet approved** — raised 2026-11-13 (user); window decided in TICKET-087
 
 **Description:**
 The Workouts list, its month rows, the filter counts ("Push · 14 workouts") and opening a recent month
@@ -10119,7 +10119,7 @@ held window's sets live in the records, which reverses TICKET-072 D7 for the win
 - *Stage 1 (built, commit c247fcc):* the pure layer.
 - *Stage 2 (built, not committed):* the floor in the pure layer, the store on the window and the floor, `WORKOUTS_PER_PLAN`,
   `loaded`, `followPlans` and `planIdsToHold` retired, the readers (hub, Start, Manage, both pickers) updated.
-- *Stage 3:* `getWorkoutsOfMonth` (older months, memory only, refused offline) and the proof.
+- *Stage 3 (built, not committed):* `getWorkoutsOfMonth` (older months, memory only, refused offline) and the proof.
 
 **Stage 1 built (2026-11-14, nothing pushed): the pure layer.** `src/utils/monthWindow.ts` (moved from
 `src/scripts/`; `chooseMonthsToKeep` plus the month helpers; `measureWindow.ts` imports it), `src/utils/workoutWindow.ts`
@@ -10227,6 +10227,50 @@ about 3 times for the idle one. That is the 087 trade (a month's History offline
 real store; it matches 087's fixtures (198-222 reads, 0.62-0.69 MB) plus the baseline read and the floor. Nothing here was
 seen on a phone, and cold start in airplane mode is not yet run.
 
+**Stage 3 built (2026-11-14, not committed): older months on tap, and the proof.**
+- *`getWorkoutsOfMonth(uid, month)`* (service): one query by `startedAt` range, `deleted` markers left out, the single-field index.
+  *`loadMonth(month)`* (store) keeps the answer in `olderMonths`, memory only, never saved, gone at sign-out and a read that lands after
+  it is dropped. It reads nothing for a month the phone already holds (`isMonthOnPhone`) or before it knows its window, reads a loaded
+  month once, and asks again after a refusal. States: `loading` (with `waitOver`), `ready`, `offline` (Firestore `unavailable`), `failed`.
+  `localMonthRange` is the local calendar month, so a month with a clock change is not 30 days; a key that is not `YYYY-MM` throws.
+- *Deviation found on the device:* offline, Firestore took roughly 10 to 30 s to reject, so a bare `loading` would leave a screen on a
+  spinner. `loading` now carries `waitOver` after `WORKOUTS_CHECK_WAIT_MS`, as a check's wait. 085 shows "needs a connection, still
+  trying" from `waitOver` on instead of waiting for the rejection.
+- *Debug page* (the ticket's "debug readout"): the window, the floor, last save time, older months, and two buttons: load the month
+  before the window, and a TEMPORARY probe that saves and reads back a window-sized copy under its own keys (remove with the page).
+
+**Proof (CLAUDE.md 3.1). Desktop figures are `node:sqlite` plus JSON, a ratio between shapes; device figures are the Android emulator.**
+
+*Save time, whole copy against one shard.* `measureWindow.ts` (B, hold the newest 180): the whole copy (head and every shard) 2.8 ms
+at 500 workouts and 2.6 ms at 1500, against 1.1 and 1.5 ms for head and one shard. On the emulator, a copy of 1.00 MB in 5 keys:
+**save 233 ms, read 56 ms, head and one shard 34 ms**; the app's own saves of 69 KB read 167 to 564 ms (they queue behind other stores' writes, and 564 ms was while the probe ran). The desktop figures
+understate the phone by two orders of magnitude, so do not read them as phone times. Decision: **keep writing the whole copy.**
+It runs off the JS thread after a check or a Finish, a kill before it lands loses nothing (`lastSeen` did not move, so the next
+check brings the workout back), and writing only changed shards needs a record of what is on disk. Revisit if a physical phone shows
+jank; the cost is one `multiSet` of about 1 MB on each successful check.
+
+*Device run (emulator, signed in as `pinky`: 15 workouts, 5 plans, one never done).*
+- First load: **17 reads** (1 baseline, 15 workouts, 1 empty lookup for the never-done plan); "3 queries, 16 docs" in the debug log.
+  The hub showed 21d, 18d, 16d, 15d longest first, and "not in recent workouts" for the never-done plan.
+- Restart: the list shows from the saved copy; the check after it is "1 queries, 0 docs".
+- **Cold start in airplane mode: the hub shows every date in the same order, 0 reads billed;** the failed check keeps the copy and
+  shows its error.
+- With the minimum set to 5 for this run only (reverted, `git diff` empty): a full reload is 4 queries, 15 docs, 16 reads billed; the
+  window starts 1 Oct, one shard on disk. "Load the month before the window", offline: `loading`, then `offline` with Firestore's
+  message after 10 to 30 s. Online: `2026-09: 1 workouts`, 2 reads billed in all, and the saved copy still has one shard.
+- The first read after leaving airplane mode waited about 45 s before it answered (Firestore reconnecting); the wait bound exists for this.
+
+*Floor proof from the harness* (stage 2's table): a phone with 16 idle plans, 215 / 239 reads against 70 before; all 16 idle plans
+keep their date; a restart reads 0 to show the list and 1 for the check; a Finish adds 0 reads.
+
+**Not verified (CLAUDE.md 1.4):**
+- *Device run 2026-11-15 (emulator, `pinky`), added:* a real Finish of the test plan Test 070 (one `sessions` doc, one `exercise_sessions` doc and its stats doc, written to `pinky`, not deleted) filled the floor and the hub at once ("not in recent workouts" to "Today"), the first check after it read 0 docs (upload not landed), a forced check read 1 doc and stamped the entry, and after a kill plus airplane-mode cold start the hub still read "Today" with 0 reads billed. An older month offline: `offline` inside about 50 s; online retry gave `2026-09: 1 workouts`, 1 read billed. The picker's recents come from the window (newest lift first). Not seen: the `waitOver` frame on this run, a read that never settles, a second account after sign-out. A changed `WORKOUTS_ON_PHONE_MIN` does not re-window a phone that holds a copy until a full reload (harmless pre-launch).
+- *A Finish on another phone appears on the next check:* the store tests cover it (a change check brings the other phone's workout and
+  moves the floor), but it was not seen on the device. It needs one test write to the real account (one `sessions` doc, then its
+  deletion); a dry run is prepared and waits for the user's approval.
+- A busy month (62 workouts, 198 KB) through `getWorkoutsOfMonth`: the device month had one workout, so only the 1-workout read was seen.
+- Times on a physical phone, and the picker's recents against the old per-plan 5 (reasoned, not measured).
+
 **Dependencies:** TICKET-087 and 081 (the `lifts` shape and validation).
 
 ---
@@ -10326,7 +10370,7 @@ Back from a deeper screen keeps tab, filter, scroll and which months are open.
   workout is one tap target; the current month in full (under 10 workouts it runs into the month before,
   which is then split and its Earlier row counts only what is left); Earlier month rows open in place in one
   list (`SectionList` or `FlatList` with row types, not nested lists); months older than the held window are
-  one "Older" row (boards `HistHome19OlderEnd`, `HistHome20OlderOffline`) that loads a month on tap (082's `getWorkoutsOfMonth`, needs a connection, no count until it
+  one "Older" row (boards `HistHome19OlderEnd`, `HistHome20OlderOffline`) that loads a month on tap (082's `getWorkoutsOfMonth` through the store's `loadMonth`: states `loading` (with `waitOver`: say "needs a connection, still trying" from there, as Firestore takes 10 to 30 s to refuse offline), `ready`, `offline`, `failed`; no count until it
   is loaded: never a total the phone does not have); filter sheet and counts from 082's selectors (`planFilterRows` over the window: a plan idle for longer than the window has no row, and its newest workout is in `lastByPlan`, which no month or count includes); a workout waiting to upload merged in with provisional verdicts (`withVerdicts` over the held summaries; 081 stage 2 built the function, not the wiring); "Not compared" for a
   workout with no verdict (081's reason), and no word at all for one whose `workoutVerdict` is `pending` (a lift not yet computed, or older than a lift's rollup window).
 - **Stage 3, Exercises:** search, one row per lift from the held summaries (Better/Lower/Same by 081's

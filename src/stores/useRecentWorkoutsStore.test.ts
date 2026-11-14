@@ -6,13 +6,14 @@ import {
   getChangedSessions,
   getLastWorkoutOfPlan,
   getNewestSessionStamp,
+  getWorkoutsOfMonth,
   getWorkoutWindowFromServer,
 } from "../services/db/workoutSessions";
 import { getAllWorkoutPlans } from "../services/db/userDB";
 import type { WorkoutSessionDoc } from "../types/workoutSession";
 import { serializeStoredWorkouts } from "../utils/workoutWindow";
 import { WORKOUTS_STORAGE_KEY } from "../config/storageKeys";
-import { WORKOUTS_ON_PHONE_MIN } from "../config/sync";
+import { WORKOUTS_CHECK_WAIT_MS, WORKOUTS_ON_PHONE_MIN } from "../config/sync";
 import { serveRecentWorkouts } from "../test/recentWorkouts";
 
 jest.mock("../services/firebase/firebase", () => ({ db: {} }));
@@ -21,6 +22,7 @@ jest.mock("../services/db/workoutSessions", () => ({
   getWorkoutWindowFromServer: jest.fn(),
   getLastWorkoutOfPlan: jest.fn(),
   getChangedSessions: jest.fn(),
+  getWorkoutsOfMonth: jest.fn(),
 }));
 jest.mock("../services/db/userDB", () => ({
   getAllWorkoutPlans: jest.fn(),
@@ -201,4 +203,94 @@ it("a month that leaves the window takes its shard off disk, and the plan keeps 
   expect(sessionIds()?.some((id) => id.startsWith("oct"))).toBe(false);
   expect(floor()?.push?.sessionId).toBe("dec");
   await waitFor(async () => expect((await savedKeys()).some((key) => key.endsWith("2026-10"))).toBe(false));
+});
+
+describe("a month older than the window, on tap", () => {
+  const olderMonths = () => useRecentWorkoutsStore.getState().olderMonths;
+  const SEP = "2026-09";
+  const sep = (id: string) => session(id, "push", new Date(2026, 8, 10, 10).getTime());
+
+  /** The window starts on 1 October, with plans looked up, so September is older. */
+  async function openWithWindowFromOctober() {
+    usePlansStore.setState({ uid: UID, plans: [plan("push")], storedRead: true });
+    await AsyncStorage.multiSet(
+      serializeStoredWorkouts(UID, {
+        sessions: [session("oct", "push", new Date(2026, 9, 5, 10).getTime())],
+        windowStart: new Date(2026, 9, 1).getTime(),
+        lastByPlan: { push: session("oct", "push", new Date(2026, 9, 5, 10).getTime()) },
+        lastSeen: { seconds: 5, nanoseconds: 0 },
+        lastFullAt: 0,
+      })
+    );
+    await useRecentWorkoutsStore.getState().open(UID);
+    jest.mocked(getWorkoutsOfMonth).mockReset();
+  }
+
+  it("is read once, kept in memory only, and not read again", async () => {
+    await openWithWindowFromOctober();
+    jest.mocked(getWorkoutsOfMonth).mockResolvedValue({ sessions: [sep("a"), sep("b")], docsRead: 2 });
+    const before = useRecentWorkoutsStore.getState().billedReads;
+    await useRecentWorkoutsStore.getState().loadMonth(SEP);
+    await useRecentWorkoutsStore.getState().loadMonth(SEP);
+    expect(getWorkoutsOfMonth).toHaveBeenCalledTimes(1);
+    expect(getWorkoutsOfMonth).toHaveBeenCalledWith(UID, SEP);
+    expect(olderMonths()[SEP]).toEqual({ status: "ready", sessions: [sep("a"), sep("b")] });
+    expect(useRecentWorkoutsStore.getState().billedReads - before).toBe(2);
+    // Not part of the window and not saved: the copy on disk still names only October's shard.
+    expect(sessionIds()).toEqual(["oct"]);
+    await waitFor(async () => expect((await savedKeys()).length).toBeGreaterThan(0));
+    const saved = (await AsyncStorage.multiGet(await savedKeys())).map(([, value]) => value).join("");
+    expect(saved).not.toContain("2026-09");
+    expect(saved).not.toContain('"a"');
+  });
+
+  it("is refused offline with a state, retried on the next ask, and never read as an empty month", async () => {
+    await openWithWindowFromOctober();
+    jest.mocked(getWorkoutsOfMonth).mockRejectedValue(Object.assign(new Error("client is offline"), { code: "unavailable" }));
+    await useRecentWorkoutsStore.getState().loadMonth(SEP);
+    expect(olderMonths()[SEP]).toEqual({ status: "offline", error: "client is offline" });
+
+    jest.mocked(getWorkoutsOfMonth).mockRejectedValue(new Error("permission-denied"));
+    await useRecentWorkoutsStore.getState().loadMonth(SEP);
+    expect(olderMonths()[SEP]).toMatchObject({ status: "failed" });
+
+    jest.mocked(getWorkoutsOfMonth).mockResolvedValue({ sessions: [sep("a")], docsRead: 1 });
+    await useRecentWorkoutsStore.getState().loadMonth(SEP);
+    expect(olderMonths()[SEP]).toEqual({ status: "ready", sessions: [sep("a")] });
+  });
+
+  it("reads nothing for a month the phone already holds, or before it knows its window", async () => {
+    await openWithWindowFromOctober();
+    await useRecentWorkoutsStore.getState().loadMonth("2026-10");
+    await useRecentWorkoutsStore.getState().loadMonth("2026-12");
+    expect(getWorkoutsOfMonth).not.toHaveBeenCalled();
+    useRecentWorkoutsStore.getState().clear();
+    await useRecentWorkoutsStore.getState().loadMonth(SEP);
+    expect(getWorkoutsOfMonth).not.toHaveBeenCalled();
+  });
+
+  it("says the wait is over when the read outlasts it, and still takes the answer when it lands", async () => {
+    await openWithWindowFromOctober();
+    let answer: (value: { sessions: WorkoutSessionDoc[]; docsRead: number }) => void = () => {};
+    jest.mocked(getWorkoutsOfMonth).mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    const loading = useRecentWorkoutsStore.getState().loadMonth(SEP);
+    jest.advanceTimersByTime(WORKOUTS_CHECK_WAIT_MS);
+    expect(olderMonths()[SEP]).toEqual({ status: "loading", waitOver: true });
+    answer({ sessions: [sep("a")], docsRead: 1 });
+    await loading;
+    expect(olderMonths()[SEP]).toEqual({ status: "ready", sessions: [sep("a")] });
+  });
+
+  it("is gone at sign-out, and a read that lands after it is dropped", async () => {
+    await openWithWindowFromOctober();
+    let answer: (value: { sessions: WorkoutSessionDoc[]; docsRead: number }) => void = () => {};
+    jest.mocked(getWorkoutsOfMonth).mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    const loading = useRecentWorkoutsStore.getState().loadMonth(SEP);
+    expect(olderMonths()[SEP]).toEqual({ status: "loading", waitOver: false });
+    useRecentWorkoutsStore.getState().clear();
+    expect(olderMonths()).toEqual({});
+    answer({ sessions: [sep("a")], docsRead: 1 });
+    await loading;
+    expect(olderMonths()).toEqual({});
+  });
 });
