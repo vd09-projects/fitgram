@@ -48,8 +48,9 @@ export const workoutsShardKey = (utcMonth: string) => `${WORKOUTS_STORAGE_KEY}.$
 /**
  * Format of the stored recent workouts, written in the head. Bump it when
  * `StoredWorkoutsHead` (utils/workoutWindow.ts) or the session shape it holds
- * changes. 2 (TICKET-082): whole months in shards instead of the newest N per
- * plan in one key; a copy of the first format is discarded and refilled.
+ * changes. The first format held the newest N per plan in one key; the current one
+ * (TICKET-082) holds whole months in shards. A copy of an older format is discarded
+ * and refilled.
  *
  * Changes stored data: bumping it discards every phone's stored workouts on
  * the next launch; each refills with one first load (`WORKOUTS_ON_PHONE_MIN` reads, rounded up to a month).

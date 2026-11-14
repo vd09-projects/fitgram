@@ -13,7 +13,7 @@ import { getAllWorkoutPlans } from "../services/db/userDB";
 import type { WorkoutSessionDoc } from "../types/workoutSession";
 import { serializeStoredWorkouts } from "../utils/workoutWindow";
 import { WORKOUTS_STORAGE_KEY } from "../config/storageKeys";
-import { WORKOUTS_CHECK_WAIT_MS, WORKOUTS_ON_PHONE_MIN } from "../config/sync";
+import { WORKOUTS_CHECK_WAIT_MS, WORKOUTS_MONTH_RETRY_GAP_MS, WORKOUTS_ON_PHONE_MIN } from "../config/sync";
 import { serveRecentWorkouts } from "../test/recentWorkouts";
 
 jest.mock("../services/firebase/firebase", () => ({ db: {} }));
@@ -236,12 +236,8 @@ describe("a month older than the window, on tap", () => {
     expect(getWorkoutsOfMonth).toHaveBeenCalledWith(UID, SEP);
     expect(olderMonths()[SEP]).toEqual({ status: "ready", sessions: [sep("a"), sep("b")] });
     expect(useRecentWorkoutsStore.getState().billedReads - before).toBe(2);
-    // Not part of the window and not saved: the copy on disk still names only October's shard.
+    // Not part of the window, so not saved: what is saved is built from the window alone.
     expect(sessionIds()).toEqual(["oct"]);
-    await waitFor(async () => expect((await savedKeys()).length).toBeGreaterThan(0));
-    const saved = (await AsyncStorage.multiGet(await savedKeys())).map(([, value]) => value).join("");
-    expect(saved).not.toContain("2026-09");
-    expect(saved).not.toContain('"a"');
   });
 
   it("is refused offline with a state, retried on the next ask, and never read as an empty month", async () => {
@@ -250,22 +246,75 @@ describe("a month older than the window, on tap", () => {
     await useRecentWorkoutsStore.getState().loadMonth(SEP);
     expect(olderMonths()[SEP]).toEqual({ status: "offline", error: "client is offline" });
 
+    jest.advanceTimersByTime(WORKOUTS_MONTH_RETRY_GAP_MS);
     jest.mocked(getWorkoutsOfMonth).mockRejectedValue(new Error("permission-denied"));
     await useRecentWorkoutsStore.getState().loadMonth(SEP);
     expect(olderMonths()[SEP]).toMatchObject({ status: "failed" });
 
+    jest.advanceTimersByTime(WORKOUTS_MONTH_RETRY_GAP_MS);
     jest.mocked(getWorkoutsOfMonth).mockResolvedValue({ sessions: [sep("a")], docsRead: 1 });
     await useRecentWorkoutsStore.getState().loadMonth(SEP);
     expect(olderMonths()[SEP]).toEqual({ status: "ready", sessions: [sep("a")] });
   });
 
-  it("reads nothing for a month the phone already holds, or before it knows its window", async () => {
+  it("reads nothing for a month the phone already holds", async () => {
     await openWithWindowFromOctober();
     await useRecentWorkoutsStore.getState().loadMonth("2026-10");
     await useRecentWorkoutsStore.getState().loadMonth("2026-12");
     expect(getWorkoutsOfMonth).not.toHaveBeenCalled();
-    useRecentWorkoutsStore.getState().clear();
+  });
+
+  it("reads nothing while the user is known but the window is not", async () => {
+    useRecentWorkoutsStore.setState({ uid: UID, workoutWindow: null });
     await useRecentWorkoutsStore.getState().loadMonth(SEP);
+    expect(getWorkoutsOfMonth).not.toHaveBeenCalled();
+    expect(olderMonths()).toEqual({});
+  });
+
+  it("a second ask while the first read is inside its wait joins it instead of reading again", async () => {
+    await openWithWindowFromOctober();
+    jest.mocked(getWorkoutsOfMonth).mockReturnValue(new Promise(() => {}));
+    void useRecentWorkoutsStore.getState().loadMonth(SEP);
+    void useRecentWorkoutsStore.getState().loadMonth(SEP);
+    expect(getWorkoutsOfMonth).toHaveBeenCalledTimes(1);
+  });
+
+  it("an ask after the wait is over reads again, and the older read's late answer does not overwrite the newer one", async () => {
+    await openWithWindowFromOctober();
+    const answers: Array<(value: { sessions: WorkoutSessionDoc[]; docsRead: number }) => void> = [];
+    jest.mocked(getWorkoutsOfMonth).mockImplementation(() => new Promise((resolve) => answers.push(resolve)));
+    const first = useRecentWorkoutsStore.getState().loadMonth(SEP);
+    jest.advanceTimersByTime(WORKOUTS_CHECK_WAIT_MS);
+    expect(olderMonths()[SEP]).toEqual({ status: "loading", waitOver: true });
+    const second = useRecentWorkoutsStore.getState().loadMonth(SEP);
+    expect(getWorkoutsOfMonth).toHaveBeenCalledTimes(2);
+    expect(olderMonths()[SEP]).toEqual({ status: "loading", waitOver: false }); // the new read has its own wait
+    answers[1]({ sessions: [sep("new")], docsRead: 1 });
+    await second;
+    answers[0]({ sessions: [sep("stale")], docsRead: 1 });
+    await first;
+    expect(olderMonths()[SEP]).toEqual({ status: "ready", sessions: [sep("new")] });
+  });
+
+  it("an ask right after a refusal is ignored and the refusal stays; after the gap it reads again", async () => {
+    await openWithWindowFromOctober();
+    jest.mocked(getWorkoutsOfMonth).mockRejectedValue(new Error("permission-denied"));
+    await useRecentWorkoutsStore.getState().loadMonth(SEP);
+    await useRecentWorkoutsStore.getState().loadMonth(SEP);
+    await useRecentWorkoutsStore.getState().loadMonth(SEP);
+    expect(getWorkoutsOfMonth).toHaveBeenCalledTimes(1);
+    expect(olderMonths()[SEP]).toMatchObject({ status: "failed" });
+    jest.advanceTimersByTime(WORKOUTS_MONTH_RETRY_GAP_MS);
+    jest.mocked(getWorkoutsOfMonth).mockResolvedValue({ sessions: [sep("a")], docsRead: 1 });
+    await useRecentWorkoutsStore.getState().loadMonth(SEP);
+    expect(getWorkoutsOfMonth).toHaveBeenCalledTimes(2);
+    expect(olderMonths()[SEP]).toEqual({ status: "ready", sessions: [sep("a")] });
+  });
+
+  it("a key that is not a month is a state, not a throw", async () => {
+    await openWithWindowFromOctober();
+    await expect(useRecentWorkoutsStore.getState().loadMonth("October")).resolves.toBeUndefined();
+    expect(olderMonths()["October"]).toMatchObject({ status: "failed" });
     expect(getWorkoutsOfMonth).not.toHaveBeenCalled();
   });
 

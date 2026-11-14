@@ -257,8 +257,8 @@ Plan, in order: hub dates and sort; restart reads; older month online, offline, 
 Finish on the test plan; kill and airplane-mode cold start; the picker's recents. Results are in TICKETS.md.
 
 - **[run] A changed config constant does not re-window a phone that already holds a copy.** I set the
-  minimum to 5 for the older-month cases, did a full reload, then reverted to 180. After the revert the
-  phone still held the 5-minimum window (14 workouts from 1 Oct) until another full reload, because a
+  minimum low for the older-month cases, did a full reload, then reverted it. After the revert the
+  phone still held the low-minimum window (14 workouts from 1 Oct) until another full reload, because a
   restart only reads the stored copy and then asks for changes. In any test plan that changes a window
   constant: press "full reload" after setting it and again after reverting it, and read "Last full reload"
   on the debug page to know which one is held. (A raised or lowered constant in a release also does not
@@ -293,3 +293,77 @@ Finish on the test plan; kill and airplane-mode cold start; the picker's recents
 - **[waste] Not testable here, so not run:** another phone's Finish (needs a second writer, one test write to
   the real account); a second account signing in after sign-out (needs that account's login); a busy month
   of 60+ workouts (pinky has 15). Unit tests cover the sign-out and epoch rules.
+
+### TICKET-082, handling the PR review (2026-11-15)
+- **[read] A fresh reviewer found a bug the builder's own tests and a device run could not: a case that only
+  exists in a later ticket.** A `deleted` marker keeps its `startedAt`, so as a plan's newest it answered the
+  floor's lookup with no date, and the plan was asked again on every check. No test or screen could show it,
+  because nothing writes markers until TICKET-086. When a store stores a rule for data a later ticket will
+  write, test that rule's resolution too, not only its removal.
+- **[read] A proof harness had two assertions that could not fail.** "A restart reads 0 to show the list" was
+  a hardcoded `0` compared with itself; "a Finish adds 0 reads" read the store's own `billedReads` counter,
+  which the code under test can never increment. Fixed by counting calls into the mocked services, at the
+  moment the list first appears and around the Finish. Both seen red by adding one service call to the code.
+  A counter the code maintains about itself is not a measurement of what the code does.
+- **[run] Mutation testing found two guards no test covered.** Removing the "no window yet" guard and the
+  "already loading" guard from `loadMonth` left 15 of 15 tests green. The test for the first called `clear()`,
+  which nulls `uid`, so an earlier guard returned first; the second was never exercised because the "once" test
+  awaited each call. Write the test so the guard under test is the first one that can fire.
+- **[run] A negative assertion that cannot fail was deleted, not strengthened.** "The saved copy does not
+  contain the older month" passed whatever the store did, because the save is built from the window alone.
+  The real claim (the window still holds only the held month) was already asserted.
+- **[waste] My first mutation of the bad-key guard tested nothing:** it changed the argument but the throw still
+  happened inside the `try`. The test stayed green and I almost read that as a passing test. Make the mutation
+  remove the behaviour (rethrow in the catch), then confirm it goes red.
+- **[run] Restoring a mutated file by copy, not by git, kept the unstaged work safe.** Each mutation copied the
+  file aside, changed one line, ran the one test file, copied it back; `git diff --stat` after the batch matched
+  the size before. Do not `git checkout` a file with unstaged work to undo a probe.
+- **[run] A review's "could not verify" can be closed cheaply:** the 199, 223, 215 and 239 reads the ticket
+  quotes were confirmed by running the harness under `TZ=UTC`; the suite default is Los Angeles.
+- **[run] A claim in the ticket was false and a cheap run showed it:** "the full suite passes under Los Angeles
+  and UTC alike". Under `TZ=UTC`, `Asia/Kolkata` and `Pacific/Auckland` 31 tests fail (30 already at the stage 2
+  commit, found by running the committed tree in a throwaway worktree). Those tests assert a boundary where the
+  UTC month and the local month disagree, which needs a zone behind UTC. Corrected in the ticket and the
+  `globalSetup.js` comment. When a test is built on a time zone, run it under two other zones before writing
+  "passes under any zone".
+- **[run] A throttle added after a review question broke an earlier test, which was the right signal.** The
+  "retried on the next ask" test asked three times back to back; with the retry gap it had to advance the fake
+  clock between asks. The new test (three asks right after a refusal read once, an ask after the gap reads
+  again) was seen red with the check replaced by `false`. A test that makes several asks in a row is a test of
+  the rate, whether it meant to be or not.
+- **[run] Mutation testing of an extracted helper found dead code, and the right fix was to delete it.** After
+  moving the on-demand read rules out of the store into `onDemandReads.ts`, one of seven mutations survived:
+  the "newest read" check in the wait timer. Tracing it showed a new read only starts after the old read's timer
+  has fired or been cleared, so the check could never matter, and the test written for it passed against
+  broken code. Removed the guard and the test. A mutation that survives means a missing test or an unreachable
+  line; decide which before adding a test.
+- **[run] Extracting kept the old tests as the proof of "same behaviour":** the store's 20 `loadMonth` tests ran
+  unchanged on the helper before any new test was written, and only then did the helper get its own 7.
+
+### TICKET-082, device run after the review fixes (emulator, `pinky`, 2026-11-15)
+- **[run] The blocker was only testable by writing the data a later ticket will write.** Nothing in the app
+  writes a `deleted` marker until 086, so the case could not be reached by using the app. A scratch admin
+  script (dry run first) set `deleted: true` on the one Test 070 workout I had made, then restored it.
+  Seen: the hub read "last session unknown" until the next trigger, a forced check ran the lookup once and
+  the plan settled as "never done", and the following check made no lookup (`1 queries`, not `2`). Before the
+  fix the lookup would have returned the marker and the plan would have stayed unknown, with a lookup on every
+  check. When a bug needs data the app cannot yet write, write one real example through the admin SDK, on a
+  doc you own, and put it back.
+- **[run] "Unknown" between the marker and the next focus is by design and looks like the bug.** The check that
+  carries the marker ends with the plan not looked up; the lookup runs on the next trigger (a focus), by the
+  once-per-set-of-ids rule. A tester who stops after 8 seconds sees the broken state. A plan for this test must
+  say: after the marker, force a second check.
+- **[run] The restore needed a second look, not an assumption:** after `deleted` was removed the floor went
+  from "never done" back to the date on the next check (`1 queries, 1 docs`). A null entry being replaced by a
+  restored workout is a path no unit test named.
+- **[run] The probe with JSON in it changed the number that matters.** The old probe saved plain strings: save
+  233 ms, read 56 ms. With stringify and parse: stringify 153, save 227, read 128, parse 94 ms. A restart pays
+  about 220 ms (read plus parse) and a save about 380 ms, before validation. A storage-only probe understates
+  the cost by the whole CPU part; time the JSON in the same run.
+- **[waste] Taps missed twice on the debug page** because scroll position and layout differ between visits. A
+  tap that changes nothing looks like a result; check the check log for a new line before reading anything.
+- **[run] The throttle cannot be seen on a device:** a refused read bills nothing and the row text is the same,
+  so unit tests are the only proof. Say so in a plan instead of looking for it.
+- **[waste] A scratch script outside the repo could not import `firebase-admin`** (module resolution, as noted
+  before); it ran once copied into `src/scripts/` and was deleted. Check `git status` for the temp file at the
+  end of the run.

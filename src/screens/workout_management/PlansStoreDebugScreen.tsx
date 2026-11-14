@@ -38,7 +38,8 @@
 // plan's newest workout (the floor); `lastSeen`; each check with its queries and docs; and the reads Firestore
 // bills this app run, which is the ticket's measure (a query that returns
 // nothing bills 1). Remove with the page: the section, and in
-// useRecentWorkoutsStore the `billedReads` field and `bill` (marked "debug readout").
+// useRecentWorkoutsStore the `billedReads` field and `bill`, and `lastSaveMs` with the line that sets
+// it (each marked "debug readout"); the "Last save" row reads `lastSaveMs`.
 //
 // TEMPORARY: `SummariesSection` (TICKET-076, CLAUDE.md 3.3): the exercise
 // summaries store's held count, `lastSeen`, last full load, last checks and
@@ -189,23 +190,42 @@ const windowMonths = (sessions: readonly { startedAt: number }[]) => new Set(ses
 
 /**
  * TEMPORARY (TICKET-082 stage 3, CLAUDE.md 3.3): how long this phone takes to save and read back a copy the
- * size of a full window (the proof's fixtures: a head and four shards, about 1 MB), under keys of its own.
- * Phone storage only: nothing is sent anywhere and the real saved copy is untouched. Remove: this function,
- * its state and button in `WorkoutsSection`, and the `AsyncStorage` import if nothing else uses it.
+ * size of a full window (the proof's fixtures: a head and four shards), under keys of its own, with the
+ * JSON work the real copy needs: building and stringifying records of the app's shape before the save, and
+ * parsing after the read. What it leaves out: `isSession` validation of every record and `readLifts`, which
+ * the real restart also runs. Phone storage only: nothing is sent anywhere and the real saved copy is
+ * untouched; its keys are removed even when a step throws. Remove: this function, `PROBE_SHARD_BYTES`,
+ * `probeRecord`, the `probe` state, the "Probe" row and the button in `WorkoutsSection`.
  */
+const PROBE_SHARD_BYTES = [19_000, 286_000, 286_000, 286_000, 120_000];
+const probeRecord = () => ({
+  sessionId: "probe",
+  lifts: Array.from({ length: 8 }, (_, i) => ({
+    id: `exercise_${i}__machine`,
+    name: `Exercise ${i}`,
+    sets: Array.from({ length: 5 }, (_set, n) => ({ id: n + 1, segments: [{ Weight: 30, Reps: 8 }] })),
+  })),
+});
 async function timeWindowSizedCopy(): Promise<string> {
-  const keys = ["head", "a", "b", "c", "d"].map((name) => `debugTimingProbe.${name}`);
-  const sizes = [19_000, 286_000, 286_000, 286_000, 120_000];
-  const rows = keys.map((key, i): [string, string] => [key, "x".repeat(sizes[i])]);
-  const t0 = Date.now();
-  await AsyncStorage.multiSet(rows);
-  const t1 = Date.now();
-  await AsyncStorage.multiGet(keys);
-  const t2 = Date.now();
-  await AsyncStorage.multiSet(rows.slice(0, 2)); // what a Finish would rewrite if only changed shards were saved
-  const t3 = Date.now();
-  await AsyncStorage.multiRemove(keys);
-  return `whole copy (${(sizes.reduce((a, b) => a + b, 0) / 1e6).toFixed(2)} MB, 5 keys): save ${t1 - t0} ms · read ${t2 - t1} ms · head + one shard save ${t3 - t2} ms`;
+  const keys = PROBE_SHARD_BYTES.map((_, i) => `debugTimingProbe.${i}`);
+  const oneRecord = JSON.stringify(probeRecord()).length;
+  try {
+    const t0 = Date.now();
+    const rows = keys.map((key, i): [string, string] => [key, JSON.stringify(Array.from({ length: Math.ceil(PROBE_SHARD_BYTES[i] / oneRecord) }, probeRecord))]);
+    const t1 = Date.now();
+    await AsyncStorage.multiSet(rows);
+    const t2 = Date.now();
+    const read = await AsyncStorage.multiGet(keys);
+    const t3 = Date.now();
+    read.forEach(([, value]) => JSON.parse(value ?? "[]"));
+    const t4 = Date.now();
+    await AsyncStorage.multiSet(rows.slice(0, 2)); // what a Finish would rewrite if only changed shards were saved
+    const t5 = Date.now();
+    const bytes = rows.reduce((total, [, value]) => total + value.length, 0);
+    return `whole copy (${(bytes / 1e6).toFixed(2)} MB, ${keys.length} keys): stringify ${t1 - t0} ms · save ${t2 - t1} ms · read ${t3 - t2} ms · parse ${t4 - t3} ms · head + one shard save ${t5 - t4} ms (no validation)`;
+  } finally {
+    await AsyncStorage.multiRemove(keys);
+  }
 }
 
 /** The recent workouts store (TICKET-075, TICKET-082). Same buttons and log as the plans, for this store. */
@@ -233,7 +253,7 @@ function WorkoutsSection({ planNames }: { planNames: Map<string, string> }) {
           } · ${Object.keys(w.workoutWindow.lastByPlan).length} plans looked up`,
     ],
     ["On disk", disk],
-    ["Probe", probe],
+    ["Probe", probe], // TEMPORARY, see `timeWindowSizedCopy`
     ["Last save", w.lastSaveMs === null ? "none this app run" : `${w.lastSaveMs} ms for the whole copy`],
     ["Older months", Object.keys(w.olderMonths).length === 0 ? "none asked for" : Object.entries(w.olderMonths).map(([month, state]) => `${month}: ${state.status === "ready" ? `${state.sessions.length} workouts` : state.status === "loading" ? (state.waitOver ? "loading, wait over" : "loading") : `${state.status} (${state.error})`}`).join(" · ")],
     ["Check", w.checking ? (w.waitOver ? "running, wait over" : "running") : "idle"],

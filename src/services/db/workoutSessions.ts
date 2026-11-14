@@ -358,20 +358,32 @@ export const getWorkoutsOfMonth = async (
   return { sessions: snapshot.docs.map(sessionFromDoc).filter((session) => session.deleted !== true), docsRead: snapshot.size };
 };
 
+/** How many workouts of a plan one page of `getLastWorkoutOfPlan` reads: only a run of markers needs a second. */
+const LAST_WORKOUT_PAGE = 3;
+
 /**
  * One plan's newest workout, or null when it has none: the floor's lookup, for a plan with no
  * workout in the window (TICKET-082). 1 read, billed 1 when the plan was never done. Uses the
- * index `sessions (workoutId, startedAt desc)`. May return a `deleted` marker: the caller
- * does not treat that as an answer (TICKET-086 decides how to skip one).
+ * index `sessions (workoutId, startedAt desc)`. A `deleted` marker is not a workout: it is
+ * skipped (a marker keeps its `startedAt`, so as the answer it would leave the plan undated and
+ * asked again on every check). Only a run of `LAST_WORKOUT_PAGE` markers in a row costs a second
+ * page; the debug readout bills 1 per lookup and does not count that rare extra page.
  */
 export const getLastWorkoutOfPlan = async (userId: string, planId: string): Promise<WorkoutSessionDoc | null> => {
   if (!userId) throw new Error("Missing user");
-  const snapshot = serverOnly(
-    await getDocsFromServer(
-      query(sessionsRef(userId), where("workoutId", "==", planId), orderBy("startedAt", "desc"), limitFn(1))
-    )
-  );
-  return snapshot.empty ? null : sessionFromDoc(snapshot.docs[0]);
+  let after: QueryDocumentSnapshot<DocumentData> | null = null;
+  for (;;) {
+    const ofPlan = [where("workoutId", "==", planId), orderBy("startedAt", "desc")];
+    const page = serverOnly(
+      await getDocsFromServer(
+        query(sessionsRef(userId), ...ofPlan, ...(after ? [startAfter(after)] : []), limitFn(LAST_WORKOUT_PAGE))
+      )
+    );
+    const live = page.docs.map(sessionFromDoc).find((session) => session.deleted !== true);
+    if (live) return live;
+    if (page.size < LAST_WORKOUT_PAGE) return null;
+    after = page.docs[page.docs.length - 1];
+  }
 };
 
 /**

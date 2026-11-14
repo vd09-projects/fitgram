@@ -24,8 +24,9 @@ import {
 } from "../utils/workoutWindow";
 import { createSyncRunner, type CheckRun as RunBase, type ReadoutEntry as SyncReadoutEntry, type SyncFields } from "./syncRunner";
 import { usePlansStore } from "./usePlansStore";
-import { WORKOUTS_CHECK_SKIP_MS, WORKOUTS_CHECK_WAIT_MS, WORKOUTS_ON_PHONE_MIN } from "../config/sync";
+import { WORKOUTS_CHECK_SKIP_MS, WORKOUTS_CHECK_WAIT_MS, WORKOUTS_MONTH_RETRY_GAP_MS, WORKOUTS_ON_PHONE_MIN } from "../config/sync";
 import { WORKOUTS_STORAGE_KEY } from "../config/storageKeys";
+import { createOnDemandReads } from "./onDemandReads";
 
 /**
  * The signed-in user's workouts on the phone (TICKET-082, replacing TICKET-075's
@@ -286,6 +287,12 @@ function stateAfterAnswer(state: State, run: CheckRun, answer: Answer, now: numb
 // The store.
 // ---------------------------------------------------------------------------
 
+/** The rules for a month asked for on tap: `onDemandReads.ts`. */
+const askForMonth = createOnDemandReads<Extract<OlderMonth, { status: "ready" }>>({
+  waitMs: WORKOUTS_CHECK_WAIT_MS,
+  retryGapMs: WORKOUTS_MONTH_RETRY_GAP_MS,
+});
+
 export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
   const runner = createSyncRunner<WorkoutsStore, WorkoutsCheckKind, CheckRun, Answer>({
     get,
@@ -342,31 +349,28 @@ export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
     loadMonth: async (month) => {
       const { uid, workoutWindow, olderMonths } = get();
       // Not knowing the window, nothing is known to be older than it.
-      if (uid === null || workoutWindow === null || isMonthOnPhone(workoutWindow, month)) return;
-      const current = olderMonths[month];
-      if (current?.status === "loading" || current?.status === "ready") return;
-      const epoch = get().epoch;
-      set((s) => ({ olderMonths: { ...s.olderMonths, [month]: { status: "loading", waitOver: false } } }));
-      // The wait is bounded for the screen, not for the read, as a check's (D9): the answer still applies.
-      const waitTimer = setTimeout(() => {
-        const state = get().olderMonths[month];
-        if (runner.isCurrent(epoch) && state?.status === "loading")
-          set((s) => ({ olderMonths: { ...s.olderMonths, [month]: { status: "loading", waitOver: true } } }));
-      }, WORKOUTS_CHECK_WAIT_MS);
-      let next: OlderMonth;
+      if (uid === null || workoutWindow === null) return;
+      // A key that is not a month is a state, not a throw: a caller that does not await would
+      // otherwise get an unhandled rejection.
+      let onPhone: boolean;
       try {
-        const { sessions, docsRead } = await getWorkoutsOfMonth(uid, month);
-        bill(docsRead);
-        next = { status: "ready", sessions };
+        onPhone = isMonthOnPhone(workoutWindow, month);
       } catch (error) {
-        // Firestore says `unavailable` when it cannot reach the server; anything else is a failure.
-        const offline = (error as { code?: string } | null)?.code === "unavailable";
-        next = { status: offline ? "offline" : "failed", error: error instanceof Error ? error.message : String(error) };
+        set((s) => ({ olderMonths: { ...s.olderMonths, [month]: { status: "failed", error: error instanceof Error ? error.message : String(error) } } }));
+        return;
       }
-      clearTimeout(waitTimer);
-      // A sign-out while it ran: the next user must not receive this user's month.
-      if (!runner.isCurrent(epoch)) return;
-      set((s) => ({ olderMonths: { ...s.olderMonths, [month]: next } }));
+      if (onPhone) return;
+      const epoch = get().epoch;
+      return askForMonth(month, {
+        current: olderMonths[month],
+        setState: (state) => set((s) => ({ olderMonths: { ...s.olderMonths, [month]: state } })),
+        isCurrent: () => runner.isCurrent(epoch),
+        read: async () => {
+          const { sessions, docsRead } = await getWorkoutsOfMonth(uid, month);
+          bill(docsRead);
+          return { status: "ready", sessions };
+        },
+      });
     },
 
     applyFinished: (uid, session) => {

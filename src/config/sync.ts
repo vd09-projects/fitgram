@@ -38,9 +38,10 @@ export const PLANS_CHECK_WAIT_MS = 10_000;
  * old (the floor, `utils/workoutWindow.ts`), so a plan idle for longer than the window
  * still has a date.
  *
- * Changes stored data only at the next trim: a copy built with another value
- * is read as it is, and the next Finish or first load applies the new one.
- * Raising it fetches nothing by itself.
+ * Changes stored data only at a trim or a full reload: a copy built with another value
+ * is read as it is. A Finish trims when the value is lower than the copy holds and never
+ * widens it, and a held copy does not first-load, so a raised value reaches a phone only
+ * with a full reload.
  */
 export const WORKOUTS_ON_PHONE_MIN = 180;
 
@@ -50,6 +51,16 @@ export const WORKOUTS_ON_PHONE_MIN = 180;
  */
 export const WORKOUTS_CHECK_SKIP_MS = PLANS_CHECK_SKIP_MS;
 export const WORKOUTS_CHECK_WAIT_MS = PLANS_CHECK_WAIT_MS;
+
+/**
+ * The least time between a refused read of an older month (`offline` or `failed`) and the next
+ * read of it. A caller that asks again from an effect, or a screen focused twice, must not turn a
+ * refusal that comes back at once (a permission error) into a read per render. Short: a person
+ * who reconnects and taps again should not be made to wait. An ask inside it is ignored and the
+ * refusal stays shown. Not applied to a month still loading (that ask joins the read, or after the
+ * wait starts a new one) or to a month already loaded.
+ */
+export const WORKOUTS_MONTH_RETRY_GAP_MS = 2_000;
 
 /**
  * The exercise summaries' check skip and wait (TICKET-076): the plans' values

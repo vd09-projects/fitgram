@@ -224,6 +224,15 @@ describe("the floor: the newest workout of each plan, apart from the months", ()
     expect(plansToLookUp(w, ["legs"])).toEqual(["legs"]);
   });
 
+  it("a deleted marker for a plan's newest workout makes the plan's next newest in the window its entry, with no lookup", () => {
+    const newest = push("p-new", "2026-10-10T10:00:00Z");
+    const w0 = windowOf([newest, push("p-old", "2026-10-05T10:00:00Z")], OCT, { push: newest });
+    const w = addToWindow(w0, [{ ...newest, deleted: true, updatedAt: { seconds: 9, nanoseconds: 0 } }], 10);
+    expect(ids(w)).toEqual(["p-old"]);
+    expect(w.lastByPlan.push!.sessionId).toBe("p-old");
+    expect(plansToLookUp(w, ["push"])).toEqual([]);
+  });
+
   it("a floor doc never appears in a month, a count or a plan filter", () => {
     const w = windowOf([push("p1", "2026-10-05T10:00:00Z")], OCT, { push: push("p1", "2026-10-05T10:00:00Z"), legs: oldLegs });
     expect(sessionsByMonth(w.sessions).flatMap((m) => m.sessions.map((s) => s.sessionId))).toEqual(["p1"]);

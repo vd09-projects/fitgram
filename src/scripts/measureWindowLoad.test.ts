@@ -82,6 +82,12 @@ async function savedSizes() {
 
 const mb = (n: number) => (n / 1e6).toFixed(2);
 const reads = () => useRecentWorkoutsStore.getState().billedReads;
+/** Calls into the Firestore services, from the mocks: what a read really is, unlike the store's own `billedReads` counter. */
+const serviceCalls = () =>
+  [getNewestSessionStamp, getWorkoutWindowFromServer, getLastWorkoutOfPlan, getChangedSessions].reduce(
+    (total, service) => total + jest.mocked(service).mock.calls.length,
+    0
+  );
 const floorOf = () => useRecentWorkoutsStore.getState().workoutWindow?.lastByPlan ?? {};
 
 describe.each([
@@ -139,9 +145,15 @@ describe.each([
       await AsyncStorage.clear();
       await AsyncStorage.multiSet(keep as [string, string][]);
       jest.clearAllMocks();
+      // Counted, not assumed: every service call made by the moment the window first appears on the phone.
+      let callsWhenListAppeared: number | null = null;
+      const unsubscribe = useRecentWorkoutsStore.subscribe((now) => {
+        if (callsWhenListAppeared === null && now.workoutWindow !== null) callsWhenListAppeared = serviceCalls();
+      });
       await useRecentWorkoutsStore.getState().open(UID);
+      unsubscribe();
       const restart = {
-        readsToShowTheList: 0, // the saved copy is read from disk: no Firestore call has run before `open` returns the window
+        readsToShowTheList: callsWhenListAppeared,
         onPhoneAtOnce: useRecentWorkoutsStore.getState().workoutWindow?.sessions.length,
         readsOfTheCheckAfter: reads(),
         planLookups: jest.mocked(getLastWorkoutOfPlan).mock.calls.length,
@@ -149,9 +161,10 @@ describe.each([
 
       // ---- A Finish: held at once, no read.
       const before = reads();
+      const callsBeforeFinish = serviceCalls();
       const finished = { ...newestFirst[0], sessionId: "finished-now", startedAt: newestFirst[0].startedAt + DAY, updatedAt: undefined };
       useRecentWorkoutsStore.getState().applyFinished(UID, finished);
-      const afterFinish = { readsAdded: reads() - before, plansFloorIsTheFinish: floorOf()[finished.workoutId]?.sessionId === "finished-now" };
+      const afterFinish = { readsAdded: serviceCalls() - callsBeforeFinish + (reads() - before), plansFloorIsTheFinish: floorOf()[finished.workoutId]?.sessionId === "finished-now" };
 
       // The after-the-fact value of the floor: every plan has an entry, a date or null.
       const floor = floorOf();
@@ -164,7 +177,8 @@ describe.each([
       // Guards: the claims the ticket makes.
       expect(first.workoutsInWindow).toBeGreaterThanOrEqual(WORKOUTS_ON_PHONE_MIN);
       expect(first.planLookups).toBe(withIdlePlans ? IDLE_PLANS.length : 0);
-      expect(restart.readsToShowTheList + restart.planLookups).toBe(0);
+      expect(restart.readsToShowTheList).toBe(0);
+      expect(restart.onPhoneAtOnce).toBeGreaterThan(0);
       expect(restart.readsOfTheCheckAfter).toBe(1);
       expect(afterFinish).toEqual({ readsAdded: 0, plansFloorIsTheFinish: true });
       if (withIdlePlans) expect(idleWithDate).toBe(IDLE_PLANS.length);

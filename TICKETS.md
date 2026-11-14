@@ -10055,7 +10055,7 @@ the harness; phase 2 latency, not measured.
 
 ### TICKET-082: Hold Recent Workouts on the Phone
 
-**Priority:** Medium | **Effort:** Medium-Large | **Status: IN PROGRESS, stages 1 and 2 committed, stage 3 built and not committed (2026-11-14); one proof item open: a Finish on another phone, which needs one test write the user has not yet approved** — raised 2026-11-13 (user); window decided in TICKET-087
+**Priority:** Medium | **Effort:** Medium-Large | **Status: IN PROGRESS, stages 1 to 3 committed (PR #69), review fixes made and not committed (2026-11-15); one proof item open: a Finish on another phone, which needs one test write the user has not yet approved** — raised 2026-11-13 (user); window decided in TICKET-087
 
 **Description:**
 The Workouts list, its month rows, the filter counts ("Push · 14 workouts") and opening a recent month
@@ -10113,13 +10113,13 @@ needs a connection once.
 **Out of scope:** any screen; holding `exercise_sessions` as well (087 measured it: 9x the first-load reads). The
 held window's sets live in the records, which reverses TICKET-072 D7 for the window.
 
-**CLAUDE.md rules skipped:** 3.3 (the proof is a script and a debug readout on the existing debug page).
+**Triage and rules:** gate questions 1, 3 and 4 are yes (083 to 086 read the window; a data layer the user cannot see; a stored shape), so all three tiers. 3.3 was met, not skipped: a debug readout and a TEMPORARY probe on the existing debug page (removal listed on the page), and the proof is also two scripts. No other rule was named as skipped at the time; none is known to have been.
 
 **Stages (so the next session does not have to guess):**
 - *Stage 1 (built, commit c247fcc):* the pure layer.
-- *Stage 2 (built, not committed):* the floor in the pure layer, the store on the window and the floor, `WORKOUTS_PER_PLAN`,
+- *Stage 2 (built, committed):* the floor in the pure layer, the store on the window and the floor, `WORKOUTS_PER_PLAN`,
   `loaded`, `followPlans` and `planIdsToHold` retired, the readers (hub, Start, Manage, both pickers) updated.
-- *Stage 3 (built, not committed):* `getWorkoutsOfMonth` (older months, memory only, refused offline) and the proof.
+- *Stage 3 (built, committed):* `getWorkoutsOfMonth` (older months, memory only, refused offline) and the proof.
 
 **Stage 1 built (2026-11-14, nothing pushed): the pure layer.** `src/utils/monthWindow.ts` (moved from
 `src/scripts/`; `chooseMonthsToKeep` plus the month helpers; `measureWindow.ts` imports it), `src/utils/workoutWindow.ts`
@@ -10176,9 +10176,9 @@ written and still says "held".
    not held: the window could hold a few fewer than the minimum. Harmless; noted for 086.
 7. *Test time zone.* `process.env.TZ` set inside a test does not reach `Date` under Jest (caught by a guard assertion; the
    machine is IST). `src/test/globalSetup.js` pins the whole suite to Los Angeles unless `TZ` is set (a one-line `jest.config.js`
-   change, outside the ticket's files; the full suite passes under Los Angeles and UTC alike).
+   change, outside the ticket's files; the full suite passes under Los Angeles. Correction (PR #69 review, checked 2026-11-15): it does not pass under `TZ=UTC`, `Asia/Kolkata` or `Pacific/Auckland` (31 tests in `workoutWindow.test.ts` and `monthWindow.test.ts` fail, 30 of them already at the stage 2 commit): those tests are written for a zone behind UTC, where a UTC month and a local month disagree. The pin makes the default run Los Angeles; a run that sets `TZ` to another zone fails them. The measurement harnesses in `src/scripts/` ask for UTC and are run on their own).
 
-**Stage 2 built (2026-11-14, not committed): the floor, the store, the readers.**
+**Stage 2 built (2026-11-14, committed): the floor, the store, the readers.**
 - *Pure layer:* `lastByPlan` on the window (`WorkoutWindow`) and in the head key. `addToWindow` updates it (a Finish replaces the
   entry; a late upload older than the entry is not one; a marker for the entry's workout removes it), `withPlanLookups` fills it,
   `plansToLookUp` names what is not looked up, `sessionsWithLastOfEachPlan` is what the old readers get. A saved copy with no
@@ -10227,7 +10227,7 @@ about 3 times for the idle one. That is the 087 trade (a month's History offline
 real store; it matches 087's fixtures (198-222 reads, 0.62-0.69 MB) plus the baseline read and the floor. Nothing here was
 seen on a phone, and cold start in airplane mode is not yet run.
 
-**Stage 3 built (2026-11-14, not committed): older months on tap, and the proof.**
+**Stage 3 built (2026-11-14, committed): older months on tap, and the proof.**
 - *`getWorkoutsOfMonth(uid, month)`* (service): one query by `startedAt` range, `deleted` markers left out, the single-field index.
   *`loadMonth(month)`* (store) keeps the answer in `olderMonths`, memory only, never saved, gone at sign-out and a read that lands after
   it is dropped. It reads nothing for a month the phone already holds (`isMonthOnPhone`) or before it knows its window, reads a loaded
@@ -10247,7 +10247,7 @@ at 500 workouts and 2.6 ms at 1500, against 1.1 and 1.5 ms for head and one shar
 understate the phone by two orders of magnitude, so do not read them as phone times. Decision: **keep writing the whole copy.**
 It runs off the JS thread after a check or a Finish, a kill before it lands loses nothing (`lastSeen` did not move, so the next
 check brings the workout back), and writing only changed shards needs a record of what is on disk. Revisit if a physical phone shows
-jank; the cost is one `multiSet` of about 1 MB on each successful check.
+jank; the cost is one `multiSet` of about 1 MB on each successful check. Caveat found in the PR review: the 233 ms and 56 ms were storage only (the probe saved plain strings), so they leave out `JSON.stringify`, `JSON.parse`, `isSession` validation and `readLifts`, which a real save and restart also pay. The probe now times stringify and parse too, with no validation; that run is not made yet, so the restart's CPU time on the phone is unmeasured.
 
 *Device run (emulator, signed in as `pinky`: 15 workouts, 5 plans, one never done).*
 - First load: **17 reads** (1 baseline, 15 workouts, 1 empty lookup for the never-done plan); "3 queries, 16 docs" in the debug log.
@@ -10262,6 +10262,26 @@ jank; the cost is one `multiSet` of about 1 MB on each successful check.
 
 *Floor proof from the harness* (stage 2's table): a phone with 16 idle plans, 215 / 239 reads against 70 before; all 16 idle plans
 keep their date; a restart reads 0 to show the list and 1 for the check; a Finish adds 0 reads.
+
+**Review fixes (PR #69 review, 2026-11-15, not committed).**
+- *Fixed:* a marker for a plan's newest workout no longer blanks the plan's date and re-reads on every check (the plan's next
+  newest in the window becomes the entry; the lookup skips markers); `loadMonth` asks again once the wait is over and drops
+  the older read's late answer, joins an ask made inside the wait, ignores an ask made right after a refusal for a short
+  gap (`WORKOUTS_MONTH_RETRY_GAP_MS`, a throttle: a refusal that returns at once, such as a permission error, must not become a
+  read per render), and turns a bad month key into a `failed` state; the two
+  proof claims "a restart reads 0 to show the list" and "a Finish adds 0 reads" are now counted from the service mocks, not
+  asserted (each seen red); the probe's removal list is complete and it cleans up when a step throws; status, triage and
+  comment text corrected. Tests seen red by breaking the line they cover: each new `loadMonth` test, the marker-to-next-newest
+  test, the lookup-skips-markers tests, and both counted claims.
+- *Extracted:* the rules for a read the user asks for (one per key, memory only: `loading` with `waitOver`, join, retry after the wait, drop the older answer and a sign-out's answer, `offline` against `failed`, the retry gap) are `createOnDemandReads` in `src/stores/onDemandReads.ts`, with its own tests (each rule seen red; one guard found unreachable and removed). `loadMonth` is a thin caller with the same behaviour and tests. 083's older workout by id and 084's log past the window should use it, not copy `loadMonth`. A result that grows by pages (084) is not covered and may need a small extension.
+- *Device run after the review fixes (emulator, `pinky`, 2026-11-15):* the marker case, which nothing in the app can write until 086, was made with a real `deleted: true` on the one Test 070 workout (a scratch admin script, dry run first, then restored; the doc is back as it was, `updatedAt` changed twice). Result: the check that brought the marker returned `1 queries, 1 docs`, the plan read "last session unknown" until the next trigger, a forced check ran the lookup (`2 queries, 0 docs`) and the floor became "never done" (the lookup skipped the marker), the hub read "not in recent workouts", and the next check was `1 queries, 0 docs`, so no repeated lookup (the cost the review described). After the restore the next check was `1 queries, 1 docs` and the floor showed the date again. The older month through the extracted helper: offline gives `offline`, after reconnecting a tap gives `2026-09: 1 workouts` and bills 1 read. The probe on the emulator: 1.00 MB in 5 keys, stringify 153 ms, save 227 ms, read 128 ms, parse 94 ms, head and one shard save 48 ms (no validation), so a restart pays about 220 ms for read and parse before validation. Not shown on the device: the throttle (a refused read bills nothing and the row text does not change, so unit tests carry it), the `next newest in the window` branch of the marker rule (it needs a plan with two workouts; only Test 070 is safe to mark; unit test only), that the probe's keys are gone afterwards, and the `waitOver` label on this run.
+- *Checked after the review:* under `TZ=UTC` the load reads are 199 and 223 (4 busy plans, 500 and 1500 workouts) and 215 and 239
+  (16 idle plans), as stated above.
+- *Deferred, with the reason:* a loaded older month going stale after a delete (nothing deletes until 086; noted there);
+  a full reload with exactly the minimum, or nothing older, claims older months exist, costing one empty read per tap (cheap, loud,
+  not wrong); `lastByPlan` keys of deleted plans pruned only on a full reload (a dead plan's one doc in the head; harmless);
+  all lookups in one all-or-nothing check (documented; scales with idle plans, not seen); `measureWindowLoad.test.ts` lives in
+  `src/scripts/` though the jest config says that folder holds I/O-free cores (its numbers need `TZ=UTC`).
 
 **Not verified (CLAUDE.md 1.4):**
 - *Device run 2026-11-15 (emulator, `pinky`), added:* a real Finish of the test plan Test 070 (one `sessions` doc, one `exercise_sessions` doc and its stats doc, written to `pinky`, not deleted) filled the floor and the hub at once ("not in recent workouts" to "Today"), the first check after it read 0 docs (upload not landed), a forced check read 1 doc and stamped the entry, and after a kill plus airplane-mode cold start the hub still read "Today" with 0 reads billed. An older month offline: `offline` inside about 50 s; online retry gave `2026-09: 1 workouts`, 1 read billed. The picker's recents come from the window (newest lift first). Not seen: the `waitOver` frame on this run, a read that never settles, a second account after sign-out. A changed `WORKOUTS_ON_PHONE_MIN` does not re-window a phone that holds a copy until a full reload (harmless pre-launch).
@@ -10288,7 +10308,7 @@ History stays the History entry until 085.
 - A `Session` route in the Workout stack with its own `getId` (by session id). Every screen is
   `singleCopy` today, which would move the one Session instead of opening another (Session → Exercise →
   Session of another day).
-- Resolution: the pending queue, then the held workouts (082), then an older workout fetched by id (one read,
+- Resolution: the pending queue, then the held workouts (082), then an older workout fetched by id through `createOnDemandReads` (`stores/onDemandReads.ts`, 082) (one read,
   sets included) with a "needs a connection" state. Opened from the queue, it follows the move to held when
   the upload lands (`applyFinished`).
 - Lift cards from `lifts` (name, verdict word, captions "Swapped in for X" from `swappedFrom.name`, "Added", "Changed from
@@ -10405,7 +10425,7 @@ only the wipe scripts delete. It shares `rebuildExerciseSummary` with TICKET-032
 which then reuses it.
 
 **Build:**
-- **Floor (TICKET-082):** deleting a plan's newest workout removes that plan's `lastByPlan` entry (`addToWindow` does it on the marker), and the next check looks the plan up again (limit 1). Offline the plan reads "last session unknown" until then. That lookup can return a `deleted` marker, which the store treats as no answer; decide how to skip one (a `deleted` filter may need an index: the user's to deploy).
+- **Floor (TICKET-082):** deleting a plan's newest workout removes that plan's `lastByPlan` entry (`addToWindow` does it on the marker), and the next check looks the plan up again (limit 1). Offline the plan reads "last session unknown" until then. When the marker is for the floor doc, the plan's newest remaining workout in the window becomes its entry with no read (a plan with none in the window is looked up). The lookup itself skips `deleted` markers (`getLastWorkoutOfPlan`, a second page only after a whole page of markers), so no index is needed. What 086 still decides: an already-opened older month (`olderMonths`, memory only) is not touched by checks or a Finish, so a delete of a workout in it must also remove it there.
 - `rebuildExerciseSummary(userId, exerciseId)` as TICKET-032 specifies (a server read of the lift's
   records: `sessions` by `exerciseIds`, 084's index, one stamped replace, no sessions left means a `deleted` marker on the stats doc).
 - One `writeBatch`: a `deleted: true` marker on the `sessions` doc with a server stamp (never a hard

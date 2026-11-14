@@ -188,9 +188,15 @@ export function addToWindow(current: WorkoutWindow, incoming: readonly WorkoutSe
     if (isDeletedMarker(session)) {
       byId.delete(session.sessionId);
       const floorDoc = lastByPlan[session.workoutId];
-      // The plan's newest workout is gone: not looked up, so the next check finds its next newest.
-      if (floorDoc && floorDoc.sessionId === session.sessionId && compareStamps(session.updatedAt, floorDoc.updatedAt) >= 0)
-        delete lastByPlan[session.workoutId];
+      if (floorDoc && floorDoc.sessionId === session.sessionId && compareStamps(session.updatedAt, floorDoc.updatedAt) >= 0) {
+        // The plan's newest workout is gone. Every workout since `windowStart` is in the window and
+        // anything the window left out is older than all of them, so the plan's newest remaining
+        // workout in the window is its new newest, with no read. A plan with none there is not
+        // looked up, and the lookup finds its next newest (`getLastWorkoutOfPlan` skips markers).
+        const next = [...byId.values()].filter((s) => s.workoutId === session.workoutId).sort(compareSessions)[0];
+        if (next) lastByPlan[session.workoutId] = next;
+        else delete lastByPlan[session.workoutId];
+      }
       continue;
     }
     byId.set(session.sessionId, session);
@@ -237,7 +243,8 @@ export const lookUpPlanIds = (plans: readonly Pick<WorkoutPlan, "id" | "deleted"
  * Looked-up answers put into the floor: plan id to its newest workout, or null for never done.
  * Fills what is missing and never overwrites newer knowledge: a Finish that landed while the
  * query ran already holds a newer entry, and a null never replaces a doc. A deleted marker as
- * the answer leaves the plan not looked up (TICKET-086 decides how to skip one).
+ * the answer leaves the plan not looked up: the lookup skips markers, so this does not arise from
+ * it, and a marker here would only be asked again, never a date.
  */
 export function withPlanLookups(window: WorkoutWindow, answers: Readonly<Record<string, WorkoutSessionDoc | null>>): WorkoutWindow {
   const lastByPlan = { ...window.lastByPlan };
