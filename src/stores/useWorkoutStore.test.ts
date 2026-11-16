@@ -603,6 +603,88 @@ describe("swapExercise", () => {
   });
 });
 
+// TICKET-091: change an exercise's units for this workout only.
+describe("setExerciseUnits", () => {
+  const stored = async () => JSON.parse((await AsyncStorage.getItem("activeWorkout")) ?? "null");
+  const walk = () =>
+    buildExercise("Farmer's Walk", {
+      fields: [
+        { name: "Weight", role: "weight", unit: "kg" },
+        { name: "Distance", role: "distance", unit: "m" },
+        { name: "Notes", role: "other" },
+      ],
+      sets: [
+        { id: 1, segments: [{ Weight: "24", Distance: "40", Notes: "grip" }] },
+        { id: 2, segments: [{ Weight: "24", Distance: "40", Notes: "" }] },
+      ],
+    });
+  const seed = (exercise = walk()) => {
+    const workout = buildWorkout([], { startTime: ++startTime, exercises: [exercise] });
+    useWorkoutStore.setState({ activeWorkout: workout });
+    return workout;
+  };
+
+  it("relabels the fields at any set count and keeps every set and the plan as they were", async () => {
+    const workout = seed();
+    const planned = { id: "plan", name: "Plan", fields: [{ name: "Weight", role: "weight" as const, unit: "kg" as const }] };
+    useWorkoutStore.setState({
+      activeWorkout: { ...workout, exercises: [{ ...workout.exercises[0], planned }] },
+    });
+    const before = store().activeWorkout!.exercises[0];
+
+    expect(await store().setExerciseUnits("farmer's-walk", { Weight: "plates", Distance: "km" })).toEqual({
+      status: "changed",
+    });
+
+    const slot = store().activeWorkout!.exercises[0];
+    expect(slot.fields.map((f) => f.unit)).toEqual(["plates", "km", undefined]);
+    // Values and numbers are untouched: only the label moved.
+    expect(slot.sets).toEqual(before.sets);
+    expect(slot.planned).toBe(planned);
+    expect(await stored()).toEqual(store().activeWorkout);
+    // The unit that reaches the server at Finish is the relabelled one.
+    expect(buildSessionDocs(store().activeWorkout!, Date.now()).exerciseSessions[0].fields[0].unit).toBe("plates");
+  });
+
+  it.each([
+    ["a unit not offered for the role", { Weight: "m" }],
+    ["a field without a unit", { Notes: "kg" }],
+    ["an unknown field", { Load: "kg" }],
+    ["a bad unit among good ones", { Distance: "km", Weight: "furlong" }],
+  ])("refuses %s and changes nothing", async (_case, units) => {
+    const workout = seed();
+
+    const result = await store().setExerciseUnits("farmer's-walk", units as never);
+
+    expect(result.status).toBe("refused");
+    expect(store().activeWorkout).toBe(workout);
+    expect(await stored()).toBeNull();
+  });
+
+  it("refuses a weight field that has no unit: there is nothing to change, and no unit to guess", async () => {
+    const workout = seed(
+      buildExercise("Band Row", {
+        fields: [
+          { name: "Weight", role: "weight" },
+          { name: "Reps", role: "reps" },
+        ],
+      })
+    );
+
+    expect((await store().setExerciseUnits("band-row", { Weight: "kg" })).status).toBe("refused");
+    expect(store().activeWorkout).toBe(workout);
+  });
+
+  it("writes nothing when the units are already these", async () => {
+    const workout = seed();
+
+    expect(await store().setExerciseUnits("farmer's-walk", { Weight: "kg" })).toEqual({ status: "changed" });
+
+    expect(store().activeWorkout).toBe(workout);
+    expect(await stored()).toBeNull();
+  });
+});
+
 // TICKET-056: add an exercise at the end, for this workout only.
 describe("addExercise", () => {
   const curl = { id: "wrist-curl-cable", name: "", nameSnapshot: "Wrist Curl · Cable", fields: [{ name: "Reps", role: "reps" as const }] };

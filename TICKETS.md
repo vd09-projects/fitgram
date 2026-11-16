@@ -4260,6 +4260,11 @@ final screens instead of each intermediate one.
 `VERSION_SHEET`); unverified. The device runs of 043–052 note anything broken for
 this ticket.
 
+**Tour note from TICKET-091 (units mid-workout):** the set card's labels are now buttons (`WEIGHT · KG ▾`,
+`SetRows`), the exercise ⋯ menu has a **Units** item, and a unit mismatch shows a button beside the "Last time
+was in …" line. The `LOG_FIELDS` step wraps the whole `SetRows`; a step about units can point at the label.
+Not changed by 091.
+
 **Timing (user, 2026-11-03):** the tour is rewritten at the end, after the screen
 changes settle, not adjusted ticket by ticket. Cards and screens built before then
 keep whatever step ids they have, unverified.
@@ -11009,7 +11014,7 @@ a short sheet still sized to its content. **Not verified:** iOS; the guided tour
 
 ### TICKET-091: Change an Exercise's Units Mid-Workout
 
-**Priority:** High | **Effort:** Medium | **Status: OPEN** — design merged in PR #73, 2026-11-17
+**Priority:** High | **Effort:** Medium | **Status: BUILT, awaiting review** — design merged in PR #73, 2026-11-17; code on `feat/ticket-091-change-units-mid-workout`, uncommitted
 
 **Description (user report, 2026-11-16, screenshots):**
 After a swap (and in a Freestyle) Bench Press · Machine logged in kg, though the user logs that machine in
@@ -11058,6 +11063,20 @@ drafts and the rejected options on the "Fitgram Weight Unit Mid-Workout" canvas)
       field differs, two differ, none, no last session), 4–5 screen tests; each seen failing first
 - [ ] Sizes through `t.fonts`, role tokens; screenshot compared with the boards; device run on the emulator;
       `docs/TESTING_NOTES.md` entry; tour note only (TICKET-053)
+
+**Deviations from the ticket and boards (2026-11-17, found while building):**
+- The notice and its button are decided by `unitMismatch` (`src/utils/unitChange.ts`), not `ghostNotice`: the
+  board's Farmer's Walk notice has no reps, and `ghostNotice` only judges a weight and reps pair. Where there
+  is a mismatch the card and the rest panel show the helper's line; `ghostNotice`'s own unit line is now only
+  reached when no unit can be offered ("Last time used a different unit, so no targets" stays for that).
+  The rest panel keeps the line, without the button, as the ticket asks.
+- A two-fields-differ notice reads "Last time used different units (…)": the boards draw only the
+  one-field-differs case.
+- The sheet's "after" example in the relabel note is last time's unit when it differs from today's, otherwise
+  the first other chip: UnitSheetLogged does not say which.
+- `SetRows` inputs are keyed by unit: Android did not repaint a placeholder that changed alone.
+- Existing tests edited: two loose `/^Weight/` and `/^Time/` label queries (the new button matches them) and
+  the unit-changed notice copy in `ExerciseLogger.test.tsx`.
 
 **Not in scope:** remembering the chosen unit for the next Freestyle (the notice brings it back in one tap);
 the History sheet carrying the same button; a board for a 3-field custom exercise (described, not drawn).

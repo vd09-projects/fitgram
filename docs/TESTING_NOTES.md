@@ -468,3 +468,31 @@ Finish on the test plan; kill and airplane-mode cold start; the picker's recents
 - **[run] `ScrollableScreen` screens checked after the change:** an active workout's set input (number pad up,
   input and Log set visible; workout discarded, nothing logged) and Profile → Sign-in & Security's Confirm
   password, the lowest field, which scrolled up into view above the keyboard (nothing saved).
+
+### TICKET-091: change an exercise's units mid-workout (emulator, `pinky`, 2026-11-17)
+- **[run] Android does not repaint a mounted `TextInput` when only its placeholder changes.** After a unit
+  change the inputs went blank: the new unit ("km") and the new ghost number never showed. 886 jest tests
+  passed with it, because jest has no native repaint; only the screenshot showed it, on the first unit change.
+  Fixed by keying each `RowInput` by field name and unit so it remounts. Not covered by a unit test; checked
+  km ↔ m on device. Any prop that only a placeholder carries needs a screenshot after it changes.
+- **[read] The board's notice for Farmer's Walk had no code path.** `ghostNotice` judges a weight and reps
+  pair; Farmer's Walk (weight and distance) got "No weight and reps to target" and never a unit notice. The
+  notice and its button are now decided by `unitMismatch` (role and position matching), not `ghostNotice`.
+- **[run] Two existing tests broke for a reason unrelated to the logic:** `getByLabelText(/^Weight/)` also
+  matched the new `Weight unit: kg. Change unit` button. A new control whose label starts like an input's
+  breaks loose regexes; label it so it doesn't, or tighten the queries (done: `/^Weight · /`).
+- **[run] Mutation-checked, each test red for the reason it names:** store action (role check, sets dropped,
+  `planned` cleared, no-op write, unit-less field), helper (position match, example unit, role filter, count),
+  screens (label not a button, note shown at 0 sets, tap does nothing, Done, stepper). The `!field.unit`
+  refusal survived the first test set: `Notes: kg` was already caught by the role check. Added a weight field
+  with no unit. A split-label test was deleted: no mutation could fail it.
+- **[run] Device, Freestyle, nothing finished (the workout is local until Finish):** Bench Press · Machine in
+  kg shows "Last time was in plates (…)" and Use plates; one tap relabels, the set's 8 stays 8, the delta and
+  Last-time pill return. ▾ and ⋯ → Units at set 2 (Swap and Remove locked, Units not); sheet note says
+  "8 plates × 15 becomes 8 kg × 15" before the tap. lb → "Use kg" offered. Swap after setting lb: the new slot
+  is fresh kg, nothing carried; Use plates then applied. Farmer's Walk: two ▾ labels, two blocks, distance
+  has no stepper, km does not touch weight.
+- **[read] Not verified:** the two-fields-differ notice ("Use last time's units") on device: pinky has no
+  Farmer's Walk history (unit test only); the rest panel notice on device (screen test only); light theme;
+  iOS; a narrow phone (the emulator is 448 dp wide). The distance chips are 124 px against the weight chips'
+  120 on the 404 px screenshot: the board's grid is thirds minus the gap, mine is `maxWidth: 33%`.

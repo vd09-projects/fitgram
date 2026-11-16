@@ -5,11 +5,14 @@ import { SPACING } from "../../constants/styles";
 import { ExerciseField } from "../../types/workoutType";
 import { formatStepValue, stepFieldValue, stepSizeFor } from "../../utils/setLogger";
 import { SplitRowValues, SplitSlot, splitSlot } from "../../utils/splits";
+import { hasUnitChoice } from "../../utils/unitChange";
 import { TextBase, NumericText } from "../TextBase";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 
 const HIT = 44;
+const UNIT_BUTTON_HEIGHT = 32;
+const UNIT_HIT_SLOP = { top: (HIT - UNIT_BUTTON_HEIGHT) / 2, bottom: (HIT - UNIT_BUTTON_HEIGHT) / 2 };
 const SLOT_WIDTH = 44;
 /** One row: the set card's focal point (TICKET-018). */
 const ROW_HEIGHT = 62;
@@ -40,6 +43,11 @@ type Props = {
   onAddSplit: () => void;
   /** Remove row `index` (0-based, the first segment included). */
   onRemove: (index: number) => void;
+  /**
+   * Open the Units sheet (TICKET-091). When given, a unit field's label is the
+   * button for it, on every set; the per-row labels of a split set are not.
+   */
+  onUnitPress?: () => void;
 };
 
 /**
@@ -67,7 +75,7 @@ type Props = {
  * is carried by the width change as well as the colour. The 1px difference is
  * taken out of the padding so the digits do not shift on focus.
  */
-export default function SetRows({ fields, setNumber, rows, ghosts, onChange, onAddSplit, onRemove }: Props) {
+export default function SetRows({ fields, setNumber, rows, ghosts, onChange, onAddSplit, onRemove, onUnitPress }: Props) {
   const { styles, t } = useThemeStyles(createStyles);
   const single = rows.length === 1;
   const height = single ? ROW_HEIGHT : COMPACT_ROW_HEIGHT;
@@ -81,19 +89,42 @@ export default function SetRows({ fields, setNumber, rows, ghosts, onChange, onA
   return (
     <View style={styles.grid}>
       <View style={styles.row}>
-        {fields.map((field) => (
-          <TextBase key={field.name} style={styles.label} numberOfLines={1}>
-            {fieldLabel(field).toUpperCase()}
-          </TextBase>
-        ))}
+        {fields.map((field) =>
+          onUnitPress && hasUnitChoice(field) ? (
+            // Board UnitNotice: "WEIGHT · KG ▾", 32 tall with hitSlop to 44.
+            <View key={field.name} style={styles.labelCell}>
+              <TouchableOpacity
+                style={styles.unitButton}
+                onPress={onUnitPress}
+                hitSlop={UNIT_HIT_SLOP}
+                accessibilityRole="button"
+                accessibilityLabel={`${field.name} unit: ${field.unit}. Change unit`}
+              >
+                <TextBase style={styles.unitLabel} numberOfLines={1}>
+                  {`${field.name} · `.toUpperCase()}
+                  <TextBase style={styles.unitValue}>{String(field.unit).toUpperCase()}</TextBase>
+                </TextBase>
+                <Ionicons name="chevron-down" size={12} color={t.colors.role.textPrimary} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TextBase key={field.name} style={styles.label} numberOfLines={1}>
+              {fieldLabel(field).toUpperCase()}
+            </TextBase>
+          )
+        )}
         {emptySlot}
       </View>
 
       {rows.map((row, index) => (
         <View key={index} style={styles.row}>
           {fields.map((field) => (
+            // Keyed by unit too: on Android a mounted input does not repaint
+            // when only its placeholder changes, so after a unit change (TICKET-091)
+            // the new unit, or the new ghost, never showed. The typed text is
+            // the parent's state, so remounting loses nothing.
             <RowInput
-              key={field.name}
+              key={`${field.name}:${field.unit ?? ""}`}
               field={field}
               value={row[field.name] ?? ""}
               ghost={index === 0 ? ghosts[field.name] ?? null : null}
@@ -285,6 +316,31 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     fontSize: t.fonts.xSmall,
     letterSpacing: 1.3,
     color: t.colors.role.textSecondary,
+  },
+  labelCell: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: "center",
+  },
+  unitButton: {
+    height: UNIT_BUTTON_HEIGHT,
+    maxWidth: "100%",
+    paddingHorizontal: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  unitLabel: {
+    flexShrink: 1,
+    fontSize: t.fonts.xSmall,
+    letterSpacing: 1.3,
+    color: t.colors.role.textSecondary,
+  },
+  unitValue: {
+    fontSize: t.fonts.xSmall,
+    letterSpacing: 1.3,
+    fontWeight: "bold",
+    color: t.colors.role.textPrimary,
   },
   slot: {
     width: SLOT_WIDTH,

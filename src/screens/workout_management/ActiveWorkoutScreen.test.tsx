@@ -217,8 +217,8 @@ describe("swap exercise", () => {
 
     expect(useWorkoutStore.getState().activeWorkout!.exercises.map((e) => e.id)).toEqual(["row__barbell", "squat"]);
     expect(screen.getByLabelText("Exercise 1 of 2")).toBeOnTheScreen();
-    expect(screen.getByLabelText(/^Weight/)).toBeOnTheScreen();
-    expect(screen.queryByLabelText(/^Time/)).toBeNull();
+    expect(screen.getByLabelText(/^Weight · /)).toBeOnTheScreen();
+    expect(screen.queryByLabelText(/^Time · /)).toBeNull();
     expect(screen.getByRole("button", { name: /^Last time 60 by 8/ })).toBeOnTheScreen();
   });
 
@@ -266,7 +266,7 @@ describe("swap exercise", () => {
     const slot = useWorkoutStore.getState().activeWorkout!.exercises[0];
     expect(slot.id).toBe("plank");
     expect(slot.planned).toBeUndefined();
-    expect(screen.getByLabelText(/^Time/)).toBeOnTheScreen();
+    expect(screen.getByLabelText(/^Time · /)).toBeOnTheScreen();
   });
 });
 
