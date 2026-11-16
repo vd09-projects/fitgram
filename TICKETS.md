@@ -9878,7 +9878,7 @@ wait for this; its two settle-first tests do not.
 
 ### TICKET-081: History Data Foundation — the Lift Record and the Verdict
 
-**Priority:** Medium | **Effort:** Large (three stages) | **Status: BUILT, in review (PR #68)** — raised 2026-11-13 (user). Stages 1–3 done and device-tested on the emulator 2026-11-14; all three test accounts with history are in the new shape (`vikrantdhawan9` backfilled 2026-11-14).
+**Priority:** Medium | **Effort:** Large (three stages) | **Status: DONE** — merged in PR #68, 2026-11-13. Raised 2026-11-13 (user). Stages 1–3 done and device-tested on the emulator 2026-11-14; all three test accounts with history are in the new shape (`vikrantdhawan9` backfilled 2026-11-14).
 First of the History build (design: TICKET-071, PR #64). No screen; the proof is a script. No open decisions
 
 **Description:**
@@ -10055,7 +10055,7 @@ the harness; phase 2 latency, not measured.
 
 ### TICKET-082: Hold Recent Workouts on the Phone
 
-**Priority:** Medium | **Effort:** Medium-Large | **Status: IN PROGRESS, stages 1 to 3 built (PR #69), review fixes made (2026-11-15); one proof item open: a Finish on another phone, which needs one test write the user has not yet approved** — raised 2026-11-13 (user); window decided in TICKET-087
+**Priority:** Medium | **Effort:** Medium-Large | **Status: DONE** — merged in PR #69, 2026-11-14 (review fixes 2026-11-15). The one open proof item, a Finish on another phone seen on a device, moved to 085a's device run (user, 2026-11-17) — raised 2026-11-13 (user); window decided in TICKET-087
 
 **Description:**
 The Workouts list, its month rows, the filter counts ("Push · 14 workouts") and opening a recent month
@@ -10290,7 +10290,7 @@ keep their date; a restart reads 0 to show the list and 1 for the check; a Finis
 - *Device run 2026-11-15 (emulator, `pinky`), added:* a real Finish of the test plan Test 070 (one `sessions` doc, one `exercise_sessions` doc and its stats doc, written to `pinky`, not deleted) filled the floor and the hub at once ("not in recent workouts" to "Today"), the first check after it read 0 docs (upload not landed), a forced check read 1 doc and stamped the entry, and after a kill plus airplane-mode cold start the hub still read "Today" with 0 reads billed. An older month offline: `offline` inside about 50 s; online retry gave `2026-09: 1 workouts`, 1 read billed. The picker's recents come from the window (newest lift first). Not seen: the `waitOver` frame on this run, a read that never settles, a second account after sign-out. A changed `WORKOUTS_ON_PHONE_MIN` does not re-window a phone that holds a copy until a full reload (harmless pre-launch).
 - *A Finish on another phone appears on the next check:* the store tests cover it (a change check brings the other phone's workout and
   moves the floor), but it was not seen on the device. It needs one test write to the real account (one `sessions` doc, then its
-  deletion); a dry run is prepared and waits for the user's approval.
+  deletion); a dry run is prepared and waits for the user's approval. *Moved to 085a's proof (2026-11-17).*
 - A busy month (62 workouts, 198 KB) through `getWorkoutsOfMonth`: the device month had one workout, so only the 1-workout read was seen.
 - Times on a physical phone, and the picker's recents against the old per-plan 5 (reasoned, not measured).
 
@@ -10419,7 +10419,8 @@ removes the button and the old page.
 **Proof:** reads of a History visit before and after (the old page's reads are the baseline); cold start
 offline shows Workouts with 0 reads; 20 workouts of 8 lifts scroll without dropped frames on the emulator
 (virtualization, tall capsule rows); Older workouts: reads per tap equal the page (plus any markers skipped), 0 reads for the held months,
-filtered paging returns only that plan, and a gap line appears for an empty month; every row and state tapped through on the emulator
+filtered paging returns only that plan, and a gap line appears for an empty month; a Finish on another phone appears on the next check (082's
+open proof item: one test `sessions` doc on `pinky`, then its deletion, the write asked for first); every row and state tapped through on the emulator
 (older pages need history past the window: dummy data on `pinky`, as 088 did, created and removed by a script with `--dry-run`).
 
 **Out of scope:** the Exercises tab (085b); the real Session screen (083); removing the old page (085b); Edit
@@ -10987,8 +10988,8 @@ parts about the old page and the screens are 085a and 085b, the parts about `exe
 
 ```
 1. TICKET-087  (History analysis)            — Measure, decide the schema, fix the design; folds in 049
-2. TICKET-081  (Lift record and verdict)     — No screen; stored shape per 087
-3. TICKET-082  (Hold recent workouts)
+2. TICKET-081  (Lift record and verdict)     — DONE (PR #68)
+3. TICKET-082  (Hold recent workouts)       — DONE (PR #69); its other-phone proof moved to 085a
 3b. TICKET-088 (Older-month counts and reads) — DONE 2026-11-17: older workouts load by page, no month count, nothing stored
 4. TICKET-085a (History home: shell and Workouts tab) — Placeholder Session; TEMPORARY hub button; needs 081, 082, 088
 5. TICKET-083  (Session screen, landing)     — After 085a; replaces the placeholder
