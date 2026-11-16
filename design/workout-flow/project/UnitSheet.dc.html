@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Units sheet, one field</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body { margin: 0; }
+a { color: #5FA8B8; } a:hover { color: #8CC6D2; }
+button { font: inherit; color: inherit; background: none; border: none; padding: 0; cursor: pointer; }
+.num { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #121414; color: #E8EDEC; font-family: 'Archivo', 'Helvetica Neue', system-ui, sans-serif; position: relative; overflow: hidden">
+  <div aria-hidden="true" style="opacity: 0.35; display: flex; flex-direction: column">
+    <header style="padding: 16px 14px 0; display: flex; align-items: center; gap: 8px">
+      <span style="width: 44px; height: 44px"></span>
+      <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; gap: 2px"><div style="font-size: 15px; font-weight: 700">Freestyle</div><div class="num" style="font-size: 12px; color: #8A9593">6:13 elapsed</div></div>
+      <span style="width: 44px; height: 44px"></span>
+    </header>
+    <section style="padding: 22px 14px 0; display: flex; flex-direction: column; align-items: center; gap: 2px">
+      <div style="text-align: center; font-size: 25px; font-weight: 700; line-height: 1.1">Bench Press <span style="color: #8A9593">· Machine</span></div>
+      <div style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593; height: 36px; display: flex; align-items: center">Exercise <span class="num">1</span> of <span class="num">4</span></div>
+    </section>
+    <div style="margin: 30px 14px 0; height: 360px; border-radius: 16px; background: #1A1D1F; border: 1px solid #2A2F31"></div>
+  </div>
+  <div style="position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; background: rgba(8,10,10,0.55)">
+    <section role="dialog" aria-label="Units for Bench Press, Machine" style="background: #1A1D1F; border-top: 1px solid #3A4245; border-radius: 22px 22px 0 0; padding: 10px 16px 24px; display: flex; flex-direction: column; gap: 14px">
+      <span style="align-self: center; display: block; width: 40px; height: 4px; border-radius: 2px; background: #3A4245"></span>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h2 style="margin: 0; font-size: 18px; font-weight: 700">Units</h2>
+        <div style="font-size: 13px; color: #8A9593">Bench Press · Machine</div>
+      </div>
+
+      <!-- One block per field with a unit: name, last-time marker, one chip row. Reps has no unit, so no block. -->
+      <div role="radiogroup" aria-label="Weight unit" style="display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; align-items: baseline; justify-content: space-between">
+          <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase">Weight</span>
+          <span style="font-size: 12px; color: #8A9593">Last time: plates</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+          <button type="button" role="radio" aria-checked="false" style="height: 44px; border-radius: 11px; border: 1px solid #2A2F31; font-size: 15px; font-weight: 700; color: #8A9593">kg</button>
+          <button type="button" role="radio" aria-checked="false" style="height: 44px; border-radius: 11px; border: 1px solid #2A2F31; font-size: 15px; font-weight: 700; color: #8A9593">lb</button>
+          <a href="UnitSwitched.dc.html" role="radio" aria-checked="true" style="height: 44px; border-radius: 11px; border: 1.5px solid {{accent}}; background: #222628; font-size: 15px; font-weight: 700; color: #E8EDEC; text-decoration: none; display: flex; align-items: center; justify-content: center">plates</a>
+        </div>
+        <div style="font-size: 12px; line-height: 1.35; color: #8A9593">Plates or pin number on the stack. Never turned into kg; compares only with plates.</div>
+      </div>
+
+      <div style="font-size: 12.5px; line-height: 1.4; color: #8A9593; border-top: 1px solid #2A2F31; padding-top: 12px">For this workout only. Fixed once set <span class="num">1</span> is logged.</div>
+      <button type="button" style="height: 50px; border-radius: 14px; border: 1px solid #3A4245; font-size: 15px; font-weight: 600">Done</button>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5FA8B8","options":["#5FA8B8","#B5A3CF","#D8A13B","#8FB573"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#5FA8B8' };
+  }
+}
+</script>
+</body>
+</html>
