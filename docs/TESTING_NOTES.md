@@ -393,3 +393,27 @@ Finish on the test plan; kill and airplane-mode cold start; the picker's recents
 - **[waste] One mutation did nothing:** the search text matched, the test stayed green, and I nearly read it as
   a passing guard. The `limitFn(1)` text appears twice in the file (a second query uses it), so my "once"
   assertion on a longer string had failed before any change. Count occurrences before mutating.
+
+### TICKET-088, analysis: counts of older months (2026-11-16 to 17, `pinky`, dummy data)
+- **[run] The emulator cannot prove an index.** `where("deleted", "!=", true)` with a range failed only on
+  production (`FAILED_PRECONDITION`); the emulator enforces no indexes. A probe about an index runs read-only
+  against the real project or proves nothing.
+- **[run] A `!=` filter skips every doc that lacks the field.** On the whole collection it matched 0 of 35 live
+  workouts (they carry no `deleted`). Any count or query that "excludes markers" with `!=` silently returns
+  nothing for normal data. Test it on docs without the field, not only on docs with it set to false.
+- **[run] A bare `count()` over a range counted deleted markers:** July gave 5 where 3 workouts were live. The
+  number looked right next to the others. Always seed markers into the months a count probe checks.
+- **[run] My own ground-truth query needed an index too:** an equality on a probe tag plus a range on `startedAt`
+  failed, and at first I read the error as the design's. Keep a probe's checking queries to the same indexes as
+  the design under test, or the failure points at the wrong thing.
+- **[run] A retried write is the test for a counter.** Committing the same Finish twice moved an `increment()`
+  counter by 2 and left a map keyed by session id at 1. Any stored count must survive the replay the upload
+  queue already does.
+- **[run] Two simulated phones showed the staleness a single client hides:** phone 2 was wrong until its next
+  refresh. Name that window in the design rather than claim "invalidated".
+- **[run] Time zones: run the same probe under two `TZ` values** (Asia/Kolkata, America/Los_Angeles) with a
+  workout at 00:30 on 1 January; month bucketing is where a UTC/local mix-up shows.
+- **[read] What was not verified:** phone timing (every time was from a laptop to the real project); billing
+  beyond the pricing page's rule; the chosen paging design itself (it is built and measured in 085a).
+- **[waste] Three designs were simulated before the user asked whether the UI needed a count at all.** The
+  cheapest answer was a design change. Ask "does the screen need this number" before measuring how to get it.

@@ -10120,6 +10120,7 @@ held window's sets live in the records, which reverses TICKET-072 D7 for the win
 - *Stage 2 (built, committed):* the floor in the pure layer, the store on the window and the floor, `WORKOUTS_PER_PLAN`,
   `loaded`, `followPlans` and `planIdsToHold` retired, the readers (hub, Start, Manage, both pickers) updated.
 - *Stage 3 (built, committed):* `getWorkoutsOfMonth` (older months, memory only, refused offline) and the proof.
+  *Superseded by TICKET-088 (2026-11-17):* older workouts load by page, not by month; 085a replaces `getWorkoutsOfMonth`, `loadMonth` and `olderMonths`.
 
 **Stage 1 built (2026-11-14, nothing pushed): the pure layer.** `src/utils/monthWindow.ts` (moved from
 `src/scripts/`; `chooseMonthsToKeep` plus the month helpers; `measureWindow.ts` imports it), `src/utils/workoutWindow.ts`
@@ -10328,7 +10329,7 @@ workout opened from the History home (085a) shows the real screen, and the user 
   is TICKET-025's problem and is fixed here for this path.
 
 **Proof:** emulator run: finish a workout online, offline and with a failed upload; open a workout from
-each of the three sources (the History home's held and Older rows, the waiting queue, and the landing); compare screenshots to the boards (role tokens and `t.fonts`, never board px).
+each of the three sources (the History home's held months and loaded Older workouts, the waiting queue, and the landing); compare screenshots to the boards (role tokens and `t.fonts`, never board px).
 
 **Out of scope:** Edit and Delete (086, and the Edit UI is parked); the Exercise link inside the compare
 (084 adds it).
@@ -10402,21 +10403,31 @@ removes the button and the old page.
   workout is one tap target, opening the `Session` route; the current month in full (under 10 workouts it runs into the month before,
   which is then split and its Earlier row counts only what is left); Earlier month rows open in place in one
   list (`SectionList` or `FlatList` with row types, not nested lists); months older than the held window are
-  one "Older" row (boards `HistHome19OlderEnd`, `HistHome20OlderOffline`) that loads a month on tap (082's `getWorkoutsOfMonth` through the store's `loadMonth`: states `loading` (with `waitOver`: say "needs a connection, still trying" from there, as Firestore takes 10 to 30 s to refuse offline), `ready`, `offline`, `failed`; no count until it
-  is loaded: never a total the phone does not have); filter sheet and counts from 082's selectors (`planFilterRows` over the window: a plan idle for longer than the window has no row, and its newest workout is in `lastByPlan`, which no month or count includes); a workout waiting to upload merged in with provisional verdicts (`withVerdicts` over the held summaries; 081 stage 2 built the function, not the wiring); "Not
+  one **Older workouts** row (decided in TICKET-088, boards `HistHome19OlderEnd` to `HistHome25LongGap`) that loads the next page of
+  older workouts into the same rail on each tap, until the first workout ("Your first workout, <date>"). One query per tap:
+  `startedAt` before the oldest workout shown, newest first, limit `OLDER_WORKOUTS_PAGE_SIZE` (a new value in `src/config/`; the row's
+  label reads it), the automatic single-field index; filtered to a plan, `workoutId ==` with the existing `(workoutId, startedAt desc)`
+  index. `deleted` markers are skipped and the next page asked for, so a page is never short because of them. Memory only, never saved,
+  gone at sign-out. Older month headers carry **no count**; a month with no workouts between two loaded ones is one quiet line
+  ("No workouts in September"; a longer break is one line, "No workouts from March to July"), worked out from the two dates, no read.
+  States: `loading` (with `waitOver`: say "needs a connection, still trying" from there, as Firestore takes 10 to 30 s to refuse offline),
+  `ready`, `offline` ("Needs a connection"), `failed`. This replaces 082's `getWorkoutsOfMonth`, `loadMonth` and `olderMonths`: remove
+  them here, with their tests (nothing else reads them; grep before removing). Nothing is stored to count a month the phone does not hold
+  (088: a count needs a stored index or extra reads that grow with history). filter sheet and counts from 082's selectors (`planFilterRows` over the window: a plan idle for longer than the window has no row, and its newest workout is in `lastByPlan`, which no month or count includes); a workout waiting to upload merged in with provisional verdicts (`withVerdicts` over the held summaries; 081 stage 2 built the function, not the wiring); "Not
   compared" for a workout with no verdict (081's reason), and no word at all for one whose `workoutVerdict` is `pending` (a lift not yet computed, or older than a lift's rollup window).
 
 **Proof:** reads of a History visit before and after (the old page's reads are the baseline); cold start
 offline shows Workouts with 0 reads; 20 workouts of 8 lifts scroll without dropped frames on the emulator
-(virtualization, tall capsule rows); every row and state tapped through on the emulator against the existing
-account (no new workouts needed).
+(virtualization, tall capsule rows); Older workouts: reads per tap equal the page (plus any markers skipped), 0 reads for the held months,
+filtered paging returns only that plan, and a gap line appears for an empty month; every row and state tapped through on the emulator
+(older pages need history past the window: dummy data on `pinky`, as 088 did, created and removed by a script with `--dry-run`).
 
 **Out of scope:** the Exercises tab (085b); the real Session screen (083); removing the old page (085b); Edit
 session; calendar, streaks, weekly view (cut in design on purpose).
 
 **CLAUDE.md rules skipped:** none. 3.3 is met by the placeholder and the hub button, both marked TEMPORARY with their removal steps.
 
-**Dependencies:** TICKET-081, 082.
+**Dependencies:** TICKET-081, 082, 088 (decided: older workouts load by page with no month count; Stage 2 above).
 
 ---
 
@@ -10491,7 +10502,8 @@ which then reuses it.
   summary, and rewrite each successor session's `lifts` verdict against its new previous session (081 stage 3 built the pure parts: `verdictsFromHistory` and `repairedSessions` recompute from the sets in hand; the successor is the lift's next session in start order).
 - Refused offline. A Finish landing between the read and the write can overwrite the rebuild: decided in
   the ticket (re-read the stamps, or accept and heal with the rebuild script).
-- Enable the option on the Session screen with the confirm; after it, Back to Workouts.
+- Enable the option on the Session screen with the confirm; after it, Back to Workouts. A workout opened from the loaded Older
+  workouts (085a, memory only) is removed from that list too, not only from the held window.
 
 **Cost, measured on fixtures of 8 lifts (087):** the rebuild reads each lift's records: 370 reads (1.15 MB) at
 150 workouts, 1000 (3.11 MB) at 500, 3000 (9.33 MB) at 1500, with 10 writes after 085c (18 until then). The reads
@@ -10707,7 +10719,7 @@ main canvas and mirrored in the same change. What changed:
   weight" and defined in the view-options sheet and the link map: the average of a session's set weights, a drop
   set counting its first weight. "Going up" is removed from all 10 Exercise boards: the graph shows the
   direction, and defining a trend rule and its three states was more than an MVP needs.
-- **Older row (known gap 1 above):** two new boards, `HistHome19OlderEnd` and `HistHome20OlderOffline`, and the
+- **Older row (known gap 1 above; superseded by TICKET-088, which pages older workouts instead of loading a month):** two new boards, `HistHome19OlderEnd` and `HistHome20OlderOffline`, and the
   Offline strip now says "your recent workouts are saved on your phone".
 Not drawn, left for 085 to build against the link map's text: the filter sheet's note that its counts are for the
 workouts on the phone (the sample data holds every workout, so the counts there are true), and the Older row's
@@ -10736,6 +10748,202 @@ unproven; say so in the record (CLAUDE.md 1.4).
 **CLAUDE.md rules skipped:** none. 3.1 is the point of this ticket.
 
 **Dependencies:** none. Folds in TICKET-049. Blocks 081 to 086.
+
+---
+
+### TICKET-088: History Home Analysis — Counts of Older Months and How 085a Reads (do before 085a)
+
+**Priority:** Medium | **Effort:** Small-Medium | **Status: DONE** — raised 2026-11-16 (user); decided 2026-11-17 (user): option A below, boards on the main canvas
+
+**Description:**
+085a says "no count until a month is loaded: never a total the phone does not have". The board
+(`HistHome` Earlier rows) shows a count on every month row. Before 085a is built, decide how the
+code gets and shows the count of a month older than the held window, which query reads it, what it
+costs, and whether anything is stored on the phone for it. The ticket's rule may be right, or it may be
+a cost that buys the user nothing; measure it (CLAUDE.md 2.2, 3.1).
+
+**Load-bearing facts, checked in code 2026-11-16 (CLAUDE.md 2.1):**
+- The window is the newest whole months until at least `WORKOUTS_ON_PHONE_MIN` (180) workouts are held
+  (`src/config/sync.ts`). A user under 180 workouts has every month held, so every row and count is
+  free and the question never arises. Only a user past 180 workouts has an older month at all.
+  **To check:** how many of the 3 test accounts are past 180 today. The board's 27 workouts over 4
+  months would all be inside the window.
+- No count query exists in `src/` or `scripts/` (grep `getCountFromServer`, `getAggregateFromServer`: none).
+  The SDK in use (`@firebase/firestore` 4.7.9, `firebase` ^11.3.1) exports `getCountFromServer`.
+- `getWorkoutsOfMonth` (`src/services/db/workoutSessions.ts`) reads a month by a range on `startedAt`
+  (automatic single-field index) and drops `deleted` markers after reading; `docsRead` counts them.
+  A count over the same range would include markers unless the query excludes them.
+
+**What to answer (each with a number or an "unproven"):**
+1. **Count of an older month.** Options: (a) none until loaded, as 085a says; (b) `getCountFromServer` on the month's range,
+   on demand when the row is shown or tapped (one query per older month; a single count over the whole older range cannot be
+   split into months); (c) a stored per-month counter written at Finish and Delete. Measure the reads
+   each costs (the doc says an aggregate bills 1 read per up to 1000 index entries: verify on the emulator
+   and cite the pricing page, do not copy it from memory) and the time.
+2. **Deleted markers.** A deleted workout keeps a doc with `deleted: true`. Does a count include it? If a
+   `where("deleted", "!=", true)` can be added to the range query, what index does it need, and does
+   it work with the emulator and production alike? If it cannot, the count is wrong by the markers and must
+   not be shown as a number (CLAUDE.md 2.4): say "about" or show none.
+3. **Offline.** `getCountFromServer` has no cache read. Offline the row must show an explicit absence,
+   not 0. Settle the wording against boards `HistHome19OlderEnd` and `HistHome20OlderOffline`.
+4. **Fast read for the rest of 085a.** Reads of a History visit before (old page) and after for each
+   path: held months, one older month opened, count rows shown. List the cheapest query for each;
+   check no row needs more than one query and that rows are not queried on scroll.
+5. **Store it locally?** Only if (1) shows a count that cannot be read cheaply. Storing a count that
+   goes stale on delete from another phone is a number that looks like data (CLAUDE.md 2.4); say how it
+   would be kept right, or reject it. Prefer the smallest version (MVP, ~5-10 users): if (b) costs
+   a handful of reads, no storage.
+6. **The `Older` row vs the board.** If the answer is "no count", the board's count on those rows is
+   redrawn on the Drafts canvas first, not changed in code only.
+
+**Build:** a throwaway script or test on the emulator with fixtures (extend `src/scripts/measureWindow.ts`'s
+fixtures), `--dry-run` where it writes, TEMPORARY and removable. No write to a real database without asking.
+
+**Output:** a record under this ticket: the decision for each question above, the numbers, and an edit to
+085a's Stage 2 text (and to the board if (6)). If a decision changes a stored shape, say so in 081's
+record and here.
+
+**Out of scope:** building any 085a screen; changing the window (`WORKOUTS_ON_PHONE_MIN`); a new
+Firestore index deploy (prepare it, do not deploy).
+
+**Measured on the emulator, not production:** latency on a real phone and signal stays unproven; say so.
+
+**CLAUDE.md rules skipped:** 3.4 (staging) and 3.5 (reversible reorganisation): an analysis with no
+data change. 3.3 is met by the throwaway script.
+
+**Dependencies:** TICKET-082 (the window and `getWorkoutsOfMonth`). Blocks 085a.
+
+**Record, 2026-11-16 (first pass, read-only probe `src/scripts/measureMonthCounts.ts`, TEMPORARY, remove at close):**
+- *Does an older month exist for anyone?* Not today. The project has 27 users; 3 have workouts: 19, 15 and 16
+  (no deleted markers), against `WORKOUTS_ON_PHONE_MIN` 180. Every month of every user is inside the window, so the
+  question in 1 to 3 is about a user who does not exist yet. Real reads: one full `sessions` read per user and
+  2 aggregate queries per month.
+- *A count over a month's range is correct.* `count()` on the `startedAt` range matched the ground truth
+  (full read, grouped by `localMonthKey`) for all 7 months. It needs no index of ours.
+- *The marker filter is not free.* `where("deleted", "!=", true)` added to the range fails with `FAILED_PRECONDITION: The query requires an index`
+  on production (the emulator does not enforce indexes, so it cannot prove this). Not deployed (CLAUDE.md 1.3). Also not
+  tested, because the error came first: Firestore's `!=` does not match a doc that lacks the field, and live workouts have no
+  `deleted` field, so the filter may return 0. Until tested, a count has no way to leave markers out.
+- *What this leaves for 085a (proposed, user to confirm):* keep "no count until a month is loaded". A bare `count()` would be
+  wrong by the markers once 086 writes any (a number that looks like data, CLAUDE.md 2.4), and the case is rare. When a user
+  nears the minimum, add a count with the marker question settled.
+- *Not yet done:* questions 4 (reads of a History visit, before and after) and 6 (the board); offline behaviour of a
+  count (3) is from the SDK docs, not run; the `!=` behaviour on a doc with no `deleted` field; billing of an aggregate
+  (1 read per up to 1000 entries is from memory: cite the pricing page). Status stays OPEN.
+
+**Record, 2026-11-16 (second pass, dummy data on `pinky`, approved by the user; `src/scripts/probeMonthCounts.ts seed|run|run2|clean`, TEMPORARY):**
+22 weekly docs tagged `probe088` in 2026-04..2026-08 (before pinky's real history), 3 of them `deleted` markers (2 in July, 1 in June).
+All 22 plus a counter doc and a test doc were deleted afterwards; pinky's `sessions` is back to 16 docs. Times are from this computer
+to the real project, not a phone.
+
+| Approach | Result | Cost (this computer) |
+|---|---|---|
+| A. Fetch the month on tap, count live docs (today's `getWorkoutsOfMonth`) | Correct (live 4/3/3/4/5). Markers dropped after reading | N docs read (4 to 5), 46 to 73 ms per month |
+| B. `count()` on the month's range | **Wrong where a marker exists**: July 5 (true 3), June 4 (true 3); right elsewhere | 1 aggregate query, 39 to 63 ms; 5 months 252 ms in a row, 85 ms in parallel |
+| C. `count()` with `deleted != true` | Not possible: needs an index (`FAILED_PRECONDITION`), and `!=` on the whole collection matched **0 of 35** docs that lack the field | none |
+| D. `count()` of the range minus `count()` of `deleted == true` in it | Needs an index on production (`FAILED_PRECONDITION`); untested past that | two queries per month |
+| E. A stored per-month counter doc | 1 doc read, 64 ms | an extra write on every Finish and Delete, and it can drift from the docs; not built, only its read timed. The "drift" line in the probe proved nothing and is not evidence |
+
+- *Load-bearing fact confirmed:* any filter on `deleted` together with the `startedAt` range needs a composite index we do not have,
+  and `!= true` skips every doc without the field. So a correct count that leaves markers out is impossible without deploying an index
+  (prepared, not deployed: CLAUDE.md 1.3), and B alone shows a plausible wrong number (CLAUDE.md 2.4).
+- *Preferred, for the user to confirm:* **A for 085a.** An older month's row says "N workouts" only after the tap loads it (as 085a's Stage 2
+  already says): correct, no index, no stored counter, no write cost, and today it concerns no user (max 19 workouts against 180).
+  If a count before the tap is wanted later: D with its index deployed (the user's call), in parallel, one row at a time. Rejected for now: B (wrong by
+  the markers), C (cannot work), E (a write on every Finish and Delete, and drift, for a case that does not occur).
+- *Still unproven:* phone-side network time; D past the index error; question 4 (reads of a History visit, before and after) and 6 (the board's
+  count on an Older row, redrawn on the Drafts canvas if A is confirmed). Pricing of an aggregate: not cited.
+
+**Record, 2026-11-16 (third pass: D with the index, and a local cache; user's idea of a stored counter, reshaped):**
+The user proposed a counter doc written once a month, with server time. Rejected as designed: a closed month is not frozen (a delete
+in an older month writes a marker; a Finish uploaded late lands in a closed month), so a count saved once is wrong after either, and
+the fix (write on Delete) brings back the per-Delete write. Proposed instead: **D, cached on the phone per older month, invalidated by the change check.**
+No Firestore doc, no write, no clock (the months to compute are those before the oldest month the phone holds; the count comes from data).
+- *Index built by the user:* `sessions (deleted ASC, startedAt ASC)`, collection scope, also in `firestore.indexes.json` (not deployed by us).
+  D works: on 22 dummy docs (3 markers) D gave 4, 3, 3, 4, 5 and matched the true live count for all five months.
+- *Cost:* 2 aggregate queries per older month, in parallel: five months 474 ms on the first run (includes opening the connection), 81 to 102 ms for
+  2 to 3 months after that; this computer to the real project, not a phone. A phone computes each older month once, then 0 until a change.
+- *Invalidation works on the server side:* after a marker was written into 2026-05 and a late doc into 2026-04, `updatedAt > stamp` (the
+  change check's query) returned exactly those two docs, with their `startedAt`; recomputing only those months gave 3 (was 4) and 6 (was 5),
+  other months unchanged.
+- *Load-bearing fact in code, checked:* the store does **not** keep what the invalidation needs. `addToWindow` (`utils/workoutWindow.ts`) removes a marker
+  from the copy and "never keeps it", and a marker for a workout not on the phone "changes nothing". So an older-month marker leaves no trace. The
+  hook must sit where the change check's docs arrive (`useRecentWorkoutsStore.ts`, `getChangedSessions(...).then((docs) => ...)`),
+  before `addToWindow`: for each doc, mark the month of its `startedAt` stale. One small, local change. A full reload clears the cache.
+- *Compared with A (fetch on tap):* the cache shows "N workouts" before the tap. A shows it after, needs no index, no cache, no hook.
+  For the MVP (no user has an older month: max 19 against 180) the cache buys nothing today.
+- *Preferred, for the user to confirm:* **A in 085a; D with the local cache as a follow-up ticket, built when a user has an older month.** The index
+  is already built and the follow-up is: one cache keyed by month (AsyncStorage or memory), the invalidation hook above, D in parallel for the
+  missing months. If the user wants the count before the tap in 085a, that is its whole size.
+- *Still unproven:* phone timing; the hook itself (not written: this is an analysis); question 4; pricing of an aggregate, not cited. The 22 dummy docs
+  and the 1 late doc were deleted; pinky's `sessions` is back to 16 docs.
+
+**Record, 2026-11-17 (fourth pass: every design, two phones; `src/scripts/probeCountDesigns.ts`, TEMPORARY):**
+The user pointed out that a cache on phone 2 is not invalidated when phone 1 deletes. True until phone 2's next change check, and the
+third pass's cache also had holes (a full reload, a workout moved between months, a time zone change, a write with no stamp, a race). So every
+design was re-run, not only A and D.
+
+Designs: **A** fetch the month on tap; **B** bare `count()` (wrong by markers, second pass); **D0** D on every visit; **D1** D cached, cleared
+by the change check; **E** a counter doc moved by `increment()`; **G** a Cloud Function keeping a counter (rejected unbuilt: the project has no
+functions, `firebase.json`, and it needs a paid plan and a deploy path for an MVP); **X** a *session index*: one doc per UTC year in
+`users/{uid}/session_index/{year}`, `{ entries: { [sessionId]: startedAt }, updatedAt }`, set in the **same batch** as the session doc at Finish
+and removed in the same batch as 086's marker. The phone holds the year docs, buckets entries by its **own** local month, and on a History
+visit refreshes with `updatedAt > newest stamp it holds` over that small collection.
+
+Run on pinky with 49 dummy workouts across 2025-09..2026-07 (a year boundary, and one at 00:30 local on 1 January), twice, in `TZ=Asia/Kolkata`
+and `TZ=America/Los_Angeles`; every count checked against D:
+- *Replay (a retried upload commits phase 1 twice):* E's counter moved by **2** for one workout. X kept **1** entry (a map key set twice).
+  E is rejected: it is right only inside a transaction that first reads whether the session was counted, which adds a read and a branch to
+  the most delicate write path.
+- *Two phones, X:* first load 2 year docs (53 to 115 ms). A visit with nothing changed: 0 docs, billed 1 read (57 ms). Phone 1 deleted a 2025
+  workout: phone 2 was wrong (2025-09: 4, true 3) **until its next visit**, which returned 1 doc and made every month equal D. Same for a late upload
+  into 2025-11 (1 doc) and two deletes in two years (2 docs). Phone 2 total: 7 reads for all of it. Equal to D in both time zones.
+- *Size:* a year doc for two workouts a day (730 entries) is 27,860 bytes (`firestoreBytes`), against Firestore's 1 MiB doc limit.
+
+Reads for the busiest user (about 3 years, 30 older months, 2 phones, 3 History visits a day each, 2 changes to old months a month).
+**Calculated from the billing rule and the runs above, not measured at this size;** only X's per-visit and per-change reads were run:
+
+| Design | Count before the tap | Reads | Correct on phone 2 | Writes added |
+|---|---|---|---|---|
+| A | no | 0 until a tap; a tap reads the month (about 30 to 60) | yes, at the tap | none |
+| D0 | yes | 60 per visit, 360 a day | yes, each online visit | none |
+| D1 | yes | 60 per phone once, 60 per clear-all, 60 per expiry: about 25 a day | after its change check; holes need 5 rules | none |
+| E | yes | 1 per visit | **no: a replay counts twice** | 1 per Finish and Delete |
+| X | yes | 2 to 3 per phone once, then **1 per visit, 6 a day**; a changed year costs 1 | yes, each online visit (run) | 1 per Finish and Delete, inside the existing batch |
+
+**Decision proposed (for the user): X for the counts, A for the contents.** An older month's row shows its count from the session index; a tap
+loads its workouts with `getWorkoutsOfMonth`, as 082 built. Why X: it is the only design whose freshness check is a server fact (the index doc
+changed) rather than an inference from `sessions`, it costs 1 read per visit at any history size, a replay cannot double it, it needs no composite
+index, offline it shows the last copy as the held list does, and it lists which older months exist (D needed the oldest workout first).
+- *Holes X keeps, each with its handling:* a session written or deleted with no index change (the Firebase console, `wipe`): drift. `compareHistory.ts`
+  checks the index against `sessions`, and `rebuildExerciseStats.ts` rebuilds it. Every writer of `sessions` must write the index: Finish phase 1,
+  `importHistory`, 086; `rebuildExerciseStats` changes no membership.
+- *To build with it:* the field path of a session id must go through `FieldPath` (a plan id may hold a `.`; not checked). Finish writes 19, not
+  18 (11 after 085c). A new stored shape, so CLAUDE.md tier 3 on the build ticket. Test accounts backfilled by the rebuild script (pre-launch, no migration).
+- *The index `sessions (deleted, startedAt)` the user built is not needed by X.* Keep or delete it: the user's call. `firestore.indexes.json` holds
+  it as an uncommitted edit.
+- *Still unproven:* phone timing and phone storage of the year docs; the Finish batch with the extra write on a phone offline; question 4.
+
+**Decision, 2026-11-17 (user): change the design, store nothing.** The user asked whether a new stored collection is worth it, and whether a
+different UI avoids the need. Three ways were drawn on the Drafts canvas (row "History: older months without a count to store"):
+**A** the months on the phone as decided (with their counts, free), then an Older workouts row that loads the next page into the same rail;
+**B** the board as it was, a count on every month (needs the session index X above); **C** older months listed with no count (which months
+exist is unknown without data, so some open empty). **A chosen.** The session index X is **not built**; nothing new is stored.
+- *Why:* a count on a month the phone does not hold has no cheap, correct source (fourth pass). A reads only when asked, one page per tap; filtered
+  to a plan it uses the existing `(workoutId, startedAt desc)` index; it pages workouts, so there are no empty months to open. The phone holds at
+  least `WORKOUTS_ON_PHONE_MIN` workouts, months to years for most users, and those months keep their counts.
+- *A month with no workouts* (the user's case: none in September, some in August) is one quiet line between the two loaded months, a long break
+  one line for the whole gap, worked out from the two dates with no read (boards `HistHome24GapMonth`, `HistHome25LongGap`).
+- *Main canvas:* boards 19 and 20 reworded ("Show 20", no "Tap to load"), 21 to 25 added (loaded in place, the first workout, filtered to Push, a gap
+  month, a long gap), the DECIDED note and the link map's decisions updated; mirrored in `design/workout-flow/project/`. The boards were not rendered.
+- *Tickets changed:* 085a Stage 2 (paging replaces the month load and removes 082's `getWorkoutsOfMonth`, `loadMonth`, `olderMonths`), its proof
+  and dependency; 083's proof; 086 (a delete also leaves the loaded older list); pointers in the 082 and 087 records.
+- *Left as it was:* the filter sheet's counts stay counts of the workouts on the phone (082); a plan idle past the window has no row there.
+- *The index `sessions (deleted ASC, startedAt ASC)`*, which the user created for the third pass, is not used by A. The entry was removed from
+  `firestore.indexes.json`; deleting it in the console is the user's call.
+- *Question 4 (reads of a visit before and after)* is not answered here: it moved to 085a's proof, which already measures it.
+- *Scripts:* `measureMonthCounts.ts`, `probeMonthCounts.ts` and `probeCountDesigns.ts` (TEMPORARY) were removed at close; their output is in the
+  records above. All dummy data on pinky was deleted after each run (`sessions` back to 16 docs, no `probe088_index` docs).
 
 ---
 
@@ -10781,7 +10989,8 @@ parts about the old page and the screens are 085a and 085b, the parts about `exe
 1. TICKET-087  (History analysis)            — Measure, decide the schema, fix the design; folds in 049
 2. TICKET-081  (Lift record and verdict)     — No screen; stored shape per 087
 3. TICKET-082  (Hold recent workouts)
-4. TICKET-085a (History home: shell and Workouts tab) — Placeholder Session; TEMPORARY hub button; needs 081, 082 only
+3b. TICKET-088 (Older-month counts and reads) — DONE 2026-11-17: older workouts load by page, no month count, nothing stored
+4. TICKET-085a (History home: shell and Workouts tab) — Placeholder Session; TEMPORARY hub button; needs 081, 082, 088
 5. TICKET-083  (Session screen, landing)     — After 085a; replaces the placeholder
 6. TICKET-084  (Exercise screen)
 7. TICKET-085b (Exercises tab; the switch; removes the old page)
