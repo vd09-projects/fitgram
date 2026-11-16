@@ -3,7 +3,7 @@
 // TICKET-050: Recent comes from the recent workouts store, checked once per open (TICKET-075).
 // TICKET-052: plans are chosen and created in a sheet; a first plan without one.
 
-import { StyleSheet, TextInput } from "react-native";
+import { Keyboard, StyleSheet, TextInput } from "react-native";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react-native";
 import { NavigationProp, ParamListBase, useNavigation } from "@react-navigation/native";
 import AddExerciseScreen from "./AddExerciseScreen";
@@ -327,6 +327,20 @@ it("New plan: the sheet's first row names a plan, which opens empty and is writt
   expect(usePlansStore.getState().plans?.map((plan) => plan.id)).toEqual(["generated_id", "push"]);
   expect(getAllWorkoutPlans).toHaveBeenCalledTimes(readsBefore);
   expect(getChangedPlans).toHaveBeenCalledTimes(changesBefore);
+});
+
+it("picking a plan while naming a new one puts the keyboard away and opens that plan", async () => {
+  const dismiss = jest.spyOn(Keyboard, "dismiss");
+  renderManage([push()]);
+  await openSheet();
+  fireEvent.press(screen.getByRole("button", { name: "New plan" }));
+  fireEvent.changeText(screen.getByLabelText("New plan"), "Legs");
+  dismiss.mockClear();
+  fireEvent.press(within(screen.getByTestId("plan-sheet")).getByText(push().name));
+
+  expect(dismiss).toHaveBeenCalled();
+  expect(await screen.findByLabelText(`Plan: ${push().name}`)).toBeTruthy();
+  dismiss.mockRestore();
 });
 
 it("New plan refuses a name a plan already has, and keeps the open plan", async () => {

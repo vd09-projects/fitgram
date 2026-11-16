@@ -60,6 +60,12 @@ export const MultiTourSteps: React.FC<Props> = ({
       }
     }
 
+    // A maxHeight stays on the wrapper, which is what the parent sizes, so the
+    // child must shrink to it: otherwise the child keeps its full height and
+    // overflows the cap. The version sheet's Add button fell off the bottom of
+    // a short phone this way (bug report, 2026-11-16, Bench Press).
+    if (flattenedStyle.maxHeight != null) childStyle.flexShrink = 1;
+
     const propsToInject = {
       [stylePropName]: [childStyle],
     };

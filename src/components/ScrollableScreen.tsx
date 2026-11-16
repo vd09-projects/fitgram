@@ -1,8 +1,9 @@
 import React, { ReactNode } from 'react';
-import { ScrollView, View, StyleSheet, KeyboardAvoidingView, Platform, Text } from 'react-native';
+import { ScrollView, View, StyleSheet, Text } from 'react-native';
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 import { useThemeStyles } from "../utils/useThemeStyles";
 import { useTour } from './guide_tour/TourGuideProvider';
+import KeyboardLift from './KeyboardLift';
 
 interface ScrollableScreenProps {
   children: ReactNode;
@@ -21,10 +22,9 @@ const ScrollableScreen: React.FC<ScrollableScreenProps> = ({ children, style, ti
       {title && <View style={styles.titleContainer}>{title}</View>}
 
       {/* Scrollable Content */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}
-      >
+      {/* Keeps a focused field above the keyboard; see KeyboardLift for why
+          a bare KeyboardAvoidingView fell short on Android. */}
+      <KeyboardLift style={styles.flex}>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.contentContainer}
@@ -45,7 +45,7 @@ const ScrollableScreen: React.FC<ScrollableScreenProps> = ({ children, style, ti
             <View style={{ marginVertical: t.space.ScrollingBuffer }} testID="tour-scroll-buffer" />
           )}
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardLift>
     </View>
   );
 };

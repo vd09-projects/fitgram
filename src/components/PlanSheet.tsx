@@ -12,7 +12,7 @@
 // first); the sheet keeps it.
 
 import React, { useEffect, useState } from "react";
-import { BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { BackHandler, Keyboard, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SPACING } from "../constants/styles";
 import { WorkoutPlan, isArchived } from "../types/workoutType";
@@ -21,6 +21,7 @@ import { useThemeStyles } from "../utils/useThemeStyles";
 import { TextBase } from "./TextBase";
 import { TouchableOpacityBase } from "./TouchableOpacityBase";
 import PlanNameField from "./PlanNameField";
+import KeyboardLift from "./KeyboardLift";
 import { ShowArchivedToggle } from "./ShowArchivedToggle";
 
 type Props = {
@@ -63,7 +64,11 @@ export default function PlanSheet({ plans, selectedId, onSelect, onCreate, onClo
           <TouchableOpacityBase
             key={plan.id}
             style={[styles.row, index > 0 && styles.rowDivider, selected && styles.rowSelected]}
-            onPress={() => onSelect(plan)}
+            onPress={() => {
+              // Picking a plan while naming a new one ends the typing.
+              Keyboard.dismiss();
+              onSelect(plan);
+            }}
             accessibilityRole="button"
             accessibilityState={{ selected }}
           >
@@ -79,11 +84,9 @@ export default function PlanSheet({ plans, selectedId, onSelect, onCreate, onClo
   );
 
   return (
-    <KeyboardAvoidingView
-      style={StyleSheet.absoluteFill}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      testID="plan-sheet"
-    >
+    // The name field rides on the keyboard (bug report, 2026-11-16: it sat
+    // under it on Android); KeyboardLift says why.
+    <KeyboardLift style={StyleSheet.absoluteFill} testID="plan-sheet">
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
       <View style={styles.sheet}>
         <View style={styles.handle} />
@@ -125,7 +128,7 @@ export default function PlanSheet({ plans, selectedId, onSelect, onCreate, onClo
           </ScrollView>
         )}
       </View>
-    </KeyboardAvoidingView>
+    </KeyboardLift>
   );
 }
 

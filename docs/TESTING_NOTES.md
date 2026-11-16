@@ -417,3 +417,54 @@ Finish on the test plan; kill and airplane-mode cold start; the picker's recents
   beyond the pricing page's rule; the chosen paging design itself (it is built and measured in 085a).
 - **[waste] Three designs were simulated before the user asked whether the UI needed a count at all.** The
   cheapest answer was a design change. Ask "does the screen need this number" before measuring how to get it.
+
+### Bug report: keyboard hides the picker's search box and the plan name field (emulator, `pinky`, 2026-11-17)
+- **[run] The emulator never showed the bug because it never showed a keyboard.** With the host keyboard
+  attached, Gboard only draws its floating toolbar. `adb shell settings put secure show_ime_with_hard_keyboard 1`
+  brings the full on-screen keyboard back; with it, the bug reproduced on the first try. Any test of a text
+  field near the bottom needs this set (it is left on now).
+- **[read] The picker's comment said Android resizes the window for the keyboard.** True before targetSdk 36;
+  at 36 the app is edge-to-edge and `adjustResize` no longer shrinks anything. The picker (TICKET-043) was
+  written after the bump (0210068), on that assumption. Grep for `Platform.OS === "ios" ? "padding"` when the
+  target SDK moves again.
+- **[run] KeyboardAvoidingView under-lifted by exactly the status bar.** Logged numbers: keyboard `screenY` 661
+  (screen coordinates), picker `measureInWindow` y 4 (counted from below the status bar). Hence
+  `StatusBar.currentHeight` in `KeyboardLift`'s offset. Log both numbers before guessing an offset.
+- **[run] KAV's "padding" overrides the style's own `paddingBottom`.** The picker lost its bottom gap (search
+  label moved 8 dp lower) until the style moved to an outer View.
+- **[run] Checked on device:** picker search box above the keyboard (Manage Workout and active-workout Add);
+  tapping an exercise, a custom exercise or a filter closes the keyboard; Plan sheet "New plan" field above the
+  keyboard; picking a plan while typing closes it and creates nothing; Manage Workout's field editor (a
+  ScrollableScreen) still ends at the keyboard. **Not checked:** iOS (no simulator run), gesture-navigation
+  phones (emulator uses 3-button nav), the other ScrollableScreen screens beyond Manage Workout.
+
+### Bug report: no Add button on Bench Press's version sheet (emulator at phone size, `pinky`, 2026-11-17)
+- **[run] The emulator's screen hid the bug.** At its own 1344×2992 / 480 dpi (448×997 dp) the Bench Press sheet
+  fits. `adb shell wm size 1080x2340; adb shell wm density 440` (393×851 dp, near the reporter's phone) cut it
+  off at "Last logged" with no Add button, as in the report. Reset with `wm size reset; wm density reset`.
+  Check tall sheets at a short phone's size, not only at the emulator's.
+- **[read] Cause: the tour wrapper takes the sheet's style.** `MultiTourSteps` wraps a tour step in a View and
+  moves most of the child's style onto it, `maxHeight: "80%"` included. The wrapper was capped; the sheet
+  inside kept its full height and overflowed. Only Manage Workout's picker passes a tour prefix, so only there
+  is the sheet wrapped (the active-workout picker never had the bug). Since TICKET-043 (e45837f).
+- **[run] A guessed fix did nothing:** `flexShrink` on the sheet's list could not help while the sheet itself
+  was unconstrained. Removing the tour wrapper as a probe showed the cap working, which located the cause.
+- **[run] The unit test needed the Manage Workout prefix.** Without `tourStepPrefix` the sheet is not a tour
+  step, there is no wrapper, and the test passed against the bug. It goes red with the fix removed.
+- **[run] Checked at phone size:** Bench Press sheet shows Add, its options scroll down to Side, Add puts
+  Bench Press · Machine in the plan (removed again, not saved); Lat Pulldown's sheet still sizes to its content.
+  **Not run:** the guided tour's highlight of the sheet (it measures the wrapper, whose style did not change);
+  iOS.
+- **[run] Plan sheet with many plans (review question):** a long list doesn't push the "New plan" field up,
+  because only the list (`flexShrink: 1`) gives way under the sheet's cap. To test "more plans than fit"
+  without creating plans, shrink the screen instead (`wm size 1080x1700`, 393×618 dp): field and Create
+  stayed visible, the list squeezed to a sliver.
+
+### PR #72 review suggestions (emulator, `pinky`, 2026-11-17)
+- **[run] Each keyboard-dismiss site seen failing on its own:** removing `Keyboard.dismiss()` from `pickCustom`
+  failed the picker test at the custom-exercise press, from `openMenu` at the filter press, and from the Plan
+  sheet's row the new AddExerciseScreen test. The spy is cleared before each press, so one site can't cover
+  another.
+- **[run] `ScrollableScreen` screens checked after the change:** an active workout's set input (number pad up,
+  input and Log set visible; workout discarded, nothing logged) and Profile → Sign-in & Security's Confirm
+  password, the lowest field, which scrolled up into view above the keyboard (nothing saved).
