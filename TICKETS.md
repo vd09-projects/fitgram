@@ -10946,6 +10946,63 @@ exist is unknown without data, so some open empty). **A chosen.** The session in
 - *Scripts:* `measureMonthCounts.ts`, `probeMonthCounts.ts` and `probeCountDesigns.ts` (TEMPORARY) were removed at close; their output is in the
   records above. All dummy data on pinky was deleted after each run (`sessions` back to 16 docs, no `probe088_index` docs).
 
+
+---
+
+### TICKET-089: Bug — the Keyboard Covers Text Fields on Android
+
+**Priority:** High | **Effort:** Small-Medium | **Status: MERGED** — PR #72, 2026-11-17; device run on the emulator (API 36, `pinky`)
+
+**Description (bug report, 2026-11-16, video and screenshot):**
+1. Exercise picker: the search box sat under the keyboard, so the user typed blind.
+2. Tapping an exercise left the keyboard up over the version sheet; it had to be closed by hand.
+3. Manage Workout → Plan sheet: the "New plan" name field sat under the keyboard.
+
+**Cause:**
+- At targetSdk 36 (`0210068`) Android draws edge-to-edge and `adjustResize` no longer shrinks the window. The
+  picker (TICKET-043, written after the bump) and `PlanSheet` lifted only on iOS, assuming Android resized.
+- A bare `KeyboardAvoidingView` also fell short by the status bar: on Android `measureInWindow` counts from
+  below it, the keyboard's `screenY` from the screen top.
+- Rows keep `keyboardShouldPersistTaps="handled"` (one tap, not two), and nothing then closed the keyboard.
+
+**Decided (user asked for a generic answer, 2026-11-17):**
+- **Generic:** `src/components/KeyboardLift.tsx` keeps what it wraps above the keyboard on both platforms; it
+  replaces the three hand-rolled KAVs (`ExercisePicker`, `PlanSheet`, `ScrollableScreen`). Use it for any new
+  screen or sheet with a text field.
+- **Not generic:** closing the keyboard on a pick is one `Keyboard.dismiss()` per pick site (movement, custom
+  exercise, filter menu, plan row). The shared touchable would also close it on taps meant to keep typing
+  (clear ×, set-row ±).
+- **Rejected:** `react-native-keyboard-controller` (a new native module and dev-client rebuild for three sites).
+
+**Verified:** unit tests for every dismiss site, each seen failing without its fix; on the emulator with the full
+on-screen keyboard forced (`show_ime_with_hard_keyboard 1`): both pickers, the Plan sheet (including a list
+longer than the screen), Manage Workout's field editor, an active workout's set input, Profile's password fields.
+**Not verified:** iOS; gesture-navigation phones. Notes in `docs/TESTING_NOTES.md`.
+
+---
+
+### TICKET-090: Bug — Bench Press's Version Sheet Has No Add Button
+
+**Priority:** High | **Effort:** Small | **Status: MERGED** — PR #72, 2026-11-17; device run on the emulator at phone size
+
+**Description (bug report, 2026-11-16, screenshot):**
+Creating a plan, the Bench Press version sheet ended at "Last logged" with no Add button, so it could not be
+added. Chest Press worked.
+
+**Cause:**
+`MultiTourSteps` wraps a guided-tour step in a View and moves the child's style onto it, the sheet's
+`maxHeight` included. The wrapper was capped; the sheet inside kept its full height and overflowed, pushing
+Add off a short screen once a movement has enough option rows (Bench Press: equipment, angle, grip, side).
+Only Manage Workout passes a tour prefix, so only its picker wraps the sheet; the active-workout picker never
+had the bug. Present since TICKET-043 (`e45837f`). The emulator's own 448×997 dp screen hid it.
+
+**Fix:** when a wrapped style has a `maxHeight`, the child gets `flexShrink: 1`, so it fits the capped wrapper
+and the options list scrolls. Only `VersionSheet` puts a `maxHeight` on a tour-wrapped element today.
+
+**Verified:** a unit test rendered with Manage Workout's tour prefix (without it there is no wrapper, and the
+test passed against the bug), seen failing without the fix; on the emulator at 393×851 dp
+(`wm size 1080x2340`, `wm density 440`) the bug reproduced first, then Add showed, the options scrolled, and
+a short sheet still sized to its content. **Not verified:** iOS; the guided tour's highlight of the sheet.
 ---
 
 ## Recommended Execution Order
