@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Unit fixed after set 1</title>
+<title>Unit label after set 1</title>
 <script src="./support.js"></script>
 </head>
 <body>
@@ -45,8 +45,8 @@ button { font: inherit; color: inherit; background: none; border: none; padding:
       </div>
       <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 10px">
         <div style="display: flex; flex-direction: column; gap: 3px">
-          <!-- After set 1: plain label again, no ▾. Same rule and copy as Swap's lock -->
-          <label for="w4" style="align-self: center; height: 32px; display: flex; align-items: center; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Weight · plates</label>
+          <!-- After set 1 the ▾ stays: the same control at every set. Changing the unit now relabels today's sets (UnitSheetLogged) -->
+          <a href="UnitSheetLogged.dc.html" aria-label="Weight unit: plates. Change unit" style="align-self: center; height: 32px; padding: 0 6px; display: flex; align-items: center; gap: 4px; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593; text-decoration: none">Weight · <span style="color: #E8EDEC; font-weight: 700">plates</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#E8EDEC" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></a>
           <div style="height: 62px; border-radius: 13px; background: #222628; border: 1px solid #6A7474; display: flex; align-items: center; justify-content: center"><input id="w4" class="num" type="text" inputmode="decimal" placeholder="10" style="width: 100%; height: 100%; text-align: center; font-size: 30px; font-weight: 500" /></div>
           <div style="display: flex; gap: 6px; margin-top: 4px"><button type="button" class="num" style="flex-grow: 1; height: 44px; border-radius: 11px; border: 1px solid #2A2F31; color: #8A9593; font-size: 13px">−1</button><button type="button" class="num" style="flex-grow: 1; height: 44px; border-radius: 11px; border: 1px solid #2A2F31; color: #8A9593; font-size: 13px">+1</button></div>
         </div>
