@@ -930,7 +930,15 @@
     "HistHome22First.dc.html": {"h": 844, "title": "Workouts \u00b7 the beginning: nothing more to load", "w": 390, "x": 9870, "y": 41400},
     "HistHome23OlderPush.dc.html": {"h": 844, "title": "Workouts \u00b7 filtered to Push: the same row loads Push only", "w": 390, "x": 10340, "y": 41400},
     "HistHome24GapMonth.dc.html": {"h": 844, "title": "Workouts \u00b7 no workouts in September: one quiet line, then August", "w": 390, "x": 10810, "y": 41400},
-    "HistHome25LongGap.dc.html": {"h": 844, "title": "Workouts \u00b7 a long break: one line for the whole gap", "w": 390, "x": 11280, "y": 41400}
+    "HistHome25LongGap.dc.html": {"h": 844, "title": "Workouts \u00b7 a long break: one line for the whole gap", "w": 390, "x": 11280, "y": 41400},
+    "UnitNotice.dc.html": {"h": 844, "radius": 28, "title": "Units \u00b7 a different unit last time: one tap to use it", "w": 390, "x": 0, "y": 46500},
+    "UnitSheet.dc.html": {"h": 844, "radius": 28, "title": "Units \u00b7 the sheet, one field: one chip row", "w": 390, "x": 470, "y": 46500},
+    "UnitSwitched.dc.html": {"h": 844, "radius": 28, "title": "Units \u00b7 in plates: Last time and targets come back", "w": 390, "x": 940, "y": 46500},
+    "UnitCarryCard.dc.html": {"h": 844, "radius": 28, "title": "Units \u00b7 two unit fields: each label opens the sheet", "w": 390, "x": 1410, "y": 46500},
+    "UnitCarrySheet.dc.html": {"h": 844, "radius": 28, "title": "Units \u00b7 the same sheet, one block per field", "w": 390, "x": 1880, "y": 46500},
+    "UnitMenu.dc.html": {"h": 844, "radius": 28, "title": "Units \u00b7 exercise \u22ef menu: Units, a second way in", "w": 390, "x": 2350, "y": 46500},
+    "UnitAfterSet1.dc.html": {"h": 844, "radius": 28, "title": "Units \u00b7 after set 1: \u25be stays", "w": 390, "x": 2820, "y": 46500},
+    "UnitSheetLogged.dc.html": {"h": 844, "radius": 28, "title": "Units \u00b7 sheet after a set: relabels today's sets", "w": 390, "x": 3290, "y": 46500}
   },
   "createdOnFiles": {
     "at": "2026-10-03T12:00:00Z",
@@ -1233,7 +1241,9 @@
     "historyB": {"kind": "title1", "maxW": 7910, "text": "TICKET-071 — History 2 of 3: Session, with the options pages", "x": 0, "y": 42700},
     "historyBwhy": {"fill": "orange", "text": "DECIDED (user, 2026-11-13).\n\nEach lift a card with one word; a lift opens an aligned compare (3–4 sets fill the width, 5 or more scroll sideways). Better, Lower, Same for a lift is the app’s existing rule: this session’s total (weight × reps) against last time, kept in one function, worked out when the workout is saved and stored with it.\n\nOptions sheet: Edit session is shown, switched off for now. Its screen is parked and not drawn here (decide the UI later). Add a note and Delete (one question first) are final. The note belongs to the workout; a lift has none. An imported workout has no duration.\n\nAfter finishing a workout you land here. All Push workouts, at the end, opens Workouts filtered to Push.", "w": 320, "x": 7990, "y": 43000},
     "historyC": {"kind": "title1", "maxW": 6920, "text": "TICKET-071 — History 3 of 3: Exercise, and how the screens link", "x": 0, "y": 44300},
-    "historyCwhy": {"fill": "orange", "text": "DECIDED (user, 2026-11-13).\n\nThe Exercise screen is unchanged from its earlier decision: one scrolling log for every set count, quiet view options. New here: the kg to lb divider, a new lift with no graph yet, and the waiting and did-not-upload rows.\n\nThe last board is the link map: every screen, how you get there, where it goes (History opens from the Workout hub). Nothing here was seen on a phone, and the data is invented.\n\nChanged in the TICKET-087 review, not yet confirmed by the user: the header says Average weight (the average of the session\u2019s set weights, a drop set counting its first weight) instead of Typical weight, and has no trend word (Going up), since the graph shows the direction.", "w": 320, "x": 7000, "y": 44600}
+    "historyCwhy": {"fill": "orange", "text": "DECIDED (user, 2026-11-13).\n\nThe Exercise screen is unchanged from its earlier decision: one scrolling log for every set count, quiet view options. New here: the kg to lb divider, a new lift with no graph yet, and the waiting and did-not-upload rows.\n\nThe last board is the link map: every screen, how you get there, where it goes (History opens from the Workout hub). Nothing here was seen on a phone, and the data is invented.\n\nChanged in the TICKET-087 review, not yet confirmed by the user: the header says Average weight (the average of the session\u2019s set weights, a drop set counting its first weight) instead of Typical weight, and has no trend word (Going up), since the graph shows the direction.", "w": 320, "x": 7000, "y": 44600},
+    "unitsMid": {"kind": "title1", "maxW": 3680, "text": "Change units mid-workout, before set 1, this workout only", "x": 0, "y": 46200},
+    "unitsMidWhy": {"fill": "green", "w": 440, "x": 3760, "y": 46500, "text": "DECIDED (user, 2026-11-17). Drafts: Fitgram Weight Unit Mid-Workout canvas.\n\nWhy: Freestyle, Swap and Add take the catalog unit (kg), with no plan to change. About 1 lift in 5 is a plates machine, so it happened every session, and the card said \"last time was in plates\" with no way out.\n\nThe rule: one Units sheet per exercise, one block per field that has a unit, each block one row of chips (weight kg / lb / plates, distance m / km, time s / min). Reps has no unit and never shows. A custom exercise with 3+ unit fields gets more blocks; the card never grows.\n\nThree ways in, one sheet: tap a field label (FIELD \u00b7 UNIT \u25be); exercise \u22ef menu \u203a Units; the mismatch notice's button, which applies last time's unit only to the fields that differ (\"Use plates\", or \"Use last time's units\" when 2+ differ).\n\nFor this workout only, never written to the plan (the edge of TICKET-044 C1b, which assumed every exercise has a plan). Not automatic: rejected starting in last time's unit.\n\nAfter set 1 the \u25be stays (user, 2026-11-17): the same control at every set. A new unit relabels today's sets of this exercise, numbers kept as typed (8 plates \u00d7 15 \u2192 8 kg \u00d7 15); the sheet says so before you tap. One session still never mixes units, nothing is converted, earlier workouts keep their own unit. Rejected: locking after set 1 (a dead end: delete and re-log is the same result with more taps).\n\nNot drawn: a 3-field custom exercise."}
   },
   "order": [
     "Main.dc.html",
@@ -1419,7 +1429,15 @@
     "HistHome22First.dc.html",
     "HistHome23OlderPush.dc.html",
     "HistHome24GapMonth.dc.html",
-    "HistHome25LongGap.dc.html"
+    "HistHome25LongGap.dc.html",
+    "UnitNotice.dc.html",
+    "UnitSheet.dc.html",
+    "UnitSwitched.dc.html",
+    "UnitCarryCard.dc.html",
+    "UnitCarrySheet.dc.html",
+    "UnitMenu.dc.html",
+    "UnitAfterSet1.dc.html",
+    "UnitSheetLogged.dc.html"
   ],
   "pages": [],
   "title": "Fitgram Workout Flow Redesign"
