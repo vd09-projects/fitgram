@@ -58,6 +58,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | (parked) | Edit session UI | Design only | The option is shown switched off; the user decides the UI later |
 | 079 | Rest time on the Android lock screen: logic and native | Medium | Nice to have, raised 2026-11-10 (user). Spike done: it works on the emulator. Settle two things first (silent channel, staying at 0:00), then build. Wording and permission flow are 080. iOS later |
 | 080 | Lock-screen rest timer: design | Small-Medium | Split from 079 (2026-11-10). Wording, permission flow, buttons; options on the Drafts canvas first |
+| 091 | Change an exercise's units mid-workout | Medium | Raised 2026-11-16 (user). **Design merged, PR #73.** Freestyle, Swap and Add start in kg with no way to switch; hits about 1 lift in 5 every session |
 
 ### Not tickets — verification owed
 
@@ -11003,6 +11004,64 @@ and the options list scrolls. Only `VersionSheet` puts a `maxHeight` on a tour-w
 test passed against the bug), seen failing without the fix; on the emulator at 393×851 dp
 (`wm size 1080x2340`, `wm density 440`) the bug reproduced first, then Add showed, the options scrolled, and
 a short sheet still sized to its content. **Not verified:** iOS; the guided tour's highlight of the sheet.
+
+---
+
+### TICKET-091: Change an Exercise's Units Mid-Workout
+
+**Priority:** High | **Effort:** Medium | **Status: OPEN** — design merged in PR #73, 2026-11-17
+
+**Description (user report, 2026-11-16, screenshots):**
+After a swap (and in a Freestyle) Bench Press · Machine logged in kg, though the user logs that machine in
+plates. The card said "Last time was in plates (8 plates × 15), so no targets" and offered no way to change
+it. The only way to change a unit is the plan (TICKET-044, board C1b rejected), and Freestyle, Swap and Add
+have no plan: their exercise takes the catalog default (`src/catalog/fields.ts`, kg). In the imported history
+6 of 32 lifts are in plates, all machines, so about 1 exercise in 5 hits this, every session.
+
+**Design:** Workout Flow canvas, row "Change units mid-workout" (`design/workout-flow/project/Unit*.dc.html`;
+drafts and the rejected options on the "Fitgram Weight Unit Mid-Workout" canvas). Decided with the user
+2026-11-17:
+- **One Units sheet per exercise.** One block per field that has a unit, each a single chip row from
+  `unitsForRole` (weight kg / lb / plates, distance m / km, time s / min), a "Last time: <unit>" marker and
+  the plates hint. Reps has no unit and never shows. A custom exercise with 3+ unit fields gets more blocks;
+  the set card never grows. Boards `UnitSheet`, `UnitCarrySheet`.
+- **Three ways in, one sheet:** a unit field's label on the set card (`WEIGHT · KG ▾`, every set, split rows
+  excluded); the exercise ⋯ menu's **Units** item with a summary ("Weight kg · Distance m"); the mismatch
+  notice's button, which applies last time's unit to the fields that differ only ("Use plates"; "Use last
+  time's units" when 2+ differ). Boards `UnitNotice`, `UnitCarryCard`, `UnitMenu`, `UnitAfterSet1`.
+- **This workout only.** Never written to the plan. A swapped exercise's `planned` is untouched.
+- **After set 1 it still changes, as a relabel.** Today's sets of that exercise keep their numbers as typed
+  (8 plates × 15 → 8 kg × 15); the sheet says so before the tap (board `UnitSheetLogged`). One unit per
+  exercise per session, nothing converted, earlier workouts keep their own unit. Rejected: locking after
+  set 1 (a dead end: delete and re-log is the same result with more taps).
+- **Not automatic.** Rejected: starting in last time's unit (the user wants an option, not a guess).
+
+**Load-bearing facts (checked 2026-11-17):**
+- The comparison with last time is derived live from the slot's `fields` (`useExerciseHistory` reads
+  `activeWorkout.exercises[].fields`), so after a change the Last-time pill, ghost targets, Repeat, the
+  notice and the History sheet follow with no change to that logic.
+- A logged set's values are keyed by field name (`ExerciseSet.segments`); the unit lives only on
+  `LoggedExercise.fields`. So the relabel is one change to the slot's field units; no set is rewritten.
+- The active workout stays on the phone until Finish (upload queue), so a relabel never touches the server.
+
+**Acceptance Criteria:**
+- [ ] Store action sets the units of one slot's fields for this workout, at any set count, saved through the
+      same persist path as Swap; refuses an unknown unit or a field without one
+- [ ] Units sheet as on the boards; the relabel line only once a set is logged, naming the count and one
+      example before → after
+- [ ] Unit label ▾ on the set card (`SetRows` `fieldLabel`) opens the sheet; steppers follow the unit's step
+- [ ] Mismatch notice: a pure helper returns the fields whose unit differs from the last session's
+      (matched by role and position, not by name) and the button text; the notice copy drops "so no targets"
+      where the button offers the fix. Rest panel shows the notice without the button
+- [ ] ⋯ menu Units item with the summary, enabled at every set
+- [ ] Tests: the store action (units change, numbers do not, plan untouched), the helper's real cases (one
+      field differs, two differ, none, no last session), 4–5 screen tests; each seen failing first
+- [ ] Sizes through `t.fonts`, role tokens; screenshot compared with the boards; device run on the emulator;
+      `docs/TESTING_NOTES.md` entry; tour note only (TICKET-053)
+
+**Not in scope:** remembering the chosen unit for the next Freestyle (the notice brings it back in one tap);
+the History sheet carrying the same button; a board for a 3-field custom exercise (described, not drawn).
+
 ---
 
 ## Recommended Execution Order
