@@ -437,3 +437,21 @@ Finish on the test plan; kill and airplane-mode cold start; the picker's recents
   keyboard; picking a plan while typing closes it and creates nothing; Manage Workout's field editor (a
   ScrollableScreen) still ends at the keyboard. **Not checked:** iOS (no simulator run), gesture-navigation
   phones (emulator uses 3-button nav), the other ScrollableScreen screens beyond Manage Workout.
+
+### Bug report: no Add button on Bench Press's version sheet (emulator at phone size, `pinky`, 2026-11-17)
+- **[run] The emulator's screen hid the bug.** At its own 1344×2992 / 480 dpi (448×997 dp) the Bench Press sheet
+  fits. `adb shell wm size 1080x2340; adb shell wm density 440` (393×851 dp, near the reporter's phone) cut it
+  off at "Last logged" with no Add button, as in the report. Reset with `wm size reset; wm density reset`.
+  Check tall sheets at a short phone's size, not only at the emulator's.
+- **[read] Cause: the tour wrapper takes the sheet's style.** `MultiTourSteps` wraps a tour step in a View and
+  moves most of the child's style onto it, `maxHeight: "80%"` included. The wrapper was capped; the sheet
+  inside kept its full height and overflowed. Only Manage Workout's picker passes a tour prefix, so only there
+  is the sheet wrapped (the active-workout picker never had the bug). Since TICKET-043 (e45837f).
+- **[run] A guessed fix did nothing:** `flexShrink` on the sheet's list could not help while the sheet itself
+  was unconstrained. Removing the tour wrapper as a probe showed the cap working, which located the cause.
+- **[run] The unit test needed the Manage Workout prefix.** Without `tourStepPrefix` the sheet is not a tour
+  step, there is no wrapper, and the test passed against the bug. It goes red with the fix removed.
+- **[run] Checked at phone size:** Bench Press sheet shows Add, its options scroll down to Side, Add puts
+  Bench Press · Machine in the plan (removed again, not saved); Lat Pulldown's sheet still sizes to its content.
+  **Not run:** the guided tour's highlight of the sheet (it measures the wrapper, whose style did not change);
+  iOS.

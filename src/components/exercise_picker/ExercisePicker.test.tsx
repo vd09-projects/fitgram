@@ -4,11 +4,12 @@
 // utils/versionSheet.test.ts; these check the screen wires them up.
 
 import React from "react";
-import { Keyboard, TextInput } from "react-native";
+import { Keyboard, StyleSheet, TextInput } from "react-native";
 import { fireEvent, screen, within } from "@testing-library/react-native";
 import { CATALOG } from "../../catalog";
 import { SEARCH_WORDS } from "../../catalog/searchWords";
 import { renderScreen } from "../../test/renderScreen";
+import { MANAGE_WOURKOUT_STEP_NAMES } from "../../tour_steps/manageWorkout";
 import type { Exercise } from "../../types/workoutType";
 import type { WorkoutSessionDoc } from "../../types/workoutSession";
 import { buildCatalogIndex, planExerciseForVersion } from "../../utils/catalog";
@@ -29,7 +30,13 @@ const history = (): RecentHistory => {
   return buildRecentHistory([session], [], "me", buildCatalogIndex(CATALOG), [])!;
 };
 
-function renderPicker(inPlan: string[] = [], customExercises: Exercise[] = [], recentHistory: RecentHistory | null = null, mode?: PickerMode) {
+function renderPicker(
+  inPlan: string[] = [],
+  customExercises: Exercise[] = [],
+  recentHistory: RecentHistory | null = null,
+  mode?: PickerMode,
+  tourStepPrefix?: string
+) {
   const onPick = jest.fn();
   const plan = new Set(inPlan);
   renderScreen(() => (
@@ -42,6 +49,7 @@ function renderPicker(inPlan: string[] = [], customExercises: Exercise[] = [], r
       mode={mode}
       onPick={onPick}
       onClose={jest.fn()}
+      tourStepPrefix={tourStepPrefix}
     />
   ));
   return onPick;
@@ -89,6 +97,17 @@ describe("ExercisePicker", () => {
     pressDismisses(() => fireEvent.press(screen.getByText("Hack Thing")));
     pressDismisses(() => fireEvent.press(screen.getByLabelText("Muscle filter")));
     dismiss.mockRestore();
+  });
+
+  it("the version sheet shrinks to its height cap inside the tour wrapper, so Add stays on screen", () => {
+    // Manage Workout's prefix: only there is the sheet a tour step, wrapped.
+    renderPicker([], [], null, undefined, MANAGE_WOURKOUT_STEP_NAMES.EXERCISE_PICKER);
+    type("bench");
+    fireEvent.press(screen.getByText("Bench Press"));
+    // The tour wrapper takes the sheet's maxHeight; the sheet itself must
+    // shrink to it or it overflows (layout is not computed in jest, so this
+    // checks the style that makes it shrink).
+    expect(StyleSheet.flatten(screen.getByTestId("version-sheet").props.style)).toMatchObject({ flexShrink: 1 });
   });
 
   it("what is already in the plan cannot be added: a one-version row reads In plan, a combination is disabled", () => {
