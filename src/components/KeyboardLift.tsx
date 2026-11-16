@@ -16,6 +16,10 @@
 //   the status bar while the keyboard's screenY counts from the screen top, so
 //   the status bar's height is added (`StatusBar.currentHeight` is undefined on
 //   iOS, where both count from the top).
+// - The top is measured on the wrapper's own layout only. That holds while
+//   nothing above moves it without resizing it: today each use is a full-screen
+//   overlay or sits under a fixed header, and no screen slides in vertically.
+//   A wrapper that an ancestor shifts would need re-measuring on keyboardDidShow.
 // - "padding" rather than "height": KAV's padding replaces the style's
 //   paddingBottom, so `style` goes on the outer View and survives.
 //

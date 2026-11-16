@@ -455,3 +455,16 @@ Finish on the test plan; kill and airplane-mode cold start; the picker's recents
   Bench Press · Machine in the plan (removed again, not saved); Lat Pulldown's sheet still sizes to its content.
   **Not run:** the guided tour's highlight of the sheet (it measures the wrapper, whose style did not change);
   iOS.
+- **[run] Plan sheet with many plans (review question):** a long list doesn't push the "New plan" field up,
+  because only the list (`flexShrink: 1`) gives way under the sheet's cap. To test "more plans than fit"
+  without creating plans, shrink the screen instead (`wm size 1080x1700`, 393×618 dp): field and Create
+  stayed visible, the list squeezed to a sliver.
+
+### PR #72 review suggestions (emulator, `pinky`, 2026-11-17)
+- **[run] Each keyboard-dismiss site seen failing on its own:** removing `Keyboard.dismiss()` from `pickCustom`
+  failed the picker test at the custom-exercise press, from `openMenu` at the filter press, and from the Plan
+  sheet's row the new AddExerciseScreen test. The spy is cleared before each press, so one site can't cover
+  another.
+- **[run] `ScrollableScreen` screens checked after the change:** an active workout's set input (number pad up,
+  input and Log set visible; workout discarded, nothing logged) and Profile → Sign-in & Security's Confirm
+  password, the lowest field, which scrolled up into view above the keyboard (nothing saved).
