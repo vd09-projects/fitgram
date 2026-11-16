@@ -4,7 +4,7 @@
 // utils/versionSheet.test.ts; these check the screen wires them up.
 
 import React from "react";
-import { TextInput } from "react-native";
+import { Keyboard, TextInput } from "react-native";
 import { fireEvent, screen, within } from "@testing-library/react-native";
 import { CATALOG } from "../../catalog";
 import { SEARCH_WORDS } from "../../catalog/searchWords";
@@ -73,6 +73,22 @@ describe("ExercisePicker", () => {
     fireEvent.press(screen.getByText("Add Bench Press · Dumbbell"));
     const dumbbell = bench.versions.find((v) => v.id === "bench_press__dumbbell")!;
     expect(onPick).toHaveBeenCalledWith(planExerciseForVersion(bench, dumbbell));
+  });
+
+  it("picking a movement, a custom exercise or a filter menu puts the keyboard away", () => {
+    const dismiss = jest.spyOn(Keyboard, "dismiss");
+    renderPicker([], [{ id: "my_hack_thing", name: "Hack Thing", fields: [] }]);
+    const pressDismisses = (press: () => void) => {
+      dismiss.mockClear();
+      press();
+      expect(dismiss).toHaveBeenCalled();
+    };
+    type("bench");
+    pressDismisses(() => fireEvent.press(screen.getByText("Bench Press")));
+    type("hack thing");
+    pressDismisses(() => fireEvent.press(screen.getByText("Hack Thing")));
+    pressDismisses(() => fireEvent.press(screen.getByLabelText("Muscle filter")));
+    dismiss.mockRestore();
   });
 
   it("what is already in the plan cannot be added: a one-version row reads In plan, a combination is disabled", () => {

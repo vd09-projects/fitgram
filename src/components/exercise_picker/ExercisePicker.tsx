@@ -24,7 +24,7 @@
 // last, wherever it opens from (D8).
 
 import React, { useEffect, useMemo, useState } from "react";
-import { BackHandler, FlatList, KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, View } from "react-native";
+import { BackHandler, FlatList, Keyboard, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SPACING } from "../../constants/styles";
 import { MUSCLES } from "../../constants/catalogVocabulary";
@@ -46,6 +46,7 @@ import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 import { TextBase } from "../TextBase";
 import SearchBox from "../SearchBox";
+import KeyboardLift from "../KeyboardLift";
 import VersionSheet from "./VersionSheet";
 import { FilterRow, FilterSheet, type FilterMenu } from "./FilterMenus";
 import { PICKER_RESULT_LIMIT } from "../../config/display";
@@ -211,7 +212,20 @@ export default function ExercisePicker({
     return () => sub.remove();
   }, [sheet, menu, onClose]);
 
+  // A pick ends the typing: the keyboard would cover the version sheet, or
+  // linger over the screen the picker closes to (bug report, 2026-11-16).
+  const pickCustom = (exercise: Exercise) => {
+    Keyboard.dismiss();
+    onPick(exercise);
+  };
+
+  const openMenu = (next: FilterMenu) => {
+    Keyboard.dismiss();
+    setMenu(next);
+  };
+
   const pickMovement = (movement: Movement, preselect: VersionPick) => {
+    Keyboard.dismiss();
     if (movement.versions.length === 1) onPick(planExerciseForVersion(movement, movement.versions[0]));
     else
       setSheet({
@@ -232,7 +246,7 @@ export default function ExercisePicker({
         <TouchableOpacity
           style={[styles.row, taken && styles.rowDisabled]}
           disabled={taken}
-          onPress={() => onPick(item.exercise)}
+          onPress={() => pickCustom(item.exercise)}
           accessibilityRole="button"
           accessibilityState={{ disabled: taken }}
         >
@@ -281,7 +295,7 @@ export default function ExercisePicker({
         <TouchableOpacity
           style={[styles.row, taken && styles.rowDisabled]}
           disabled={taken}
-          onPress={() => onPick(recent.exercise)}
+          onPress={() => pickCustom(recent.exercise)}
           accessibilityRole="button"
           accessibilityState={{ disabled: taken }}
         >
@@ -316,14 +330,9 @@ export default function ExercisePicker({
   const backTaken = mode.kind === "swap" && !!mode.planned && inPlan.has(mode.planned.exercise.id);
 
   return (
-    // iOS: padding lifts the search box over the keyboard. Android: none, the
-    // window already resizes for the keyboard (Expo's default), and "height"
-    // on top of that would lift it twice.
-    <KeyboardAvoidingView
-      style={[StyleSheet.absoluteFill, styles.screen]}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      testID="exercise-picker"
-    >
+    // Rides on the keyboard: KeyboardLift says why a bare KeyboardAvoidingView
+    // is not enough on Android.
+    <KeyboardLift style={[StyleSheet.absoluteFill, styles.screen]} testID="exercise-picker">
       <View style={styles.top}>
         <TouchableOpacity style={styles.back} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={22} color={t.colors.role.textPrimary} />
@@ -378,7 +387,7 @@ export default function ExercisePicker({
         />
       )}
 
-      <FilterRow filters={filters} onOpen={setMenu} />
+      <FilterRow filters={filters} onOpen={openMenu} />
 
       <SearchBox
         label="Search"
@@ -407,7 +416,7 @@ export default function ExercisePicker({
       {menu && (
         <FilterSheet menu={menu} filters={filters} equipmentByUse={equipmentByUse} onChange={setFilters} onClose={() => setMenu(null)} />
       )}
-    </KeyboardAvoidingView>
+    </KeyboardLift>
   );
 }
 

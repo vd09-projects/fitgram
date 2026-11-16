@@ -417,3 +417,23 @@ Finish on the test plan; kill and airplane-mode cold start; the picker's recents
   beyond the pricing page's rule; the chosen paging design itself (it is built and measured in 085a).
 - **[waste] Three designs were simulated before the user asked whether the UI needed a count at all.** The
   cheapest answer was a design change. Ask "does the screen need this number" before measuring how to get it.
+
+### Bug report: keyboard hides the picker's search box and the plan name field (emulator, `pinky`, 2026-11-17)
+- **[run] The emulator never showed the bug because it never showed a keyboard.** With the host keyboard
+  attached, Gboard only draws its floating toolbar. `adb shell settings put secure show_ime_with_hard_keyboard 1`
+  brings the full on-screen keyboard back; with it, the bug reproduced on the first try. Any test of a text
+  field near the bottom needs this set (it is left on now).
+- **[read] The picker's comment said Android resizes the window for the keyboard.** True before targetSdk 36;
+  at 36 the app is edge-to-edge and `adjustResize` no longer shrinks anything. The picker (TICKET-043) was
+  written after the bump (0210068), on that assumption. Grep for `Platform.OS === "ios" ? "padding"` when the
+  target SDK moves again.
+- **[run] KeyboardAvoidingView under-lifted by exactly the status bar.** Logged numbers: keyboard `screenY` 661
+  (screen coordinates), picker `measureInWindow` y 4 (counted from below the status bar). Hence
+  `StatusBar.currentHeight` in `KeyboardLift`'s offset. Log both numbers before guessing an offset.
+- **[run] KAV's "padding" overrides the style's own `paddingBottom`.** The picker lost its bottom gap (search
+  label moved 8 dp lower) until the style moved to an outer View.
+- **[run] Checked on device:** picker search box above the keyboard (Manage Workout and active-workout Add);
+  tapping an exercise, a custom exercise or a filter closes the keyboard; Plan sheet "New plan" field above the
+  keyboard; picking a plan while typing closes it and creates nothing; Manage Workout's field editor (a
+  ScrollableScreen) still ends at the keyboard. **Not checked:** iOS (no simulator run), gesture-navigation
+  phones (emulator uses 3-button nav), the other ScrollableScreen screens beyond Manage Workout.
