@@ -1,7 +1,7 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { FlatList, StyleSheet, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { AppState, FlatList, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useAuthUser } from "../../hooks/useAuthUser";
 import { useRecentWorkouts } from "../../hooks/useRecentWorkouts";
 import { usePlansStore } from "../../stores/usePlansStore";
@@ -57,31 +57,50 @@ export default function HistoryHomeScreen() {
   const [openMonths, setOpenMonths] = useState<ReadonlySet<string>>(new Set());
   const [retrying, setRetrying] = useState(false);
 
+  // "The current month" is counted from this. The screen stays mounted under a deeper one, often left open
+  // across a month end, and focus events fire on navigation only: re-read on each focus and each return to
+  // the foreground, as the hub does (PR #45 review).
+  const [now, setNow] = useState(() => Date.now());
+  useFocusEffect(useCallback(() => setNow(Date.now()), []));
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") setNow(Date.now());
+    });
+    return () => subscription.remove();
+  }, []);
+
   const filter = useMemo(() => (workoutWindow ? planFilterRows(workoutWindow, plans ?? []) : null), [workoutWindow, plans]);
   const older = olderOf(olderWorkouts, workoutWindow, planId);
+  // A plan's older workouts are in All's list once All has paged to the start: paging again for the plan would
+  // read the same documents, and ask for a page that comes back empty. Derived from it instead, 0 reads.
+  // Rejected: always deriving from All's list, which holds a plan's older workouts only once All reached the start.
+  const allOlder = planId === null ? null : olderOf(olderWorkouts, workoutWindow, null);
+  const fromAll = older === null && allOlder?.reachedStart ? allOlder.sessions.filter((session) => session.workoutId === planId) : null;
+  const olderSessions = older?.sessions ?? fromAll ?? [];
+  const olderReachedStart = older?.reachedStart === true || fromAll !== null;
 
   const rows = useMemo<RailRow[] | null>(() => {
     if (workoutWindow === null) return null;
     // Summaries not held: a queued workout's lifts stay pending, not a guessed First time.
     const held = mergePending(workoutWindow.sessions, pending, uid, summaries === null ? null : (id) => summaries[id] ?? null);
-    const loaded: RailWorkout[] = (older?.sessions ?? []).map((session) => ({ session, state: "uploaded" }));
+    const loaded: RailWorkout[] = olderSessions.map((session) => ({ session, state: "uploaded" }));
     return buildRail({
       held,
       older: loaded,
-      now: Date.now(),
+      now,
       openMonths,
       planId,
-      reachedStart: workoutWindow.windowStart === null || older?.reachedStart === true,
+      reachedStart: workoutWindow.windowStart === null || olderReachedStart,
     });
-  }, [workoutWindow, pending, uid, summaries, older, openMonths, planId]);
+  }, [workoutWindow, pending, uid, summaries, olderSessions, olderReachedStart, openMonths, planId, now]);
 
   const notice = historyNotice(pending, uid, checkFailed);
   const filterRow = planId === null ? null : (filter?.rows.find((row) => row.planId === planId) ?? null);
   const filterLabel = filterRow?.label ?? ALL_WORKOUTS;
   // A count of what the phone holds is a total only once the start is reached.
-  const planCount = filterRow ? filterRow.workoutCount + (older?.sessions.length ?? 0) : 0;
+  const planCount = filterRow ? filterRow.workoutCount + olderSessions.length : 0;
   const planCountText =
-    workoutWindow && (workoutWindow.windowStart === null || older?.reachedStart)
+    workoutWindow && (workoutWindow.windowStart === null || olderReachedStart)
       ? `${planCount} workout${planCount === 1 ? "" : "s"}`
       : `${planCount} on this phone`;
 
@@ -94,6 +113,13 @@ export default function HistoryHomeScreen() {
       }),
     []
   );
+
+  const openWorkout = useCallback(
+    (sessionId: string, workoutName: string, startedAt: number) =>
+      navigation.navigate(WorkoutRoutes.Session, { sessionId, workoutName, startedAt }),
+    [navigation]
+  );
+  const loadOlder = useCallback(() => void useRecentWorkoutsStore.getState().loadOlder(planId), [planId]);
 
   const tryAgain = async () => {
     if (retrying) return;
@@ -211,12 +237,10 @@ export default function HistoryHomeScreen() {
             <HistoryRailRow
               row={item}
               joined={item.kind === "workout" && rows[index + 1]?.kind === "workout"}
-              olderRead={older?.read ?? null}
-              onOpenWorkout={(sessionId, workoutName, startedAt) =>
-                navigation.navigate(WorkoutRoutes.Session, { sessionId, workoutName, startedAt })
-              }
+              olderRead={item.kind === "olderMore" ? (older?.read ?? null) : null}
+              onOpenWorkout={openWorkout}
               onToggleMonth={toggleMonth}
-              onLoadOlder={() => void useRecentWorkoutsStore.getState().loadOlder(planId)}
+              onLoadOlder={loadOlder}
             />
           )}
         />

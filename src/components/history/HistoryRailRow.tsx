@@ -18,8 +18,10 @@ const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
  * Type sizes, board px through the System board's table: day number 20 → large, name 17 → large, weekday and
  * month-row meta 12 → small, verdict, capsule and month label 13 → xMedium.
  * `joined`: the next row is a workout too, so the rail's line runs down to it.
+ * Memoized: opening the filter sheet or the retry state re-renders the screen, not every row. The screen passes
+ * stable callbacks, and `olderRead` only to the Older workouts row. Not measured on a device (TICKET-085a proof).
  */
-export function HistoryRailRow({
+export const HistoryRailRow = React.memo(function HistoryRailRow({
   row,
   joined,
   olderRead,
@@ -157,7 +159,7 @@ export function HistoryRailRow({
       );
     }
   }
-}
+});
 
 const createStyles = (t: ReturnTypeUseThemeTokens) =>
   StyleSheet.create({

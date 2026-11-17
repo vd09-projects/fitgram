@@ -10404,7 +10404,7 @@ removes the button and the old page.
   reason until 085b), the notice strip (waiting, did not upload with Try again, offline), the TEMPORARY hub
   button. The `Session` route in the Workout stack with its own `getId` (by session id; every screen is
   `singleCopy` today, which would move the one Session instead of opening another): a **TEMPORARY** placeholder
-  that shows the workout name and date, replaced by 083. Closes TICKET-029 and removes the debug screen.
+  that shows the workout name and date, replaced by 083. Removes 029's debug screen and gives its count and Try again; **does not close TICKET-029** (see its list item, below).
 - **Stage 2, Workouts:** the rail from the held workouts. Every lift a capsule, in the workout's order; a
   workout is one tap target, opening the `Session` route; the current month in full (under 10 workouts it runs into the month before,
   which is then split and its Earlier row counts only what is left); Earlier month rows open in place in one
@@ -10436,10 +10436,10 @@ session; calendar, streaks, weekly view (cut in design on purpose).
 
 **Dependencies:** TICKET-081, 082, 088 (decided: older workouts load by page with no month count; Stage 2 above).
 
-**Stage 1 built (2026-11-17), on `feat/ticket-085a-stage-1-history-shell`, not committed:** `HistoryHomeScreen` (tabs with Exercises switched
+**Stage 1 built (2026-11-17), on `feat/ticket-085a-history-home` (one branch for the ticket, stages are commits):** `HistoryHomeScreen` (tabs with Exercises switched
 off, plan filter in a `MenuSheet`, notice strip from `historyNotice`), the `HistoryHome` and `Session` routes (Session has `getId` by session
 id; its component is the TEMPORARY `SessionPlaceholderScreen`), the TEMPORARY "History (new)" hub pill, and `PendingUploadsDebugScreen`
-removed with its route, tile and mocks. A TEMPORARY plain list of the held workouts stands where stage 2's rail goes, so Session is reachable.
+removed with its route, tile and mocks. Stage 1 had a TEMPORARY plain list of the held workouts so Session was reachable; stage 2 replaced it with the rail.
 Deviations, for the user to overrule:
 - *Notice "Offline".* The board's offline strip is shown as "Couldn't check for new workouts" (it first wrapped to two lines in the 44 px strip on the emulator), when the
   workouts store's last check failed. The store records that a check failed, not why, so "Offline" would assert a cause it cannot know
@@ -10460,6 +10460,12 @@ Deviations, for the user to overrule:
   - Not done here: the Exercises tab (085b). `sessionsByMonth` and `sessionsOfMonth` in `workoutWindow.ts` have no reader now but the first's test; left, the ticket does not name them.
 - *Device test pending:* the "waiting to upload" and "didn't upload" strips are unit-tested only. Their device run needs a test workout written to `pinky`, and there is no delete until TICKET-086; the user deferred it to then (2026-11-17). Add it to 086's proof.
 - The filter sheet's counts read "N on this phone", never a total (`coversWholeHistory`, TICKET-087).
+- **TICKET-029 stays OPEN, one item undelivered:** its list of "workout name, date, and for a failing entry its last error". The rail shows name and date and
+  marks a rejected workout (red dot, "Didn't upload", the strip's Try again), but `PendingUpload.lastError` is shown nowhere. The debug screen that showed it is
+  removed, so the error text is currently unreadable on a device. 083's Session screen is the natural place for it; decide there.
+- *Review fixes (PR #75, 2026-11-18):* the rail's clock (`now`, the "current month") is re-read on focus and on foregrounding, as the hub does; a plan's older
+  workouts are taken from All's list once All has paged to the start (0 reads, no empty page asked for); `HistoryRailRow` is memoized with stable callbacks (its effect
+  on frame rate is not measured: the 20-workout scroll proof is still open).
 
 ---
 

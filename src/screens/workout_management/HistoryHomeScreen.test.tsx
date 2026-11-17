@@ -1,3 +1,4 @@
+import { AppState } from "react-native";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import HistoryHomeScreen from "./HistoryHomeScreen";
 import { renderScreen, TEST_USER_ID } from "../../test/renderScreen";
@@ -138,6 +139,44 @@ describe("HistoryHomeScreen", () => {
     expect(await screen.findByTestId(`history-row-${olderOne.sessionId}`)).toBeOnTheScreen();
     expect(getOlderWorkoutsPage).toHaveBeenCalledWith(TEST_USER_ID, expect.any(Number), "push", expect.any(Number));
     expect(screen.queryByRole("button", { name: /^Older workouts/ })).not.toBeOnTheScreen();
+  });
+
+  // The screen stays mounted, often left open across a year end: the clock is re-read on foregrounding, and a
+  // month label carries its year once it is not the current year's.
+  it("re-reads the clock when the app comes back to the foreground", async () => {
+    const spy = jest.spyOn(Date, "now").mockReturnValue(new Date(2026, 11, 31, 12).getTime());
+    try {
+      await renderHistory([session("push", "Push", new Date(2026, 11, 20, 10).getTime())]);
+      expect(await screen.findByText("December")).toBeOnTheScreen();
+
+      spy.mockReturnValue(new Date(2027, 0, 2, 12).getTime());
+      const handlers = (AppState.addEventListener as jest.Mock).mock.calls.filter(([type]) => type === "change").map(([, handler]) => handler);
+      act(() => handlers.forEach((handler) => handler("active")));
+      expect(await screen.findByText("December 2026")).toBeOnTheScreen();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("a plan's older workouts come from All's list once All reached the start, with no read of their own", async () => {
+    const day = 86_400_000;
+    const held = Array.from({ length: WORKOUTS_ON_PHONE_MIN }, (_, i) => session(i % 2 ? "push" : "pull", i % 2 ? "Push" : "Pull", Date.now() - i * day));
+    const olderPush = session("push", "Push", Date.now() - (WORKOUTS_ON_PHONE_MIN + 40) * day);
+    const olderPull = session("pull", "Pull", Date.now() - (WORKOUTS_ON_PHONE_MIN + 41) * day);
+    jest.mocked(getOlderWorkoutsPage).mockResolvedValue({ sessions: [olderPush, olderPull], docsRead: 2, reachedStart: true });
+    await renderHistory(held);
+    await screen.findByTestId("history-list");
+    scrollToEnd();
+    fireEvent.press(await screen.findByRole("button", { name: /^Older workouts/ }));
+    await screen.findByTestId(`history-row-${olderPush.sessionId}`);
+
+    fireEvent.press(screen.getByRole("button", { name: /^Filter workouts/ }));
+    fireEvent.press(await screen.findByRole("button", { name: /^Push,/ }));
+    scrollToEnd();
+    expect(await screen.findByTestId(`history-row-${olderPush.sessionId}`)).toBeOnTheScreen();
+    expect(screen.queryByTestId(`history-row-${olderPull.sessionId}`)).not.toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: /^Older workouts/ })).not.toBeOnTheScreen();
+    expect(getOlderWorkoutsPage).toHaveBeenCalledTimes(1);
   });
 
   it("with nothing logged, says so and offers Start a workout", async () => {
