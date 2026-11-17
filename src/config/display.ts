@@ -58,3 +58,9 @@ export const HISTORY_RAIL_MIN_FULL = 10;
  */
 export const OLDER_WORKOUTS_PAGE_SIZE = 20;
 
+
+/**
+ * How many of a lift's earlier sessions the Session screen's compare sets beside today's (TICKET-083).
+ * They come from the exercise summaries already held, so a bigger number costs no read, only width.
+ */
+export const SESSION_COMPARE_COUNT = 3;
