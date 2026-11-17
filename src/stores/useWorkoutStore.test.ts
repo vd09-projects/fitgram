@@ -143,6 +143,7 @@ describe("useWorkoutStore.endWorkout", () => {
     expect(save).toHaveBeenCalledTimes(1);
     // Finish lands on the workout's Session, which says "Workout saved": no toast for an upload inside the wait.
     expect(toast.success).not.toHaveBeenCalled();
+    expect(store().toastedSessionId).toBeNull();
     expect(store().activeWorkout).toBeNull();
   });
 
@@ -213,6 +214,7 @@ describe("useWorkoutStore.endWorkout", () => {
 
     expect(toast.success).toHaveBeenCalledTimes(1);
     expect(toast.success).toHaveBeenCalledWith("Saved", expect.stringContaining(workout.name));
+    expect(store().toastedSessionId).toBe(buildSessionId(workout.id, workout.startTime));
   });
 });
 

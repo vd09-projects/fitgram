@@ -224,29 +224,40 @@ describe("SessionScreen", () => {
     expect(await screen.findByTestId("session-saved")).toBeOnTheScreen();
   });
 
-  it("does not add Workout saved when a workout that was waiting lands: the Saved toast says it then", async () => {
-    const entry: PendingUpload = {
-      sessionId: "queued_5000",
-      uid: TEST_USER_ID,
-      workout: buildWorkout([], { id: "queued", startTime: 5_000, exercises: [buildExercise("Bench", { sets: [{ id: 1, segments: [{ Weight: 60, Reps: 5 }] }] })] }),
-      endedAt: 9_000,
-      failedAttempts: 0,
-      lastError: null,
-    };
-    mockParams = { sessionId: "queued_5000", workoutName: "Push", startedAt: 1, finished: true };
-    serveRecentWorkouts([session("s1", [lift("Bench")])]);
-    renderScreen(SessionScreen, { workoutRoute: WorkoutRoutes.Session, workoutActions: { pendingUploads: [entry] } });
-    expect(await screen.findByText("Not uploaded yet")).toBeOnTheScreen();
+  describe("a workout that was waiting when the Session opened, as after a real Finish", () => {
+    const land = async (toasted: boolean) => {
+      const entry: PendingUpload = {
+        sessionId: "queued_5000",
+        uid: TEST_USER_ID,
+        workout: buildWorkout([], { id: "queued", startTime: 5_000, exercises: [buildExercise("Bench", { sets: [{ id: 1, segments: [{ Weight: 60, Reps: 5 }] }] })] }),
+        endedAt: 9_000,
+        failedAttempts: 0,
+        lastError: null,
+      };
+      mockParams = { sessionId: "queued_5000", workoutName: "Push", startedAt: 1, finished: true };
+      serveRecentWorkouts([session("s1", [lift("Bench")])]);
+      renderScreen(SessionScreen, { workoutRoute: WorkoutRoutes.Session, workoutActions: { pendingUploads: [entry] } });
+      expect(await screen.findByText("Not uploaded yet")).toBeOnTheScreen();
 
-    // The upload lands: the store holds the workout and the queue entry goes.
-    const landed = { ...session("queued_5000", [lift("Bench")]), startedAt: 5_000 };
-    await act(async () => {
-      useRecentWorkoutsStore.getState().applyFinished(TEST_USER_ID, landed);
-      useWorkoutStore.setState({ pendingUploads: [] });
+      // The upload lands, as the store does it: the toast flag first, then the window, then the queue entry goes.
+      const landed = { ...session("queued_5000", [lift("Bench")]), startedAt: 5_000 };
+      await act(async () => {
+        if (toasted) useWorkoutStore.setState({ toastedSessionId: "queued_5000" });
+        useRecentWorkoutsStore.getState().applyFinished(TEST_USER_ID, landed);
+        useWorkoutStore.setState({ pendingUploads: [] });
+      });
+      await waitFor(() => expect(screen.queryByText("Not uploaded yet")).not.toBeOnTheScreen());
+    };
+
+    it("says Workout saved when it lands inside Finish's wait, where the toast was suppressed", async () => {
+      await land(false);
+      expect(await screen.findByTestId("session-saved")).toBeOnTheScreen();
     });
 
-    await waitFor(() => expect(screen.queryByText("Not uploaded yet")).not.toBeOnTheScreen());
-    expect(screen.queryByTestId("session-saved")).not.toBeOnTheScreen();
+    it("does not add Workout saved when it lands later and the Saved toast said it", async () => {
+      await land(true);
+      expect(screen.queryByTestId("session-saved")).not.toBeOnTheScreen();
+    });
   });
 
   it("does not say Workout saved over a workout still waiting to upload: its notice says so", async () => {

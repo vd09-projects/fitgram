@@ -175,6 +175,13 @@ interface WorkoutStoreState {
    */
   queuedSessionId: string | null;
   /**
+   * The session id of the last upload that showed the "Saved" toast, or null (TICKET-083). In memory only. The toast is
+   * suppressed for an upload that lands inside Finish's wait (`landingOn`), where the Session says "Workout saved"
+   * itself; the Session reads this to say it only when the toast did not. Set before the workout reaches the window,
+   * so a screen that sees the workout uploaded already sees this.
+   */
+  toastedSessionId: string | null;
+  /**
    * The rest running since the last logged set, or null (TICKET-021).
    *
    * Memory only, not written to AsyncStorage: it survives navigating away and
@@ -224,6 +231,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
   activeWorkout: null,
   pendingUploads: [],
   queuedSessionId: null,
+  toastedSessionId: null,
   rest: null,
 
   /**
@@ -957,6 +965,8 @@ async function attemptUpload(entry: PendingUpload): Promise<boolean> {
     // TICKET-075: the recent workouts hold it at once, 0 reads. Before the
     // entry leaves the queue below, so no screen shows its plan without it
     // between the two (`buildPlanRows` merges the queue).
+    const toasts = !landingOn.has(entry.sessionId);
+    if (toasts) useWorkoutStore.setState({ toastedSessionId: entry.sessionId });
     useRecentWorkoutsStore.getState().applyFinished(entry.uid, session);
     // TICKET-076: "last time" updates at once, with no read.
     useExerciseHistoryStore.getState().applyFinished(entry.uid, summaries);
@@ -967,7 +977,7 @@ async function attemptUpload(entry: PendingUpload): Promise<boolean> {
     // Names the workout and its length (TICKET-066): on Finish this is the one
     // message the user gets, on the hub; for a workout queued offline it is
     // the later "it landed", so it must say which one.
-    if (!landingOn.has(entry.sessionId)) {
+    if (toasts) {
       show.success("Saved", savedSummary(entry.workout.name, entry.workout.startTime, entry.endedAt));
     }
     // A successful upload is the best evidence the connection is back.
