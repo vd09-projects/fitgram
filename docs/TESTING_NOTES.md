@@ -486,12 +486,40 @@ Finish on the test plan; kill and airplane-mode cold start; the picker's recents
   screens (label not a button, note shown at 0 sets, tap does nothing, Done, stepper). The `!field.unit`
   refusal survived the first test set: `Notes: kg` was already caught by the role check. Added a weight field
   with no unit. A split-label test was deleted: no mutation could fail it.
-- **[run] Device, Freestyle, nothing finished (the workout is local until Finish):** Bench Press · Machine in
+- **[run] Device, Freestyle (the workout is local until Finish; correction: the last session of the day was finished by a mistaken tap, see the [waste] entry below):** Bench Press · Machine in
   kg shows "Last time was in plates (…)" and Use plates; one tap relabels, the set's 8 stays 8, the delta and
   Last-time pill return. ▾ and ⋯ → Units at set 2 (Swap and Remove locked, Units not); sheet note says
   "8 plates × 15 becomes 8 kg × 15" before the tap. lb → "Use kg" offered. Swap after setting lb: the new slot
   is fresh kg, nothing carried; Use plates then applied. Farmer's Walk: two ▾ labels, two blocks, distance
   has no stepper, km does not touch weight.
+- **[run] Review follow-up, same day:**
+  - *The placeholder fix was incomplete.* Keying inputs by unit left Reps blank after a unit change: it has no
+    unit, but its ghost came and went. Keying by placeholder would have fixed it and would also remount a
+    focused input when history arrives mid-typing, closing the keyboard. Final: `RowInput` remounts only when
+    its placeholder changed and it is not focused. Device: typed 40 with the keyboard up, tapped Use plates,
+    kept 40 and the keyboard, and Reps showed its ghost.
+  - *A 3-field label cannot be reproduced without a 3-field exercise.* `wm density 770` breaks the whole
+    layout, and system font scale does not scale this app's text. Checked by temporarily capping the label cell
+    at 100 dp (reverted): the name shortened to "WEI…", the unit stayed whole.
+  - History sheet after a unit change shows "8 plates × 15 = matched": the ticket's first load-bearing fact,
+    now seen on device.
+- **[run] The button was cut after the user saw it on the emulator** (2026-11-17): the line is clear, the
+  button crowded the card. Unit tests had passed with it; only the screenshot showed the cost. The helper
+  became `unitNotice` (a string), with `units` and `buttonLabel` deleted rather than left unused.
+- **[waste] A blind tap sequence finished and saved a test workout on `pinky`.** After a hot reload the app
+  came back on the Workout hub, not the logger; a tap meant for the Units sheet's Done sat at the same
+  screen position as **Finish workout**, and the run ended with "Saved · Freestyle · 477 min". The rule in
+  this file ("re-screenshot before each tap; a blind loop of taps opened the History sheet") was already
+  written and I did not follow it. Do not chain taps after anything that can reload the app.
+- **[run] Cleanup of that session on `pinky`** (user approved, 2026-11-17). No script deletes one session
+  (TICKET-086 is unbuilt) and `wipeTestData.ts` deletes every user's data, so a throwaway untracked script
+  was used: dry run listing exactly two docs (the `sessions` doc and its `exercise_sessions` doc), JSON backup,
+  `--confirm`, read back (0 left). `compareHistory.ts` then showed one mismatch, the `bench_press__machine`
+  rollup still holding the deleted session; `rebuildExerciseStats.ts <uid> bench_press__machine --confirm`
+  (its dry run listed no unreadable sessions, so no best was lowered); compare again: 0 mismatches. The
+  emulator's held summaries still offered "Last logged: Machine, 17 Nov" until the next check (a hard delete
+  is invisible to the change check, as noted above). The rebuild's dry run prints only "would write", not the
+  difference: `compareHistory.ts` is what shows it.
 - **[read] Not verified:** the two-fields-differ notice ("Use last time's units") on device: pinky has no
   Farmer's Walk history (unit test only); the rest panel notice on device (screen test only); light theme;
   iOS; a narrow phone (the emulator is 448 dp wide). The distance chips are 124 px against the weight chips'

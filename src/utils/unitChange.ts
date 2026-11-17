@@ -11,8 +11,13 @@ import type { ExerciseField } from "../types/workoutType";
 import { setValuesText } from "./setDeltas";
 import { comparisonSegment, plannedSegment } from "./storedSets";
 
-/** Can the user pick a unit for this field? It has one, and its role offers a choice. */
-export const hasUnitChoice = (field: ExerciseField): boolean =>
+/**
+ * Can the user pick a unit for this field? It has one, and its role offers a
+ * choice. Decided from the field's declared role and unit, never its name or
+ * the exercise: every Units control (label, menu item, sheet block) asks this,
+ * so an exercise with no such field shows none of them.
+ */
+export const hasUnitChoice = (field: ExerciseField): field is ExerciseField & { unit: FieldUnit } =>
   field.unit !== undefined && unitsForRole(field.role).length > 0;
 
 /**
@@ -52,7 +57,7 @@ export function unitBlocks(fields: ExerciseField[], lastFields: ExerciseField[] 
       ? [
           {
             name: field.name,
-            unit: field.unit as FieldUnit,
+            unit: field.unit,
             options: unitsForRole(field.role),
             lastUnit: matchLastField(fields, index, lastFields)?.unit ?? null,
             hint: unitSpec(field.unit)?.hint ?? null,
@@ -100,48 +105,41 @@ export function relabelLine(
   };
 }
 
-/** The mismatch notice and what its button applies (TICKET-091, boards UnitNotice, UnitCarryCard). */
-export type UnitMismatch = {
-  /** Last time's unit for each field that differs, keyed by today's field name: `setExerciseUnits`' argument. */
-  units: Record<string, FieldUnit>;
-  /** "Use plates"; "Use last time's units" when two or more differ. */
-  buttonLabel: string;
-  /** The line the card shows in place of "no targets": what last time was in, with its numbers. */
-  notice: string;
-};
-
 /**
- * Which of today's fields are in another unit than last session's, and what
- * applying last time's would be. Fields are matched by role and position, never
- * by name (`matchLastField`), and only a unit field the user can change is
- * looked at: reps and unitless fields are ignored. A field whose last unit is
- * missing, or not one its role offers, counts as no difference: there is
- * nothing to apply, and the app does not guess one. `null` for no last session,
- * or nothing differing.
+ * The line that says last time was in another unit, or `null` (TICKET-091,
+ * boards UnitNotice, UnitCarryCard). It is only a line: the fix is the unit
+ * label's ▾ on the card. Rejected: a "Use plates" button beside it (the first
+ * build, and on the boards), which the user found crowded the card; the label is
+ * already one tap from the sheet.
+ *
+ * Which of today's fields are in another unit than last session's. Fields are
+ * matched by role and position, never by name (`matchLastField`), and only a
+ * unit field the user can change is looked at: reps and unitless fields are
+ * ignored. A field whose last unit is missing, or not one its role offers,
+ * counts as no difference: the app does not guess one. `null` for no last
+ * session, or nothing differing.
  *
  * Decided here, not by `resolveGhostTarget`/`ghostNotice`: they judge a weight
  * and reps pair only, and an exercise with no reps (Farmer's Walk: weight and
  * distance) has none, though its unit can differ as much as Bench Press's.
  * Only the last session is read, as for the ghosts. `setNumber` picks which of
- * its sets the notice quotes; a session that stopped earlier quotes none, as
+ * its sets the line quotes; a session that stopped earlier quotes none, as
  * `ghostNotice` does, rather than another set's numbers.
  */
-export function unitMismatch(
+export function unitNotice(
   fields: ExerciseField[],
   history: Pick<ExerciseHistory, "lastSession">,
   setNumber: number
-): UnitMismatch | null {
+): string | null {
   const last = history.lastSession;
   if (!last) return null;
 
-  const units: Record<string, FieldUnit> = {};
-  const differing: ExerciseField[] = [];
+  const differing: { field: ExerciseField; lastUnit: FieldUnit }[] = [];
   fields.forEach((field, index) => {
     if (!hasUnitChoice(field)) return;
-    const unit = matchLastField(fields, index, last.fields)?.unit;
-    if (unit === undefined || unit === field.unit || !unitsForRole(field.role).includes(unit)) return;
-    units[field.name] = unit;
-    differing.push(field);
+    const lastUnit = matchLastField(fields, index, last.fields)?.unit;
+    if (lastUnit === undefined || lastUnit === field.unit || !unitsForRole(field.role).includes(lastUnit)) return;
+    differing.push({ field, lastUnit });
   });
   if (differing.length === 0) return null;
 
@@ -149,14 +147,10 @@ export function unitMismatch(
   const numbers = lastSet ? ` (${setValuesText(last.fields, comparisonSegment(lastSet))})` : "";
   // A field is named only where the exercise has more than one to tell apart.
   const several = fields.filter(hasUnitChoice).length > 1;
+  const [only] = differing;
   const what =
     differing.length > 1
       ? "Last time used different units"
-      : `Last time ${several ? `${differing[0].name.toLowerCase()} ` : ""}was in ${units[differing[0].name]}`;
-
-  return {
-    units,
-    buttonLabel: differing.length > 1 ? "Use last time's units" : `Use ${units[differing[0].name]}`,
-    notice: `${what}${numbers}`,
-  };
+      : `Last time ${several ? `${only.field.name.toLowerCase()} ` : ""}was in ${only.lastUnit}`;
+  return `${what}${numbers}`;
 }

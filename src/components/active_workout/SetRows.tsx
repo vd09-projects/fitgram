@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, TextInput, TouchableOpacity, StyleSheet, KeyboardTypeOptions, StyleProp, TextStyle } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SPACING } from "../../constants/styles";
@@ -100,11 +100,17 @@ export default function SetRows({ fields, setNumber, rows, ghosts, onChange, onA
                 accessibilityRole="button"
                 accessibilityLabel={`${field.name} unit: ${field.unit}. Change unit`}
               >
-                <TextBase style={styles.unitLabel} numberOfLines={1}>
-                  {`${field.name} · `.toUpperCase()}
-                  <TextBase style={styles.unitValue}>{String(field.unit).toUpperCase()}</TextBase>
+                {/* The name gives way first: on a narrow column (three unit fields)
+                    "WEIGHT · PLATES" would cut the unit, which is what the label
+                    is for. Two Texts, not one, so only the name can ellipsize. */}
+                <TextBase style={styles.unitName} numberOfLines={1}>
+                  {field.name.toUpperCase()}
                 </TextBase>
-                <Ionicons name="chevron-down" size={12} color={t.colors.role.textPrimary} />
+                <TextBase style={styles.unitSuffix} numberOfLines={1}>
+                  {" · "}
+                  <TextBase style={styles.unitValue}>{field.unit.toUpperCase()}</TextBase>
+                </TextBase>
+                <Ionicons name="chevron-down" size={12} color={t.colors.role.textPrimary} style={styles.unitChevron} />
               </TouchableOpacity>
             </View>
           ) : (
@@ -119,12 +125,8 @@ export default function SetRows({ fields, setNumber, rows, ghosts, onChange, onA
       {rows.map((row, index) => (
         <View key={index} style={styles.row}>
           {fields.map((field) => (
-            // Keyed by unit too: on Android a mounted input does not repaint
-            // when only its placeholder changes, so after a unit change (TICKET-091)
-            // the new unit, or the new ghost, never showed. The typed text is
-            // the parent's state, so remounting loses nothing.
             <RowInput
-              key={`${field.name}:${field.unit ?? ""}`}
+              key={field.name}
               field={field}
               value={row[field.name] ?? ""}
               ghost={index === 0 ? ghosts[field.name] ?? null : null}
@@ -222,6 +224,10 @@ function RowSlot({
 const emptyPlaceholder = (field: ExerciseField): string | undefined =>
   field.role === "reps" ? "reps" : field.unit;
 
+/** What a field shows while empty: last time's number when there is one, else `emptyPlaceholder`. */
+const placeholderFor = (field: ExerciseField, ghost: number | null): string | undefined =>
+  ghost === null ? emptyPlaceholder(field) : formatStepValue(ghost);
+
 function RowInput({
   field,
   value,
@@ -242,14 +248,32 @@ function RowInput({
   onChange: (text: string) => void;
 }) {
   const [focused, setFocused] = useState(false);
+  const placeholder = placeholderFor(field, ghost);
+
+  // On Android a mounted input does not repaint when only its placeholder
+  // changes, so after a unit change (TICKET-091) the new unit, or the ghost that
+  // came or went with it (Reps has no unit and still changed), never showed.
+  // Remounting the TextInput repaints it. Never while focused: a ghost can
+  // arrive as history loads, mid-typing, and a remount would close the keyboard;
+  // the change waits for the blur. The typed text is the parent's state, so a
+  // remount loses nothing.
+  const [shown, setShown] = useState(placeholder);
+  const [epoch, setEpoch] = useState(0);
+  useEffect(() => {
+    if (placeholder === shown || focused) return;
+    setShown(placeholder);
+    setEpoch((n) => n + 1);
+  }, [placeholder, shown, focused]);
+
   return (
     <TextInput
+      key={epoch}
       style={[inputStyle, focused && focusedStyle]}
       value={value}
       onChangeText={onChange}
       // No ghost (loading, failed, first time, a split row): what goes in,
       // "kg" or "reps" (TICKET-047, board SwapLoading), never a dash or blank.
-      placeholder={ghost === null ? emptyPlaceholder(field) : formatStepValue(ghost)}
+      placeholder={shown}
       placeholderTextColor={ghostColor}
       keyboardType={keyboardFor(field)}
       onFocus={() => setFocused(true)}
@@ -328,10 +352,16 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     paddingHorizontal: 6,
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
   },
-  unitLabel: {
+  unitName: {
     flexShrink: 1,
+    fontSize: t.fonts.xSmall,
+    letterSpacing: 1.3,
+    color: t.colors.role.textSecondary,
+  },
+  unitChevron: { marginLeft: 4 },
+  unitSuffix: {
+    flexShrink: 0,
     fontSize: t.fonts.xSmall,
     letterSpacing: 1.3,
     color: t.colors.role.textSecondary,

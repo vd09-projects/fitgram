@@ -49,8 +49,7 @@ import { plannedSegment, splitSegments } from "../utils/storedSets";
 import SetRows, { SplitIcon } from "./active_workout/SetRows";
 import MenuSheet, { type MenuItem } from "./MenuSheet";
 import { useExerciseName } from "../hooks/useExerciseNames";
-import { unitMismatch, unitsSummary } from "../utils/unitChange";
-import show from "../utils/toastUtils";
+import { unitNotice, unitsSummary } from "../utils/unitChange";
 
 const HIT = 44;
 const ACTION_HEIGHT = 56;
@@ -203,7 +202,8 @@ const PILL_HIT_SLOP = { top: (HIT - PILL_HEIGHT) / 2, bottom: (HIT - PILL_HEIGHT
  *   (`SetRows`), at every set count. The sheet is a sibling of the history
  *   sheet here, and changes the slot's field units through the store, so the
  *   pill, ghosts, notice and the Today list all follow: this component derives
- *   them from `exercise.fields` and reads nothing else for units.
+ *   them from `exercise.fields` (today's units) and the history's last session
+ *   (last time's, for the notice), and keeps no copy of either.
  * - The values typed for the next set are kept as typed when the unit changes.
  *   Nothing is converted (units are for comparability only).
  */
@@ -234,7 +234,6 @@ export default function ExerciseLogger({
     startRest,
     addRestTime,
     endRest,
-    setExerciseUnits,
   } = useWorkoutStore();
   const history = useExerciseHistory(exercise.id);
   const name = useExerciseName(exercise);
@@ -275,11 +274,10 @@ export default function ExerciseLogger({
   const ghosts = ghostValues(exercise.fields, target, history.numericFields);
   const repeat = repeatValues(ghosts);
   const pillText = lastTimeText(target);
-  // The unit notice is the helper's, not `ghostNotice`'s: that one judges a
-  // weight and reps pair, and Farmer's Walk has none (TICKET-091). Where there
-  // is a mismatch the notice carries the fix, so it no longer says "no targets".
-  const mismatch = unitMismatch(exercise.fields, history, setNumber);
-  const notice = mismatch?.notice ?? ghostNotice(target, history.status);
+  // The unit line is the helper's, not `ghostNotice`'s: that one judges a
+  // weight and reps pair, and Farmer's Walk has none (TICKET-091). It says what
+  // last time was in and no longer "so no targets": the label's ▾ is the fix.
+  const notice = unitNotice(exercise.fields, history, setNumber) ?? ghostNotice(target, history.status);
   const lastEffort = lastTimeEffort(history, setNumber);
   const split = history.lastSession ? lastTimeSplit(target, history.lastSession.fields) : null;
   const repeatChain = repeatSplitRows(target, history.numericFields);
@@ -289,15 +287,6 @@ export default function ExerciseLogger({
       : repeatedFor === setNumber && !editedSet && pillText !== null
         ? repeatedSplitLine(pillText, split.rows.slice(0, repeatChain.rows.length), repeatChain.incomplete)
         : lastTimeSplitLine(split);
-  const applyLastUnits = async () => {
-    if (!mismatch) return;
-    try {
-      const result = await setExerciseUnits(exercise.id, mismatch.units);
-      if (result.status === "refused") show.alert("Couldn't change the unit", result.reason);
-    } catch {
-      show.alert("Couldn't change the unit", "It could not be stored on this phone. Please try again.");
-    }
-  };
   const onSetEffort = (setId: number, effort: Effort | null) => setSetEffort(exercise.id, setId, effort);
 
   // While editing, the card's rows are the edit's; otherwise the next set's.
@@ -405,18 +394,23 @@ export default function ExerciseLogger({
   };
 
   // TICKET-091 (board UnitMenu): one item for every unit field, with the units
-  // as they are now. Enabled at every set, as the label's button is; disabled
-  // with its reason, not hidden, for an exercise with no unit to change (reps
-  // only), so the menu keeps its shape.
+  // as they are now. Enabled at every set, as the label's button is. Absent,
+  // not disabled, when no field has a unit to choose (`unitsSummary` is null,
+  // e.g. reps only): unlike Swap and Remove it can never become available in
+  // this workout, so a locked row would only be noise. Decided from the fields,
+  // never from the exercise.
   const summary = unitsSummary(exercise.fields);
-  const unitsItem: MenuItem = {
-    key: "units",
-    renderIcon: (color) => <MaterialCommunityIcons name="ruler" size={20} color={color} />,
-    title: "Units",
-    detail: summary ?? undefined,
-    disabledReason: summary === null ? "This exercise has no unit to change." : null,
-    onPress: () => setUnitsOpen(true),
-  };
+  const unitsItem: MenuItem | null =
+    summary === null
+      ? null
+      : {
+          key: "units",
+          renderIcon: (color) => <MaterialCommunityIcons name="ruler" size={20} color={color} />,
+          title: "Units",
+          detail: summary,
+          disabledReason: null,
+          onPress: () => setUnitsOpen(true),
+        };
 
   // Shown on a one-row card only (hidden once split), so there are no split
   // rows to replace: the chain is added after row 1.
@@ -587,22 +581,7 @@ export default function ExerciseLogger({
               {splitLine.tail}
             </TextBase>
           )}
-          {notice !== null && mismatch !== null ? (
-            // Board UnitNotice: the button applies last time's unit, one tap.
-            <View style={styles.noticeRow}>
-              <TextBase style={[styles.notice, styles.noticeText]}>{notice}</TextBase>
-              <TouchableOpacity
-                style={styles.noticeButton}
-                onPress={applyLastUnits}
-                accessibilityRole="button"
-                accessibilityLabel={mismatch.buttonLabel}
-              >
-                <TextBase style={styles.noticeButtonText}>{mismatch.buttonLabel}</TextBase>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            notice !== null && <TextBase style={styles.notice}>{notice}</TextBase>
-          )}
+          {notice !== null && <TextBase style={styles.notice}>{notice}</TextBase>}
 
           <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.LOG_FIELDS}>
             {/* Plain View between the tour wrapper and the row: MultiTourSteps
@@ -696,7 +675,7 @@ export default function ExerciseLogger({
       <MenuSheet
         visible={menuOpen}
         title={name.title}
-        groups={[[splitItem, unitsItem, swapItem], [removeItem]]}
+        groups={[[splitItem, ...(unitsItem ? [unitsItem] : []), swapItem], [removeItem]]}
         onClose={onCloseMenu}
         testID="exercise-menu"
       />
@@ -801,31 +780,6 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     fontSize: t.fonts.small,
     color: t.colors.role.textSecondary,
     marginTop: -SPACING.small,
-  },
-  noticeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginTop: -SPACING.small,
-  },
-  noticeText: {
-    flex: 1,
-    minWidth: 0,
-    marginTop: 0,
-  },
-  noticeButton: {
-    height: HIT,
-    paddingHorizontal: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: t.colors.role.accent,
-  },
-  noticeButtonText: {
-    fontSize: t.fonts.xMedium,
-    fontWeight: "bold",
-    color: t.colors.role.accent,
   },
   splitCount: {
     fontSize: t.fonts.small,

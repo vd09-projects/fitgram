@@ -1,5 +1,5 @@
 import type { ExerciseField } from "../types/workoutType";
-import { matchLastField, relabelLine, unitBlocks, unitMismatch, unitsSummary } from "./unitChange";
+import { matchLastField, relabelLine, unitBlocks, unitNotice, unitsSummary } from "./unitChange";
 
 const bench: ExerciseField[] = [
   { name: "Weight", role: "weight", unit: "kg" },
@@ -77,48 +77,44 @@ describe("relabelLine", () => {
   });
 });
 
-describe("unitMismatch", () => {
+describe("unitNotice", () => {
   const session = (fields: ExerciseField[], sets: Record<string, string | number>[]) => ({
     lastSession: { fields, sets: sets.map((values, i) => ({ setNumber: i + 1, segments: [values] })) } as never,
   });
   const walkLb: ExerciseField[] = [{ ...walk[0], unit: "lb" }, walk[1], walk[2]];
 
   it("is null with no last session, and when every unit matches", () => {
-    expect(unitMismatch(bench, { lastSession: null }, 1)).toBeNull();
-    expect(unitMismatch(bench, session(bench, [{ Weight: 60, Reps: 8 }]), 1)).toBeNull();
+    expect(unitNotice(bench, { lastSession: null }, 1)).toBeNull();
+    expect(unitNotice(bench, session(bench, [{ Weight: 60, Reps: 8 }]), 1)).toBeNull();
   });
 
-  it("one field differs: names last time's unit and its numbers, and offers just that unit", () => {
-    expect(unitMismatch(bench, session(benchPlates, [{ Weight: 8, Reps: 15 }]), 1)).toEqual({
-      units: { Weight: "plates" },
-      buttonLabel: "Use plates",
-      notice: "Last time was in plates (8 plates × 15)",
-    });
+  it("one field differs: names last time's unit and its numbers", () => {
+    expect(unitNotice(bench, session(benchPlates, [{ Weight: 8, Reps: 15 }]), 1)).toBe(
+      "Last time was in plates (8 plates × 15)"
+    );
   });
 
-  it("two fields, one differs: names the field, leaves the matching one alone (no reps needed)", () => {
-    expect(unitMismatch(walk, session(walkLb, [{ Weight: 50, Distance: 40 }]), 1)).toEqual({
-      units: { Weight: "lb" },
-      buttonLabel: "Use lb",
-      notice: "Last time weight was in lb (50 lb · 40 m)",
-    });
+  it("two fields, one differs: names the field; works with no reps", () => {
+    expect(unitNotice(walk, session(walkLb, [{ Weight: 50, Distance: 40 }]), 1)).toBe(
+      "Last time weight was in lb (50 lb · 40 m)"
+    );
   });
 
-  it("two fields differ: one button for last time's units", () => {
+  it("two fields differ: one line for last time's units", () => {
     const last: ExerciseField[] = [{ ...walk[0], unit: "lb" }, { ...walk[1], unit: "km" }, walk[2]];
-    const result = unitMismatch(walk, session(last, [{ Weight: 50, Distance: 1 }]), 1);
-    expect(result?.units).toEqual({ Weight: "lb", Distance: "km" });
-    expect(result?.buttonLabel).toBe("Use last time's units");
+    expect(unitNotice(walk, session(last, [{ Weight: 50, Distance: 1 }]), 1)).toBe(
+      "Last time used different units (50 lb · 1 km)"
+    );
   });
 
-  it("matches by role, not name, and offers nothing for a last unit the role does not have", () => {
+  it("matches by role, not name, and says nothing for a last unit the role does not have", () => {
     const renamed: ExerciseField[] = [{ name: "Load", role: "weight", unit: "plates" }, bench[1]];
-    expect(unitMismatch(bench, session(renamed, [{ Load: 8, Reps: 15 }]), 1)?.units).toEqual({ Weight: "plates" });
+    expect(unitNotice(bench, session(renamed, [{ Load: 8, Reps: 15 }]), 1)).toBe("Last time was in plates (8 plates × 15)");
     const odd = [{ name: "Weight", role: "weight", unit: "m" }, bench[1]] as ExerciseField[];
-    expect(unitMismatch(bench, session(odd, [{ Weight: 8, Reps: 15 }]), 1)).toBeNull();
+    expect(unitNotice(bench, session(odd, [{ Weight: 8, Reps: 15 }]), 1)).toBeNull();
   });
 
   it("quotes no numbers when last session stopped before this set", () => {
-    expect(unitMismatch(bench, session(benchPlates, [{ Weight: 8, Reps: 15 }]), 3)?.notice).toBe("Last time was in plates");
+    expect(unitNotice(bench, session(benchPlates, [{ Weight: 8, Reps: 15 }]), 3)).toBe("Last time was in plates");
   });
 });

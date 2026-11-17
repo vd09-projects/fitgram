@@ -80,30 +80,6 @@ describe("Units sheet", () => {
     ]);
   });
 
-  it("an exercise with two unit fields gets two blocks, and a change moves only the one chosen", async () => {
-    const workout = buildWorkout([], { exercises: [buildExercise("Farmer's Walk", { fields: WALK })] });
-    renderScreen(ActiveWorkoutScreen, { workout });
-
-    openSheet("Distance", "m");
-    expect(sheet().getByLabelText("Weight unit")).toBeOnTheScreen();
-    expect(sheet().getByLabelText("Distance unit")).toBeOnTheScreen();
-
-    await choose("km");
-
-    expect(useWorkoutStore.getState().activeWorkout?.exercises[0].fields.map((f) => f.unit)).toEqual(["kg", "km"]);
-    expect(screen.getByLabelText("Distance · km")).toBeOnTheScreen();
-  });
-
-  it("Done closes it, and the unit stays as chosen", async () => {
-    renderScreen(ActiveWorkoutScreen, { workout: buildWorkout(["Bench Press"]), history });
-    openSheet();
-    await choose("lb");
-
-    fireEvent.press(sheet().getByRole("button", { name: "Done" }));
-
-    expect(screen.queryByTestId("units-sheet")).toBeNull();
-    expect(screen.getByLabelText("Weight · lb")).toBeOnTheScreen();
-  });
 });
 
 // Stage 2 (boards UnitNotice, UnitCarryCard, UnitMenu).
@@ -114,29 +90,17 @@ describe("unit notice and menu item", () => {
   ];
   const walkLast = buildStats("Farmer's Walk", [{ fields: WALK_LB, sets: [{ Weight: "50", Distance: "40" }] }]);
 
-  it("the notice's button applies last time's unit in one tap, and the notice goes", async () => {
+  it("the unit notice is a line only: nothing beside it offers the fix", () => {
     renderScreen(ActiveWorkoutScreen, { workout: buildWorkout(["Bench Press"]), history });
     expect(screen.getByText("Last time was in plates (8 plates × 15)")).toBeOnTheScreen();
-
-    await act(async () => {
-      fireEvent.press(screen.getByRole("button", { name: "Use plates" }));
-    });
-
-    expect(screen.getByLabelText("Weight · plates")).toBeOnTheScreen();
-    expect(screen.queryByRole("button", { name: "Use plates" })).toBeNull();
-    expect(screen.queryByText(/^Last time was in plates/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Use / })).toBeNull();
   });
 
-  it("an exercise with no reps still gets the notice; the button moves only the field that differs", async () => {
+  it("an exercise with no reps still gets the line, naming the field that differs", () => {
     const workout = buildWorkout([], { exercises: [buildExercise("Farmer's Walk", { fields: WALK })] });
     renderScreen(ActiveWorkoutScreen, { workout, history: { [walkLast.exerciseId]: walkLast } });
+
     expect(screen.getByText("Last time weight was in lb (50 lb · 40 m)")).toBeOnTheScreen();
-
-    await act(async () => {
-      fireEvent.press(screen.getByRole("button", { name: "Use lb" }));
-    });
-
-    expect(useWorkoutStore.getState().activeWorkout?.exercises[0].fields.map((f) => f.unit)).toEqual(["lb", "m"]);
   });
 
   it("⋯ → Units opens the sheet with the units as they are, at any set", () => {
@@ -151,7 +115,7 @@ describe("unit notice and menu item", () => {
     expect(sheet().getByLabelText("Distance unit")).toBeOnTheScreen();
   });
 
-  it("during rest the panel shows the notice without the button", async () => {
+  it("during rest the panel shows the line", async () => {
     renderScreen(ActiveWorkoutScreen, { workout: buildWorkout(["Bench Press"]), history });
     fireEvent.changeText(screen.getByLabelText("Weight · kg"), "40");
     fireEvent.changeText(screen.getByLabelText("Reps"), "12");
@@ -163,7 +127,17 @@ describe("unit notice and menu item", () => {
     // Set 2: last time stopped at one set, so no numbers are quoted. Exact text:
     // the Today row's caption also starts "Last time was in plates".
     expect(screen.getByText("Last time was in plates")).toBeOnTheScreen();
-    expect(screen.queryByRole("button", { name: "Use plates" })).toBeNull();
+  });
+
+  it("⋯ has no Units item when no field has a unit to choose, whatever the exercise is", () => {
+    const pullUp = buildExercise("Pull-Up", { fields: [{ name: "Reps", role: "reps" }] });
+    renderScreen(ActiveWorkoutScreen, { workout: buildWorkout([], { exercises: [pullUp] }) });
+
+    fireEvent.press(screen.getByRole("button", { name: "Pull-Up options" }));
+
+    expect(screen.getByRole("button", { name: /^Split set 1,/ })).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: /^Units/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /unit: / })).toBeNull();
   });
 });
 

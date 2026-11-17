@@ -17,15 +17,16 @@ import { Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SPACING } from "../../constants/styles";
-import { useWorkoutStore } from "../../stores/useWorkoutStore";
 import type { ExerciseHistory } from "../../types/exerciseHistory";
 import type { LoggedExercise } from "../../types/zustandWorkoutType";
 import { relabelLine, unitBlocks } from "../../utils/unitChange";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 import { useExerciseName } from "../../hooks/useExerciseNames";
-import show from "../../utils/toastUtils";
 import { NumericText, TextBase } from "../TextBase";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
+import type { FieldUnit } from "../../constants/units";
+import { useWorkoutStore } from "../../stores/useWorkoutStore";
+import show from "../../utils/toastUtils";
 
 type Props = {
   visible: boolean;
@@ -45,7 +46,9 @@ export default function UnitsSheet({ visible, onClose, exercise, history }: Prop
   const blocks = unitBlocks(exercise.fields, lastFields);
   const relabel = relabelLine(exercise.fields, lastFields, exercise.sets);
 
-  const choose = async (field: string, unit: (typeof blocks)[number]["unit"]) => {
+  // A refusal gives its reason; a failed write to the phone says so, as the other
+  // workout actions do. Nothing changes on screen until the store has written.
+  const choose = async (field: string, unit: FieldUnit) => {
     try {
       const result = await setExerciseUnits(exercise.id, { [field]: unit });
       if (result.status === "refused") show.alert("Couldn't change the unit", result.reason);
@@ -112,7 +115,13 @@ export default function UnitsSheet({ visible, onClose, exercise, history }: Prop
 
           {relabel !== null && (
             <View style={styles.relabel} testID="units-relabel">
-              <Ionicons name="information-circle-outline" size={18} color={t.colors.role.textSecondary} />
+              <Ionicons
+                name="information-circle-outline"
+                size={18}
+                color={t.colors.role.textSecondary}
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+              />
               <TextBase style={styles.relabelText}>
                 A new unit also relabels today's <NumericText style={styles.relabelText}>{relabel.count}</NumericText>{" "}
                 {relabel.count === 1 ? "set" : "sets"}. The numbers stay as typed:{" "}

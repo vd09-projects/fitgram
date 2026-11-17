@@ -11014,7 +11014,7 @@ a short sheet still sized to its content. **Not verified:** iOS; the guided tour
 
 ### TICKET-091: Change an Exercise's Units Mid-Workout
 
-**Priority:** High | **Effort:** Medium | **Status: BUILT, awaiting review** — design merged in PR #73, 2026-11-17; code on `feat/ticket-091-change-units-mid-workout`, uncommitted
+**Priority:** High | **Effort:** Medium | **Status: IN REVIEW (PR #74)** — design merged in PR #73, 2026-11-17
 
 **Description (user report, 2026-11-16, screenshots):**
 After a swap (and in a Freestyle) Bench Press · Machine logged in kg, though the user logs that machine in
@@ -11032,8 +11032,8 @@ drafts and the rejected options on the "Fitgram Weight Unit Mid-Workout" canvas)
   the set card never grows. Boards `UnitSheet`, `UnitCarrySheet`.
 - **Three ways in, one sheet:** a unit field's label on the set card (`WEIGHT · KG ▾`, every set, split rows
   excluded); the exercise ⋯ menu's **Units** item with a summary ("Weight kg · Distance m"); the mismatch
-  notice's button, which applies last time's unit to the fields that differ only ("Use plates"; "Use last
-  time's units" when 2+ differ). Boards `UnitNotice`, `UnitCarryCard`, `UnitMenu`, `UnitAfterSet1`.
+  notice, which is a line only (see Deviations: the "Use plates" button the boards draw was cut). Boards
+  `UnitNotice`, `UnitCarryCard`, `UnitMenu`, `UnitAfterSet1`.
 - **This workout only.** Never written to the plan. A swapped exercise's `planned` is untouched.
 - **After set 1 it still changes, as a relabel.** Today's sets of that exercise keep their numbers as typed
   (8 plates × 15 → 8 kg × 15); the sheet says so before the tap (board `UnitSheetLogged`). One unit per
@@ -11055,9 +11055,9 @@ drafts and the rejected options on the "Fitgram Weight Unit Mid-Workout" canvas)
 - [ ] Units sheet as on the boards; the relabel line only once a set is logged, naming the count and one
       example before → after
 - [ ] Unit label ▾ on the set card (`SetRows` `fieldLabel`) opens the sheet; steppers follow the unit's step
-- [ ] Mismatch notice: a pure helper returns the fields whose unit differs from the last session's
-      (matched by role and position, not by name) and the button text; the notice copy drops "so no targets"
-      where the button offers the fix. Rest panel shows the notice without the button
+- [ ] Mismatch notice: a pure helper returns the line for the fields whose unit differs from the last
+      session's (matched by role and position, not by name); the copy drops "so no targets". No button
+      (cut 2026-11-17, see Deviations). The rest panel shows the same line
 - [ ] ⋯ menu Units item with the summary, enabled at every set
 - [ ] Tests: the store action (units change, numbers do not, plan untouched), the helper's real cases (one
       field differs, two differ, none, no last session), 4–5 screen tests; each seen failing first
@@ -11065,20 +11065,29 @@ drafts and the rejected options on the "Fitgram Weight Unit Mid-Workout" canvas)
       `docs/TESTING_NOTES.md` entry; tour note only (TICKET-053)
 
 **Deviations from the ticket and boards (2026-11-17, found while building):**
-- The notice and its button are decided by `unitMismatch` (`src/utils/unitChange.ts`), not `ghostNotice`: the
-  board's Farmer's Walk notice has no reps, and `ghostNotice` only judges a weight and reps pair. Where there
-  is a mismatch the card and the rest panel show the helper's line; `ghostNotice`'s own unit line is now only
-  reached when no unit can be offered ("Last time used a different unit, so no targets" stays for that).
-  The rest panel keeps the line, without the button, as the ticket asks.
+- **The "Use plates" / "Use last time's units" button is cut** (user, 2026-11-17, after seeing it on the
+  emulator: the line is clear but the button crowds the card). The line stays as it was, unhighlighted; the
+  fix is the `WEIGHT · KG ▾` label, then a chip. Boards `UnitNotice` and `UnitCarryCard` still draw the
+  button and are not redrawn. Cost: two taps to apply last time's unit instead of one.
+- The line is decided by `unitNotice` (`src/utils/unitChange.ts`), not `ghostNotice`: the board's Farmer's
+  Walk notice has no reps, and `ghostNotice` only judges a weight and reps pair. Where a unit differs the
+  card and the rest panel show the helper's line; `ghostNotice`'s own unit line is now only reached when
+  today's weight field has no unit of its own ("Last time used a different unit, so no targets" stays).
 - A two-fields-differ notice reads "Last time used different units (…)": the boards draw only the
   one-field-differs case.
 - The sheet's "after" example in the relabel note is last time's unit when it differs from today's, otherwise
   the first other chip: UnitSheetLogged does not say which.
-- `SetRows` inputs are keyed by unit: Android did not repaint a placeholder that changed alone.
-- Existing tests edited: two loose `/^Weight/` and `/^Time/` label queries (the new button matches them) and
+- `SetRows` inputs remount when their placeholder changes and they are not focused: Android did not repaint
+  a placeholder that changed alone (the new unit, or a ghost that came or went).
+- The ⋯ Units item is absent, not disabled, when no field has a unit to choose (`unitsSummary` is null:
+  reps only, or only a unitless `other`). The ticket says "enabled at every set"; that holds wherever the item
+  shows. Decided from the fields' roles and units, never from the exercise.
+- The label's name ellipsizes before the unit does, so three unit fields (described, not drawn) keep the
+  unit visible. Checked on device at a narrow width, not on a real 3-field exercise.
+- Existing tests edited: two loose `/^Weight/` and `/^Time/` label queries (the new ▾ button matches them) and
   the unit-changed notice copy in `ExerciseLogger.test.tsx`.
 
-**Not in scope:** remembering the chosen unit for the next Freestyle (the notice brings it back in one tap);
+**Not in scope:** remembering the chosen unit for the next Freestyle (the notice names it, the label changes it);
 the History sheet carrying the same button; a board for a 3-field custom exercise (described, not drawn).
 
 ---

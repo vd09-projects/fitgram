@@ -312,6 +312,12 @@ export function lastTimeText(target: GhostTarget): string | null {
 
 /**
  * The line shown in place of ghost targets, saying why there are none.
+ *
+ * For a unit change the card and the rest panel show `unitNotice`'s line
+ * instead (TICKET-091, which also covers an exercise with no reps). The
+ * `unitChanged` branch below is what is left when today's weight field has no
+ * unit of its own, so there is no choice to name. Edit the wording of the other
+ * case in `src/utils/unitChange.ts`, not here.
  * `null` when targets are available. `status` splits `notLoaded`, which covers
  * three different situations a user would want told apart.
  */

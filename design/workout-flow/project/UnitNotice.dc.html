@@ -43,11 +43,8 @@ button { font: inherit; color: inherit; background: none; border: none; padding:
         <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase">Set <span class="num">1</span></div>
         <button type="button" style="height: 34px; padding: 0 12px; border-radius: 17px; border: 1px solid #3A4245; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">History ˄</button>
       </div>
-      <!-- NEW: the existing mismatch notice gains one action, only when last time's unit differs -->
-      <div style="margin-top: 8px; display: flex; align-items: center; gap: 10px">
-        <div style="flex-grow: 1; min-width: 0; font-size: 12.5px; line-height: 1.35; color: #8A9593">Last time was in plates (<span class="num">8 plates × 15</span>)</div>
-        <a href="UnitSwitched.dc.html" style="flex-shrink: 0; height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid {{accent}}; color: {{accent}}; font-size: 13.5px; font-weight: 700; text-decoration: none; display: flex; align-items: center">Use plates</a>
-      </div>
+      <!-- The mismatch notice stays a line only (the "Use plates" button was cut, 2026-11-17: it crowded the card). The fix is the unit label below. -->
+      <div style="margin-top: 8px; font-size: 12.5px; line-height: 1.35; color: #8A9593">Last time was in plates (<span class="num">8 plates × 15</span>)</div>
       <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 10px">
         <div style="display: flex; flex-direction: column; gap: 3px">
           <!-- NEW: the label is the unit button (▾), 44px tall touch area -->
