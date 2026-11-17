@@ -12,6 +12,7 @@ import { planFilterRows } from "../../utils/workoutWindow";
 import { historyNotice } from "../../utils/historyNotice";
 import { buildRail, mergePending, type RailRow, type RailWorkout } from "../../utils/historyRail";
 import { WorkoutRoutes } from "../../constants/routes";
+import type { WorkoutSessionDoc } from "../../types/workoutSession";
 import { SPACING } from "../../constants/styles";
 import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
 import { TextBase } from "../../components/TextBase";
@@ -24,6 +25,7 @@ import { useThemeStyles } from "../../utils/useThemeStyles";
 type NavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.HistoryHome>;
 
 const ALL_WORKOUTS = "All workouts";
+const NO_SESSIONS: readonly WorkoutSessionDoc[] = [];
 
 /**
  * The History home (TICKET-085a, boards HistHome01 to 25): the tabs, the plan filter, the notice strip and the
@@ -74,9 +76,14 @@ export default function HistoryHomeScreen() {
   // A plan's older workouts are in All's list once All has paged to the start: paging again for the plan would
   // read the same documents, and ask for a page that comes back empty. Derived from it instead, 0 reads.
   // Rejected: always deriving from All's list, which holds a plan's older workouts only once All reached the start.
+  // Memoized: the rows below depend on this list's identity, and a fresh array each render would rebuild every
+  // row object and defeat the row's memo.
   const allOlder = planId === null ? null : olderOf(olderWorkouts, workoutWindow, null);
-  const fromAll = older === null && allOlder?.reachedStart ? allOlder.sessions.filter((session) => session.workoutId === planId) : null;
-  const olderSessions = older?.sessions ?? fromAll ?? [];
+  const fromAll = useMemo(
+    () => (older === null && allOlder?.reachedStart ? allOlder.sessions.filter((session) => session.workoutId === planId) : null),
+    [older, allOlder, planId]
+  );
+  const olderSessions = older?.sessions ?? fromAll ?? NO_SESSIONS;
   const olderReachedStart = older?.reachedStart === true || fromAll !== null;
 
   const rows = useMemo<RailRow[] | null>(() => {
