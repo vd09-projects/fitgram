@@ -9,8 +9,7 @@ import WorkoutLogsScreen from '../screens/workout_management/WorkoutLogsScreen';
 // TEMPORARY — remove with ExerciseHistoryDebugScreen.
 import ExerciseHistoryDebugScreen from '../screens/workout_management/ExerciseHistoryDebugScreen';
 import HistoryHomeScreen from '../screens/workout_management/HistoryHomeScreen';
-// TEMPORARY — replaced by TICKET-083's Session screen.
-import SessionPlaceholderScreen from '../screens/workout_management/SessionPlaceholderScreen';
+import SessionScreen from '../screens/workout_management/SessionScreen';
 // Debug tooling, kept (TICKET-070): PlansStoreDebugScreen.
 import PlansStoreDebugScreen from '../screens/workout_management/PlansStoreDebugScreen';
 import { useThemeTokens } from '../components/app_manager/ThemeContext';
@@ -24,7 +23,8 @@ export type WorkoutStackParamList = {
   LogWorkout: undefined;
   HistoryDebug: undefined;
   HistoryHome: undefined;
-  Session: { sessionId: string; workoutName: string; startedAt: number };
+  /** `finished`: opened by Finish, so the screen says "Workout saved" once the workout is on the server (TICKET-083). */
+  Session: { sessionId: string; workoutName: string; startedAt: number; finished?: true };
   PlansStoreDebug: undefined;
 };
 
@@ -96,12 +96,11 @@ export default function WorkoutNavigator() {
       />
 
       {/* Own id per session: `singleCopy` would move the one Session to the top instead of opening
-          another, so a workout opened from a workout would replace the first one's state.
-          TEMPORARY component until TICKET-083; the route and its id stay. */}
+          another, so a workout opened from a workout would replace the first one's state. */}
       <Stack.Screen
         name={WorkoutRoutes.Session}
         getId={({ params }) => params.sessionId}
-        component={SessionPlaceholderScreen}
+        component={SessionScreen}
         options={{ headerShown: false }}
       />
 

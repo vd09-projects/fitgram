@@ -12,7 +12,9 @@
 
 import {
   collection,
+  deleteField,
   doc,
+  getDocFromServer,
   getDocs,
   getDocsFromServer,
   limit as limitFn,
@@ -381,6 +383,40 @@ export const getOlderWorkoutsPage = async (
     if (sessions.length >= size) return { sessions, docsRead, reachedStart: false };
     after = answer.docs[answer.docs.length - 1];
   }
+};
+
+/**
+ * One workout by its id, or null when it does not exist or is a `deleted` marker (TICKET-083: a workout
+ * opened that is not on the phone). 1 read. From the server, never the cache: offline this rejects, so
+ * the screen says it needs a connection rather than "not found". A doc this phone has written and the
+ * server has not confirmed is refused as the queries are (`serverOnly`): it is in the upload queue, which
+ * the Session screen reads first.
+ */
+export const getWorkoutById = async (userId: string, sessionId: string): Promise<WorkoutSessionDoc | null> => {
+  if (!userId || !sessionId) throw new Error("Missing user or session");
+  const snapshot = await getDocFromServer(doc(sessionsRef(userId), sessionId));
+  if (snapshot.metadata.hasPendingWrites) throw new Error("A workout upload is still queued on this phone");
+  if (!snapshot.exists()) return null;
+  const session = sessionFromDoc(snapshot as QueryDocumentSnapshot<DocumentData>);
+  return session.deleted === true ? null : session;
+};
+
+/**
+ * Set a workout's note, or remove it with `null` (TICKET-083). A transaction on purpose: it needs the server,
+ * so offline it rejects, where a plain write would sit in Firestore's memory cache, report nothing and apply
+ * later (the "refused offline" the Session screen promises). It also throws when the workout is not there,
+ * rather than creating a doc holding only a note. `updatedAt` moves, so another phone's change check brings the
+ * note. The note's length is the caller's rule (`normalizeNote`); the rules file has no field whitelist.
+ */
+export const setWorkoutNote = async (userId: string, sessionId: string, note: string | null): Promise<void> => {
+  if (!userId || !sessionId) throw new Error("Missing user or session");
+  const ref = doc(sessionsRef(userId), sessionId);
+  await runTransaction(db, async (tx) => {
+    const snapshot = await tx.get(ref);
+    // Coded, so the screen can say so instead of "try again": a retry cannot make a missing doc appear.
+    if (!snapshot.exists()) throw Object.assign(new Error("This workout is not on the server"), { code: "not-found" });
+    tx.update(ref, { note: note === null ? deleteField() : note, updatedAt: serverTimestamp() });
+  });
 };
 
 /**

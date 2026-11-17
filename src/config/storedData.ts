@@ -40,3 +40,13 @@ export const STATS_VOLUME_HISTORY_CAP = 12;
  * the compare script's repair or `rebuildExerciseStats` rewrites them.
  */
 export const VERDICT_SAME_TOLERANCE = 1e-9;
+
+/**
+ * The longest note a workout can carry, in characters (TICKET-083). A note is one field on the `sessions` doc,
+ * which is read whole into every phone's held window, so it is capped well below Firestore's document limit
+ * rather than left to it: a pasted article would be read by every check that returns the workout.
+ *
+ * Changes stored data: lowering it does not shorten a note already written; the Session screen shows a longer
+ * one whole and refuses only to save one past the cap.
+ */
+export const SESSION_NOTE_MAX_LENGTH = 500;

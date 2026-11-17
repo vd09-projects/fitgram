@@ -21,7 +21,7 @@ export const WorkoutRoutes = {
     HistoryDebug: "HistoryDebug",
     // The History home (TICKET-085a). Reached from the TEMPORARY "History (new)" hub button until 085b.
     HistoryHome: "HistoryHome",
-    // TEMPORARY placeholder until TICKET-083 builds the real Session screen.
+    // One workout: every lift a card (TICKET-083).
     Session: "Session",
     // Debug tooling, kept (TICKET-070): PlansStoreDebugScreen.
     PlansStoreDebug: "PlansStoreDebug",

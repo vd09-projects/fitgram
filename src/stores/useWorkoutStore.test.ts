@@ -17,7 +17,7 @@ import { resetStores } from "../test/renderScreen";
 import { buildExercise, buildWorkout, CATALOG_ROW } from "../test/fixtures";
 import { useCatalogStore } from "./useCatalogStore";
 import { loadCatalog } from "../utils/catalog";
-import { buildSessionDocs } from "../utils/exerciseStats";
+import { buildSessionDocs, buildSessionId } from "../utils/exerciseStats";
 import { Effort } from "../types/workoutSession";
 import { FREESTYLE_ID, freestylePlan } from "../constants/freestyle";
 import { UPLOAD_GRACE_MS } from "../config/workout";
@@ -141,8 +141,9 @@ describe("useWorkoutStore.endWorkout", () => {
     await Promise.all([first, second]);
 
     expect(save).toHaveBeenCalledTimes(1);
-    expect(toast.success).toHaveBeenCalledTimes(1);
-    expect(toast.success).toHaveBeenCalledWith("Saved", expect.stringMatching(new RegExp(`^${workout.name}( · |$)`)));
+    // Finish lands on the workout's Session, which says "Workout saved": no toast for an upload inside the wait.
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(store().toastedSessionId).toBeNull();
     expect(store().activeWorkout).toBeNull();
   });
 
@@ -151,7 +152,7 @@ describe("useWorkoutStore.endWorkout", () => {
 
     const result = await finishOffline("u1");
 
-    expect(result).toEqual({ status: "queued" });
+    expect(result).toEqual({ status: "queued", sessionId: buildSessionId(workout.id, workout.startTime) });
     expect(store().activeWorkout).toBeNull();
     expect(await AsyncStorage.getItem("activeWorkout")).toBeNull();
     expect(queue()).toHaveLength(1);
@@ -159,21 +160,35 @@ describe("useWorkoutStore.endWorkout", () => {
     expect(toast.info).toHaveBeenCalledWith("Saved on this phone", expect.any(String));
   });
 
+  it("names the queued session only once the queue write succeeded, so a failed write is not mistaken for a finish", async () => {
+    const workout = seedWorkout();
+    jest.spyOn(AsyncStorage, "setItem").mockRejectedValueOnce(new Error("disk full"));
+
+    expect(await store().endWorkout("u1")).toMatchObject({ status: "refused" });
+    expect(store().queuedSessionId).toBeNull();
+    expect(store().activeWorkout).toEqual(workout);
+
+    save.mockResolvedValueOnce(saved);
+    const result = await store().endWorkout("u1");
+    expect(store().queuedSessionId).toBe(buildSessionId(workout.id, workout.startTime));
+    expect(result).toMatchObject({ status: "uploaded" });
+  });
+
   it("a successful upload removes the entry, in memory and on disk", async () => {
-    seedWorkout();
+    const workout = seedWorkout();
     save.mockResolvedValueOnce(saved);
 
-    expect(await store().endWorkout("u1")).toEqual({ status: "uploaded" });
+    expect(await store().endWorkout("u1")).toEqual({ status: "uploaded", sessionId: buildSessionId(workout.id, workout.startTime) });
 
     expect(queue()).toEqual([]);
     expect(await storedQueue()).toEqual([]);
   });
 
   it("a failed upload stays queued with the failure recorded, and the next drain retries it", async () => {
-    seedWorkout();
+    const workout = seedWorkout();
     save.mockRejectedValueOnce(new Error("permission-denied"));
 
-    expect(await store().endWorkout("u1")).toEqual({ status: "queued" });
+    expect(await store().endWorkout("u1")).toEqual({ status: "queued", sessionId: buildSessionId(workout.id, workout.startTime) });
     expect(store().activeWorkout).toBeNull();
     expect(queue()).toMatchObject([{ failedAttempts: 1, lastError: "permission-denied" }]);
     expect(toast.alert).toHaveBeenCalledWith("Saved on this phone, upload failed", expect.any(String));
@@ -184,6 +199,22 @@ describe("useWorkoutStore.endWorkout", () => {
 
     expect(save).toHaveBeenCalledTimes(2);
     expect(queue()).toEqual([]);
+  });
+
+  it("an upload that lands after Finish returned still says Saved: the Session is not saying it then", async () => {
+    const workout = seedWorkout();
+    const pending = deferredSave();
+    const finishing = store().endWorkout("u1");
+    await jest.advanceTimersByTimeAsync(UPLOAD_GRACE_MS);
+    expect(await finishing).toMatchObject({ status: "queued" });
+    expect(toast.success).not.toHaveBeenCalled();
+
+    pending.resolve();
+    await jest.advanceTimersByTimeAsync(0);
+
+    expect(toast.success).toHaveBeenCalledTimes(1);
+    expect(toast.success).toHaveBeenCalledWith("Saved", expect.stringContaining(workout.name));
+    expect(store().toastedSessionId).toBe(buildSessionId(workout.id, workout.startTime));
   });
 });
 
@@ -479,7 +510,7 @@ describe("Freestyle", () => {
     await store().addExercise(curl);
     await store().addSetToExercise(curl.id, { id: 1, segments: [{ Reps: 15 }] });
     save.mockResolvedValueOnce(saved);
-    expect(await store().endWorkout("u1")).toEqual({ status: "uploaded" });
+    expect(await store().endWorkout("u1")).toMatchObject({ status: "uploaded", sessionId: expect.stringMatching(/^freestyle_\d+$/) });
 
     const [, workout, endedAt] = save.mock.calls[0];
     const { session, exerciseSessions } = buildSessionDocs(workout, endedAt);

@@ -7,6 +7,7 @@ import {
   getLastWorkoutOfPlan,
   getNewestSessionStamp,
   getOlderWorkoutsPage,
+  getWorkoutById,
   getWorkoutWindowFromServer,
 } from "../services/db/workoutSessions";
 import { getAllWorkoutPlans } from "../services/db/userDB";
@@ -24,6 +25,7 @@ jest.mock("../services/db/workoutSessions", () => ({
   getLastWorkoutOfPlan: jest.fn(),
   getChangedSessions: jest.fn(),
   getOlderWorkoutsPage: jest.fn(),
+  getWorkoutById: jest.fn(),
 }));
 jest.mock("../services/db/userDB", () => ({
   getAllWorkoutPlans: jest.fn(),
@@ -145,6 +147,80 @@ it("own Finish: held at once with no read and the plan's floor entry; the next c
   expect(floor()?.push).toEqual(stamped);
   expect(useRecentWorkoutsStore.getState().lastSeen).toEqual({ seconds: 11, nanoseconds: 0 });
   expect(getNewestSessionStamp).not.toHaveBeenCalled();
+});
+
+it("a saved note is shown in the window and the plan's floor entry with no read, and removing it leaves no key behind", async () => {
+  serveRecentWorkouts([session("a", "push", 500, { updatedAt: { seconds: 5, nanoseconds: 0 } })]);
+  usePlansStore.setState({ uid: UID, plans: [plan("push")], storedRead: true });
+  await useRecentWorkoutsStore.getState().open(UID);
+  await waitFor(() => expect(sessionIds()).toEqual(["a"]));
+  jest.clearAllMocks();
+
+  useRecentWorkoutsStore.getState().applyNote(UID, "a", "Slept badly.");
+  expect(useRecentWorkoutsStore.getState().workoutWindow?.sessions[0].note).toBe("Slept badly.");
+  expect(floor()?.push?.note).toBe("Slept badly.");
+
+  useRecentWorkoutsStore.getState().applyNote(UID, "a", null);
+  expect(useRecentWorkoutsStore.getState().workoutWindow?.sessions[0]).not.toHaveProperty("note");
+  expect(getChangedSessions).not.toHaveBeenCalled();
+  expect(getWorkoutWindowFromServer).not.toHaveBeenCalled();
+});
+
+// TICKET-083: a workout opened by id that the phone does not hold.
+describe("a workout read by id", () => {
+  const opened = async () => {
+    await useRecentWorkoutsStore.getState().open(UID);
+    await waitFor(() => expect(useRecentWorkoutsStore.getState().uid).toBe(UID));
+  };
+  const read = (id: string) => useRecentWorkoutsStore.getState().fetchedSessions[id];
+
+  it("reads it once and keeps the answer, a missing workout as ready with none, and reads nothing signed out", async () => {
+    await opened();
+    jest.mocked(getWorkoutById).mockResolvedValueOnce(session("a", "push", 500));
+    await useRecentWorkoutsStore.getState().loadSession("a");
+    await useRecentWorkoutsStore.getState().loadSession("a");
+    expect(getWorkoutById).toHaveBeenCalledTimes(1);
+    expect(getWorkoutById).toHaveBeenCalledWith(UID, "a");
+    expect(read("a")).toMatchObject({ status: "ready", session: { sessionId: "a" } });
+
+    jest.mocked(getWorkoutById).mockResolvedValueOnce(null);
+    await useRecentWorkoutsStore.getState().loadSession("gone");
+    expect(read("gone")).toEqual({ status: "ready", session: null });
+
+    useRecentWorkoutsStore.getState().clear();
+    jest.mocked(getWorkoutById).mockClear();
+    await useRecentWorkoutsStore.getState().loadSession("a");
+    expect(getWorkoutById).not.toHaveBeenCalled();
+  });
+
+  it("says offline for a refused read, holds the next ask off for the gap, then asks again", async () => {
+    await opened();
+    jest.mocked(getWorkoutById).mockRejectedValue(Object.assign(new Error("client is offline"), { code: "unavailable" }));
+    await useRecentWorkoutsStore.getState().loadSession("a");
+    expect(read("a")).toEqual({ status: "offline", error: "client is offline" });
+
+    await useRecentWorkoutsStore.getState().loadSession("a");
+    expect(getWorkoutById).toHaveBeenCalledTimes(1);
+
+    const now = Date.now();
+    jest.spyOn(Date, "now").mockReturnValue(now + WORKOUTS_OLDER_RETRY_GAP_MS + 1);
+    jest.mocked(getWorkoutById).mockResolvedValue(session("a", "push", 500));
+    await useRecentWorkoutsStore.getState().loadSession("a");
+    expect(getWorkoutById).toHaveBeenCalledTimes(2);
+    expect(read("a")).toMatchObject({ status: "ready" });
+    jest.spyOn(Date, "now").mockRestore();
+  });
+
+  it("a sign-out while the read runs drops its answer, so the next user does not receive it", async () => {
+    await opened();
+    let answer!: (value: WorkoutSessionDoc) => void;
+    jest.mocked(getWorkoutById).mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    const asking = useRecentWorkoutsStore.getState().loadSession("a");
+    useRecentWorkoutsStore.getState().clear();
+    answer(session("a", "push", 500));
+    await asking;
+    expect(read("a")).toBeUndefined();
+  });
 });
 
 it("a Finish on another phone appears on the next check", async () => {

@@ -4,13 +4,16 @@
 // action Android back dispatches; jest runs as iOS, where the hardware button
 // is not wired, so it is called directly.
 import React from "react";
+import { StyleSheet } from "react-native";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
-import { createNavigationContainerRef, NavigationContainer } from "@react-navigation/native";
+import { createNavigationContainerRef, NavigationContainer, StackActions } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ThemeProvider } from "../components/app_manager/ThemeContext";
 import { TourGuideProvider } from "../components/guide_tour/TourGuideProvider";
 import { resetStores } from "../test/renderScreen";
+import { useWorkoutStore } from "../stores/useWorkoutStore";
+import { finishLandingRoutes } from "../utils/finishLanding";
 import LayoutScreen from "./LayoutScreen";
 
 jest.mock("./HomeScreen", () => () => require("react").createElement(require("react-native").Text, null, "screen:Home"));
@@ -35,7 +38,7 @@ jest.mock("./workout_management/StartWorkoutScreen", () => mockStub("screen:Nest
 jest.mock("./workout_management/AddExerciseScreen", () => mockStub("screen:Manage"));
 jest.mock("./workout_management/WorkoutLogsScreen", () => mockStub("screen:Logs"));
 jest.mock("./workout_management/HistoryHomeScreen", () => mockStub("screen:HistoryHome"));
-jest.mock("./workout_management/SessionPlaceholderScreen", () => mockStub("screen:Session"));
+jest.mock("./workout_management/SessionScreen", () => mockStub("screen:Session"));
 jest.mock("./workout_management/ExerciseHistoryDebugScreen", () => mockStub("screen:HistoryDebug"));
 jest.mock("./workout_management/PlansStoreDebugScreen", () => mockStub("screen:PlansStoreDebug"));
 jest.mock("./workout_management/ActiveWorkoutScreen", () => () => {
@@ -227,4 +230,50 @@ it("header Home clears the history back to Home", () => {
   fireEvent.press(screen.getByText("Fitgram"));
   expect(history()).toEqual(["Home"]);
   expect(navigationRef.canGoBack()).toBe(false);
+});
+
+// TICKET-083: the Finish landing, as `ActiveWorkoutScreen` dispatches it from the Log Workout tab. The real
+// navigators decide whether the nested `state` resets a Workout stack that is already mounted, and which
+// tab the footer lights afterwards.
+describe("the Finish landing from the Log Workout tab", () => {
+  const landing = () => {
+    const routes = finishLandingRoutes({ sessionId: "s1", workoutName: "Push", startedAt: 1 });
+    act(() => navigationRef.dispatch(StackActions.popTo("Workout", { state: { index: 2, routes } })));
+  };
+  // The footer lights a tab with its own text colour: lit when the label's colour differs from an unlit one's.
+  const colorOf = (label: string) => StyleSheet.flatten(screen.getByText(label).props.style).color;
+  const lit = (label: string) => colorOf(label) !== colorOf("Feed");
+
+  it("replaces the mounted Workout stack with hub, History home, Session, and back walks them", () => {
+    renderLayout();
+    openLogger();
+    // `target`: the Layout stack itself, as the footer tab pushes it; LogWorkout is also a nested Workout route.
+    act(() => navigationRef.dispatch({ ...StackActions.push("LogWorkout"), target: navigationRef.getRootState().key }));
+    expect(history()).toEqual(["Home", "Workout", "LogWorkout"]);
+
+    landing();
+
+    expect(history()).toEqual(["Home", "Workout"]);
+    expect(workoutStack()).toEqual({ names: ["WorkoutHome", "HistoryHome", "Session"], focused: "Session" });
+    expect(screen.getByText("screen:Session")).toBeOnTheScreen();
+    back();
+    expect(screen.getByText("screen:HistoryHome")).toBeOnTheScreen();
+    back();
+    expect(screen.getByText("screen:Workout")).toBeOnTheScreen();
+  });
+
+  it("lights Workout afterwards, not the Log Workout tab it came from", () => {
+    renderLayout();
+    useWorkoutStore.setState({ activeWorkout: { id: "w", name: "Push", startTime: 1, exercises: [], currentExerciseIndex: null } });
+    fireEvent.press(screen.getByText("Workout"));
+    fireEvent.press(screen.getByText("Log Workout"));
+    expect(lit("Log Workout")).toBe(true);
+    expect(lit("Workout")).toBe(false);
+
+    landing();
+    useWorkoutStore.setState({ activeWorkout: null });
+
+    expect(history()).toEqual(["Home", "Workout"]);
+    expect(lit("Workout")).toBe(true);
+  });
 });

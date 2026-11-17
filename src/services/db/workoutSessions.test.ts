@@ -1,5 +1,5 @@
-import { Timestamp, getDocs, getDocsFromServer, limit, runTransaction, serverTimestamp, startAfter, where, writeBatch } from "firebase/firestore";
-import { getAllExerciseStats, getLastWorkoutOfPlan, getOlderWorkoutsPage, getWorkoutSessions, saveWorkoutSession } from "./workoutSessions";
+import { Timestamp, getDocFromServer, getDocs, getDocsFromServer, limit, runTransaction, serverTimestamp, startAfter, where, writeBatch } from "firebase/firestore";
+import { getAllExerciseStats, getLastWorkoutOfPlan, getOlderWorkoutsPage, getWorkoutById, getWorkoutSessions, saveWorkoutSession, setWorkoutNote } from "./workoutSessions";
 import { buildExercise, buildStats, buildWorkout } from "../../test/fixtures";
 import * as liftRecord from "../../utils/liftRecord";
 
@@ -14,6 +14,8 @@ jest.mock("firebase/firestore", () => ({
   startAfter: jest.fn(),
   doc: jest.fn((_ref: unknown, id: string) => id),
   getDocs: jest.fn(),
+  getDocFromServer: jest.fn(),
+  deleteField: jest.fn(() => "DELETE_FIELD"),
   getDocsFromServer: jest.fn(),
   writeBatch: jest.fn(),
   runTransaction: jest.fn(),
@@ -275,3 +277,65 @@ describe("a page of workouts older than the phone holds", () => {
   });
 });
 
+
+// TICKET-083: a workout opened by id that the phone does not hold.
+describe("one workout by id", () => {
+  const live = { sessionId: "s1", workoutId: "push", workoutName: "Push", startedAt: 1, endedAt: 2, exerciseIds: [], lifts: [] };
+  const answer = (data: object | null, hasPendingWrites = false) => ({
+    metadata: { hasPendingWrites },
+    exists: () => data !== null,
+    data: () => data,
+  });
+
+  it("reads the one doc from the server, with its stamp as plain numbers and its lifts through the validator", async () => {
+    (getDocFromServer as jest.Mock).mockResolvedValue(answer({ ...live, updatedAt: new Timestamp(5, 7) }));
+
+    const session = await getWorkoutById("u1", "s1");
+
+    expect(getDocFromServer).toHaveBeenCalledTimes(1);
+    expect(getDocFromServer).toHaveBeenCalledWith("s1");
+    expect(session).toMatchObject({ sessionId: "s1", updatedAt: { seconds: 5, nanoseconds: 7 }, lifts: [] });
+    expect(session).not.toHaveProperty("liftsUnreadable");
+  });
+
+  it("is null for a missing doc and for a deleted marker, never a workout", async () => {
+    (getDocFromServer as jest.Mock).mockResolvedValueOnce(answer(null));
+    await expect(getWorkoutById("u1", "gone")).resolves.toBeNull();
+    (getDocFromServer as jest.Mock).mockResolvedValueOnce(answer({ ...live, deleted: true }));
+    await expect(getWorkoutById("u1", "s1")).resolves.toBeNull();
+  });
+
+  it("rejects, not answers, when the server cannot be reached or the doc holds this phone's unconfirmed write", async () => {
+    (getDocFromServer as jest.Mock).mockRejectedValueOnce(Object.assign(new Error("offline"), { code: "unavailable" }));
+    await expect(getWorkoutById("u1", "s1")).rejects.toMatchObject({ code: "unavailable" });
+    (getDocFromServer as jest.Mock).mockResolvedValueOnce(answer(live, true));
+    await expect(getWorkoutById("u1", "s1")).rejects.toThrow("still queued");
+  });
+});
+
+describe("a workout's note", () => {
+  const txWith = (exists: boolean) => {
+    const update = jest.fn();
+    (runTransaction as jest.Mock).mockImplementation(async (_db, fn) => fn({ get: jest.fn().mockResolvedValue({ exists: () => exists }), update }));
+    return update;
+  };
+
+  it("sets the note and moves the stamp, in a transaction so offline rejects instead of queueing", async () => {
+    const update = txWith(true);
+    await setWorkoutNote("u1", "s1", "Slept badly.");
+    expect(runTransaction).toHaveBeenCalled();
+    expect(update).toHaveBeenCalledWith("s1", { note: "Slept badly.", updatedAt: "SERVER_STAMP" });
+  });
+
+  it("removes the field for null, never stores an empty note", async () => {
+    const update = txWith(true);
+    await setWorkoutNote("u1", "s1", null);
+    expect(update).toHaveBeenCalledWith("s1", { note: "DELETE_FIELD", updatedAt: "SERVER_STAMP" });
+  });
+
+  it("rejects with a not-found code, and writes nothing, for a workout that is not on the server", async () => {
+    const update = txWith(false);
+    await expect(setWorkoutNote("u1", "s1", "x")).rejects.toMatchObject({ code: "not-found" });
+    expect(update).not.toHaveBeenCalled();
+  });
+});

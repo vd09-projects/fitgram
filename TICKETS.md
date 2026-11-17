@@ -1876,6 +1876,8 @@ still highlighted. Pre-existing; surfaced while testing TICKET-017.
 
 **Dependencies:** None.
 
+**Highlight built in TICKET-083 (PR #76, 2026-11-18), ticket left OPEN for the owner to close:** `LayoutScreen` now sets the highlighted tab on every navigation state change (a `state` listener on the container), not only on a tap. The rule for the logger, which is registered in both stacks: it lights Log Workout wherever it is (a Layout route, or inside the Workout stack), and every other Workout screen lights Workout. Covered by `LayoutScreen.test.tsx` (the Finish landing lights Workout, the logger lights Log Workout) and seen on the emulator. Header Home and Profile taps still highlight through `openTab`; the third acceptance item is covered, not separately tested. Not done: the tab is still state set from events, not read from the navigation state during render; the Layout navigator is outside the container's render tree, so an event was the available hook.
+
 ---
 
 ### TICKET-026: Clear Account-Scoped State on Sign-Out and Account Switch
@@ -10339,6 +10341,16 @@ each of the three sources (the History home's held months and loaded Older worko
 
 **Out of scope:** Edit and Delete (086, and the Edit UI is parked); the Exercise link inside the compare
 (084 adds it).
+
+**Build notes (2026-11-18, branch `feat/ticket-083-session-screen`; stages 1 to 4 built, emulator proof open):**
+- `utils/sessionView.ts` holds every rule (resolution, words, captions, summary, compare, arrows, note); `SessionScreen` only finds the workout and draws. The queue source reuses 085a's `mergePending`.
+- "Did not upload" is `failedAttempts > 0` (the rail's rule): `attemptUpload` counts a rejection only, an offline upload stays pending.
+- The Session opens the exercise summaries store itself: only the Start screen's plan cards and `startWorkout` did, so after a cold start the compare read "not loaded yet" beside a Better word (found on the emulator). The History home has the same gap for a queued workout's verdicts; not fixed here.
+- A note is written by a transaction (`setWorkoutNote`), so offline is refused and a missing doc is an error; a workout still in the queue has no document, so Add a note is switched off with that reason.
+- Board gaps decided in code: no word for a first time in Freestyle; "No lift beat last time." (no board); the closed card shows `SESSION_CARD_SETS_SHOWN` sets and "+N" (boards 07 and 12 disagree); the compare keeps each session's unit.
+- `EndWorkoutResult` carries `sessionId`. The "Saved" toast of an upload that lands inside Finish's wait is suppressed (the Session says "Workout saved"); one that lands later still toasts.
+- Landing: the Workout stack becomes hub, History home, Session (`utils/finishLanding.ts`). **Scope growth, stated:** the footer highlight is derived from navigation state for every path, which closes 025's highlight half (025 stays open for the user).
+- Per-set arrows, the compare and the cap are in; the Exercise link inside the compare is 084's.
 
 **CLAUDE.md rules skipped:** none.
 

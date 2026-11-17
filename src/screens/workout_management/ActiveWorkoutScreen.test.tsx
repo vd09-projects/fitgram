@@ -1,6 +1,7 @@
 import { act, fireEvent, screen, within } from "@testing-library/react-native";
 import ActiveWorkoutScreen from "./ActiveWorkoutScreen";
 import { renderScreen } from "../../test/renderScreen";
+import { buildSessionId } from "../../utils/exerciseStats";
 import { buildExercise, buildStats, buildWorkout, CATALOG_ROW } from "../../test/fixtures";
 import { EndWorkoutResult, useWorkoutStore } from "../../stores/useWorkoutStore";
 import { getAllExerciseStats, saveWorkoutSession } from "../../services/db/workoutSessions";
@@ -139,19 +140,86 @@ describe("after the workout ends", () => {
       exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: 60, Reps: 5 }] }] })],
     });
 
-  it("Finish lands on the hub, with one Saved message naming the workout and its minutes", async () => {
+  it.each([
+    ["the footer tab (Layout stack)", undefined],
+    ["the Workout stack", WorkoutRoutes.LogWorkout],
+  ])("Finish from %s lands on the workout's Session, and the upload says Saved there, not in a toast", async (_, workoutRoute) => {
     (saveWorkoutSession as jest.Mock).mockResolvedValue({ sessionId: "s", summaries: [] });
     const log = jest.spyOn(console, "log").mockImplementation(() => {});
     const success = jest.spyOn(show, "success");
-    renderScreen(ActiveWorkoutScreen, { workout: loggedWorkout() });
+    renderScreen(ActiveWorkoutScreen, { workout: loggedWorkout(), workoutRoute });
 
     await act(async () => fireEvent.press(finishButton()));
 
-    expect(screen.getByText("route:Workout/WorkoutHome")).toBeOnTheScreen();
-    expect(success).toHaveBeenCalledTimes(1);
-    expect(success).toHaveBeenCalledWith("Saved", "Shoulders & Core · 52 min");
+    expect(screen.getByText(`route:Workout/${WorkoutRoutes.Session}`)).toBeOnTheScreen();
+    expect(screen.queryByText("route:Workout/WorkoutHome")).toBeNull();
+    expect(success).not.toHaveBeenCalled();
     success.mockRestore();
     log.mockRestore();
+  });
+
+  // The slot is empty from the start of Finish; the workout is safe only once the store says its queue write
+  // succeeded (`queuedSessionId`). `endWorkout` is a double here, so the test decides when each of those happens.
+  describe("the landing waits for the queue write (PR #76 review)", () => {
+    const setup = () => {
+      const workout = loggedWorkout();
+      let finish!: (result: EndWorkoutResult) => void;
+      const endWorkout = jest.fn(() => {
+        useWorkoutStore.setState({ activeWorkout: null });
+        return new Promise<EndWorkoutResult>((resolve) => (finish = resolve));
+      });
+      renderScreen(ActiveWorkoutScreen, { workout, workoutActions: { endWorkout } });
+      return { workout, finish: (result: EndWorkoutResult) => finish(result) };
+    };
+
+    it("does not navigate while the write is pending, and lands once it is queued", async () => {
+      const { workout } = setup();
+      // Braces: `press` returns the handler's promise, which here never settles, and `act` would wait for it.
+      await act(async () => {
+        fireEvent.press(finishButton());
+      });
+
+      expect(useWorkoutStore.getState().activeWorkout).toBeNull();
+      expect(screen.queryByText(/^route:/)).toBeNull();
+
+      await act(async () => useWorkoutStore.setState({ queuedSessionId: buildSessionId(workout.id, workout.startTime) }));
+      expect(screen.getByText(`route:Workout/${WorkoutRoutes.Session}`)).toBeOnTheScreen();
+    });
+
+    it("a failed write puts the workout back: still on the logger, not on a Session and not on the hub", async () => {
+      const { workout, finish } = setup();
+      // Braces: `press` returns the handler's promise, which here never settles, and `act` would wait for it.
+      await act(async () => {
+        fireEvent.press(finishButton());
+      });
+      expect(screen.queryByText(/^route:/)).toBeNull();
+
+      await act(async () => {
+        useWorkoutStore.setState({ activeWorkout: workout });
+        finish({ status: "refused", reason: "Could not write the upload queue." });
+      });
+      expect(screen.queryByText(/^route:/)).toBeNull();
+      expect(finishButton()).toBeOnTheScreen();
+    });
+  });
+
+  it("a Finish that is refused stays on the logger and lands nowhere", async () => {
+    const alert = jest.spyOn(show, "alert").mockImplementation(() => {});
+    // No sets logged: refused before anything is saved.
+    renderScreen(ActiveWorkoutScreen, { workout: buildWorkout(["Bench Press"]) });
+
+    await act(async () => fireEvent.press(finishButton()));
+
+    expect(useWorkoutStore.getState().activeWorkout).not.toBeNull();
+    expect(screen.queryByText(/^route:/)).toBeNull();
+
+    // The refused Finish left nothing behind: a Discard afterwards goes to the hub, not to a Session.
+    fireEvent.press(screen.getByRole("button", { name: "Workout options" }));
+    fireEvent.press(screen.getByText("Discard workout"));
+    await act(async () => fireEvent.press(screen.getByText("Discard")));
+    expect(screen.getByText("route:Workout/WorkoutHome")).toBeOnTheScreen();
+    expect(screen.queryByText(`route:Workout/${WorkoutRoutes.Session}`)).toBeNull();
+    alert.mockRestore();
   });
 
   it("Discard lands on the hub", async () => {
