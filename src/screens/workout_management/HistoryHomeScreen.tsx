@@ -1,20 +1,23 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { FlatList, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useAuthUser } from "../../hooks/useAuthUser";
 import { useRecentWorkouts } from "../../hooks/useRecentWorkouts";
 import { usePlansStore } from "../../stores/usePlansStore";
-import { useRecentWorkoutsStore } from "../../stores/useRecentWorkoutsStore";
+import { useExerciseHistoryStore } from "../../stores/useExerciseHistoryStore";
+import { olderOf, useRecentWorkoutsStore } from "../../stores/useRecentWorkoutsStore";
 import { drainPendingUploads, useWorkoutStore } from "../../stores/useWorkoutStore";
 import { planFilterRows } from "../../utils/workoutWindow";
 import { historyNotice } from "../../utils/historyNotice";
+import { buildRail, mergePending, type RailRow, type RailWorkout } from "../../utils/historyRail";
 import { WorkoutRoutes } from "../../constants/routes";
 import { SPACING } from "../../constants/styles";
 import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
 import { TextBase } from "../../components/TextBase";
 import LoadingData from "../../components/LoadingData";
 import MenuSheet from "../../components/MenuSheet";
+import { HistoryRailRow } from "../../components/history/HistoryRailRow";
 import { ReturnTypeUseThemeTokens } from "../../components/app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 
@@ -23,16 +26,15 @@ type NavigationProp = WorkoutScreenNavigationProp<typeof WorkoutRoutes.HistoryHo
 const ALL_WORKOUTS = "All workouts";
 
 /**
- * The History home (TICKET-085a, boards HistHome01 to 13). Stage 1: the shell. The tabs, the plan
- * filter, the notice strip, and a TEMPORARY plain list of the held workouts so the `Session` route is
- * reachable by tapping; stage 2 replaces the list with the rail.
+ * The History home (TICKET-085a, boards HistHome01 to 25): the tabs, the plan filter, the notice strip and the
+ * Workouts rail. The rows are `buildRail`'s (`utils/historyRail.ts`); this screen reads the stores, owns the
+ * taps and the two things Back must find as they were left: the filter and which months are open. Both are
+ * screen state, and the screen stays mounted under a deeper one (`singleCopy` in WorkoutNavigator). It always
+ * opens on Workouts with All selected. The Exercises tab is switched off with its reason until 085b builds it.
  *
- * Always opens on Workouts with All selected. Tab and filter are screen state, and the screen stays
- * mounted under a deeper one (`singleCopy` in WorkoutNavigator), so Back finds them as they were left.
- * The Exercises tab is shown switched off with its reason until 085b builds it.
- *
- * Reads the same shared workouts store as the hub (`useRecentWorkouts`, checked on focus): no read of
- * its own. Its list is the window plus each plan's floor entry; stage 2 reads the window itself.
+ * Reads the shared workouts store as the hub does (`useRecentWorkouts` checks it on focus): no read of its own
+ * but a page of older workouts, on tap (`loadOlder`). The rail shows the window and the queue, never the floor:
+ * a plan's old newest workout belongs to no month, and no count includes it.
  */
 export default function HistoryHomeScreen() {
   const { styles, t } = useThemeStyles(createStyles);
@@ -40,24 +42,58 @@ export default function HistoryHomeScreen() {
   const { user } = useAuthUser();
   const uid = user?.uid;
 
-  const sessions = useRecentWorkouts(uid);
+  // Called for its check on focus; the rail reads the window itself.
+  useRecentWorkouts(uid);
   const workoutWindow = useRecentWorkoutsStore((s) => (s.uid === uid ? s.workoutWindow : null));
+  const olderWorkouts = useRecentWorkoutsStore((s) => s.olderWorkouts);
   const waitOver = useRecentWorkoutsStore((s) => s.waitOver);
   const checkFailed = useRecentWorkoutsStore((s) => s.lastResult === "failed");
   const plans = usePlansStore((s) => s.plans);
   const pending = useWorkoutStore((s) => s.pendingUploads);
+  const summaries = useExerciseHistoryStore((s) => (s.uid === uid ? s.byId : null));
 
   const [planId, setPlanId] = useState<string | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [openMonths, setOpenMonths] = useState<ReadonlySet<string>>(new Set());
   const [retrying, setRetrying] = useState(false);
 
   const filter = useMemo(() => (workoutWindow ? planFilterRows(workoutWindow, plans ?? []) : null), [workoutWindow, plans]);
-  const shown = useMemo(
-    () => (sessions ?? []).filter((session) => planId === null || session.workoutId === planId),
-    [sessions, planId]
-  );
+  const older = olderOf(olderWorkouts, workoutWindow, planId);
+
+  const rows = useMemo<RailRow[] | null>(() => {
+    if (workoutWindow === null) return null;
+    // Summaries not held: a queued workout's lifts stay pending, not a guessed First time.
+    const held = mergePending(workoutWindow.sessions, pending, uid, summaries === null ? null : (id) => summaries[id] ?? null);
+    const loaded: RailWorkout[] = (older?.sessions ?? []).map((session) => ({ session, state: "uploaded" }));
+    return buildRail({
+      held,
+      older: loaded,
+      now: Date.now(),
+      openMonths,
+      planId,
+      reachedStart: workoutWindow.windowStart === null || older?.reachedStart === true,
+    });
+  }, [workoutWindow, pending, uid, summaries, older, openMonths, planId]);
+
   const notice = historyNotice(pending, uid, checkFailed);
-  const filterLabel = planId === null ? ALL_WORKOUTS : (filter?.rows.find((row) => row.planId === planId)?.label ?? ALL_WORKOUTS);
+  const filterRow = planId === null ? null : (filter?.rows.find((row) => row.planId === planId) ?? null);
+  const filterLabel = filterRow?.label ?? ALL_WORKOUTS;
+  // A count of what the phone holds is a total only once the start is reached.
+  const planCount = filterRow ? filterRow.workoutCount + (older?.sessions.length ?? 0) : 0;
+  const planCountText =
+    workoutWindow && (workoutWindow.windowStart === null || older?.reachedStart)
+      ? `${planCount} workout${planCount === 1 ? "" : "s"}`
+      : `${planCount} on this phone`;
+
+  const toggleMonth = useCallback(
+    (month: string) =>
+      setOpenMonths((open) => {
+        const next = new Set(open);
+        if (!next.delete(month)) next.add(month);
+        return next;
+      }),
+    []
+  );
 
   const tryAgain = async () => {
     if (retrying) return;
@@ -69,22 +105,20 @@ export default function HistoryHomeScreen() {
     }
   };
 
+  const radio = (on: boolean) => (color: string) => <Ionicons name={on ? "radio-button-on" : "radio-button-off"} size={20} color={color} />;
   const filterItems = [
-    {
-      key: "all",
-      title: ALL_WORKOUTS,
-      renderIcon: (color: string) => <Ionicons name={planId === null ? "radio-button-on" : "radio-button-off"} size={20} color={color} />,
-      onPress: () => setPlanId(null),
-    },
+    { key: "all", title: ALL_WORKOUTS, renderIcon: radio(planId === null), onPress: () => setPlanId(null) },
     ...(filter?.rows ?? []).map((row) => ({
       key: row.planId,
       title: row.label,
       // Counts are of the workouts on the phone, not a total, once older months exist (`coversWholeHistory`).
       detail: `${row.workoutCount} on this phone`,
-      renderIcon: (color: string) => <Ionicons name={planId === row.planId ? "radio-button-on" : "radio-button-off"} size={20} color={color} />,
+      renderIcon: radio(planId === row.planId),
       onPress: () => setPlanId(row.planId),
     })),
   ];
+
+  const empty = rows !== null && rows.length === 0 && planId === null;
 
   return (
     <View style={styles.screen}>
@@ -140,12 +174,10 @@ export default function HistoryHomeScreen() {
         </View>
       )}
 
-      {/* TEMPORARY — stage 2 replaces this list with the rail; remove it there. A FlatList, not a
-          View with map: the held workouts run past one screen and must scroll. */}
-      {sessions === null ? (
+      {rows === null ? (
         <View style={styles.body}>
           {waitOver ? (
-            <TextBase style={styles.empty}>Needs a connection, still trying</TextBase>
+            <TextBase style={styles.message}>Needs a connection, still trying</TextBase>
           ) : (
             <LoadingData
               containerStyle={styles.loading}
@@ -154,29 +186,38 @@ export default function HistoryHomeScreen() {
             />
           )}
         </View>
+      ) : empty ? (
+        <View style={styles.body}>
+          <TextBase style={styles.emptyTitle}>No workouts yet</TextBase>
+          <TouchableOpacity style={styles.startButton} onPress={() => navigation.navigate(WorkoutRoutes.WorkoutHome)} accessibilityRole="button">
+            <TextBase style={styles.startText}>Start a workout</TextBase>
+          </TouchableOpacity>
+        </View>
       ) : (
         <FlatList
+          testID="history-list"
           style={styles.body}
           contentContainerStyle={styles.listEnd}
-          data={shown}
-          keyExtractor={(session) => session.sessionId}
-          ListEmptyComponent={<TextBase style={styles.empty}>No workouts yet</TextBase>}
-          renderItem={({ item: session }) => (
-            <TouchableOpacity
-              testID={`history-row-${session.sessionId}`}
-              style={styles.row}
-              onPress={() =>
-                navigation.navigate(WorkoutRoutes.Session, {
-                  sessionId: session.sessionId,
-                  workoutName: session.workoutName,
-                  startedAt: session.startedAt,
-                })
+          data={rows}
+          keyExtractor={(row) => row.key}
+          ListHeaderComponent={
+            filterRow ? (
+              <TextBase style={styles.filterSummary}>
+                {filterRow.label} · {planCountText}
+              </TextBase>
+            ) : null
+          }
+          renderItem={({ item, index }) => (
+            <HistoryRailRow
+              row={item}
+              joined={item.kind === "workout" && rows[index + 1]?.kind === "workout"}
+              olderRead={older?.read ?? null}
+              onOpenWorkout={(sessionId, workoutName, startedAt) =>
+                navigation.navigate(WorkoutRoutes.Session, { sessionId, workoutName, startedAt })
               }
-              accessibilityRole="button"
-            >
-              <TextBase style={styles.rowName}>{session.workoutName}</TextBase>
-              <TextBase style={styles.rowDate}>{new Date(session.startedAt).toLocaleDateString()}</TextBase>
-            </TouchableOpacity>
+              onToggleMonth={toggleMonth}
+              onLoadOlder={() => void useRecentWorkoutsStore.getState().loadOlder(planId)}
+            />
           )}
         />
       )}
@@ -227,8 +268,17 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
     body: { flex: 1, paddingHorizontal: SPACING.xMedium, paddingTop: SPACING.medium },
     listEnd: { paddingBottom: SPACING.xxLarge },
     loading: { paddingVertical: SPACING.xxxLarge, alignItems: "center" },
-    empty: { paddingVertical: SPACING.xxxLarge, textAlign: "center", fontSize: t.fonts.medium, color: t.colors.role.textSecondary },
-    row: { paddingVertical: SPACING.medium, flexDirection: "row", justifyContent: "space-between" },
-    rowName: { fontSize: t.fonts.medium, fontWeight: "bold", color: t.colors.role.textPrimary },
-    rowDate: { fontSize: t.fonts.xMedium, color: t.colors.role.textSecondary },
+    message: { paddingVertical: SPACING.xxxLarge, textAlign: "center", fontSize: t.fonts.medium, color: t.colors.role.textSecondary },
+    emptyTitle: { paddingTop: SPACING.xxxLarge, textAlign: "center", fontSize: t.fonts.large, fontWeight: "bold", color: t.colors.role.textPrimary },
+    startButton: {
+      alignSelf: "center",
+      marginTop: SPACING.large,
+      height: 44,
+      paddingHorizontal: SPACING.xLarge,
+      borderRadius: 22,
+      justifyContent: "center",
+      backgroundColor: t.colors.role.accent,
+    },
+    startText: { fontSize: t.fonts.medium, fontWeight: "bold", color: t.colors.role.ground },
+    filterSummary: { paddingBottom: SPACING.medium, fontSize: t.fonts.xMedium, color: t.colors.role.textSecondary },
   });

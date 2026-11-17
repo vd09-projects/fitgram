@@ -87,6 +87,28 @@ export const verdictOf = (session: WorkoutSessionDoc): WorkoutVerdict | null =>
       );
 
 /**
+ * The words a workout row shows for its verdict (boards HistHome01 to 04), or null for none: a `pending` verdict
+ * (a lift not computed yet, or older than a lift's rollup window) says nothing rather than a guess, and so does no
+ * verdict at all.
+ */
+export function verdictText(verdict: WorkoutVerdict | null): string | null {
+  if (verdict === null) return null;
+  switch (verdict.word) {
+    case "better":
+    case "lower":
+      return `${verdict.count} ${verdict.word}`;
+    case "same":
+      return "Same";
+    case "first_time":
+      return "First time";
+    case "not_compared":
+      return "Not compared";
+    case "pending":
+      return null;
+  }
+}
+
+/**
  * The workouts of this user that are in the upload queue, as rail workouts with provisional verdicts:
  * `withVerdicts` over the held summaries, as the stats transaction will compute them, never stored. A
  * lift stays `pending` (no word) when the summaries are not held at all (`summaryOf` null): a missing

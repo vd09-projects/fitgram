@@ -10447,6 +10447,17 @@ Deviations, for the user to overrule:
 - *029 is closed in part.* The debug screen is gone and the strip gives the count and Try again for a rejected upload. 029's per-entry list
   (name, date, last error) lands with stage 2, where a waiting workout is merged into the rail with its state; its last error text is not
   shown anywhere until then.
+- *Stage 2 built (2026-11-17), same branch:* rows are `buildRail` (`utils/historyRail.ts`), drawn by `HistoryRailRow`; paging is `getOlderWorkoutsPage` and the store's `loadOlder`
+  (one list per plan filter, memory only). 082's `getWorkoutsOfMonth`, `loadMonth`, `olderMonths` and, with them, `isMonthOnPhone` are removed with their tests
+  (grep first: only the store, its tests and the Plans Store debug page read them; that page now shows and loads older workouts).
+  Decisions, each in a comment where it lives:
+  - "The current month" is the calendar month of `now`, not the month of the newest workout; a workout dated later counts as current.
+  - A page starts at the window's `windowStart` (exact: the window holds whole months from it), then before the oldest loaded, per filter. The ticket said "before the
+    oldest workout shown"; that is the same cut for All and wrong for a filter whose newest-held workout is not at the edge. A list loaded under an older `windowStart` is read as not loaded.
+  - Quiet "No workouts in X" lines are drawn only among and just before the paged-in months; the Earlier rows of held months are not given gap lines (a filter would make most of them).
+  - A queued workout's lifts stay `pending` (no word) while the exercise summaries are not held; with them held, an exercise without one is First time.
+  - Known gap: two workouts with the same `startedAt` to the millisecond across a page edge, the later one is skipped (a `<` on the time). Not a case a person can make.
+  - Not done here: the Exercises tab (085b). `sessionsByMonth` and `sessionsOfMonth` in `workoutWindow.ts` have no reader now but the first's test; left, the ticket does not name them.
 - *Device test pending:* the "waiting to upload" and "didn't upload" strips are unit-tested only. Their device run needs a test workout written to `pinky`, and there is no delete until TICKET-086; the user deferred it to then (2026-11-17). Add it to 086's proof.
 - The filter sheet's counts read "N on this phone", never a total (`coversWholeHistory`, TICKET-087).
 

@@ -1,4 +1,4 @@
-import { buildRail, gapLine, mergePending, monthLabel, type RailInput, type RailRow, type RailWorkout } from "./historyRail";
+import { buildRail, gapLine, mergePending, monthLabel, verdictText, type RailInput, type RailRow, type RailWorkout } from "./historyRail";
 import { buildExercise, buildStats, buildWorkout } from "../test/fixtures";
 import { HISTORY_RAIL_MIN_FULL } from "../config/display";
 import type { WorkoutSessionDoc } from "../types/workoutSession";
@@ -123,3 +123,14 @@ describe("mergePending", () => {
     expect(mergePending([], [entry("u1", 0)], "u1", null)[0].session.lifts[0]).toMatchObject({ verdict: null, reason: "pending" });
   });
 });
+
+describe("verdictText", () => {
+  it("counts better and lower, names the rest, and says nothing for a pending or missing verdict", () => {
+    expect(verdictText({ word: "better", count: 3, amber: true })).toBe("3 better");
+    expect(verdictText({ word: "lower", count: 1, amber: false })).toBe("1 lower");
+    expect(verdictText({ word: "not_compared", amber: false })).toBe("Not compared");
+    expect(verdictText({ word: "pending", amber: false })).toBeNull();
+    expect(verdictText(null)).toBeNull();
+  });
+});
+
