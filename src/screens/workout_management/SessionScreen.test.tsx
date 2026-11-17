@@ -10,7 +10,7 @@ import type { PendingUpload } from "../../types/zustandWorkoutType";
 import { useExerciseHistoryStore } from "../../stores/useExerciseHistoryStore";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
 
-let mockParams: { sessionId: string; workoutName: string; startedAt: number };
+let mockParams: { sessionId: string; workoutName: string; startedAt: number; finished?: true };
 jest.mock("@react-navigation/native", () => ({
   ...jest.requireActual("@react-navigation/native"),
   useRoute: () => ({ params: mockParams }),
@@ -180,6 +180,19 @@ describe("SessionScreen", () => {
     expect(screen.queryByLabelText("Note")).not.toBeOnTheScreen();
   });
 
+  it("says a workout the server does not have cannot hold a note, not 'try again'", async () => {
+    await open([session("s1", [lift("Bench")])], "s1");
+    await screen.findByText("One lift, no earlier session to compare with.");
+    fireEvent.press(screen.getByRole("button", { name: "Session options" }));
+    fireEvent.press(await screen.findByRole("button", { name: /^Add a note/ }));
+    jest.mocked(setWorkoutNote).mockRejectedValueOnce(Object.assign(new Error("gone"), { code: "not-found" }));
+    fireEvent.changeText(await screen.findByLabelText("Note"), "x");
+    await act(async () => {
+      fireEvent.press(screen.getByRole("button", { name: "Save note" }));
+    });
+    expect(await screen.findByText("This workout is not on the server, so it cannot hold a note.")).toBeOnTheScreen();
+  });
+
   it("cannot add a note to a workout still waiting to upload, and says why; Edit and Delete are switched off", async () => {
     const entry: PendingUpload = {
       sessionId: "queued_5000",
@@ -201,5 +214,28 @@ describe("SessionScreen", () => {
     await open([session("s1", [lift("Bench")])], "s1");
     await screen.findByText("One lift, no earlier session to compare with.");
     expect(open_).toHaveBeenCalledWith(TEST_USER_ID);
+  });
+
+  it("says Workout saved for a workout just finished and on the server, and not otherwise", async () => {
+    mockParams = { sessionId: "s1", workoutName: "Push", startedAt: 1, finished: true };
+    serveRecentWorkouts([session("s1", [lift("Bench")])]);
+    renderScreen(SessionScreen, { workoutRoute: WorkoutRoutes.Session });
+    expect(await screen.findByTestId("session-saved")).toBeOnTheScreen();
+  });
+
+  it("does not say Workout saved over a workout still waiting to upload: its notice says so", async () => {
+    const entry: PendingUpload = {
+      sessionId: "queued_5000",
+      uid: TEST_USER_ID,
+      workout: buildWorkout([], { id: "queued", startTime: 5_000, exercises: [buildExercise("Bench", { sets: [{ id: 1, segments: [{ Weight: 60, Reps: 5 }] }] })] }),
+      endedAt: 9_000,
+      failedAttempts: 0,
+      lastError: null,
+    };
+    mockParams = { sessionId: "queued_5000", workoutName: "Push", startedAt: 1, finished: true };
+    serveRecentWorkouts([session("s1", [lift("Bench")])]);
+    renderScreen(SessionScreen, { workoutRoute: WorkoutRoutes.Session, workoutActions: { pendingUploads: [entry] } });
+    expect(await screen.findByText("Not uploaded yet")).toBeOnTheScreen();
+    expect(screen.queryByTestId("session-saved")).not.toBeOnTheScreen();
   });
 });

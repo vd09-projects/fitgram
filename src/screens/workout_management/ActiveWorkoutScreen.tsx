@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector, Directions } from "react-native-gesture-handler";
@@ -20,7 +20,9 @@ import { buildProgressSegments, resolveCurrentIndex } from "../../utils/workoutP
 import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
 import { LayoutScreenNavigationProp } from "../../navigation/LayoutNavigator";
 import { LayoutRoutes, WorkoutRoutes } from "../../constants/routes";
-import { StackActions, useIsFocused, useNavigation } from "@react-navigation/native";
+import { CommonActions, StackActions, useIsFocused, useNavigation } from "@react-navigation/native";
+import { buildSessionId } from "../../utils/exerciseStats";
+import { finishLandingRoutes, type FinishLanding } from "../../utils/finishLanding";
 import { TextBase } from "../../components/TextBase";
 import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
@@ -143,10 +145,30 @@ export default function ActiveWorkoutScreen() {
   // this screen stays mounted under others (`singleCopy`), and a workout
   // discarded from All plans must not pull the user away from where they
   // are. The redirect runs when they next come back here.
+  //
+  // After Finish (TICKET-083) it lands on the Session of the workout just saved instead, with the History
+  // home beneath it: Back from the Session goes to the home, and back from the home to the hub. The
+  // Workout stack is replaced by those three routes (`reset`; from the footer tab, `popTo` with the stack's
+  // `state`, since `navigate` would push another Workout beside the one in the Layout history). That drops
+  // what `popTo(WorkoutHome)` dropped, everything above the hub. `finished` is set by `handleFinish` before
+  // the store clears the workout, which is what fires this effect; Discard never sets it. The id is
+  // `buildSessionId`, the one the store queues the workout under, so the route and the save cannot differ.
   const isFocused = useIsFocused();
+  const finished = useRef<FinishLanding | null>(null);
   useEffect(() => {
     if (!isFocused || activeWorkout) return;
     const inWorkoutStack = (navigation.getState().routeNames as string[]).includes(WorkoutRoutes.WorkoutHome);
+    const landing = finished.current;
+    finished.current = null;
+    if (landing) {
+      const routes = finishLandingRoutes(landing);
+      navigation.dispatch(
+        inWorkoutStack
+          ? CommonActions.reset({ index: routes.length - 1, routes })
+          : StackActions.popTo(LayoutRoutes.Workout, { state: { index: routes.length - 1, routes } })
+      );
+      return;
+    }
     navigation.dispatch(
       inWorkoutStack
         ? StackActions.popTo(WorkoutRoutes.WorkoutHome)
@@ -165,8 +187,15 @@ export default function ActiveWorkoutScreen() {
     // taps inside one frame — a check on `finishing` here could not, since it
     // reads the value from the last render.
     setFinishing(true);
+    finished.current = {
+      sessionId: buildSessionId(activeWorkout.id, activeWorkout.startTime),
+      workoutName: activeWorkout.name,
+      startedAt: activeWorkout.startTime,
+    };
     try {
-      await endWorkout(user?.uid);
+      const result = await endWorkout(user?.uid);
+      // Refused: nothing was saved and the workout is still active, so there is nothing to land on.
+      if (result.status === "refused") finished.current = null;
     } finally {
       setFinishing(false);
     }

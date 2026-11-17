@@ -23,7 +23,8 @@ export type WorkoutStackParamList = {
   LogWorkout: undefined;
   HistoryDebug: undefined;
   HistoryHome: undefined;
-  Session: { sessionId: string; workoutName: string; startedAt: number };
+  /** `finished`: opened by Finish, so the screen says "Workout saved" once the workout is on the server (TICKET-083). */
+  Session: { sessionId: string; workoutName: string; startedAt: number; finished?: true };
   PlansStoreDebug: undefined;
 };
 

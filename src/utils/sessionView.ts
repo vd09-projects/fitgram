@@ -220,7 +220,9 @@ const countWord = (n: number): string => NUMBER_WORDS[n] ?? String(n);
  * there are none: half the verdicts would read as the whole answer (the same rule as `workoutVerdict`).
  * - Nothing beat last time and every lift is a first time (a first workout, Freestyle): "Three lifts, no earlier
  *   session to compare with.", and no counts, which would only say "3 new".
- * - Nothing beat last time otherwise: "No lift beat last time." Wording chosen here, no board shows this case.
+ * - No lift has a verdict (every one not compared or new): "Nothing to compare with last time.", not "No lift beat last
+ *   time", which would claim a comparison that never happened (found on the emulator: a unit change, a timed lift).
+ * - Some lift was the same or lower and none beat it: "No lift beat last time." Wording chosen here, no board shows these.
  * `detail` is null, not an empty string, when it has nothing to say. "New" counts lifts, not workouts, and
  * Freestyle does not count a first time (every lift is new there).
  */
@@ -235,6 +237,7 @@ export function sessionSummary(session: WorkoutSessionDoc): { headline: string; 
     const n = session.lifts.length;
     return { headline: `${countWord(n)} ${n === 1 ? "lift" : "lifts"}, no earlier session to compare with.`, detail: null };
   }
+  const compared = names("same").length + names("lower").length;
   const freestyle = session.workoutId === FREESTYLE_ID;
   const parts = [
     [names("same").length, "the same"],
@@ -244,7 +247,12 @@ export function sessionSummary(session: WorkoutSessionDoc): { headline: string; 
   ] as const;
   const counts = parts.filter(([n]) => n > 0).map(([n, word]) => `${n} ${word}`);
   return {
-    headline: better.length > 0 ? `${joinNames(better)} beat last time.` : "No lift beat last time.",
+    headline:
+      better.length > 0
+        ? `${joinNames(better)} beat last time.`
+        : compared > 0
+          ? "No lift beat last time."
+          : "Nothing to compare with last time.",
     detail: counts.length > 0 ? counts.join(" · ") : null,
   };
 }

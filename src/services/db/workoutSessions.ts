@@ -413,7 +413,8 @@ export const setWorkoutNote = async (userId: string, sessionId: string, note: st
   const ref = doc(sessionsRef(userId), sessionId);
   await runTransaction(db, async (tx) => {
     const snapshot = await tx.get(ref);
-    if (!snapshot.exists()) throw new Error("This workout is not on the server yet");
+    // Coded, so the screen can say so instead of "try again": a retry cannot make a missing doc appear.
+    if (!snapshot.exists()) throw Object.assign(new Error("This workout is not on the server"), { code: "not-found" });
     tx.update(ref, { note: note === null ? deleteField() : note, updatedAt: serverTimestamp() });
   });
 };

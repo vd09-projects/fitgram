@@ -116,6 +116,13 @@ describe("sessionSummary", () => {
     expect(sessionSummary(all)).toEqual({ headline: "Three lifts, no earlier session to compare with.", detail: null });
   });
 
+  it("does not claim a comparison when no lift has a verdict", () => {
+    expect(sessionSummary(sessionOf([lift("Fly", null, "unit_changed"), lift("Plank", null, "no_volume")]))).toEqual({
+      headline: "Nothing to compare with last time.",
+      detail: "2 not compared",
+    });
+  });
+
   it("says no lift beat last time, with its counts, and leaves detail null when it has none", () => {
     expect(sessionSummary(sessionOf([lift("Press", "same", null)]))).toEqual({ headline: "No lift beat last time.", detail: "1 the same" });
     expect(sessionSummary(sessionOf([lift("Bench", "better", null)]))).toEqual({ headline: "Bench beat last time.", detail: null });

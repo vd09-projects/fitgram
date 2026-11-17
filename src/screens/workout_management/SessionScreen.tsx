@@ -39,7 +39,8 @@ import { useThemeStyles } from "../../utils/useThemeStyles";
  * A note is saved on the server first (`setWorkoutNote`, refused offline) and then shown in every copy the phone
  * holds (`applyNote`); a workout still in the queue has no document to hold one, so the item says so.
  *
- * Finish does not land here yet (stage 4).
+ * After Finish the app lands here (`finished` param, `ActiveWorkoutScreen`): "Workout saved" shows once the workout is on the
+ * server, in the place of the toast that upload no longer shows. Waiting or rejected, the notice says so instead.
  */
 export default function SessionScreen() {
   const { styles, t } = useThemeStyles(createStyles);
@@ -122,9 +123,12 @@ export default function SessionScreen() {
       await setWorkoutNote(uid, workout.session.sessionId, checked.note);
     } catch (error) {
       console.log("Failed to save note:", error);
-      return (error as { code?: string })?.code === "unavailable"
+      const code = (error as { code?: string })?.code;
+      return code === "unavailable"
         ? "Needs a connection to save a note."
-        : "Could not save the note. Try again.";
+        : code === "not-found"
+          ? "This workout is not on the server, so it cannot hold a note."
+          : "Could not save the note. Try again.";
     }
     useRecentWorkoutsStore.getState().applyNote(uid, workout.session.sessionId, checked.note);
     setNoteOpening(null);
@@ -228,6 +232,11 @@ export default function SessionScreen() {
       {header}
       <View style={styles.dateRow}>
         <TextBase style={styles.date}>{sessionDateLine(session.startedAt, session.endedAt)}</TextBase>
+        {params.finished === true && state === "uploaded" && (
+          <TextBase style={styles.savedText} testID="session-saved">
+            Workout saved
+          </TextBase>
+        )}
         {notice !== null && (
           <View style={styles.noticeRow} testID="session-notice">
             <TextBase style={state === "failed" ? styles.noticeFailed : styles.noticeText}>{notice}</TextBase>
@@ -279,13 +288,16 @@ export default function SessionScreen() {
 const createStyles = (t: ReturnTypeUseThemeTokens) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: t.colors.role.ground },
-    header: { flexDirection: "row", alignItems: "center", height: 44, paddingHorizontal: SPACING.small, gap: SPACING.small },
+    // The 44 dp touch targets hold 22 dp icons, so the padding is the content's inset less the 11 dp each side of the icon:
+    // the chevron and the ⋯ line up with the text edges beneath (they sat 7 dp inside them).
+    header: { flexDirection: "row", alignItems: "center", height: 44, marginTop: SPACING.small, paddingHorizontal: SPACING.medium - 11, gap: SPACING.small },
     optionsButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center", marginLeft: "auto" },
     note: { paddingHorizontal: SPACING.medium, paddingTop: SPACING.medium, fontSize: t.fonts.medium, color: t.colors.role.textPrimary },
     headerTitle: { flexShrink: 1, fontSize: t.fonts.large, fontWeight: "bold", color: t.colors.role.textPrimary },
     headerHistory: { fontSize: t.fonts.large, color: t.colors.role.textSecondary },
-    dateRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 30, paddingHorizontal: SPACING.medium },
+    dateRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 30, paddingTop: SPACING.xSmall, paddingHorizontal: SPACING.medium },
     date: { fontSize: t.fonts.xMedium, color: t.colors.role.textSecondary },
+    savedText: { fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.accent },
     noticeRow: { flexDirection: "row", alignItems: "center", gap: SPACING.small },
     noticeText: { fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.textSecondary },
     noticeFailed: { fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.danger },

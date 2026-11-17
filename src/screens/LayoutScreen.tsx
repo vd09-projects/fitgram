@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CommonActions, StackActions, useNavigation } from '@react-navigation/native';
@@ -22,6 +22,27 @@ export default function LayoutScreen() {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<keyof typeof LayoutRoutes>('Home');
   const navigation = useNavigation<SignInScreenNavigationProp>();
+
+  // The highlight follows the screen in front, whoever moved it (TICKET-083, from TICKET-025). It was set only
+  // by a tap, so the Finish landing (the Workout stack replaced from the Log Workout tab) left "Log Workout"
+  // lit on the Session. Derived on every navigation state change, so every path updates it, not one: this
+  // closes the highlight half of TICKET-025. The rule for the logger, registered in both stacks: it lights Log
+  // Workout wherever it is, as a Layout route or inside the Workout stack (where a tap on Log Workout pushes
+  // it, `openTab`), and every other Workout screen lights Workout. Rejected: the focused Layout route alone,
+  // which lit Workout over the logger the user had just tapped Log Workout to open. `openTab` still sets the
+  // tab at once, before the state event arrives.
+  useEffect(
+    () =>
+      navigation.addListener('state', () => {
+        const state = navigation.getState();
+        const focused = state?.routes[state.index];
+        if (!focused || !(focused.name in LayoutRoutes)) return;
+        const inner = focused.state?.routes[focused.state.index ?? focused.state.routes.length - 1]?.name;
+        const front = focused.name === LayoutRoutes.Workout && inner === WorkoutRoutes.LogWorkout ? LayoutRoutes.LogWorkout : focused.name;
+        setActiveTab(front as keyof typeof LayoutRoutes);
+      }),
+    [navigation]
+  );
 
   // Moves Workout home to the top of the nested Workout stack (see `openTab`):
   // `navigate` there moves an existing copy (WorkoutNavigator `singleCopy`), or

@@ -32,6 +32,9 @@ import { ACTIVE_WORKOUT_KEY, LOCAL_DATA_VERSION, LOCAL_DATA_VERSION_KEY, PENDING
  */
 const savesInFlight = new Map<string, Promise<boolean>>();
 
+/** Sessions whose Finish is still waiting for its upload; their landing screen says "saved" itself (`endWorkout`). */
+const landingOn = new Set<string>();
+
 // ACTIVE_WORKOUT_KEY, PENDING_UPLOADS_KEY, LOCAL_DATA_VERSION and its key: value and reason in src/config/storageKeys.ts.
 
 /** Remove `activeWorkout` and the upload queue if they predate LOCAL_DATA_VERSION. */
@@ -51,10 +54,12 @@ async function clearLocalDataFromOlderBuilds(): Promise<void> {
  * - `queued`: saved on the phone and out of the active slot; the upload is still
  *   pending (offline) or was rejected, and will be retried.
  * - `refused`: nothing was saved and the workout is still active.
+ * `sessionId` is the saved workout's id, the one the Session screen opens by (TICKET-083). It is
+ * `buildSessionId(workout.id, workout.startTime)`, so a caller can also know it before Finish.
  */
 export type EndWorkoutResult =
-  | { status: "uploaded" }
-  | { status: "queued" }
+  | { status: "uploaded"; sessionId: string }
+  | { status: "queued"; sessionId: string }
   | { status: "refused"; reason: string };
 
 const refused = (reason: string): EndWorkoutResult => ({ status: "refused", reason });
@@ -758,6 +763,9 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       console.log("Failed to clear active workout:", error)
     );
 
+    // The user lands on this workout's Session, which says it is saved: the "Saved" toast of an upload that
+    // finishes inside the wait below would say it twice (TICKET-083). One that lands later still toasts.
+    landingOn.add(entry.sessionId);
     const upload = uploadPendingWorkout(entry);
     let timer: ReturnType<typeof setTimeout> | undefined;
     const uploaded = await Promise.race([
@@ -767,8 +775,9 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       }),
     ]);
     clearTimeout(timer);
+    landingOn.delete(entry.sessionId);
 
-    if (uploaded) return { status: "uploaded" };
+    if (uploaded) return { status: "uploaded", sessionId: entry.sessionId };
     if (uploaded === null) {
       // Still pending: offline, or a slow connection. The "Saved" toast
       // follows if it lands (`attemptUpload`). The history caveat is the accepted TICKET-028 gap: "last
@@ -784,7 +793,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
         `${get().pendingUploads.find((e) => e.sessionId === entry.sessionId)?.lastError ?? "Unknown error."} It will be retried.`
       );
     }
-    return { status: "queued" };
+    return { status: "queued", sessionId: entry.sessionId };
   },
 
   /**
@@ -949,7 +958,9 @@ async function attemptUpload(entry: PendingUpload): Promise<boolean> {
     // Names the workout and its length (TICKET-066): on Finish this is the one
     // message the user gets, on the hub; for a workout queued offline it is
     // the later "it landed", so it must say which one.
-    show.success("Saved", savedSummary(entry.workout.name, entry.workout.startTime, entry.endedAt));
+    if (!landingOn.has(entry.sessionId)) {
+      show.success("Saved", savedSummary(entry.workout.name, entry.workout.startTime, entry.endedAt));
+    }
     // A successful upload is the best evidence the connection is back.
     drainPendingUploads();
     return true;

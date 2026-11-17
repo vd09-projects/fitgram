@@ -139,19 +139,41 @@ describe("after the workout ends", () => {
       exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: 60, Reps: 5 }] }] })],
     });
 
-  it("Finish lands on the hub, with one Saved message naming the workout and its minutes", async () => {
+  it.each([
+    ["the footer tab (Layout stack)", undefined],
+    ["the Workout stack", WorkoutRoutes.LogWorkout],
+  ])("Finish from %s lands on the workout's Session, and the upload says Saved there, not in a toast", async (_, workoutRoute) => {
     (saveWorkoutSession as jest.Mock).mockResolvedValue({ sessionId: "s", summaries: [] });
     const log = jest.spyOn(console, "log").mockImplementation(() => {});
     const success = jest.spyOn(show, "success");
-    renderScreen(ActiveWorkoutScreen, { workout: loggedWorkout() });
+    renderScreen(ActiveWorkoutScreen, { workout: loggedWorkout(), workoutRoute });
 
     await act(async () => fireEvent.press(finishButton()));
 
-    expect(screen.getByText("route:Workout/WorkoutHome")).toBeOnTheScreen();
-    expect(success).toHaveBeenCalledTimes(1);
-    expect(success).toHaveBeenCalledWith("Saved", "Shoulders & Core · 52 min");
+    expect(screen.getByText(`route:Workout/${WorkoutRoutes.Session}`)).toBeOnTheScreen();
+    expect(screen.queryByText("route:Workout/WorkoutHome")).toBeNull();
+    expect(success).not.toHaveBeenCalled();
     success.mockRestore();
     log.mockRestore();
+  });
+
+  it("a Finish that is refused stays on the logger and lands nowhere", async () => {
+    const alert = jest.spyOn(show, "alert").mockImplementation(() => {});
+    // No sets logged: refused before anything is saved.
+    renderScreen(ActiveWorkoutScreen, { workout: buildWorkout(["Bench Press"]) });
+
+    await act(async () => fireEvent.press(finishButton()));
+
+    expect(useWorkoutStore.getState().activeWorkout).not.toBeNull();
+    expect(screen.queryByText(/^route:/)).toBeNull();
+
+    // The refused Finish left nothing behind: a Discard afterwards goes to the hub, not to a Session.
+    fireEvent.press(screen.getByRole("button", { name: "Workout options" }));
+    fireEvent.press(screen.getByText("Discard workout"));
+    await act(async () => fireEvent.press(screen.getByText("Discard")));
+    expect(screen.getByText("route:Workout/WorkoutHome")).toBeOnTheScreen();
+    expect(screen.queryByText(`route:Workout/${WorkoutRoutes.Session}`)).toBeNull();
+    alert.mockRestore();
   });
 
   it("Discard lands on the hub", async () => {
