@@ -11,6 +11,7 @@ import { buildWorkout } from "../../test/fixtures";
 import { WorkoutRoutes } from "../../constants/routes";
 import { WorkoutSessionDoc } from "../../types/workoutSession";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
+import * as historyRail from "../../utils/historyRail";
 
 jest.mock("../../services/db/userDB", () => ({
   ...jest.requireActual("../../services/db/userDB"),
@@ -177,6 +178,22 @@ describe("HistoryHomeScreen", () => {
     expect(screen.queryByTestId(`history-row-${olderPull.sessionId}`)).not.toBeOnTheScreen();
     expect(screen.queryByRole("button", { name: /^Older workouts/ })).not.toBeOnTheScreen();
     expect(getOlderWorkoutsPage).toHaveBeenCalledTimes(1);
+  });
+
+  // The rail's rows are rebuilt only when what they are built from changes: opening the filter sheet re-renders the
+  // screen and must not rebuild every row (which would defeat the row's memo).
+  it("does not rebuild the rows when the screen re-renders with the same data", async () => {
+    const build = jest.spyOn(historyRail, "buildRail");
+    try {
+      await renderHistory([session("push", "Push", Date.now())]);
+      await screen.findByTestId("history-list");
+      const before = build.mock.calls.length;
+      fireEvent.press(screen.getByRole("button", { name: /^Filter workouts/ }));
+      await screen.findByText("Show workouts");
+      expect(build.mock.calls.length).toBe(before);
+    } finally {
+      build.mockRestore();
+    }
   });
 
   it("with nothing logged, says so and offers Start a workout", async () => {

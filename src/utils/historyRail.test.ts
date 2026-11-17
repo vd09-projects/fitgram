@@ -117,7 +117,8 @@ describe("mergePending", () => {
   });
 
   it("gives a provisional verdict from a held summary, first time when held and absent, and none when summaries are not held", () => {
-    const stats = buildStats("Bench Press", [{ sets: [{ Weight: "50", Reps: "5" }] }]);
+    // A fixed date before the queued workout: `buildStats` defaults to the real clock, which made this test depend on today's date.
+    const stats = buildStats("Bench Press", [{ sets: [{ Weight: "50", Reps: "5" }], performedAt: at(11, 1) }]);
     expect(mergePending([], [entry("u1", 0)], "u1", () => stats)[0].session.lifts[0]).toMatchObject({ verdict: "better" });
     expect(mergePending([], [entry("u1", 0)], "u1", () => null)[0].session.lifts[0]).toMatchObject({ verdict: null, reason: "first_time" });
     expect(mergePending([], [entry("u1", 0)], "u1", null)[0].session.lifts[0]).toMatchObject({ verdict: null, reason: "pending" });
