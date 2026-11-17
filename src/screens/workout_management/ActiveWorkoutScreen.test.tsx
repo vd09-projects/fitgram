@@ -1,6 +1,7 @@
 import { act, fireEvent, screen, within } from "@testing-library/react-native";
 import ActiveWorkoutScreen from "./ActiveWorkoutScreen";
 import { renderScreen } from "../../test/renderScreen";
+import { buildSessionId } from "../../utils/exerciseStats";
 import { buildExercise, buildStats, buildWorkout, CATALOG_ROW } from "../../test/fixtures";
 import { EndWorkoutResult, useWorkoutStore } from "../../stores/useWorkoutStore";
 import { getAllExerciseStats, saveWorkoutSession } from "../../services/db/workoutSessions";
@@ -155,6 +156,51 @@ describe("after the workout ends", () => {
     expect(success).not.toHaveBeenCalled();
     success.mockRestore();
     log.mockRestore();
+  });
+
+  // The slot is empty from the start of Finish; the workout is safe only once the store says its queue write
+  // succeeded (`queuedSessionId`). `endWorkout` is a double here, so the test decides when each of those happens.
+  describe("the landing waits for the queue write (PR #76 review)", () => {
+    const setup = () => {
+      const workout = loggedWorkout();
+      let finish!: (result: EndWorkoutResult) => void;
+      const endWorkout = jest.fn(() => {
+        useWorkoutStore.setState({ activeWorkout: null });
+        return new Promise<EndWorkoutResult>((resolve) => (finish = resolve));
+      });
+      renderScreen(ActiveWorkoutScreen, { workout, workoutActions: { endWorkout } });
+      return { workout, finish: (result: EndWorkoutResult) => finish(result) };
+    };
+
+    it("does not navigate while the write is pending, and lands once it is queued", async () => {
+      const { workout } = setup();
+      // Braces: `press` returns the handler's promise, which here never settles, and `act` would wait for it.
+      await act(async () => {
+        fireEvent.press(finishButton());
+      });
+
+      expect(useWorkoutStore.getState().activeWorkout).toBeNull();
+      expect(screen.queryByText(/^route:/)).toBeNull();
+
+      await act(async () => useWorkoutStore.setState({ queuedSessionId: buildSessionId(workout.id, workout.startTime) }));
+      expect(screen.getByText(`route:Workout/${WorkoutRoutes.Session}`)).toBeOnTheScreen();
+    });
+
+    it("a failed write puts the workout back: still on the logger, not on a Session and not on the hub", async () => {
+      const { workout, finish } = setup();
+      // Braces: `press` returns the handler's promise, which here never settles, and `act` would wait for it.
+      await act(async () => {
+        fireEvent.press(finishButton());
+      });
+      expect(screen.queryByText(/^route:/)).toBeNull();
+
+      await act(async () => {
+        useWorkoutStore.setState({ activeWorkout: workout });
+        finish({ status: "refused", reason: "Could not write the upload queue." });
+      });
+      expect(screen.queryByText(/^route:/)).toBeNull();
+      expect(finishButton()).toBeOnTheScreen();
+    });
   });
 
   it("a Finish that is refused stays on the logger and lands nowhere", async () => {

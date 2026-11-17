@@ -151,14 +151,21 @@ export default function ActiveWorkoutScreen() {
   // Workout stack is replaced by those three routes (`reset`; from the footer tab, `popTo` with the stack's
   // `state`, since `navigate` would push another Workout beside the one in the Layout history). That drops
   // what `popTo(WorkoutHome)` dropped, everything above the hub. `finished` is set by `handleFinish` before
-  // the store clears the workout, which is what fires this effect; Discard never sets it. The id is
-  // `buildSessionId`, the one the store queues the workout under, so the route and the save cannot differ.
+  // the store clears the workout; Discard never sets it. The id is `buildSessionId`, the one the store queues the
+  // workout under, so the route and the save cannot differ.
+  //
+  // The landing waits for `queuedSessionId`, the store's word that the queue write succeeded: the slot is empty
+  // from the start of Finish, and a failed write puts the workout back (PR #76 review), which would have left
+  // the user on a Session with no workout behind it. While it waits, nothing navigates, so a failed Finish
+  // also no longer flickers to the hub.
   const isFocused = useIsFocused();
+  const queuedSessionId = useWorkoutStore((s) => s.queuedSessionId);
   const finished = useRef<FinishLanding | null>(null);
   useEffect(() => {
     if (!isFocused || activeWorkout) return;
     const inWorkoutStack = (navigation.getState().routeNames as string[]).includes(WorkoutRoutes.WorkoutHome);
     const landing = finished.current;
+    if (landing && queuedSessionId !== landing.sessionId) return;
     finished.current = null;
     if (landing) {
       const routes = finishLandingRoutes(landing);
@@ -174,7 +181,7 @@ export default function ActiveWorkoutScreen() {
         ? StackActions.popTo(WorkoutRoutes.WorkoutHome)
         : StackActions.popTo(LayoutRoutes.Workout, { screen: WorkoutRoutes.WorkoutHome })
     );
-  }, [isFocused, activeWorkout, navigation]);
+  }, [isFocused, activeWorkout, queuedSessionId, navigation]);
 
   const handleFinish = async () => {
     if (!activeWorkout) {

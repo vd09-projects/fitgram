@@ -168,6 +168,13 @@ interface WorkoutStoreState {
   /** Finished workouts waiting to upload, in finish order. Mirrors `PENDING_UPLOADS_KEY`. */
   pendingUploads: PendingUpload[];
   /**
+   * The session id of the last Finish whose queue write succeeded, or null (TICKET-083). In memory only. The active
+   * slot is empty from the moment Finish starts, but the workout is safe only once it is on disk: a screen that
+   * acts on "the workout ended" (the landing on the Session) waits for this, because a failed write puts the
+   * workout back, and a screen that left on the empty slot would be left on a Session with no workout behind it.
+   */
+  queuedSessionId: string | null;
+  /**
    * The rest running since the last logged set, or null (TICKET-021).
    *
    * Memory only, not written to AsyncStorage: it survives navigating away and
@@ -216,6 +223,7 @@ interface WorkoutStoreState {
 export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
   activeWorkout: null,
   pendingUploads: [],
+  queuedSessionId: null,
   rest: null,
 
   /**
@@ -757,6 +765,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       show.alert("Could not save workout", "It could not be stored on this phone. Please try again.");
       return refused("Could not write the upload queue.");
     }
+    set({ queuedSessionId: entry.sessionId });
     // Queue first, then clear the slot. A crash between the two leaves the
     // workout in both; `loadWorkoutFromStorage` drops the active copy.
     await AsyncStorage.removeItem(ACTIVE_WORKOUT_KEY).catch((error) =>

@@ -1876,6 +1876,8 @@ still highlighted. Pre-existing; surfaced while testing TICKET-017.
 
 **Dependencies:** None.
 
+**Highlight built in TICKET-083 (PR #76, 2026-11-18), ticket left OPEN for the owner to close:** `LayoutScreen` now sets the highlighted tab on every navigation state change (a `state` listener on the container), not only on a tap. The rule for the logger, which is registered in both stacks: it lights Log Workout wherever it is (a Layout route, or inside the Workout stack), and every other Workout screen lights Workout. Covered by `LayoutScreen.test.tsx` (the Finish landing lights Workout, the logger lights Log Workout) and seen on the emulator. Header Home and Profile taps still highlight through `openTab`; the third acceptance item is covered, not separately tested. Not done: the tab is still state set from events, not read from the navigation state during render; the Layout navigator is outside the container's render tree, so an event was the available hook.
+
 ---
 
 ### TICKET-026: Clear Account-Scoped State on Sign-Out and Account Switch

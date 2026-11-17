@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { RouteProp, useRoute } from "@react-navigation/native";
 import { useAuthUser } from "../../hooks/useAuthUser";
@@ -39,8 +39,10 @@ import { useThemeStyles } from "../../utils/useThemeStyles";
  * A note is saved on the server first (`setWorkoutNote`, refused offline) and then shown in every copy the phone
  * holds (`applyNote`); a workout still in the queue has no document to hold one, so the item says so.
  *
- * After Finish the app lands here (`finished` param, `ActiveWorkoutScreen`): "Workout saved" shows once the workout is on the
- * server, in the place of the toast that upload no longer shows. Waiting or rejected, the notice says so instead.
+ * After Finish the app lands here (`finished` param, `ActiveWorkoutScreen`). A workout on the server at the landing says
+ * "Workout saved", in the place of the toast that upload no longer shows. One that was waiting or rejected says so
+ * instead, and when its upload lands later the "Saved" toast says it (the store suppresses the toast only inside
+ * Finish's wait), so the banner stays away: it would say it twice (PR #76 review).
  */
 export default function SessionScreen() {
   const { styles, t } = useThemeStyles(createStyles);
@@ -66,6 +68,7 @@ export default function SessionScreen() {
   const pending = useWorkoutStore((s) => s.pendingUploads);
   const summaries = useExerciseHistoryStore((s) => (s.uid === uid ? s.byId : null));
   const [retrying, setRetrying] = useState(false);
+  const sawNotUploaded = useRef(false);
   const [openCards, setOpenCards] = useState<ReadonlySet<number>>(new Set());
   const [menuOpen, setMenuOpen] = useState(false);
   // Counted up per opening, so the sheet remounts with the saved text and a cancelled draft is not kept.
@@ -194,6 +197,9 @@ export default function SessionScreen() {
   }
 
   const { session, state } = workout;
+  // Set once this screen has shown the workout as not uploaded; read below. A write during render, kept to a ref
+  // because the answer must not change what the next render shows by itself, only what it remembers.
+  if (state !== "uploaded") sawNotUploaded.current = true;
   const notice = uploadNotice(state);
   const summary = sessionSummary(session);
   const noteReason = state === "uploaded" ? null : "Available once the workout has uploaded.";
@@ -232,7 +238,7 @@ export default function SessionScreen() {
       {header}
       <View style={styles.dateRow}>
         <TextBase style={styles.date}>{sessionDateLine(session.startedAt, session.endedAt)}</TextBase>
-        {params.finished === true && state === "uploaded" && (
+        {params.finished === true && state === "uploaded" && !sawNotUploaded.current && (
           <TextBase style={styles.savedText} testID="session-saved">
             Workout saved
           </TextBase>

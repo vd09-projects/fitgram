@@ -159,6 +159,20 @@ describe("useWorkoutStore.endWorkout", () => {
     expect(toast.info).toHaveBeenCalledWith("Saved on this phone", expect.any(String));
   });
 
+  it("names the queued session only once the queue write succeeded, so a failed write is not mistaken for a finish", async () => {
+    const workout = seedWorkout();
+    jest.spyOn(AsyncStorage, "setItem").mockRejectedValueOnce(new Error("disk full"));
+
+    expect(await store().endWorkout("u1")).toMatchObject({ status: "refused" });
+    expect(store().queuedSessionId).toBeNull();
+    expect(store().activeWorkout).toEqual(workout);
+
+    save.mockResolvedValueOnce(saved);
+    const result = await store().endWorkout("u1");
+    expect(store().queuedSessionId).toBe(buildSessionId(workout.id, workout.startTime));
+    expect(result).toMatchObject({ status: "uploaded" });
+  });
+
   it("a successful upload removes the entry, in memory and on disk", async () => {
     const workout = seedWorkout();
     save.mockResolvedValueOnce(saved);
