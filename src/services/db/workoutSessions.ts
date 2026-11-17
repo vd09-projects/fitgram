@@ -13,6 +13,7 @@
 import {
   collection,
   doc,
+  getDocFromServer,
   getDocs,
   getDocsFromServer,
   limit as limitFn,
@@ -381,6 +382,22 @@ export const getOlderWorkoutsPage = async (
     if (sessions.length >= size) return { sessions, docsRead, reachedStart: false };
     after = answer.docs[answer.docs.length - 1];
   }
+};
+
+/**
+ * One workout by its id, or null when it does not exist or is a `deleted` marker (TICKET-083: a workout
+ * opened that is not on the phone). 1 read. From the server, never the cache: offline this rejects, so
+ * the screen says it needs a connection rather than "not found". A doc this phone has written and the
+ * server has not confirmed is refused as the queries are (`serverOnly`): it is in the upload queue, which
+ * the Session screen reads first.
+ */
+export const getWorkoutById = async (userId: string, sessionId: string): Promise<WorkoutSessionDoc | null> => {
+  if (!userId || !sessionId) throw new Error("Missing user or session");
+  const snapshot = await getDocFromServer(doc(sessionsRef(userId), sessionId));
+  if (snapshot.metadata.hasPendingWrites) throw new Error("A workout upload is still queued on this phone");
+  if (!snapshot.exists()) return null;
+  const session = sessionFromDoc(snapshot as QueryDocumentSnapshot<DocumentData>);
+  return session.deleted === true ? null : session;
 };
 
 /**

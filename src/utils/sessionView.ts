@@ -16,6 +16,7 @@ import type { ExerciseField } from "../types/workoutType";
 import { mergePending, type RailWorkout } from "./historyRail";
 import { previousSessionOf } from "./liftRecord";
 import { matchLastField } from "./unitChange";
+import { sessionMinutes } from "./sessionDuration";
 import { setValuesText } from "./setDeltas";
 import { decodeStoredSets, plannedSegment, splitSegments } from "./storedSets";
 
@@ -149,17 +150,31 @@ export function liftCards(session: WorkoutSessionDoc, summaryOf: SummaryOf | nul
 const joinNames = (names: readonly string[]): string =>
   names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const NUMBER_WORDS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
+const countWord = (n: number): string => NUMBER_WORDS[n] ?? String(n);
+
 /**
- * The header's two lines (boards 02, 08): which lifts beat last time, and how many were the same, lower,
- * not compared or new. Null when any lift is `pending` or the lifts could not be read: half the verdicts
- * would read as the whole answer (the same rule as `workoutVerdict`). A line with nothing to say is null,
- * not an empty string. "New" counts lifts, not workouts; Freestyle says nothing here (every lift is new).
+ * The header's two lines (boards 02, 08, 10): the headline, which lifts beat last time, and under it how many
+ * were the same, lower, not compared or new. Null when any lift is `pending`, the lifts could not be read, or
+ * there are none: half the verdicts would read as the whole answer (the same rule as `workoutVerdict`).
+ * - Nothing beat last time and every lift is a first time (a first workout, Freestyle): "Three lifts, no earlier
+ *   session to compare with.", and no counts, which would only say "3 new".
+ * - Nothing beat last time otherwise: "No lift beat last time." Wording chosen here, no board shows this case.
+ * `detail` is null, not an empty string, when it has nothing to say. "New" counts lifts, not workouts, and
+ * Freestyle does not count a first time (every lift is new there).
  */
-export function sessionSummary(session: WorkoutSessionDoc): { beat: string | null; counts: string | null } | null {
-  if (session.liftsUnreadable || session.lifts.some((lift) => lift.reason === "pending")) return null;
+export function sessionSummary(session: WorkoutSessionDoc): { headline: string; detail: string | null } | null {
+  if (session.liftsUnreadable || session.lifts.length === 0 || session.lifts.some((lift) => lift.reason === "pending")) {
+    return null;
+  }
   const names = (verdict: string) => session.lifts.filter((lift) => lift.verdict === verdict).map((lift) => lift.name);
   const reasoned = (reason: string) => session.lifts.filter((lift) => lift.reason === reason).length;
   const better = names("better");
+  if (better.length === 0 && session.lifts.every((lift) => lift.reason === "first_time")) {
+    const n = session.lifts.length;
+    return { headline: `${countWord(n)} ${n === 1 ? "lift" : "lifts"}, no earlier session to compare with.`, detail: null };
+  }
   const freestyle = session.workoutId === FREESTYLE_ID;
   const parts = [
     [names("same").length, "the same"],
@@ -169,12 +184,24 @@ export function sessionSummary(session: WorkoutSessionDoc): { beat: string | nul
   ] as const;
   const counts = parts.filter(([n]) => n > 0).map(([n, word]) => `${n} ${word}`);
   return {
-    beat: better.length > 0 ? `${joinNames(better)} beat last time.` : null,
-    counts: counts.length > 0 ? counts.join(" · ") : null,
+    headline: better.length > 0 ? `${joinNames(better)} beat last time.` : "No lift beat last time.",
+    detail: counts.length > 0 ? counts.join(" · ") : null,
   };
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/**
+ * "Mon 9 Nov · 58 min" under the title. The minutes are left out, with their dot, when `sessionMinutes` has none
+ * (an imported workout, or a clock moved back): never "0 min" (CLAUDE.md 2.4). Under a minute reads "under 1 min".
+ */
+export function sessionDateLine(startedAt: number, endedAt: number | null): string {
+  const d = new Date(startedAt);
+  const date = `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  const minutes = sessionMinutes(startedAt, endedAt);
+  return minutes === null ? date : `${date} · ${minutes < 1 ? "under 1" : minutes} min`;
+}
+
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /**

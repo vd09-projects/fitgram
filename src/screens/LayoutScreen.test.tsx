@@ -35,7 +35,7 @@ jest.mock("./workout_management/StartWorkoutScreen", () => mockStub("screen:Nest
 jest.mock("./workout_management/AddExerciseScreen", () => mockStub("screen:Manage"));
 jest.mock("./workout_management/WorkoutLogsScreen", () => mockStub("screen:Logs"));
 jest.mock("./workout_management/HistoryHomeScreen", () => mockStub("screen:HistoryHome"));
-jest.mock("./workout_management/SessionPlaceholderScreen", () => mockStub("screen:Session"));
+jest.mock("./workout_management/SessionScreen", () => mockStub("screen:Session"));
 jest.mock("./workout_management/ExerciseHistoryDebugScreen", () => mockStub("screen:HistoryDebug"));
 jest.mock("./workout_management/PlansStoreDebugScreen", () => mockStub("screen:PlansStoreDebug"));
 jest.mock("./workout_management/ActiveWorkoutScreen", () => () => {

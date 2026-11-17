@@ -5,6 +5,7 @@ import {
   liftCompare,
   liftLabel,
   resolveSession,
+  sessionDateLine,
   sessionSummary,
   setViews,
   unitChangeCaption,
@@ -96,8 +97,8 @@ describe("sessionSummary", () => {
       lift("Pull", null, "first_time"),
     ]);
     expect(sessionSummary(session)).toEqual({
-      beat: "Bench and Pushdown beat last time.",
-      counts: "1 the same · 1 a bit lower · 1 not compared · 2 new",
+      headline: "Bench and Pushdown beat last time.",
+      detail: "1 the same · 1 a bit lower · 1 not compared · 2 new",
     });
   });
 
@@ -106,8 +107,24 @@ describe("sessionSummary", () => {
     expect(sessionSummary(sessionOf([], { liftsUnreadable: true }))).toBeNull();
   });
 
-  it("is null per line, not an empty string, when a line has nothing to say", () => {
-    expect(sessionSummary(sessionOf([lift("Bench", "better", null)]))).toEqual({ beat: "Bench beat last time.", counts: null });
+  it("says there is nothing to compare with for an all-new workout, with no counts", () => {
+    const all = sessionOf([lift("A", null, "first_time"), lift("B", null, "first_time"), lift("C", null, "first_time")]);
+    expect(sessionSummary(all)).toEqual({ headline: "Three lifts, no earlier session to compare with.", detail: null });
+  });
+
+  it("says no lift beat last time, with its counts, and leaves detail null when it has none", () => {
+    expect(sessionSummary(sessionOf([lift("Press", "same", null)]))).toEqual({ headline: "No lift beat last time.", detail: "1 the same" });
+    expect(sessionSummary(sessionOf([lift("Bench", "better", null)]))).toEqual({ headline: "Bench beat last time.", detail: null });
+  });
+});
+
+describe("sessionDateLine", () => {
+  const start = new Date(2026, 10, 9, 18, 0).getTime();
+  it("adds the minutes, and drops them rather than say 0 for an imported workout or a backwards clock", () => {
+    expect(sessionDateLine(start, start + 58 * 60_000)).toBe("Mon 9 Nov · 58 min");
+    expect(sessionDateLine(start, start)).toBe("Mon 9 Nov");
+    expect(sessionDateLine(start, start - 1000)).toBe("Mon 9 Nov");
+    expect(sessionDateLine(start, start + 10_000)).toBe("Mon 9 Nov · under 1 min");
   });
 });
 

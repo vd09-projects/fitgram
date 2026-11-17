@@ -5,6 +5,7 @@ import {
   getLastWorkoutOfPlan,
   getNewestSessionStamp,
   getOlderWorkoutsPage,
+  getWorkoutById,
   getWorkoutWindowFromServer,
 } from "../services/db/workoutSessions";
 import type { WorkoutSessionDoc } from "../types/workoutSession";
@@ -98,6 +99,12 @@ export type OlderWorkouts = {
   read: OnDemandState<OlderPage> | null;
 };
 
+/**
+ * A workout opened by id that the phone does not hold (TICKET-083): `session` is null when the server has
+ * none by that id, or only a `deleted` marker. Memory only, one entry per id, as `olderWorkouts`.
+ */
+export type FetchedSession = { status: "ready"; session: WorkoutSessionDoc | null };
+
 const ALL_PLANS_KEY = "*";
 export const olderKey = (planId: string | null): string => planId ?? ALL_PLANS_KEY;
 
@@ -127,6 +134,8 @@ interface WorkoutsStore extends SyncFields<WorkoutsCheckKind> {
   lastSaveMs: number | null;
   /** Workouts older than the window, by plan filter (`olderKey`). Memory only. */
   olderWorkouts: Record<string, OlderWorkouts>;
+  /** Workouts opened by id that the phone did not hold, by session id (`loadSession`). Memory only. */
+  fetchedSessions: Record<string, OnDemandState<FetchedSession>>;
 
   /** A reader opened: load the saved copy for `uid`, then check. */
   open: (uid: string) => Promise<void>;
@@ -139,13 +148,19 @@ interface WorkoutsStore extends SyncFields<WorkoutsCheckKind> {
    * is inside its wait; a refused read is asked again, not within `WORKOUTS_OLDER_RETRY_GAP_MS`.
    */
   loadOlder: (planId: string | null) => Promise<void>;
+  /**
+   * Read one workout by id, for a Session opened that is neither held nor queued: 1 read, answer kept in
+   * `fetchedSessions`. Nothing when it is already read or inside its wait; a refused read is asked again,
+   * not within `WORKOUTS_OLDER_RETRY_GAP_MS`.
+   */
+  loadSession: (sessionId: string) => Promise<void>;
   /** This phone's upload of `session` was confirmed by the server: hold it, 0 reads. */
   applyFinished: (uid: string, session: WorkoutSessionDoc) => void;
   /** Sign-out. */
   clear: () => void;
 }
 
-type State = Omit<WorkoutsStore, "open" | "check" | "loadOlder" | "applyFinished" | "clear">;
+type State = Omit<WorkoutsStore, "open" | "check" | "loadOlder" | "loadSession" | "applyFinished" | "clear">;
 
 const initialState = {
   uid: null,
@@ -159,6 +174,7 @@ const initialState = {
   lastSeen: null,
   lastFullAt: null,
   olderWorkouts: {},
+  fetchedSessions: {},
   lastSaveMs: null,
   readout: { reads: 0, log: [] }, // debug readout (Plans Store page)
 };
@@ -314,6 +330,12 @@ const askForOlder = createOnDemandReads<OlderPage>({
   retryGapMs: WORKOUTS_OLDER_RETRY_GAP_MS,
 });
 
+/** The same rules for one workout by id (TICKET-083); a key per id, so two opened at once do not join. */
+const askForSession = createOnDemandReads<FetchedSession>({
+  waitMs: WORKOUTS_CHECK_WAIT_MS,
+  retryGapMs: WORKOUTS_OLDER_RETRY_GAP_MS,
+});
+
 export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
   const runner = createSyncRunner<WorkoutsStore, WorkoutsCheckKind, CheckRun, Answer>({
     get,
@@ -399,6 +421,22 @@ export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
           const { sessions, docsRead, reachedStart } = await getOlderWorkoutsPage(uid, before, planId, OLDER_WORKOUTS_PAGE_SIZE);
           bill(docsRead);
           return { status: "ready", sessions, reachedStart };
+        },
+      });
+    },
+
+    loadSession: async (sessionId) => {
+      const { uid, fetchedSessions } = get();
+      if (uid === null) return;
+      const epoch = get().epoch;
+      return askForSession(sessionId, {
+        current: fetchedSessions[sessionId],
+        setState: (read) => set((s) => ({ fetchedSessions: { ...s.fetchedSessions, [sessionId]: read } })),
+        isCurrent: () => runner.isCurrent(epoch),
+        read: async () => {
+          const session = await getWorkoutById(uid, sessionId);
+          bill(session ? 1 : 0);
+          return { status: "ready", session };
         },
       });
     },
