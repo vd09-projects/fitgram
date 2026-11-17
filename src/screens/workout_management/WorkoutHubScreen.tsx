@@ -213,6 +213,7 @@ export default function WorkoutHubScreen() {
         <HubHeader
           onPlans={() => navigation.navigate(WorkoutRoutes.AddExercise)}
           onHistory={() => navigation.navigate(WorkoutRoutes.WorkoutLogs)}
+          onHistoryNew={() => navigation.navigate(WorkoutRoutes.HistoryHome)}
         />
         {activeWorkout && (
           <HubResumeBar
@@ -226,7 +227,6 @@ export default function WorkoutHubScreen() {
         {showDebugScreens && (
           <HubDebugRow
             onHistoryDebug={() => navigation.navigate(WorkoutRoutes.HistoryDebug)}
-            onPendingUploads={() => navigation.navigate(WorkoutRoutes.PendingUploadsDebug)}
             onPlansStore={() => navigation.navigate(WorkoutRoutes.PlansStoreDebug)}
           />
         )}

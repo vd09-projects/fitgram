@@ -10436,6 +10436,20 @@ session; calendar, streaks, weekly view (cut in design on purpose).
 
 **Dependencies:** TICKET-081, 082, 088 (decided: older workouts load by page with no month count; Stage 2 above).
 
+**Stage 1 built (2026-11-17), on `feat/ticket-085a-stage-1-history-shell`, not committed:** `HistoryHomeScreen` (tabs with Exercises switched
+off, plan filter in a `MenuSheet`, notice strip from `historyNotice`), the `HistoryHome` and `Session` routes (Session has `getId` by session
+id; its component is the TEMPORARY `SessionPlaceholderScreen`), the TEMPORARY "History (new)" hub pill, and `PendingUploadsDebugScreen`
+removed with its route, tile and mocks. A TEMPORARY plain list of the held workouts stands where stage 2's rail goes, so Session is reachable.
+Deviations, for the user to overrule:
+- *Notice "Offline".* The board's offline strip is shown as "Couldn't check for new workouts" (it first wrapped to two lines in the 44 px strip on the emulator), when the
+  workouts store's last check failed. The store records that a check failed, not why, so "Offline" would assert a cause it cannot know
+  (CLAUDE.md 2.4). A true offline flag means touching the shared sync runner, so it was not done; say if it should be.
+- *029 is closed in part.* The debug screen is gone and the strip gives the count and Try again for a rejected upload. 029's per-entry list
+  (name, date, last error) lands with stage 2, where a waiting workout is merged into the rail with its state; its last error text is not
+  shown anywhere until then.
+- *Device test pending:* the "waiting to upload" and "didn't upload" strips are unit-tested only. Their device run needs a test workout written to `pinky`, and there is no delete until TICKET-086; the user deferred it to then (2026-11-17). Add it to 086's proof.
+- The filter sheet's counts read "N on this phone", never a total (`coversWholeHistory`, TICKET-087).
+
 ---
 
 ### TICKET-085b: History Home — Exercises Tab and the Switch
@@ -10518,6 +10532,7 @@ could come from the held copy for held months. Acceptable for a rare action that
 
 **Proof:** read and write counts for a lift with about 100 sessions; the 081 compare script reports 0
 mismatches after a delete; two phones: the deleted workout leaves the other phone's list on its next check.
+Also, from TICKET-085a: with delete available, run the History strip's device test (finish a test workout offline: "waiting to upload"; a rejected upload: "didn't upload" with Try again), then delete the test session with the new delete.
 
 **Out of scope:** Edit session (UI parked: the user will decide it later); editing a set (032).
 

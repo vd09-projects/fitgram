@@ -524,3 +524,16 @@ Finish on the test plan; kill and airplane-mode cold start; the picker's recents
   Farmer's Walk history (unit test only); the rest panel notice on device (screen test only); light theme;
   iOS; a narrow phone (the emulator is 448 dp wide). The distance chips are 124 px against the weight chips'
   120 on the 404 px screenshot: the board's grid is thirds minus the gap, mine is `maxWidth: 33%`.
+
+### TICKET-085a stage 1: History home shell (emulator, `pinky`, 2026-11-17)
+
+Built and unit-tested only; nothing here has been seen on the emulator. To run: hub, **History (new)** (the old **History** is unchanged).
+1. Opens on Workouts, All workouts; Exercises is greyed and does not switch.
+2. Filter pill → sheet lists All workouts and each plan with "N on this phone"; choosing one narrows the list; the pill shows its name; open Session and Back, the filter is still set.
+3. Tap a workout → placeholder with its name and date; Back returns. Tap two different workouts in a row: two screens (per-session `getId`), not one moved.
+4. Finish a workout offline: the strip says "1 workout waiting to upload"; online it goes. A rejected upload (rules) shows "didn't upload" with **Try again**.
+5. Airplane mode, cold start: the saved workouts show, the strip says the check failed (not "Offline", see TICKET-085a deviations).
+6. Debug builds: the hub's debug row has History Debug and Plans Store only.
+Untested: all of the above on a device; the per-session `getId` (the test stack replaces the navigator, so no test covers it; mutating it left every test green); iOS is not raised (Android first).
+- **[run] Passed on the emulator:** plan items 1, 2, 3, 5, 6, and scrolling to the last workout. Item 4 (the "waiting to upload" and "didn't upload" notices) is **pending, deferred by the user (2026-11-17)**: it needs a test workout written to `pinky`, and nothing in the app deletes one. Run it once TICKET-086 (Delete a Workout) is built. Until then these notices are covered by `historyNotice.test.ts` and the screen test only.
+- **[bug] Found only on the device, all fixed:** (a) the third hub pill squeezed "Workout" to one letter a line, so "History (new)" has its own row; (b) a blank band above History, the Layout already owns the safe-area inset and the screens added it again; (c) the offline strip wrapped to two lines, now "Couldn't check for new workouts"; (d) **the list did not scroll** (a `View` with `.map`; the user saw it, I had called items 1 to 3 passed from screenshots without scrolling, and the last row was already cut off in them). Now a `FlatList`. No unit test covers the scroll: jest does not lay out.
