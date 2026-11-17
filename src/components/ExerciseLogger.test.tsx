@@ -92,7 +92,7 @@ describe("ExerciseLogger", () => {
       "unit changed since last session",
       withHistory,
       buildExercise("Bench Press", { fields: LB }),
-      "Last time was in kg (60 kg × 8), so no targets",
+      "Last time was in kg (60 kg × 8)",
     ],
   ])("%s: no ghost, says why, still logs", async (_case, history, exercise, notice) => {
     renderScreen(ActiveWorkoutScreen, { workout: buildWorkout([], { exercises: [exercise] }), history });

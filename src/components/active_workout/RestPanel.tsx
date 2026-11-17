@@ -11,6 +11,7 @@ import { personalBest, personalBestText } from "../../utils/personalBest";
 import { formatCountdown, restCountdown, RestTimer } from "../../utils/restTimer";
 import { formatSessionDate } from "../../utils/setDeltas";
 import { ghostNotice, lastTimeText, resolveGhostTarget } from "../../utils/setLogger";
+import { unitNotice } from "../../utils/unitChange";
 import { TextBase, NumericText } from "../TextBase";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
@@ -80,7 +81,8 @@ export default function RestPanel({ rest, exercise, history, onSkip, onAddTime, 
   const nextSet = exercise.sets.length + 1;
   const target = resolveGhostTarget(history, nextSet);
   const targetText = lastTimeText(target);
-  const targetNotice = ghostNotice(target, history.status);
+  // The card's unit line (TICKET-091), for the set that comes next.
+  const targetNotice = unitNotice(exercise.fields, history, nextSet) ?? ghostNotice(target, history.status);
   const targetDate =
     target.kind === "available" && history.lastSession ? formatSessionDate(history.lastSession.performedAt) : null;
 

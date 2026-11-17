@@ -15,6 +15,7 @@ import { useExerciseHistoryStore } from "./useExerciseHistoryStore";
 import { useRecentWorkoutsStore } from "./useRecentWorkoutsStore";
 import { useCatalogStore } from "./useCatalogStore";
 import { exerciseDisplayName, type CatalogIndex } from "../utils/catalog";
+import { unitsForRole, type FieldUnit } from "../constants/units";
 import { UPLOAD_GRACE_MS } from "../config/workout";
 import { ACTIVE_WORKOUT_KEY, LOCAL_DATA_VERSION, LOCAL_DATA_VERSION_KEY, PENDING_UPLOADS_KEY } from "../config/storageKeys";
 
@@ -62,6 +63,7 @@ export type StartWorkoutResult = { status: "started" } | { status: "refused"; re
 
 export type SwapExerciseResult = { status: "swapped" } | { status: "refused"; reason: string };
 export type AddExerciseResult = { status: "added" } | { status: "refused"; reason: string };
+export type SetExerciseUnitsResult = { status: "changed" } | { status: "refused"; reason: string };
 
 /** The menu item's reason too (board SwapLocked), so the two say the same thing. */
 export const SWAP_LOCKED_REASON = "Only before set 1. Delete the logged sets to swap.";
@@ -184,6 +186,11 @@ interface WorkoutStoreState {
   setCurrentExerciseIndex: (index: number) => Promise<void>;
   /** Replace an unlogged exercise in its slot, for this workout only (TICKET-047). */
   swapExercise: (exerciseId: string, exercise: Exercise) => Promise<SwapExerciseResult>;
+  /**
+   * Set the units of one exercise's fields, for this workout only (TICKET-091).
+   * `units` maps a field name to its new unit; fields left out keep theirs.
+   */
+  setExerciseUnits: (exerciseId: string, units: Record<string, FieldUnit>) => Promise<SetExerciseUnitsResult>;
   /** Append an exercise and show it, for this workout only (TICKET-056). */
   addExercise: (exercise: Exercise) => Promise<AddExerciseResult>;
   /** Take an unlogged exercise out of today's list, for this workout only (TICKET-069). */
@@ -522,6 +529,56 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
 
     prefetchHistory();
     return { status: "swapped" };
+  },
+
+  /**
+   * 🔹 Change the units of an exercise's fields, for this workout only (TICKET-091).
+   *
+   * One edit to the slot's `fields`: a set's values are keyed by field name and
+   * carry no unit (`ExerciseSet.segments`), so at any set count the logged sets
+   * are relabelled, never rewritten. 8 plates × 15 reads 8 kg × 15 afterwards:
+   * nothing is converted, which is the app's rule for units. Rejected: locking
+   * after set 1 as Swap does; delete and re-log gives the same result with more
+   * taps.
+   *
+   * Never written to the plan: `planned` is left as it was, so a swapped slot
+   * still offers the plan's own exercise and units. Nothing here touches the
+   * server; the unit reaches it with the rest of the workout at Finish.
+   *
+   * Refused, all or none, when the workout or exercise is missing, a name is not
+   * one of the exercise's fields, the field has no unit to change (reps, a
+   * unitless `other`), or the unit is not offered for the field's role (a time
+   * in kg). Asking for the units a slot already has is "changed" and writes
+   * nothing.
+   */
+  setExerciseUnits: async (exerciseId, units) => {
+    const { activeWorkout } = get();
+    if (!activeWorkout) return { status: "refused", reason: "No active workout." };
+
+    const index = activeWorkout.exercises.findIndex((ex) => ex.id === exerciseId);
+    if (index === -1) return { status: "refused", reason: "That exercise is not in this workout." };
+    const slot = activeWorkout.exercises[index];
+
+    for (const [name, unit] of Object.entries(units)) {
+      const field = slot.fields.find((f) => f.name === name);
+      if (!field) return { status: "refused", reason: `${name} is not a field of this exercise.` };
+      if (!field.unit) return { status: "refused", reason: `${name} has no unit to change.` };
+      if (!unitsForRole(field.role).includes(unit)) {
+        return { status: "refused", reason: `${unit} is not a unit for ${name}.` };
+      }
+    }
+
+    const fields = slot.fields.map((field) =>
+      Object.prototype.hasOwnProperty.call(units, field.name) ? { ...field, unit: units[field.name] } : field
+    );
+    if (fields.every((field, i) => field.unit === slot.fields[i].unit)) return { status: "changed" };
+
+    const updatedWorkout: ActiveWorkout = {
+      ...activeWorkout,
+      exercises: activeWorkout.exercises.map((ex, i) => (i === index ? { ...ex, fields } : ex)),
+    };
+    await saveActiveWorkout(updatedWorkout);
+    return { status: "changed" };
   },
 
   /**

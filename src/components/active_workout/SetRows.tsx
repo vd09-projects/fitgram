@@ -1,15 +1,18 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, TextInput, TouchableOpacity, StyleSheet, KeyboardTypeOptions, StyleProp, TextStyle } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SPACING } from "../../constants/styles";
 import { ExerciseField } from "../../types/workoutType";
 import { formatStepValue, stepFieldValue, stepSizeFor } from "../../utils/setLogger";
 import { SplitRowValues, SplitSlot, splitSlot } from "../../utils/splits";
+import { hasUnitChoice } from "../../utils/unitChange";
 import { TextBase, NumericText } from "../TextBase";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 
 const HIT = 44;
+const UNIT_BUTTON_HEIGHT = 32;
+const UNIT_HIT_SLOP = { top: (HIT - UNIT_BUTTON_HEIGHT) / 2, bottom: (HIT - UNIT_BUTTON_HEIGHT) / 2 };
 const SLOT_WIDTH = 44;
 /** One row: the set card's focal point (TICKET-018). */
 const ROW_HEIGHT = 62;
@@ -40,6 +43,11 @@ type Props = {
   onAddSplit: () => void;
   /** Remove row `index` (0-based, the first segment included). */
   onRemove: (index: number) => void;
+  /**
+   * Open the Units sheet (TICKET-091). When given, a unit field's label is the
+   * button for it, on every set; the per-row labels of a split set are not.
+   */
+  onUnitPress?: () => void;
 };
 
 /**
@@ -67,7 +75,7 @@ type Props = {
  * is carried by the width change as well as the colour. The 1px difference is
  * taken out of the padding so the digits do not shift on focus.
  */
-export default function SetRows({ fields, setNumber, rows, ghosts, onChange, onAddSplit, onRemove }: Props) {
+export default function SetRows({ fields, setNumber, rows, ghosts, onChange, onAddSplit, onRemove, onUnitPress }: Props) {
   const { styles, t } = useThemeStyles(createStyles);
   const single = rows.length === 1;
   const height = single ? ROW_HEIGHT : COMPACT_ROW_HEIGHT;
@@ -81,11 +89,36 @@ export default function SetRows({ fields, setNumber, rows, ghosts, onChange, onA
   return (
     <View style={styles.grid}>
       <View style={styles.row}>
-        {fields.map((field) => (
-          <TextBase key={field.name} style={styles.label} numberOfLines={1}>
-            {fieldLabel(field).toUpperCase()}
-          </TextBase>
-        ))}
+        {fields.map((field) =>
+          onUnitPress && hasUnitChoice(field) ? (
+            // Board UnitNotice: "WEIGHT · KG ▾", 32 tall with hitSlop to 44.
+            <View key={field.name} style={styles.labelCell}>
+              <TouchableOpacity
+                style={styles.unitButton}
+                onPress={onUnitPress}
+                hitSlop={UNIT_HIT_SLOP}
+                accessibilityRole="button"
+                accessibilityLabel={`${field.name} unit: ${field.unit}. Change unit`}
+              >
+                {/* The name gives way first: on a narrow column (three unit fields)
+                    "WEIGHT · PLATES" would cut the unit, which is what the label
+                    is for. Two Texts, not one, so only the name can ellipsize. */}
+                <TextBase style={styles.unitName} numberOfLines={1}>
+                  {field.name.toUpperCase()}
+                </TextBase>
+                <TextBase style={styles.unitSuffix} numberOfLines={1}>
+                  {" · "}
+                  <TextBase style={styles.unitValue}>{field.unit.toUpperCase()}</TextBase>
+                </TextBase>
+                <Ionicons name="chevron-down" size={12} color={t.colors.role.textPrimary} style={styles.unitChevron} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TextBase key={field.name} style={styles.label} numberOfLines={1}>
+              {fieldLabel(field).toUpperCase()}
+            </TextBase>
+          )
+        )}
         {emptySlot}
       </View>
 
@@ -191,6 +224,10 @@ function RowSlot({
 const emptyPlaceholder = (field: ExerciseField): string | undefined =>
   field.role === "reps" ? "reps" : field.unit;
 
+/** What a field shows while empty: last time's number when there is one, else `emptyPlaceholder`. */
+const placeholderFor = (field: ExerciseField, ghost: number | null): string | undefined =>
+  ghost === null ? emptyPlaceholder(field) : formatStepValue(ghost);
+
 function RowInput({
   field,
   value,
@@ -211,14 +248,32 @@ function RowInput({
   onChange: (text: string) => void;
 }) {
   const [focused, setFocused] = useState(false);
+  const placeholder = placeholderFor(field, ghost);
+
+  // On Android a mounted input does not repaint when only its placeholder
+  // changes, so after a unit change (TICKET-091) the new unit, or the ghost that
+  // came or went with it (Reps has no unit and still changed), never showed.
+  // Remounting the TextInput repaints it. Never while focused: a ghost can
+  // arrive as history loads, mid-typing, and a remount would close the keyboard;
+  // the change waits for the blur. The typed text is the parent's state, so a
+  // remount loses nothing.
+  const [shown, setShown] = useState(placeholder);
+  const [epoch, setEpoch] = useState(0);
+  useEffect(() => {
+    if (placeholder === shown || focused) return;
+    setShown(placeholder);
+    setEpoch((n) => n + 1);
+  }, [placeholder, shown, focused]);
+
   return (
     <TextInput
+      key={epoch}
       style={[inputStyle, focused && focusedStyle]}
       value={value}
       onChangeText={onChange}
       // No ghost (loading, failed, first time, a split row): what goes in,
       // "kg" or "reps" (TICKET-047, board SwapLoading), never a dash or blank.
-      placeholder={ghost === null ? emptyPlaceholder(field) : formatStepValue(ghost)}
+      placeholder={shown}
       placeholderTextColor={ghostColor}
       keyboardType={keyboardFor(field)}
       onFocus={() => setFocused(true)}
@@ -285,6 +340,37 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     fontSize: t.fonts.xSmall,
     letterSpacing: 1.3,
     color: t.colors.role.textSecondary,
+  },
+  labelCell: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: "center",
+  },
+  unitButton: {
+    height: UNIT_BUTTON_HEIGHT,
+    maxWidth: "100%",
+    paddingHorizontal: 6,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  unitName: {
+    flexShrink: 1,
+    fontSize: t.fonts.xSmall,
+    letterSpacing: 1.3,
+    color: t.colors.role.textSecondary,
+  },
+  unitChevron: { marginLeft: 4 },
+  unitSuffix: {
+    flexShrink: 0,
+    fontSize: t.fonts.xSmall,
+    letterSpacing: 1.3,
+    color: t.colors.role.textSecondary,
+  },
+  unitValue: {
+    fontSize: t.fonts.xSmall,
+    letterSpacing: 1.3,
+    fontWeight: "bold",
+    color: t.colors.role.textPrimary,
   },
   slot: {
     width: SLOT_WIDTH,

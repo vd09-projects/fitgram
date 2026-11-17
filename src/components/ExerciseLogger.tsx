@@ -20,6 +20,7 @@ import {
 import { TextBase, NumericText } from "./TextBase";
 import TodaySets from "./active_workout/TodaySets";
 import ExerciseHistorySheet from "./active_workout/ExerciseHistorySheet";
+import UnitsSheet from "./active_workout/UnitsSheet";
 import RestPanel from "./active_workout/RestPanel";
 import EditRestLine from "./active_workout/EditRestLine";
 import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
@@ -48,6 +49,7 @@ import { plannedSegment, splitSegments } from "../utils/storedSets";
 import SetRows, { SplitIcon } from "./active_workout/SetRows";
 import MenuSheet, { type MenuItem } from "./MenuSheet";
 import { useExerciseName } from "../hooks/useExerciseNames";
+import { unitNotice, unitsSummary } from "../utils/unitChange";
 
 const HIT = 44;
 const ACTION_HEIGHT = 56;
@@ -194,6 +196,16 @@ const PILL_HIT_SLOP = { top: (HIT - PILL_HEIGHT) / 2, bottom: (HIT - PILL_HEIGHT
  *   `force`: `error` is always retried, and a fetch in flight is joined.
  *   Stale stats from an earlier fetch stay `ready` (with `error` set) and
  *   render as numbers, so they get no failed state.
+ *
+ * Decisions (TICKET-091, boards UnitSheet–UnitSheetLogged):
+ * - A unit field's label on the card is the button for the Units sheet
+ *   (`SetRows`), at every set count. The sheet is a sibling of the history
+ *   sheet here, and changes the slot's field units through the store, so the
+ *   pill, ghosts, notice and the Today list all follow: this component derives
+ *   them from `exercise.fields` (today's units) and the history's last session
+ *   (last time's, for the notice), and keeps no copy of either.
+ * - The values typed for the next set are kept as typed when the unit changes.
+ *   Nothing is converted (units are for comparability only).
  */
 export default function ExerciseLogger({
   exercise,
@@ -233,6 +245,7 @@ export default function ExerciseLogger({
   const [refusal, setRefusal] = useState<string | null>(null);
   const [removed, setRemoved] = useState<RemovedSet | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [unitsOpen, setUnitsOpen] = useState(false);
   /** The set being edited (its id, read fresh) and the edit's own rows, one per segment. */
   const [editing, setEditing] = useState<{ setId: number; rows: EditRow[] } | null>(null);
   /** The set number repeat filled, while nothing was typed since (board S6). */
@@ -261,7 +274,10 @@ export default function ExerciseLogger({
   const ghosts = ghostValues(exercise.fields, target, history.numericFields);
   const repeat = repeatValues(ghosts);
   const pillText = lastTimeText(target);
-  const notice = ghostNotice(target, history.status);
+  // The unit line is the helper's, not `ghostNotice`'s: that one judges a
+  // weight and reps pair, and Farmer's Walk has none (TICKET-091). It says what
+  // last time was in and no longer "so no targets": the label's ▾ is the fix.
+  const notice = unitNotice(exercise.fields, history, setNumber) ?? ghostNotice(target, history.status);
   const lastEffort = lastTimeEffort(history, setNumber);
   const split = history.lastSession ? lastTimeSplit(target, history.lastSession.fields) : null;
   const repeatChain = repeatSplitRows(target, history.numericFields);
@@ -376,6 +392,25 @@ export default function ExerciseLogger({
     disabledReason: exercise.sets.length > 0 ? REMOVE_LOCKED_REASON : null,
     onPress: onRemove,
   };
+
+  // TICKET-091 (board UnitMenu): one item for every unit field, with the units
+  // as they are now. Enabled at every set, as the label's button is. Absent,
+  // not disabled, when no field has a unit to choose (`unitsSummary` is null,
+  // e.g. reps only): unlike Swap and Remove it can never become available in
+  // this workout, so a locked row would only be noise. Decided from the fields,
+  // never from the exercise.
+  const summary = unitsSummary(exercise.fields);
+  const unitsItem: MenuItem | null =
+    summary === null
+      ? null
+      : {
+          key: "units",
+          renderIcon: (color) => <MaterialCommunityIcons name="ruler" size={20} color={color} />,
+          title: "Units",
+          detail: summary,
+          disabledReason: null,
+          onPress: () => setUnitsOpen(true),
+        };
 
   // Shown on a one-row card only (hidden once split), so there are no split
   // rows to replace: the chain is added after row 1.
@@ -561,6 +596,7 @@ export default function ExerciseLogger({
                 onChange={onChangeRow}
                 onAddSplit={onAddSplit}
                 onRemove={onRemoveRow}
+                onUnitPress={() => setUnitsOpen(true)}
               />
             </View>
           </MaybeTourStep>
@@ -639,9 +675,16 @@ export default function ExerciseLogger({
       <MenuSheet
         visible={menuOpen}
         title={name.title}
-        groups={[[splitItem, swapItem], [removeItem]]}
+        groups={[[splitItem, ...(unitsItem ? [unitsItem] : []), swapItem], [removeItem]]}
         onClose={onCloseMenu}
         testID="exercise-menu"
+      />
+
+      <UnitsSheet
+        visible={unitsOpen}
+        onClose={() => setUnitsOpen(false)}
+        exercise={exercise}
+        history={history}
       />
 
       <ExerciseHistorySheet
