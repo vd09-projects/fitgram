@@ -10308,7 +10308,7 @@ keep their date; a restart reads 0 to show the list and 1 for the check; a Finis
 
 ### TICKET-083: Session Screen and Landing After Finish
 
-**Priority:** Medium | **Effort:** Large | **Status: OPEN** — raised 2026-11-13 (user)
+**Priority:** Medium | **Effort:** Large | **Status: DONE** (PR #76, merged 2026-11-18; proof partly open, see the Build notes) — raised 2026-11-13 (user)
 
 **Description:**
 The Session screen of the History design (boards `HistSession*`) and, after Finish, landing on the
@@ -10351,6 +10351,7 @@ each of the three sources (the History home's held months and loaded Older worko
 - `EndWorkoutResult` carries `sessionId`. The "Saved" toast of an upload that lands inside Finish's wait is suppressed (the Session says "Workout saved"); one that lands later still toasts.
 - Landing: the Workout stack becomes hub, History home, Session (`utils/finishLanding.ts`). **Scope growth, stated:** the footer highlight is derived from navigation state for every path, which closes 025's highlight half (025 stays open for the user).
 - Per-set arrows, the compare and the cap are in; the Exercise link inside the compare is 084's.
+- **Open proof (merged 2026-11-18):** the "Didn't upload" notice with Retry and the read by id (`getWorkoutById`, `loadSession`) have not run on a device (unit tests and mocks only); the screens were not compared side by side with the boards (known differences: units in the compare cells, bold headline). The device run wrote five Test 070 workouts to `pinky`; their cleanup (and `rebuildExerciseStats` for the hip stretch) was not run, waiting on the owner.
 
 **CLAUDE.md rules skipped:** none.
 
@@ -11185,7 +11186,7 @@ parts about the old page and the screens are 085a and 085b, the parts about `exe
 3. TICKET-082  (Hold recent workouts)       — DONE (PR #69); its other-phone proof moved to 085a
 3b. TICKET-088 (Older-month counts and reads) — DONE 2026-11-17: older workouts load by page, no month count, nothing stored
 4. TICKET-085a (History home: shell and Workouts tab) — DONE (PR #75); placeholder Session and TEMPORARY hub button stay until 083 and 085b; open proof moved to 086
-5. TICKET-083  (Session screen, landing)     — After 085a; replaces the placeholder
+5. TICKET-083  (Session screen, landing)     — DONE (PR #76); open proof: the did-not-upload notice and the read by id on a device
 6. TICKET-084  (Exercise screen)
 7. TICKET-085b (Exercises tab; the switch; removes the old page)
 8. TICKET-086  (Delete a workout)            — After 083 and 085a, independent of 084, 085b, 085c
