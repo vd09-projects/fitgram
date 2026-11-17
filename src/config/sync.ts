@@ -33,7 +33,7 @@ export const PLANS_CHECK_WAIT_MS = 10_000;
  * the busiest user the ticket named, two workouts a day for three months.
  * Not everything: a copy of every workout grows with history, a new phone reads
  * all of it, and it reaches Android's database cap at about a thousand workouts.
- * Older months are fetched when asked (`getWorkoutsOfMonth`) and not kept.
+ * Older workouts are fetched by page when asked (`getOlderWorkoutsPage`) and not kept.
  * Not part of this number: the newest workout of every plan is kept as well, however
  * old (the floor, `utils/workoutWindow.ts`), so a plan idle for longer than the window
  * still has a date.
@@ -53,14 +53,13 @@ export const WORKOUTS_CHECK_SKIP_MS = PLANS_CHECK_SKIP_MS;
 export const WORKOUTS_CHECK_WAIT_MS = PLANS_CHECK_WAIT_MS;
 
 /**
- * The least time between a refused read of an older month (`offline` or `failed`) and the next
- * read of it. A caller that asks again from an effect, or a screen focused twice, must not turn a
- * refusal that comes back at once (a permission error) into a read per render. Short: a person
- * who reconnects and taps again should not be made to wait. An ask inside it is ignored and the
- * refusal stays shown. Not applied to a month still loading (that ask joins the read, or after the
- * wait starts a new one) or to a month already loaded.
+ * The least time between a refused read of older workouts (`offline` or `failed`) and the next read of the
+ * same list. A caller that asks again from an effect, or a screen focused twice, must not turn a refusal that
+ * comes back at once (a permission error) into a read per render. Short: a person who reconnects and taps
+ * again should not be made to wait. An ask inside it is ignored and the refusal stays shown. Not applied to a
+ * read still loading (that ask joins it, or after the wait starts a new one).
  */
-export const WORKOUTS_MONTH_RETRY_GAP_MS = 2_000;
+export const WORKOUTS_OLDER_RETRY_GAP_MS = 2_000;
 
 /**
  * The exercise summaries' check skip and wait (TICKET-076): the plans' values

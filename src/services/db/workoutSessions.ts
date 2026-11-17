@@ -339,23 +339,48 @@ export const getWorkoutWindowFromServer = async (
 };
 
 /**
- * Every workout of one local month (`YYYY-MM`), newest first: how a month older than the window
- * is shown, on tap (TICKET-082). The caller keeps it in memory only. A range and an order on
- * `startedAt`: the automatic single-field index. `deleted` markers are left out (`docsRead` still counts them). Rejects when
- * offline (`serverOnly`, `getDocsFromServer`); the store turns that into a state.
+ * One page of the workouts older than the phone holds (TICKET-085a, decided in TICKET-088): `startedAt`
+ * before `before`, newest first, `size` of them. `planId` narrows it to one plan (`workoutId ==` with the
+ * existing `(workoutId, startedAt desc)` index); without it, the automatic single-field index on `startedAt`.
+ * `deleted` markers are skipped and the next batch asked for, so a page is never short because of them
+ * (`docsRead` counts them, and counts an empty answer as the 0 it is: the caller bills 1 for it).
+ * `reachedStart`: an answer came back with fewer docs than asked, so nothing older exists. A page that
+ * ends exactly on the first workout says false, and the next one, with no docs, says true.
+ * Known gap: two workouts with the same `startedAt` to the millisecond across the `before` edge, the later
+ * one is not returned (a `<` on the time, not a cursor on the doc). The window's first load has no such gap
+ * (`secondQueryStart`); a second workout started in the same millisecond is not a case a person can make.
+ * Rejects when offline (`serverOnly`, `getDocsFromServer`); the store turns that into a state.
  */
-export const getWorkoutsOfMonth = async (
+export const getOlderWorkoutsPage = async (
   userId: string,
-  month: string
-): Promise<{ sessions: WorkoutSessionDoc[]; docsRead: number }> => {
+  before: number,
+  planId: string | null,
+  size: number
+): Promise<{ sessions: WorkoutSessionDoc[]; docsRead: number; reachedStart: boolean }> => {
   if (!userId) throw new Error("Missing user");
-  const { from, to } = localMonthRange(month);
-  const snapshot = serverOnly(
-    await getDocsFromServer(
-      query(sessionsRef(userId), where("startedAt", ">=", from), where("startedAt", "<", to), orderBy("startedAt", "desc"))
-    )
-  );
-  return { sessions: snapshot.docs.map(sessionFromDoc).filter((session) => session.deleted !== true), docsRead: snapshot.size };
+  const sessions: WorkoutSessionDoc[] = [];
+  let docsRead = 0;
+  let after: QueryDocumentSnapshot<DocumentData> | null = null;
+  for (;;) {
+    const asked = size - sessions.length;
+    const answer = serverOnly(
+      await getDocsFromServer(
+        query(
+          sessionsRef(userId),
+          ...(planId === null ? [] : [where("workoutId", "==", planId)]),
+          where("startedAt", "<", before),
+          orderBy("startedAt", "desc"),
+          ...(after ? [startAfter(after)] : []),
+          limitFn(asked)
+        )
+      )
+    );
+    docsRead += answer.size;
+    sessions.push(...answer.docs.map(sessionFromDoc).filter((session) => session.deleted !== true));
+    if (answer.size < asked) return { sessions, docsRead, reachedStart: true };
+    if (sessions.length >= size) return { sessions, docsRead, reachedStart: false };
+    after = answer.docs[answer.docs.length - 1];
+  }
 };
 
 /**

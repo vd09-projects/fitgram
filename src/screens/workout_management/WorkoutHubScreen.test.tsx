@@ -187,6 +187,7 @@ describe("WorkoutHubScreen", () => {
   it.each([
     ["Plans", WorkoutRoutes.AddExercise],
     ["History", WorkoutRoutes.WorkoutLogs],
+    ["History (new)", WorkoutRoutes.HistoryHome],
     ["All plans, 2", WorkoutRoutes.StartWorkout],
   ])("%s navigates to %s", async (button, route) => {
     await renderHub([PUSH, PULL]);

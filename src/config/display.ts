@@ -42,3 +42,19 @@ export const HISTORY_FILTER_SESSION_WINDOW = 50;
  * rejected: paging through every Freestyle on each History open.
  */
 export const FREESTYLE_HISTORY_WINDOW = 50;
+
+/**
+ * The History home's Workouts rail shows the current month in full; when that month has fewer
+ * workouts than this, it runs back into earlier months until it has this many (TICKET-085a). A
+ * month that gets cut is split: its newest workouts are in the rail, the rest sit in its Earlier
+ * row. What is shown is a count of workouts, not days, so a quiet month does not leave the top of
+ * History nearly empty.
+ */
+export const HISTORY_RAIL_MIN_FULL = 10;
+
+/**
+ * How many older workouts one tap on "Older workouts" loads (TICKET-085a, decided in TICKET-088).
+ * Each is one document read, so a tap costs about this many reads. The row's label reads this value.
+ */
+export const OLDER_WORKOUTS_PAGE_SIZE = 20;
+

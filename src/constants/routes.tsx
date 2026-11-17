@@ -19,8 +19,10 @@ export const WorkoutRoutes = {
     WorkoutHome: "WorkoutHome",
     // TEMPORARY — remove with ExerciseHistoryDebugScreen.
     HistoryDebug: "HistoryDebug",
-    // TEMPORARY — remove with PendingUploadsDebugScreen.
-    PendingUploadsDebug: "PendingUploadsDebug",
+    // The History home (TICKET-085a). Reached from the TEMPORARY "History (new)" hub button until 085b.
+    HistoryHome: "HistoryHome",
+    // TEMPORARY placeholder until TICKET-083 builds the real Session screen.
+    Session: "Session",
     // Debug tooling, kept (TICKET-070): PlansStoreDebugScreen.
     PlansStoreDebug: "PlansStoreDebug",
 } as const;

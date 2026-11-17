@@ -1,5 +1,5 @@
-import { Timestamp, getDocs, getDocsFromServer, limit, runTransaction, serverTimestamp, startAfter, writeBatch } from "firebase/firestore";
-import { getAllExerciseStats, getLastWorkoutOfPlan, getWorkoutSessions, saveWorkoutSession } from "./workoutSessions";
+import { Timestamp, getDocs, getDocsFromServer, limit, runTransaction, serverTimestamp, startAfter, where, writeBatch } from "firebase/firestore";
+import { getAllExerciseStats, getLastWorkoutOfPlan, getOlderWorkoutsPage, getWorkoutSessions, saveWorkoutSession } from "./workoutSessions";
 import { buildExercise, buildStats, buildWorkout } from "../../test/fixtures";
 import * as liftRecord from "../../utils/liftRecord";
 
@@ -236,3 +236,42 @@ describe("a plan's newest workout, for the floor", () => {
     await expect(getLastWorkoutOfPlan("u1", "p")).resolves.toBeNull();
   });
 });
+
+describe("a page of workouts older than the phone holds", () => {
+  const docOf = (sessionId: string, extra: object = {}) => ({ data: () => ({ sessionId, workoutId: "p", startedAt: 1, ...extra }) });
+  const answer = (docs: ReturnType<typeof docOf>[]) => ({ metadata: { fromCache: false }, empty: docs.length === 0, size: docs.length, docs });
+  const reset = () => {
+    (getDocsFromServer as jest.Mock).mockReset();
+    (limit as jest.Mock).mockClear();
+    (startAfter as jest.Mock).mockClear();
+    (where as jest.Mock).mockClear();
+  };
+
+  it("a full page of live workouts is one read of the page size, not yet the start", async () => {
+    reset();
+    (getDocsFromServer as jest.Mock).mockResolvedValue(answer([docOf("a"), docOf("b")]));
+    await expect(getOlderWorkoutsPage("u1", 1_000, null, 2)).resolves.toMatchObject({ docsRead: 2, reachedStart: false });
+    expect(limit).toHaveBeenCalledWith(2);
+    expect(where).toHaveBeenCalledWith("startedAt", "<", 1_000);
+    expect(where).not.toHaveBeenCalledWith("workoutId", "==", expect.anything());
+  });
+
+  it("asks again, for only what is missing, when markers shortened the page, and counts the markers read", async () => {
+    reset();
+    const marker = docOf("m", { deleted: true });
+    (getDocsFromServer as jest.Mock).mockResolvedValueOnce(answer([docOf("a"), marker])).mockResolvedValueOnce(answer([docOf("b")]));
+    const page = await getOlderWorkoutsPage("u1", 1_000, null, 2);
+    expect(page.sessions.map((s) => s.sessionId)).toEqual(["a", "b"]);
+    expect(page.docsRead).toBe(3);
+    expect((limit as jest.Mock).mock.calls).toEqual([[2], [1]]);
+    expect((startAfter as jest.Mock).mock.calls).toEqual([[marker]]);
+  });
+
+  it("a short answer is the start, and a plan filter adds only the plan to the query", async () => {
+    reset();
+    (getDocsFromServer as jest.Mock).mockResolvedValue(answer([docOf("a")]));
+    await expect(getOlderWorkoutsPage("u1", 1_000, "push", 2)).resolves.toMatchObject({ reachedStart: true });
+    expect(where).toHaveBeenCalledWith("workoutId", "==", "push");
+  });
+});
+

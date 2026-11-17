@@ -1,20 +1,21 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { waitFor } from "@testing-library/react-native";
-import { useRecentWorkoutsStore, workoutsRunFor } from "./useRecentWorkoutsStore";
+import { olderOf, useRecentWorkoutsStore, workoutsRunFor } from "./useRecentWorkoutsStore";
 import { usePlansStore } from "./usePlansStore";
 import {
   getChangedSessions,
   getLastWorkoutOfPlan,
   getNewestSessionStamp,
-  getWorkoutsOfMonth,
+  getOlderWorkoutsPage,
   getWorkoutWindowFromServer,
 } from "../services/db/workoutSessions";
 import { getAllWorkoutPlans } from "../services/db/userDB";
 import type { WorkoutSessionDoc } from "../types/workoutSession";
 import { serializeStoredWorkouts } from "../utils/workoutWindow";
 import { WORKOUTS_STORAGE_KEY } from "../config/storageKeys";
-import { WORKOUTS_CHECK_WAIT_MS, WORKOUTS_MONTH_RETRY_GAP_MS, WORKOUTS_ON_PHONE_MIN } from "../config/sync";
+import { WORKOUTS_CHECK_WAIT_MS, WORKOUTS_OLDER_RETRY_GAP_MS, WORKOUTS_ON_PHONE_MIN } from "../config/sync";
 import { serveRecentWorkouts } from "../test/recentWorkouts";
+import { OLDER_WORKOUTS_PAGE_SIZE } from "../config/display";
 
 jest.mock("../services/firebase/firebase", () => ({ db: {} }));
 jest.mock("../services/db/workoutSessions", () => ({
@@ -22,7 +23,7 @@ jest.mock("../services/db/workoutSessions", () => ({
   getWorkoutWindowFromServer: jest.fn(),
   getLastWorkoutOfPlan: jest.fn(),
   getChangedSessions: jest.fn(),
-  getWorkoutsOfMonth: jest.fn(),
+  getOlderWorkoutsPage: jest.fn(),
 }));
 jest.mock("../services/db/userDB", () => ({
   getAllWorkoutPlans: jest.fn(),
@@ -205,141 +206,91 @@ it("a month that leaves the window takes its shard off disk, and the plan keeps 
   await waitFor(async () => expect((await savedKeys()).some((key) => key.endsWith("2026-10"))).toBe(false));
 });
 
-describe("a month older than the window, on tap", () => {
-  const olderMonths = () => useRecentWorkoutsStore.getState().olderMonths;
-  const SEP = "2026-09";
-  const sep = (id: string) => session(id, "push", new Date(2026, 8, 10, 10).getTime());
+// The rules of a read the user asks for (join, wait, retry gap, sign-out) are tested once, in onDemandReads.test.ts.
+// What is tested here is what the store adds: where a page starts, per-filter lists, and stale lists.
+describe("workouts older than the window, by page", () => {
+  const older = (planId: string | null = null) => useRecentWorkoutsStore.getState().olderWorkouts[planId ?? "*"];
+  const WINDOW_START = new Date(2026, 9, 1).getTime();
+  const at = (month: number, day: number) => new Date(2026, month - 1, day, 10).getTime();
+  const oldWorkout = (id: string, startedAt: number, planId = "push") => session(id, planId, startedAt);
 
-  /** The window starts on 1 October, with plans looked up, so September is older. */
-  async function openWithWindowFromOctober() {
+  /** The window starts on 1 October, so everything before is older. */
+  async function openWithWindowFromOctober(windowStart: number | null = WINDOW_START) {
     usePlansStore.setState({ uid: UID, plans: [plan("push")], storedRead: true });
     await AsyncStorage.multiSet(
       serializeStoredWorkouts(UID, {
-        sessions: [session("oct", "push", new Date(2026, 9, 5, 10).getTime())],
-        windowStart: new Date(2026, 9, 1).getTime(),
-        lastByPlan: { push: session("oct", "push", new Date(2026, 9, 5, 10).getTime()) },
+        sessions: [session("oct", "push", at(10, 5))],
+        windowStart,
+        lastByPlan: { push: session("oct", "push", at(10, 5)) },
         lastSeen: { seconds: 5, nanoseconds: 0 },
         lastFullAt: 0,
       })
     );
     await useRecentWorkoutsStore.getState().open(UID);
-    jest.mocked(getWorkoutsOfMonth).mockReset();
+    jest.mocked(getOlderWorkoutsPage).mockReset();
   }
 
-  it("is read once, kept in memory only, and not read again", async () => {
+  it("the first page starts at the window's start, the next before the oldest loaded; pages add up, in memory only", async () => {
     await openWithWindowFromOctober();
-    jest.mocked(getWorkoutsOfMonth).mockResolvedValue({ sessions: [sep("a"), sep("b")], docsRead: 2 });
+    jest.mocked(getOlderWorkoutsPage)
+      .mockResolvedValueOnce({ sessions: [oldWorkout("a", at(9, 20)), oldWorkout("b", at(9, 10))], docsRead: 2, reachedStart: false })
+      .mockResolvedValueOnce({ sessions: [oldWorkout("c", at(8, 30))], docsRead: 1, reachedStart: false });
     const before = useRecentWorkoutsStore.getState().billedReads;
-    await useRecentWorkoutsStore.getState().loadMonth(SEP);
-    await useRecentWorkoutsStore.getState().loadMonth(SEP);
-    expect(getWorkoutsOfMonth).toHaveBeenCalledTimes(1);
-    expect(getWorkoutsOfMonth).toHaveBeenCalledWith(UID, SEP);
-    expect(olderMonths()[SEP]).toEqual({ status: "ready", sessions: [sep("a"), sep("b")] });
-    expect(useRecentWorkoutsStore.getState().billedReads - before).toBe(2);
-    // Not part of the window, so not saved: what is saved is built from the window alone.
-    expect(sessionIds()).toEqual(["oct"]);
-  });
 
-  it("is refused offline with a state, retried on the next ask, and never read as an empty month", async () => {
-    await openWithWindowFromOctober();
-    jest.mocked(getWorkoutsOfMonth).mockRejectedValue(Object.assign(new Error("client is offline"), { code: "unavailable" }));
-    await useRecentWorkoutsStore.getState().loadMonth(SEP);
-    expect(olderMonths()[SEP]).toEqual({ status: "offline", error: "client is offline" });
+    await useRecentWorkoutsStore.getState().loadOlder(null);
+    expect(getOlderWorkoutsPage).toHaveBeenLastCalledWith(UID, WINDOW_START, null, OLDER_WORKOUTS_PAGE_SIZE);
+    await useRecentWorkoutsStore.getState().loadOlder(null);
+    expect(getOlderWorkoutsPage).toHaveBeenLastCalledWith(UID, at(9, 10), null, OLDER_WORKOUTS_PAGE_SIZE);
 
-    jest.advanceTimersByTime(WORKOUTS_MONTH_RETRY_GAP_MS);
-    jest.mocked(getWorkoutsOfMonth).mockRejectedValue(new Error("permission-denied"));
-    await useRecentWorkoutsStore.getState().loadMonth(SEP);
-    expect(olderMonths()[SEP]).toMatchObject({ status: "failed" });
-
-    jest.advanceTimersByTime(WORKOUTS_MONTH_RETRY_GAP_MS);
-    jest.mocked(getWorkoutsOfMonth).mockResolvedValue({ sessions: [sep("a")], docsRead: 1 });
-    await useRecentWorkoutsStore.getState().loadMonth(SEP);
-    expect(olderMonths()[SEP]).toEqual({ status: "ready", sessions: [sep("a")] });
-  });
-
-  it("reads nothing for a month the phone already holds", async () => {
-    await openWithWindowFromOctober();
-    await useRecentWorkoutsStore.getState().loadMonth("2026-10");
-    await useRecentWorkoutsStore.getState().loadMonth("2026-12");
-    expect(getWorkoutsOfMonth).not.toHaveBeenCalled();
-  });
-
-  it("reads nothing while the user is known but the window is not", async () => {
-    useRecentWorkoutsStore.setState({ uid: UID, workoutWindow: null });
-    await useRecentWorkoutsStore.getState().loadMonth(SEP);
-    expect(getWorkoutsOfMonth).not.toHaveBeenCalled();
-    expect(olderMonths()).toEqual({});
-  });
-
-  it("a second ask while the first read is inside its wait joins it instead of reading again", async () => {
-    await openWithWindowFromOctober();
-    jest.mocked(getWorkoutsOfMonth).mockReturnValue(new Promise(() => {}));
-    void useRecentWorkoutsStore.getState().loadMonth(SEP);
-    void useRecentWorkoutsStore.getState().loadMonth(SEP);
-    expect(getWorkoutsOfMonth).toHaveBeenCalledTimes(1);
-  });
-
-  it("an ask after the wait is over reads again, and the older read's late answer does not overwrite the newer one", async () => {
-    await openWithWindowFromOctober();
-    const answers: Array<(value: { sessions: WorkoutSessionDoc[]; docsRead: number }) => void> = [];
-    jest.mocked(getWorkoutsOfMonth).mockImplementation(() => new Promise((resolve) => answers.push(resolve)));
-    const first = useRecentWorkoutsStore.getState().loadMonth(SEP);
-    jest.advanceTimersByTime(WORKOUTS_CHECK_WAIT_MS);
-    expect(olderMonths()[SEP]).toEqual({ status: "loading", waitOver: true });
-    const second = useRecentWorkoutsStore.getState().loadMonth(SEP);
-    expect(getWorkoutsOfMonth).toHaveBeenCalledTimes(2);
-    expect(olderMonths()[SEP]).toEqual({ status: "loading", waitOver: false }); // the new read has its own wait
-    answers[1]({ sessions: [sep("new")], docsRead: 1 });
-    await second;
-    answers[0]({ sessions: [sep("stale")], docsRead: 1 });
-    await first;
-    expect(olderMonths()[SEP]).toEqual({ status: "ready", sessions: [sep("new")] });
-  });
-
-  it("an ask right after a refusal is ignored and the refusal stays; after the gap it reads again", async () => {
-    await openWithWindowFromOctober();
-    jest.mocked(getWorkoutsOfMonth).mockRejectedValue(new Error("permission-denied"));
-    await useRecentWorkoutsStore.getState().loadMonth(SEP);
-    await useRecentWorkoutsStore.getState().loadMonth(SEP);
-    await useRecentWorkoutsStore.getState().loadMonth(SEP);
-    expect(getWorkoutsOfMonth).toHaveBeenCalledTimes(1);
-    expect(olderMonths()[SEP]).toMatchObject({ status: "failed" });
-    jest.advanceTimersByTime(WORKOUTS_MONTH_RETRY_GAP_MS);
-    jest.mocked(getWorkoutsOfMonth).mockResolvedValue({ sessions: [sep("a")], docsRead: 1 });
-    await useRecentWorkoutsStore.getState().loadMonth(SEP);
-    expect(getWorkoutsOfMonth).toHaveBeenCalledTimes(2);
-    expect(olderMonths()[SEP]).toEqual({ status: "ready", sessions: [sep("a")] });
-  });
-
-  it("a key that is not a month is a state, not a throw", async () => {
-    await openWithWindowFromOctober();
-    await expect(useRecentWorkoutsStore.getState().loadMonth("October")).resolves.toBeUndefined();
-    expect(olderMonths()["October"]).toMatchObject({ status: "failed" });
-    expect(getWorkoutsOfMonth).not.toHaveBeenCalled();
-  });
-
-  it("says the wait is over when the read outlasts it, and still takes the answer when it lands", async () => {
-    await openWithWindowFromOctober();
-    let answer: (value: { sessions: WorkoutSessionDoc[]; docsRead: number }) => void = () => {};
-    jest.mocked(getWorkoutsOfMonth).mockReturnValue(new Promise((resolve) => (answer = resolve)));
-    const loading = useRecentWorkoutsStore.getState().loadMonth(SEP);
-    jest.advanceTimersByTime(WORKOUTS_CHECK_WAIT_MS);
-    expect(olderMonths()[SEP]).toEqual({ status: "loading", waitOver: true });
-    answer({ sessions: [sep("a")], docsRead: 1 });
-    await loading;
-    expect(olderMonths()[SEP]).toEqual({ status: "ready", sessions: [sep("a")] });
-  });
-
-  it("is gone at sign-out, and a read that lands after it is dropped", async () => {
-    await openWithWindowFromOctober();
-    let answer: (value: { sessions: WorkoutSessionDoc[]; docsRead: number }) => void = () => {};
-    jest.mocked(getWorkoutsOfMonth).mockReturnValue(new Promise((resolve) => (answer = resolve)));
-    const loading = useRecentWorkoutsStore.getState().loadMonth(SEP);
-    expect(olderMonths()[SEP]).toEqual({ status: "loading", waitOver: false });
+    expect(older()?.sessions.map((s) => s.sessionId)).toEqual(["a", "b", "c"]);
+    expect(useRecentWorkoutsStore.getState().billedReads - before).toBe(3);
+    expect(sessionIds()).toEqual(["oct"]); // not in the window, so not saved
     useRecentWorkoutsStore.getState().clear();
-    expect(olderMonths()).toEqual({});
-    answer({ sessions: [sep("a")], docsRead: 1 });
-    await loading;
-    expect(olderMonths()).toEqual({});
+    expect(useRecentWorkoutsStore.getState().olderWorkouts).toEqual({});
+  });
+
+  it("a plan filter pages on its own: its own cursor, and the All list is left as it was", async () => {
+    await openWithWindowFromOctober();
+    jest.mocked(getOlderWorkoutsPage).mockResolvedValue({ sessions: [oldWorkout("p", at(9, 3))], docsRead: 1, reachedStart: false });
+    await useRecentWorkoutsStore.getState().loadOlder("push");
+    expect(getOlderWorkoutsPage).toHaveBeenLastCalledWith(UID, WINDOW_START, "push", OLDER_WORKOUTS_PAGE_SIZE);
+    expect(older("push")?.sessions).toHaveLength(1);
+    expect(older()).toBeUndefined();
+    await useRecentWorkoutsStore.getState().loadOlder(null);
+    expect(getOlderWorkoutsPage).toHaveBeenLastCalledWith(UID, WINDOW_START, null, OLDER_WORKOUTS_PAGE_SIZE);
+  });
+
+  it("stops reading once the start is reached, and never reads when the window holds the whole history", async () => {
+    await openWithWindowFromOctober();
+    jest.mocked(getOlderWorkoutsPage).mockResolvedValue({ sessions: [], docsRead: 0, reachedStart: true });
+    await useRecentWorkoutsStore.getState().loadOlder(null);
+    await useRecentWorkoutsStore.getState().loadOlder(null);
+    expect(getOlderWorkoutsPage).toHaveBeenCalledTimes(1);
+    expect(older()?.reachedStart).toBe(true);
+
+    useRecentWorkoutsStore.getState().clear();
+    await openWithWindowFromOctober(null);
+    await useRecentWorkoutsStore.getState().loadOlder(null);
+    expect(getOlderWorkoutsPage).not.toHaveBeenCalled();
+  });
+
+  it("a refused page leaves the pages already loaded, says offline and not an empty page, and can be asked again", async () => {
+    await openWithWindowFromOctober();
+    jest.mocked(getOlderWorkoutsPage).mockResolvedValueOnce({ sessions: [oldWorkout("a", at(9, 20))], docsRead: 1, reachedStart: false });
+    await useRecentWorkoutsStore.getState().loadOlder(null);
+    jest.mocked(getOlderWorkoutsPage).mockRejectedValue(Object.assign(new Error("client is offline"), { code: "unavailable" }));
+    await useRecentWorkoutsStore.getState().loadOlder(null);
+    expect(older()?.read).toEqual({ status: "offline", error: "client is offline" });
+    expect(older()?.sessions.map((s) => s.sessionId)).toEqual(["a"]);
+    expect(older()?.reachedStart).toBe(false);
+  });
+
+  it("a list loaded before the window moved is read as not loaded", async () => {
+    await openWithWindowFromOctober();
+    jest.mocked(getOlderWorkoutsPage).mockResolvedValue({ sessions: [oldWorkout("a", at(9, 20))], docsRead: 1, reachedStart: false });
+    await useRecentWorkoutsStore.getState().loadOlder(null);
+    const { olderWorkouts, workoutWindow } = useRecentWorkoutsStore.getState();
+    expect(olderOf(olderWorkouts, workoutWindow, null)).not.toBeNull();
+    expect(olderOf(olderWorkouts, { windowStart: at(11, 1) }, null)).toBeNull();
   });
 });

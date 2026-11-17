@@ -8,16 +8,14 @@ import { useThemeStyles } from "../../utils/useThemeStyles";
 /**
  * The debug screens' way in, at the end of the hub (TICKET-066). The hub
  * renders it only when `showDebugScreens` is on; the routes exist only then
- * too (WorkoutNavigator). Each button goes with its screen: History Debug and
- * Pending Uploads are TEMPORARY; Plans Store is kept (TICKET-070).
+ * too (WorkoutNavigator). Each button goes with its screen: History Debug is
+ * TEMPORARY; Plans Store is kept (TICKET-070).
  */
 export function HubDebugRow({
   onHistoryDebug,
-  onPendingUploads,
   onPlansStore,
 }: {
   onHistoryDebug: () => void;
-  onPendingUploads: () => void;
   onPlansStore: () => void;
 }) {
   const { styles } = useThemeStyles(createStyles);
@@ -26,10 +24,6 @@ export function HubDebugRow({
       {/* TEMPORARY — remove with ExerciseHistoryDebugScreen. */}
       <TouchableOpacity style={styles.button} onPress={onHistoryDebug}>
         <TextBase style={styles.text}>History Debug</TextBase>
-      </TouchableOpacity>
-      {/* TEMPORARY — remove with PendingUploadsDebugScreen. */}
-      <TouchableOpacity style={styles.button} onPress={onPendingUploads}>
-        <TextBase style={styles.text}>Pending Uploads</TextBase>
       </TouchableOpacity>
       {/* Debug tooling, kept (TICKET-070): PlansStoreDebugScreen. */}
       <TouchableOpacity style={styles.button} onPress={onPlansStore}>

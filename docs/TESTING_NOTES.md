@@ -524,3 +524,28 @@ Finish on the test plan; kill and airplane-mode cold start; the picker's recents
   Farmer's Walk history (unit test only); the rest panel notice on device (screen test only); light theme;
   iOS; a narrow phone (the emulator is 448 dp wide). The distance chips are 124 px against the weight chips'
   120 on the 404 px screenshot: the board's grid is thirds minus the gap, mine is `maxWidth: 33%`.
+
+### TICKET-085a stage 1: History home shell (emulator, `pinky`, 2026-11-17)
+
+Built and unit-tested only; nothing here has been seen on the emulator. To run: hub, **History (new)** (the old **History** is unchanged).
+1. Opens on Workouts, All workouts; Exercises is greyed and does not switch.
+2. Filter pill → sheet lists All workouts and each plan with "N on this phone"; choosing one narrows the list; the pill shows its name; open Session and Back, the filter is still set.
+3. Tap a workout → placeholder with its name and date; Back returns. Tap two different workouts in a row: two screens (per-session `getId`), not one moved.
+4. Finish a workout offline: the strip says "1 workout waiting to upload"; online it goes. A rejected upload (rules) shows "didn't upload" with **Try again**.
+5. Airplane mode, cold start: the saved workouts show, the strip says the check failed (not "Offline", see TICKET-085a deviations).
+6. Debug builds: the hub's debug row has History Debug and Plans Store only.
+Untested: all of the above on a device; the per-session `getId` (the test stack replaces the navigator, so no test covers it; mutating it left every test green); iOS is not raised (Android first).
+- **[run] Passed on the emulator:** plan items 1, 2, 3, 5, 6, and scrolling to the last workout. Item 4 (the "waiting to upload" and "didn't upload" notices) is **pending, deferred by the user (2026-11-17)**: it needs a test workout written to `pinky`, and nothing in the app deletes one. Run it once TICKET-086 (Delete a Workout) is built. Until then these notices are covered by `historyNotice.test.ts` and the screen test only.
+- **[bug] Found only on the device, all fixed:** (a) the third hub pill squeezed "Workout" to one letter a line, so "History (new)" has its own row; (b) a blank band above History, the Layout already owns the safe-area inset and the screens added it again; (c) the offline strip wrapped to two lines, now "Couldn't check for new workouts"; (d) **the list did not scroll** (a `View` with `.map`; the user saw it, I had called items 1 to 3 passed from screenshots without scrolling, and the last row was already cut off in them). Now a `FlatList`. No unit test covers the scroll: jest does not lay out.
+
+
+### TICKET-085a stage 2: the Workouts rail (emulator, `pinky`, 2026-11-17)
+
+- **[run] Passed on the emulator, read-only** (`pinky` has 17 workouts, all inside the window, so `windowStart` is null): the current month in full (November, then October to the 10-workout minimum, split), amber dots and "4 better", capsules with the up marker for a better lift, Earlier rows "October · 6 more workouts" and "September · 1 workout", October opened in place (chevron flips, its workouts continue under the row), the list ending "Your first workout, 29 September 2026".
+- **[pending] Not run on a device:** the **Older workouts** row, its states (loading, "needs a connection", failed), paging per filter, quiet gap lines, and a Finish on another phone appearing on the next check. All of them need history past the window: dummy data on `pinky`, created and removed by a script with `--dry-run` (as 088 did) and, per the same deferral as stage 1, a delete. Covered by unit tests only: `historyRail.test.ts`, `getOlderWorkoutsPage` in `workoutSessions.test.ts`, `loadOlder` in `useRecentWorkoutsStore.test.ts`, and the screen test.
+- **[waste] Two taps landed on the wrong row** because I scaled a smaller screenshot by the 1344-px factor (3.33) instead of its own (3.74); the Session placeholder opened. Derive the factor from each image's width.
+- **[read] Not measured:** the proof's read counts and the "20 workouts of 8 lifts scroll without dropped frames" check. Neither was run.
+
+- **[run] Older workouts, device-tested later the same day (2026-11-18), read-only.** `pinky`'s 17 workouts fit the 180 window, so `WORKOUTS_ON_PHONE_MIN` was set to 8 in a local, uncommitted edit (reverted) and the app reloaded: the store held 16 workouts from 1 Oct, one past the window. Passed: the **Older workouts · Show 20** row under Earlier; a tap loaded the 29 Sep workout ("First time"), then the list ended "Your first workout, 29 September 2026"; the plan filter (Chest & Triceps AJ) keeps its own older list, so Show 20 appears again there and its tap loads the same 29 Sep workout; wifi and data off, tap: "Loading…" for about the wait (10 s), then "Needs a connection"; wifi back: the first tap went straight back to "Needs a connection" (the SDK was still reconnecting, about 6 s after enabling), the second tap loaded the page.
+- **[pending] Still not run on a device:** "Needs a connection, still trying" (not seen: the read failed before its wait ran out), "Could not load · try again", gap lines (`pinky` has no empty month past the window), the "waiting to upload" and "didn't upload" notices (need a written workout, wait for TICKET-086), a Finish on another phone, reads per tap and the 20-workout scroll check.
+- **[run] Review fixes (PR #75), unit-tested only:** the clock re-read on foregrounding and a plan's older workouts derived from All's list once All reached the start (each test seen to fail with its fix broken). The memo on the rail row is not measured on a device.

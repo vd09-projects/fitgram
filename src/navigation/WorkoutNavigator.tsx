@@ -8,8 +8,9 @@ import AddExerciseScreen from '../screens/workout_management/AddExerciseScreen';
 import WorkoutLogsScreen from '../screens/workout_management/WorkoutLogsScreen';
 // TEMPORARY — remove with ExerciseHistoryDebugScreen.
 import ExerciseHistoryDebugScreen from '../screens/workout_management/ExerciseHistoryDebugScreen';
-// TEMPORARY — remove with PendingUploadsDebugScreen.
-import PendingUploadsDebugScreen from '../screens/workout_management/PendingUploadsDebugScreen';
+import HistoryHomeScreen from '../screens/workout_management/HistoryHomeScreen';
+// TEMPORARY — replaced by TICKET-083's Session screen.
+import SessionPlaceholderScreen from '../screens/workout_management/SessionPlaceholderScreen';
 // Debug tooling, kept (TICKET-070): PlansStoreDebugScreen.
 import PlansStoreDebugScreen from '../screens/workout_management/PlansStoreDebugScreen';
 import { useThemeTokens } from '../components/app_manager/ThemeContext';
@@ -22,7 +23,8 @@ export type WorkoutStackParamList = {
   WorkoutHome: undefined;
   LogWorkout: undefined;
   HistoryDebug: undefined;
-  PendingUploadsDebug: undefined;
+  HistoryHome: undefined;
+  Session: { sessionId: string; workoutName: string; startedAt: number };
   PlansStoreDebug: undefined;
 };
 
@@ -86,6 +88,23 @@ export default function WorkoutNavigator() {
         options={{ headerShown: false }}
       />
 
+      <Stack.Screen
+        name={WorkoutRoutes.HistoryHome}
+        getId={singleCopy}
+        component={HistoryHomeScreen}
+        options={{ headerShown: false }}
+      />
+
+      {/* Own id per session: `singleCopy` would move the one Session to the top instead of opening
+          another, so a workout opened from a workout would replace the first one's state.
+          TEMPORARY component until TICKET-083; the route and its id stay. */}
+      <Stack.Screen
+        name={WorkoutRoutes.Session}
+        getId={({ params }) => params.sessionId}
+        component={SessionPlaceholderScreen}
+        options={{ headerShown: false }}
+      />
+
       {/* Debug screens: registered only when the flag is on, so a build
           without it has no route to them. */}
       {showDebugScreens && (
@@ -95,14 +114,6 @@ export default function WorkoutNavigator() {
             name={WorkoutRoutes.HistoryDebug}
             getId={singleCopy}
             component={ExerciseHistoryDebugScreen}
-            options={{ headerShown: false }}
-          />
-
-          {/* TEMPORARY — remove with PendingUploadsDebugScreen. */}
-          <Stack.Screen
-            name={WorkoutRoutes.PendingUploadsDebug}
-            getId={singleCopy}
-            component={PendingUploadsDebugScreen}
             options={{ headerShown: false }}
           />
 

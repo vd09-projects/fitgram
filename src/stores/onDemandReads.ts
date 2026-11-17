@@ -8,15 +8,16 @@
 //   the read, and the answer still applies when it lands (as a check's, D9).
 // - An ask while a read is inside its wait joins it. After the wait is over, an ask starts a new read
 //   (a read that never settles must not leave the key stuck), and the older read's late answer is dropped.
-// - `ready` is read once. `offline` (Firestore `unavailable`, nothing guessed from the empty cache) and
+// - `ready` is read once, unless the caller says `repeatable` (a result that grows by pages: each ask reads the
+//   next page, and the caller keeps the pages). `offline` (Firestore `unavailable`, nothing guessed from the empty cache) and
 //   `failed` (any other rejection) can be asked again, but not within `retryGapMs` of the refusal: a
 //   refusal that returns at once must not become a read per render. An ask inside the gap is ignored and
 //   the refusal stays shown.
 // - A sign-out while it ran (`isCurrent` false): the answer is dropped, the next user must not receive it.
 //
 // It owns no state of its own that a screen reads: the caller keeps `OnDemandState` where its screens
-// subscribe (a store field) and passes it in and out. Not covered, on purpose: a result that grows by
-// pages (084's log), which may need a small extension when that ticket is written.
+// subscribe (a store field) and passes it in and out. A result that grows by
+// pages is `repeatable` (085a's older workouts); 084's log may need more.
 
 export type OnDemandState<Ready extends { status: "ready" }> =
   | { status: "loading"; waitOver: boolean }
@@ -37,6 +38,8 @@ export type OnDemandAsk<Ready extends { status: "ready" }> = {
   setState: (state: OnDemandState<Ready>) => void;
   /** False once the user signed out or changed since the ask began. */
   isCurrent: () => boolean;
+  /** Ready may be asked again: each ask reads one more page, which the caller adds to what it holds. */
+  repeatable?: boolean;
   /** The read itself; its result is the `ready` state. Anything it bills it bills itself, even for an answer that is dropped. */
   read: () => Promise<Ready>;
 };
@@ -49,8 +52,8 @@ export function createOnDemandReads<Ready extends { status: "ready" }>({ waitMs,
   const attempts = new Map<string, number>();
   const refusedAt = new Map<string, number>();
 
-  return async function ask(key: string, { current, setState, isCurrent, read }: OnDemandAsk<Ready>): Promise<void> {
-    if (current?.status === "ready" || (current?.status === "loading" && !current.waitOver)) return;
+  return async function ask(key: string, { current, setState, isCurrent, read, repeatable = false }: OnDemandAsk<Ready>): Promise<void> {
+    if ((current?.status === "ready" && !repeatable) || (current?.status === "loading" && !current.waitOver)) return;
     if (current?.status === "offline" || current?.status === "failed") {
       // A clock set back since the refusal makes the difference negative: that is not "inside the gap".
       const sinceRefusal = Date.now() - (refusedAt.get(key) ?? 0);

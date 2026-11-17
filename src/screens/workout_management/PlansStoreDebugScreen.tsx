@@ -255,7 +255,18 @@ function WorkoutsSection({ planNames }: { planNames: Map<string, string> }) {
     ["On disk", disk],
     ["Probe", probe], // TEMPORARY, see `timeWindowSizedCopy`
     ["Last save", w.lastSaveMs === null ? "none this app run" : `${w.lastSaveMs} ms for the whole copy`],
-    ["Older months", Object.keys(w.olderMonths).length === 0 ? "none asked for" : Object.entries(w.olderMonths).map(([month, state]) => `${month}: ${state.status === "ready" ? `${state.sessions.length} workouts` : state.status === "loading" ? (state.waitOver ? "loading, wait over" : "loading") : `${state.status} (${state.error})`}`).join(" · ")],
+    [
+      "Older workouts",
+      Object.keys(w.olderWorkouts).length === 0
+        ? "none asked for"
+        : Object.entries(w.olderWorkouts)
+            .map(([key, older]) => {
+              const read = older.read;
+              const state = read === null ? "idle" : read.status === "ready" ? "ready" : read.status === "loading" ? (read.waitOver ? "loading, wait over" : "loading") : `${read.status} (${read.error})`;
+              return `${key === "*" ? "all" : key}: ${older.sessions.length} workouts${older.reachedStart ? ", at the start" : ""}, ${state}`;
+            })
+            .join(" · "),
+    ],
     ["Check", w.checking ? (w.waitOver ? "running, wait over" : "running") : "idle"],
     ["Last result", w.lastResult ?? "none"],
     ["Last ok", w.lastOkAt ? `${time(w.lastOkAt)} · checks skipped until ${time(w.lastOkAt + WORKOUTS_CHECK_SKIP_MS)}` : "never"],
@@ -287,10 +298,7 @@ function WorkoutsSection({ planNames }: { planNames: Map<string, string> }) {
       {button("Workouts: force check now", () => useRecentWorkoutsStore.getState().check({ force: true }))}
       {button("Workouts: expire the skip", () => useRecentWorkoutsStore.setState({ lastOkAt: null }))}
       {button("Workouts: full reload now", () => useRecentWorkoutsStore.getState().check({ force: true, full: true }))}
-      {button("Workouts: load the month before the window", () => {
-        const start = useRecentWorkoutsStore.getState().workoutWindow?.windowStart;
-        if (start) void useRecentWorkoutsStore.getState().loadMonth(localMonthKey(start - 1));
-      })}
+      {button("Workouts: load the next page of older workouts", () => void useRecentWorkoutsStore.getState().loadOlder(null))}
       {button("TEMPORARY: time a window-sized save and read", () => {
         setProbe("running…");
         timeWindowSizedCopy().then(setProbe, (error) => setProbe(`failed: ${String(error)}`));

@@ -4,14 +4,14 @@ import {
   getChangedSessions,
   getLastWorkoutOfPlan,
   getNewestSessionStamp,
-  getWorkoutsOfMonth,
+  getOlderWorkoutsPage,
   getWorkoutWindowFromServer,
 } from "../services/db/workoutSessions";
 import type { WorkoutSessionDoc } from "../types/workoutSession";
 import { changeCheckAfter, fullReloadDue, type SyncStamp } from "../utils/syncCore";
 import {
   addToWindow,
-  isMonthOnPhone,
+  compareSessions,
   lastSeenAfterCheck,
   lookUpPlanIds,
   plansToLookUp,
@@ -24,9 +24,10 @@ import {
 } from "../utils/workoutWindow";
 import { createSyncRunner, type CheckRun as RunBase, type ReadoutEntry as SyncReadoutEntry, type SyncFields } from "./syncRunner";
 import { usePlansStore } from "./usePlansStore";
-import { WORKOUTS_CHECK_SKIP_MS, WORKOUTS_CHECK_WAIT_MS, WORKOUTS_MONTH_RETRY_GAP_MS, WORKOUTS_ON_PHONE_MIN } from "../config/sync";
+import { WORKOUTS_CHECK_SKIP_MS, WORKOUTS_CHECK_WAIT_MS, WORKOUTS_OLDER_RETRY_GAP_MS, WORKOUTS_ON_PHONE_MIN } from "../config/sync";
+import { OLDER_WORKOUTS_PAGE_SIZE } from "../config/display";
 import { WORKOUTS_STORAGE_KEY } from "../config/storageKeys";
-import { createOnDemandReads } from "./onDemandReads";
+import { createOnDemandReads, type OnDemandState } from "./onDemandReads";
 
 /**
  * The signed-in user's workouts on the phone (TICKET-082, replacing TICKET-075's
@@ -70,26 +71,45 @@ import { createOnDemandReads } from "./onDemandReads";
  * which needs a record of what is on disk to stay right; TICKET-082's proof says
  * whether the whole write is slow enough to matter.
  *
- * Months older than the window are fetched on tap (`loadMonth`) and kept in memory only.
+ * Workouts older than the window are fetched by page on tap (`loadOlder`) and kept in memory only.
  *
  * Sign-out clears it (`initAuth`), as the plans store.
  */
 
 /**
- * A month older than the window, fetched on tap (TICKET-082). Memory only, never saved: it is
- * gone at the next app start and at sign-out.
- * - `loading`: `waitOver` once the read has outlasted `WORKOUTS_CHECK_WAIT_MS`, as a check's
- *   (`SyncFields.waitOver`). Offline, Firestore takes a while to reject (about 10 to 30 s on the
- *   emulator, TICKET-082), so a screen shows "needs a connection, still trying" from `waitOver` on
- *   and does not wait for the rejection.
- * - `offline`: the read was refused for want of a connection (a Firestore `unavailable`), so the
- *   screen says "needs a connection" and offers a retry. Nothing was guessed from the empty cache.
- * - `failed`: any other rejection. Also retryable.
+ * Workouts older than the window, loaded by page (TICKET-085a, decided in TICKET-088). Memory only, never
+ * saved: gone at the next app start and at sign-out. One list per plan filter (`olderKey`): "All" and each
+ * plan page on their own, because a page filtered to Push leaves holes in All.
+ * - `windowStart`: the window's start when these were loaded. A trim moves it, and a list loaded before it
+ *   is stale (its months and the window's would no longer meet), so it is read as empty (`olderOf`).
+ * - `sessions`: newest first, every page so far. The next page starts before the oldest of them, or at
+ *   `windowStart` for the first.
+ * - `reachedStart`: a page came back short, so nothing older exists.
+ * - `read`: the last ask, as `onDemandReads.ts` states it. `loading` carries `waitOver` once the read has
+ *   outlasted `WORKOUTS_CHECK_WAIT_MS`: offline, Firestore takes 10 to 30 s to refuse (TICKET-082), so a
+ *   screen says "needs a connection, still trying" from then. `offline`: refused for want of a connection;
+ *   nothing was guessed from the empty cache. `failed`: any other rejection. Both can be asked again.
  */
-export type OlderMonth =
-  | { status: "loading"; waitOver: boolean }
-  | { status: "ready"; sessions: WorkoutSessionDoc[] }
-  | { status: "offline" | "failed"; error: string };
+export type OlderPage = { status: "ready"; sessions: WorkoutSessionDoc[]; reachedStart: boolean };
+export type OlderWorkouts = {
+  windowStart: number;
+  sessions: WorkoutSessionDoc[];
+  reachedStart: boolean;
+  read: OnDemandState<OlderPage> | null;
+};
+
+const ALL_PLANS_KEY = "*";
+export const olderKey = (planId: string | null): string => planId ?? ALL_PLANS_KEY;
+
+/** The older workouts for a filter, or null when none were loaded under the window as it stands now. */
+export function olderOf(
+  olderWorkouts: Readonly<Record<string, OlderWorkouts>>,
+  workoutWindow: Pick<WorkoutWindow, "windowStart"> | null,
+  planId: string | null
+): OlderWorkouts | null {
+  const held = olderWorkouts[olderKey(planId)];
+  return workoutWindow !== null && held !== undefined && held.windowStart === workoutWindow.windowStart ? held : null;
+}
 
 export type WorkoutsCheckKind = "full" | "change";
 export type WorkoutsReadoutEntry = SyncReadoutEntry<WorkoutsCheckKind>;
@@ -105,26 +125,27 @@ interface WorkoutsStore extends SyncFields<WorkoutsCheckKind> {
   billedReads: number;
   /** Debug readout: how long the last save of the whole copy took, ms on this phone; null: none yet. */
   lastSaveMs: number | null;
-  /** Months older than the window that were asked for, by local month key. Memory only. */
-  olderMonths: Record<string, OlderMonth>;
+  /** Workouts older than the window, by plan filter (`olderKey`). Memory only. */
+  olderWorkouts: Record<string, OlderWorkouts>;
 
   /** A reader opened: load the saved copy for `uid`, then check. */
   open: (uid: string) => Promise<void>;
   /** Ask the server now unless skipped or one is running. `force`: past the skip. `full`: a full reload. */
   check: (options?: { force?: boolean; full?: boolean }) => Promise<void>;
   /**
-   * Fetch one month older than the window (`getWorkoutsOfMonth`), once, into `olderMonths`. Nothing
-   * for a month the phone already holds (read it from the window) or one already loaded or
-   * loading; a month that was refused offline or failed is asked again. 1 read per workout.
+   * Read the next page of workouts older than the window, for one plan filter (null: all), into
+   * `olderWorkouts`: `OLDER_WORKOUTS_PAGE_SIZE` workouts, 1 read each (a `deleted` marker is read and
+   * skipped). Nothing when the window holds the whole history, when the start was reached, or while a read
+   * is inside its wait; a refused read is asked again, not within `WORKOUTS_OLDER_RETRY_GAP_MS`.
    */
-  loadMonth: (month: string) => Promise<void>;
+  loadOlder: (planId: string | null) => Promise<void>;
   /** This phone's upload of `session` was confirmed by the server: hold it, 0 reads. */
   applyFinished: (uid: string, session: WorkoutSessionDoc) => void;
   /** Sign-out. */
   clear: () => void;
 }
 
-type State = Omit<WorkoutsStore, "open" | "check" | "loadMonth" | "applyFinished" | "clear">;
+type State = Omit<WorkoutsStore, "open" | "check" | "loadOlder" | "applyFinished" | "clear">;
 
 const initialState = {
   uid: null,
@@ -137,7 +158,7 @@ const initialState = {
   lastOkAt: null,
   lastSeen: null,
   lastFullAt: null,
-  olderMonths: {},
+  olderWorkouts: {},
   lastSaveMs: null,
   readout: { reads: 0, log: [] }, // debug readout (Plans Store page)
 };
@@ -287,10 +308,10 @@ function stateAfterAnswer(state: State, run: CheckRun, answer: Answer, now: numb
 // The store.
 // ---------------------------------------------------------------------------
 
-/** The rules for a month asked for on tap: `onDemandReads.ts`. */
-const askForMonth = createOnDemandReads<Extract<OlderMonth, { status: "ready" }>>({
+/** The rules for a page asked for on tap: `onDemandReads.ts`. */
+const askForOlder = createOnDemandReads<OlderPage>({
   waitMs: WORKOUTS_CHECK_WAIT_MS,
-  retryGapMs: WORKOUTS_MONTH_RETRY_GAP_MS,
+  retryGapMs: WORKOUTS_OLDER_RETRY_GAP_MS,
 });
 
 export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
@@ -346,29 +367,38 @@ export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
         return run;
       }),
 
-    loadMonth: async (month) => {
-      const { uid, workoutWindow, olderMonths } = get();
-      // Not knowing the window, nothing is known to be older than it.
-      if (uid === null || workoutWindow === null) return;
-      // A key that is not a month is a state, not a throw: a caller that does not await would
-      // otherwise get an unhandled rejection.
-      let onPhone: boolean;
-      try {
-        onPhone = isMonthOnPhone(workoutWindow, month);
-      } catch (error) {
-        set((s) => ({ olderMonths: { ...s.olderMonths, [month]: { status: "failed", error: error instanceof Error ? error.message : String(error) } } }));
-        return;
-      }
-      if (onPhone) return;
+    loadOlder: async (planId) => {
+      const { uid, workoutWindow, olderWorkouts } = get();
+      // Not knowing the window, nothing is known to be older than it; no start, the whole history is in it.
+      if (uid === null || workoutWindow === null || workoutWindow.windowStart === null) return;
+      const windowStart = workoutWindow.windowStart;
+      const key = olderKey(planId);
+      const held = olderOf(olderWorkouts, workoutWindow, planId);
+      if (held?.reachedStart) return;
+      const before = held && held.sessions.length > 0 ? held.sessions[held.sessions.length - 1].startedAt : windowStart;
       const epoch = get().epoch;
-      return askForMonth(month, {
-        current: olderMonths[month],
-        setState: (state) => set((s) => ({ olderMonths: { ...s.olderMonths, [month]: state } })),
+      return askForOlder(key, {
+        current: held?.read ?? undefined,
+        repeatable: true,
+        setState: (read) =>
+          set((s) => {
+            const base = olderOf(s.olderWorkouts, s.workoutWindow, planId) ?? { windowStart, sessions: [], reachedStart: false, read: null };
+            const next: OlderWorkouts =
+              read.status === "ready"
+                ? {
+                    ...base,
+                    read,
+                    reachedStart: read.reachedStart,
+                    sessions: [...new Map([...base.sessions, ...read.sessions].map((session) => [session.sessionId, session])).values()].sort(compareSessions),
+                  }
+                : { ...base, read };
+            return { olderWorkouts: { ...s.olderWorkouts, [key]: next } };
+          }),
         isCurrent: () => runner.isCurrent(epoch),
         read: async () => {
-          const { sessions, docsRead } = await getWorkoutsOfMonth(uid, month);
+          const { sessions, docsRead, reachedStart } = await getOlderWorkoutsPage(uid, before, planId, OLDER_WORKOUTS_PAGE_SIZE);
           bill(docsRead);
-          return { status: "ready", sessions };
+          return { status: "ready", sessions, reachedStart };
         },
       });
     },

@@ -28,6 +28,16 @@ describe("one read per key, in memory", () => {
     expect(states.get("k")).toEqual(ready("a"));
   });
 
+  it("reads again once ready when the caller says repeatable, as a page after a page", async () => {
+    const ask = createOnDemandReads<Ready>({ waitMs: WAIT, retryGapMs: GAP });
+    let state: OnDemandState<Ready> | undefined;
+    const read = jest.fn(async () => ready("page"));
+    const again = () => ask("k", { current: state, setState: (s) => (state = s), isCurrent: () => true, read, repeatable: true });
+    await again();
+    await again();
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
   it("an ask inside the wait joins the read; keys do not affect each other", () => {
     const { call } = setup();
     const read = jest.fn(never);
