@@ -147,6 +147,23 @@ it("own Finish: held at once with no read and the plan's floor entry; the next c
   expect(getNewestSessionStamp).not.toHaveBeenCalled();
 });
 
+it("a saved note is shown in the window and the plan's floor entry with no read, and removing it leaves no key behind", async () => {
+  serveRecentWorkouts([session("a", "push", 500, { updatedAt: { seconds: 5, nanoseconds: 0 } })]);
+  usePlansStore.setState({ uid: UID, plans: [plan("push")], storedRead: true });
+  await useRecentWorkoutsStore.getState().open(UID);
+  await waitFor(() => expect(sessionIds()).toEqual(["a"]));
+  jest.clearAllMocks();
+
+  useRecentWorkoutsStore.getState().applyNote(UID, "a", "Slept badly.");
+  expect(useRecentWorkoutsStore.getState().workoutWindow?.sessions[0].note).toBe("Slept badly.");
+  expect(floor()?.push?.note).toBe("Slept badly.");
+
+  useRecentWorkoutsStore.getState().applyNote(UID, "a", null);
+  expect(useRecentWorkoutsStore.getState().workoutWindow?.sessions[0]).not.toHaveProperty("note");
+  expect(getChangedSessions).not.toHaveBeenCalled();
+  expect(getWorkoutWindowFromServer).not.toHaveBeenCalled();
+});
+
 it("a Finish on another phone appears on the next check", async () => {
   usePlansStore.setState({ uid: UID, plans: [plan("push")], storedRead: true });
   serveRecentWorkouts([session("a", "push", 100)]);

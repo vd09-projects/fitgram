@@ -1,17 +1,21 @@
 import { buildSessionDocs } from "./exerciseStats";
 import {
+  closedSets,
   compareHeaders,
   liftCards,
   liftCompare,
   liftLabel,
+  normalizeNote,
   resolveSession,
   sessionDateLine,
   sessionSummary,
+  setArrows,
   setViews,
   unitChangeCaption,
 } from "./sessionView";
 import { FREESTYLE_ID } from "../constants/freestyle";
-import { SESSION_COMPARE_COUNT } from "../config/display";
+import { SESSION_CARD_SETS_SHOWN, SESSION_COMPARE_COUNT } from "../config/display";
+import { SESSION_NOTE_MAX_LENGTH } from "../config/storedData";
 import type { LiftRecord, WorkoutSessionDoc } from "../types/workoutSession";
 import type { ExerciseField } from "../types/workoutType";
 import { buildExercise, buildStats, buildWorkout } from "../test/fixtures";
@@ -198,5 +202,47 @@ describe("liftCards", () => {
       { swappedFrom: { id: "x", name: "Rear Delt Fly" }, added: true, verdict: null, reason: "first_time" },
     ]);
     expect(liftCards(session, null)[0]).toMatchObject({ label: "New lift", captions: ["Swapped in for Rear Delt Fly", "Added"] });
+  });
+});
+
+describe("setArrows", () => {
+  const kg = buildExercise("Bench").fields;
+  const stored = (...pairs: [number, number][]) => pairs.map(([w, r]) => ({ segments: [{ Weight: w, Reps: r }], effort: null }));
+
+  it("marks a set up or down against the same-numbered set, and nothing for equal or a set last time did not have", () => {
+    const now = { fields: kg, sets: stored([62.5, 8], [60, 9], [55, 10], [50, 10]) };
+    const before = { fields: kg, sets: stored([60, 8], [60, 9], [55, 12]) };
+    expect(setArrows(now, before)).toEqual(["up", null, "down", null]);
+  });
+
+  it("gives no arrow with no previous session, across a unit change, or for a lift with no weight × reps pair", () => {
+    const now = { fields: kg, sets: stored([60, 8]) };
+    expect(setArrows(now, null)).toEqual([null]);
+    expect(setArrows(now, { fields: lb, sets: stored([5, 1]) })).toEqual([null]);
+    const timed: ExerciseField[] = [{ name: "Time", role: "time", unit: "s" }];
+    const plank = { fields: timed, sets: [{ segments: [{ Time: 60 }], effort: null }] };
+    expect(setArrows(plank, plank)).toEqual([null]);
+  });
+
+  it("gives no arrow for a set that does not parse, rather than reading it as 0", () => {
+    const now = { fields: kg, sets: [{ segments: [{ Weight: "", Reps: 8 }], effort: null }] as LiftRecord["sets"] };
+    expect(setArrows(now, { fields: kg, sets: stored([60, 8]) })).toEqual([null]);
+  });
+});
+
+describe("closedSets", () => {
+  it("lists the first sets and counts the rest, and shows all when there are few", () => {
+    const sets = Array.from({ length: SESSION_CARD_SETS_SHOWN + 2 }, (_, i) => i);
+    expect(closedSets(sets)).toEqual({ shown: sets.slice(0, SESSION_CARD_SETS_SHOWN), more: 2 });
+    expect(closedSets([1, 2])).toEqual({ shown: [1, 2], more: 0 });
+  });
+});
+
+describe("normalizeNote", () => {
+  it("trims, turns an empty note into null (clear), and refuses one past the cap whole", () => {
+    expect(normalizeNote("  Slept badly.  ")).toEqual({ kind: "ok", note: "Slept badly." });
+    expect(normalizeNote("   ")).toEqual({ kind: "ok", note: null });
+    expect(normalizeNote("a".repeat(SESSION_NOTE_MAX_LENGTH))).toMatchObject({ kind: "ok" });
+    expect(normalizeNote("a".repeat(SESSION_NOTE_MAX_LENGTH + 1))).toEqual({ kind: "tooLong", length: SESSION_NOTE_MAX_LENGTH + 1 });
   });
 });

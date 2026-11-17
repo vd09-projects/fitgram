@@ -64,3 +64,10 @@ export const OLDER_WORKOUTS_PAGE_SIZE = 20;
  * They come from the exercise summaries already held, so a bigger number costs no read, only width.
  */
 export const SESSION_COMPARE_COUNT = 3;
+
+/**
+ * How many sets a closed lift card on the Session screen lists before "+N more" (TICKET-083). Opening the card
+ * lists every set in the compare. Boards 07 and 12 do not agree on a number (their rows differ in width), so
+ * this is the ticket's "up to 4 sets" read as a count, to be judged against the boards on the device.
+ */
+export const SESSION_CARD_SETS_SHOWN = 4;

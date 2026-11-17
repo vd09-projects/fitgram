@@ -9,15 +9,18 @@
 // stored), so no source needs a second read for its sets.
 
 import { FREESTYLE_ID } from "../constants/freestyle";
-import { SESSION_COMPARE_COUNT } from "../config/display";
+import { SESSION_CARD_SETS_SHOWN, SESSION_COMPARE_COUNT } from "../config/display";
+import { SESSION_NOTE_MAX_LENGTH } from "../config/storedData";
 import type { Effort, ExerciseStatsDoc, LiftRecord, StatsSessionEntry, WorkoutSessionDoc } from "../types/workoutSession";
 import type { PendingUpload } from "../types/zustandWorkoutType";
 import type { ExerciseField } from "../types/workoutType";
 import { mergePending, type RailWorkout } from "./historyRail";
+import { areFieldsComparable, parseSet, resolveNumericFields } from "./exerciseFields";
 import { previousSessionOf } from "./liftRecord";
+import type { LiftSession } from "./liftVerdict";
 import { matchLastField } from "./unitChange";
 import { sessionMinutes } from "./sessionDuration";
-import { setValuesText } from "./setDeltas";
+import { compareSets, setValuesText } from "./setDeltas";
 import { decodeStoredSets, plannedSegment, splitSegments } from "./storedSets";
 
 /** The held rollup of one exercise, or null when it is not held. Same shape `mergePending` takes. */
@@ -96,14 +99,25 @@ export function unitChangeCaption(fields: readonly ExerciseField[], previousFiel
 }
 
 /** One set of a card. `text` is null when the stored set could not be read: shown as such, never as an empty row. */
-export type SetView = { number: number; text: string | null; split: string[]; effort: Effort | null };
+export type SetView = {
+  number: number;
+  text: string | null;
+  split: string[];
+  effort: Effort | null;
+  /** Against the same-numbered set of the previous session: `up` improved, `down` went down, null anything else (`setArrows`). */
+  arrow: "up" | "down" | null;
+};
 
 /**
  * A lift's sets, by position. A split set (TICKET-033) lists its later segments in `split`; the first segment
  * is the set as planned. A set with an unreadable segment keeps what did read and is flagged by `text`/`split`
  * only when nothing read; a partly readable one shows what it has.
  */
-export function setViews(fields: readonly ExerciseField[], sets: LiftRecord["sets"]): SetView[] {
+export function setViews(
+  fields: readonly ExerciseField[],
+  sets: LiftRecord["sets"],
+  arrows: readonly ("up" | "down" | null)[] = []
+): SetView[] {
   return decodeStoredSets(sets).map((set, index) => {
     const first = plannedSegment(set);
     const readable = Object.keys(first).length > 0;
@@ -112,8 +126,54 @@ export function setViews(fields: readonly ExerciseField[], sets: LiftRecord["set
       text: readable ? setValuesText([...fields], first) : null,
       split: splitSegments(set).map((segment) => setValuesText([...fields], segment)),
       effort: set.effort,
+      arrow: arrows[index] ?? null,
     };
   });
+}
+
+/**
+ * Each set's arrow against the same-numbered set of the lift's previous session (boards 01, 02): `up` when its
+ * volume (weight × reps) went up, `down` when it went down, null for equal, and for every case that is not
+ * comparable: no previous session, a unit changed (nothing is converted), no weight × reps pair (a reps-only or
+ * timed lift has no per-set arrow, as it has no verdict word beside "Unit changed"), a set that does not parse, or
+ * a set the previous session did not have. A null is "no arrow", never "same": `even` and `matched` both read null.
+ * The rule is `compareSets`, the one the live card uses.
+ */
+export function setArrows(
+  current: Pick<LiftSession, "fields" | "sets">,
+  previous: Pick<LiftSession, "fields" | "sets"> | null
+): ("up" | "down" | null)[] {
+  const numeric = resolveNumericFields([...current.fields]);
+  const none = current.sets.map(() => null);
+  if (!previous || !numeric || !areFieldsComparable([...current.fields], [...previous.fields])) return none;
+  const before = resolveNumericFields([...previous.fields]);
+  if (!before) return none;
+  const past = decodeStoredSets(previous.sets);
+  return decodeStoredSets(current.sets).map((set, index) => {
+    const then = past[index];
+    if (!then) return null;
+    const today = parseSet(plannedSegment(set), numeric);
+    const was = parseSet(plannedSegment(then), before);
+    if (today.weight === null || today.reps === null || was.weight === null || was.reps === null) return null;
+    const { verdict } = compareSets({ weight: today.weight, reps: today.reps }, { weight: was.weight, reps: was.reps }, numeric.weight.unit);
+    return verdict === "improved" ? "up" : verdict === "down" ? "down" : null;
+  });
+}
+
+/** A closed card's sets: the first `SESSION_CARD_SETS_SHOWN`, and how many are left under "+N". */
+export function closedSets<T>(sets: readonly T[]): { shown: T[]; more: number } {
+  return { shown: sets.slice(0, SESSION_CARD_SETS_SHOWN), more: Math.max(0, sets.length - SESSION_CARD_SETS_SHOWN) };
+}
+
+/**
+ * What a typed note becomes: trimmed, and an empty one is `null`, which clears the note (the field is removed,
+ * never stored as ""). Past `SESSION_NOTE_MAX_LENGTH` it is refused whole, not cut: the user would otherwise
+ * find the end of their note missing.
+ */
+export function normalizeNote(text: string): { kind: "ok"; note: string | null } | { kind: "tooLong"; length: number } {
+  const note = text.trim();
+  if (note.length > SESSION_NOTE_MAX_LENGTH) return { kind: "tooLong", length: note.length };
+  return { kind: "ok", note: note === "" ? null : note };
 }
 
 export type LiftCardView = {
@@ -128,11 +188,11 @@ export type LiftCardView = {
 /** A session's lift cards, in the workout's order. A session whose lifts could not be read has none: the screen says so. */
 export function liftCards(session: WorkoutSessionDoc, summaryOf: SummaryOf | null): LiftCardView[] {
   return session.lifts.map((lift) => {
+    const previous = summaryOf ? previousSessionOf(summaryOf(lift.id), session.startedAt) : null;
     const captions: string[] = [];
     if (lift.swappedFrom) captions.push(`Swapped in for ${lift.swappedFrom.name}`);
     if (lift.added) captions.push("Added");
-    if (lift.reason === "unit_changed" && summaryOf) {
-      const previous = previousSessionOf(summaryOf(lift.id), session.startedAt);
+    if (lift.reason === "unit_changed" && previous) {
       const caption = unitChangeCaption(lift.fields, previous.kind === "found" ? previous.session.fields : null);
       if (caption) captions.push(caption);
     }
@@ -141,7 +201,7 @@ export function liftCards(session: WorkoutSessionDoc, summaryOf: SummaryOf | nul
       name: lift.name,
       label: liftLabel(lift, session.workoutId),
       captions,
-      sets: setViews(lift.fields, lift.sets),
+      sets: setViews(lift.fields, lift.sets, setArrows(lift, previous?.kind === "found" ? previous.session : null)),
     };
   });
 }

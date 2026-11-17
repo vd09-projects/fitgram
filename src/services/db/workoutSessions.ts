@@ -12,6 +12,7 @@
 
 import {
   collection,
+  deleteField,
   doc,
   getDocFromServer,
   getDocs,
@@ -398,6 +399,23 @@ export const getWorkoutById = async (userId: string, sessionId: string): Promise
   if (!snapshot.exists()) return null;
   const session = sessionFromDoc(snapshot as QueryDocumentSnapshot<DocumentData>);
   return session.deleted === true ? null : session;
+};
+
+/**
+ * Set a workout's note, or remove it with `null` (TICKET-083). A transaction on purpose: it needs the server,
+ * so offline it rejects, where a plain write would sit in Firestore's memory cache, report nothing and apply
+ * later (the "refused offline" the Session screen promises). It also throws when the workout is not there,
+ * rather than creating a doc holding only a note. `updatedAt` moves, so another phone's change check brings the
+ * note. The note's length is the caller's rule (`normalizeNote`); the rules file has no field whitelist.
+ */
+export const setWorkoutNote = async (userId: string, sessionId: string, note: string | null): Promise<void> => {
+  if (!userId || !sessionId) throw new Error("Missing user or session");
+  const ref = doc(sessionsRef(userId), sessionId);
+  await runTransaction(db, async (tx) => {
+    const snapshot = await tx.get(ref);
+    if (!snapshot.exists()) throw new Error("This workout is not on the server yet");
+    tx.update(ref, { note: note === null ? deleteField() : note, updatedAt: serverTimestamp() });
+  });
 };
 
 /**

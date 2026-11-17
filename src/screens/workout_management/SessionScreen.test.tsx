@@ -1,12 +1,13 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import SessionScreen from "./SessionScreen";
 import { renderScreen, TEST_USER_ID } from "../../test/renderScreen";
-import { getWorkoutById, getWorkoutWindowFromServer } from "../../services/db/workoutSessions";
+import { getWorkoutById, getWorkoutWindowFromServer, setWorkoutNote } from "../../services/db/workoutSessions";
 import { serveRecentWorkouts } from "../../test/recentWorkouts";
-import { buildExercise, buildWorkout } from "../../test/fixtures";
+import { buildExercise, buildStats, buildWorkout } from "../../test/fixtures";
 import { WorkoutRoutes } from "../../constants/routes";
 import type { LiftRecord, WorkoutSessionDoc } from "../../types/workoutSession";
 import type { PendingUpload } from "../../types/zustandWorkoutType";
+import { useExerciseHistoryStore } from "../../stores/useExerciseHistoryStore";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
 
 let mockParams: { sessionId: string; workoutName: string; startedAt: number };
@@ -26,6 +27,7 @@ jest.mock("../../services/db/workoutSessions", () => ({
   getLastWorkoutOfPlan: jest.fn(),
   getChangedSessions: jest.fn(),
   getWorkoutById: jest.fn(),
+  setWorkoutNote: jest.fn(),
 }));
 
 const lift = (name: string, rest: Partial<LiftRecord> = {}): LiftRecord => ({
@@ -49,10 +51,15 @@ const session = (sessionId: string, lifts: LiftRecord[], rest: Partial<WorkoutSe
   ...rest,
 });
 
-const open = async (held: WorkoutSessionDoc[], sessionId: string, pendingUploads: PendingUpload[] = []) => {
+const open = async (
+  held: WorkoutSessionDoc[],
+  sessionId: string,
+  pendingUploads: PendingUpload[] = [],
+  history?: Parameters<typeof renderScreen>[1] extends infer O ? (O extends { history?: infer H } ? H : never) : never
+) => {
   mockParams = { sessionId, workoutName: "Push", startedAt: 1 };
   serveRecentWorkouts(held);
-  renderScreen(SessionScreen, { workoutRoute: WorkoutRoutes.Session, workoutActions: { pendingUploads } });
+  renderScreen(SessionScreen, { workoutRoute: WorkoutRoutes.Session, workoutActions: { pendingUploads }, history });
   await waitFor(() => expect(getWorkoutWindowFromServer).toHaveBeenCalled());
 };
 
@@ -61,6 +68,7 @@ const offline = () => Object.assign(new Error("offline"), { code: "unavailable" 
 beforeEach(() => {
   jest.clearAllMocks();
   jest.mocked(getWorkoutById).mockResolvedValue(null);
+  jest.mocked(setWorkoutNote).mockResolvedValue(undefined);
 });
 afterEach(() => jest.restoreAllMocks());
 
@@ -132,5 +140,66 @@ describe("SessionScreen", () => {
     await open([session("s1", [], { liftsUnreadable: true })], "s1");
     expect(await screen.findByText("Details not available")).toBeOnTheScreen();
     expect(screen.queryByText(/beat last time|no earlier session|No lift/)).not.toBeOnTheScreen();
+  });
+
+  it("opens a card on tap into the compare, with no read, and shows each earlier session in its own unit", async () => {
+    const DAY = 86_400_000;
+    const held = session("s1", [lift("Bench", { verdict: "better", reason: null })]);
+    const stats = buildStats("Bench", [{ sets: [{ Weight: 55, Reps: 10 }], performedAt: held.startedAt - 7 * DAY }]);
+    await open([held], "s1", [], { bench: stats });
+    fireEvent.press(await screen.findByTestId("session-lift-bench"));
+    expect(await screen.findByTestId("session-compare")).toBeOnTheScreen();
+    expect(screen.getByText("Today")).toBeOnTheScreen();
+    expect(screen.getByText("2 Nov")).toBeOnTheScreen();
+    expect(screen.getByText("55 kg × 10")).toBeOnTheScreen();
+    expect(getWorkoutById).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByTestId("session-lift-bench"));
+    expect(screen.queryByTestId("session-compare")).not.toBeOnTheScreen();
+  });
+
+  it("saves a note to the server, then shows it; an offline refusal keeps the sheet open with the reason", async () => {
+    await open([session("s1", [lift("Bench")])], "s1");
+    await screen.findByText("One lift, no earlier session to compare with.");
+    fireEvent.press(screen.getByRole("button", { name: "Session options" }));
+    fireEvent.press(await screen.findByRole("button", { name: /^Add a note/ }));
+
+    jest.mocked(setWorkoutNote).mockRejectedValueOnce(Object.assign(new Error("offline"), { code: "unavailable" }));
+    fireEvent.changeText(await screen.findByLabelText("Note"), "  Slept badly.  ");
+    fireEvent.press(screen.getByRole("button", { name: "Save note" }));
+    expect(await screen.findByText("Needs a connection to save a note.")).toBeOnTheScreen();
+    expect(screen.getByLabelText("Note")).toBeOnTheScreen();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save note" })).toBeEnabled());
+
+    // Inside act: the save is a chain of promises, and the screen's state updates land when it exits.
+    await act(async () => {
+      fireEvent.press(screen.getByRole("button", { name: "Save note" }));
+    });
+    expect(setWorkoutNote).toHaveBeenCalledTimes(2);
+    expect(setWorkoutNote).toHaveBeenLastCalledWith(TEST_USER_ID, "s1", "Slept badly.");
+    expect(await screen.findByText("Slept badly.")).toBeOnTheScreen();
+    expect(screen.queryByLabelText("Note")).not.toBeOnTheScreen();
+  });
+
+  it("cannot add a note to a workout still waiting to upload, and says why; Edit and Delete are switched off", async () => {
+    const entry: PendingUpload = {
+      sessionId: "queued_5000",
+      uid: TEST_USER_ID,
+      workout: buildWorkout([], { id: "queued", startTime: 5_000, exercises: [buildExercise("Bench", { sets: [{ id: 1, segments: [{ Weight: 60, Reps: 5 }] }] })] }),
+      endedAt: 9_000,
+      failedAttempts: 0,
+      lastError: null,
+    };
+    await open([session("s1", [lift("Bench")])], "queued_5000", [entry]);
+    fireEvent.press(await screen.findByRole("button", { name: "Session options" }));
+    expect(await screen.findByRole("button", { name: /^Add a note, Available once the workout has uploaded/, disabled: true })).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: /^Edit session/, disabled: true })).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: /^Delete session/, disabled: true })).toBeOnTheScreen();
+  });
+
+  it("opens the exercise summaries itself, since nothing before it has after a cold start", async () => {
+    const open_ = jest.spyOn(useExerciseHistoryStore.getState(), "open").mockResolvedValue();
+    await open([session("s1", [lift("Bench")])], "s1");
+    await screen.findByText("One lift, no earlier session to compare with.");
+    expect(open_).toHaveBeenCalledWith(TEST_USER_ID);
   });
 });

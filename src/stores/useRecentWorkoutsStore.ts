@@ -154,13 +154,15 @@ interface WorkoutsStore extends SyncFields<WorkoutsCheckKind> {
    * not within `WORKOUTS_OLDER_RETRY_GAP_MS`.
    */
   loadSession: (sessionId: string) => Promise<void>;
+  /** A note was saved on the server for `sessionId` (null: removed): show it in every copy this phone holds, 0 reads. */
+  applyNote: (uid: string, sessionId: string, note: string | null) => void;
   /** This phone's upload of `session` was confirmed by the server: hold it, 0 reads. */
   applyFinished: (uid: string, session: WorkoutSessionDoc) => void;
   /** Sign-out. */
   clear: () => void;
 }
 
-type State = Omit<WorkoutsStore, "open" | "check" | "loadOlder" | "loadSession" | "applyFinished" | "clear">;
+type State = Omit<WorkoutsStore, "open" | "check" | "loadOlder" | "loadSession" | "applyNote" | "applyFinished" | "clear">;
 
 const initialState = {
   uid: null,
@@ -330,6 +332,12 @@ const askForOlder = createOnDemandReads<OlderPage>({
   retryGapMs: WORKOUTS_OLDER_RETRY_GAP_MS,
 });
 
+/** `session` with its note set, or removed for null (the key is left out, never `undefined`: Firestore here rejects it). */
+function withNote(session: WorkoutSessionDoc, note: string | null): WorkoutSessionDoc {
+  const { note: _old, ...rest } = session;
+  return note === null ? rest : { ...rest, note };
+}
+
 /** The same rules for one workout by id (TICKET-083); a key per id, so two opened at once do not join. */
 const askForSession = createOnDemandReads<FetchedSession>({
   waitMs: WORKOUTS_CHECK_WAIT_MS,
@@ -439,6 +447,29 @@ export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
           return { status: "ready", session };
         },
       });
+    },
+
+    applyNote: (uid, sessionId, note) => {
+      const state = get();
+      if (state.uid !== uid) return;
+      const held = state.workoutWindow?.sessions.find((session) => session.sessionId === sessionId);
+      set((s) => ({
+        // The window by `addToWindow`: the same stamp replaces itself, and the plan's floor entry follows.
+        workoutWindow: held && s.workoutWindow ? addToWindow(s.workoutWindow, [withNote(held, note)], WORKOUTS_ON_PHONE_MIN) : s.workoutWindow,
+        olderWorkouts: Object.fromEntries(
+          Object.entries(s.olderWorkouts).map(([key, older]) => [
+            key,
+            { ...older, sessions: older.sessions.map((session) => (session.sessionId === sessionId ? withNote(session, note) : session)) },
+          ])
+        ),
+        fetchedSessions: Object.fromEntries(
+          Object.entries(s.fetchedSessions).map(([key, read]) => [
+            key,
+            read.status === "ready" && read.session?.sessionId === sessionId ? { ...read, session: withNote(read.session, note) } : read,
+          ])
+        ),
+      }));
+      if (held) runner.persist();
     },
 
     applyFinished: (uid, session) => {
