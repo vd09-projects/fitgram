@@ -11014,7 +11014,7 @@ a short sheet still sized to its content. **Not verified:** iOS; the guided tour
 
 ### TICKET-091: Change an Exercise's Units Mid-Workout
 
-**Priority:** High | **Effort:** Medium | **Status: IN REVIEW (PR #74)** — design merged in PR #73, 2026-11-17
+**Priority:** High | **Effort:** Medium | **Status: DONE** — design merged in PR #73, built and merged in PR #74, 2026-11-17
 
 **Description (user report, 2026-11-16, screenshots):**
 After a swap (and in a Freestyle) Bench Press · Machine logged in kg, though the user logs that machine in
