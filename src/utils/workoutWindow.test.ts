@@ -5,7 +5,6 @@ import {
   secondQueryStart,
   addToWindow,
   compareSessions,
-  isMonthOnPhone,
   lastSeenAfterCheck,
   plansToLookUp,
   sessionsByMonth,
@@ -304,12 +303,3 @@ describe("carried over: stamps, ties, last seen, a bad copy", () => {
   });
 });
 
-describe("isMonthOnPhone", () => {
-  const start = new Date(2026, 9, 1).getTime(); // the window starts on 1 Oct
-  it("is true from the window's start, false for an older month, and true for every month when nothing is older", () => {
-    expect(isMonthOnPhone({ windowStart: start }, "2026-10")).toBe(true);
-    expect(isMonthOnPhone({ windowStart: start }, "2026-12")).toBe(true); // complete, and empty
-    expect(isMonthOnPhone({ windowStart: start }, "2026-09")).toBe(false);
-    expect(isMonthOnPhone({ windowStart: null }, "2019-01")).toBe(true);
-  });
-});

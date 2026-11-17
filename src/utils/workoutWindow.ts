@@ -26,7 +26,7 @@
 import type { WorkoutPlan } from "../types/workoutType";
 import type { WorkoutSessionDoc } from "../types/workoutSession";
 import { compareStamps, isStamp, lastSeenAfter, openEnvelope, type SyncStamp } from "./syncCore";
-import { chooseMonthsToKeep, localMonthKey, localMonthRange, localMonthStart, utcMonthKey } from "./monthWindow";
+import { chooseMonthsToKeep, localMonthKey, localMonthStart, utcMonthKey } from "./monthWindow";
 import { readLifts } from "./liftRecord";
 import { WORKOUTS_FORMAT_VERSION, WORKOUTS_STORAGE_KEY, workoutsShardKey } from "../config/storageKeys";
 
@@ -295,15 +295,6 @@ export function lastSeenAfterCheck(
 // ---------------------------------------------------------------------------
 // Selectors for the History screens (083 to 086). All read the window only.
 // ---------------------------------------------------------------------------
-
-/**
- * Is every workout of this local month already on the phone? True from the window's start on, and
- * for every month when the whole history is in the window. False for a month before it: that is
- * the one `getWorkoutsOfMonth` fetches. A month with no workouts after the start is still "on the
- * phone" (it is complete, and empty).
- */
-export const isMonthOnPhone = (window: Pick<WorkoutWindow, "windowStart">, month: string): boolean =>
-  window.windowStart === null || localMonthRange(month).from >= window.windowStart;
 
 export type MonthGroup = { month: string; sessions: WorkoutSessionDoc[] };
 
