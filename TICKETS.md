@@ -10384,7 +10384,7 @@ the Exercises tab (085b).
 
 ### TICKET-085a: History Home — Shell and Workouts Tab
 
-**Priority:** Medium | **Effort:** Large | **Status: OPEN** — raised 2026-11-13 (user); split from TICKET-085 on 2026-11-15 (user): the home page first, so every later screen is reached by tapping through it, with no debug page
+**Priority:** Medium | **Effort:** Large | **Status: DONE** (PR #75, merged 2026-11-18; proof partly open, see below) — raised 2026-11-13 (user); split from TICKET-085 on 2026-11-15 (user): the home page first, so every later screen is reached by tapping through it, with no debug page
 
 **Description:**
 The first half of the new History home: the shell and the Workouts tab. Opened from the Workout hub (the
@@ -10466,6 +10466,11 @@ Deviations, for the user to overrule:
 - *Review fixes (PR #75, 2026-11-18):* the rail's clock (`now`, the "current month") is re-read on focus and on foregrounding, as the hub does; a plan's older
   workouts are taken from All's list once All has paged to the start (0 reads, no empty page asked for); `HistoryRailRow` is memoized with stable callbacks (its effect
   on frame rate is not measured: the 20-workout scroll proof is still open).
+
+- **Open after merge (2026-11-18):** (a) the "waiting to upload" / "didn't upload" strips on a device, and (b) a Finish on another phone appearing on the next check, both
+  with 086's delete (a test workout written to `pinky`, then removed); (c) the proof's measurements: reads of a History visit before and after, and the 20-workout
+  scroll without dropped frames (also the effect of the row memo); (d) device runs of "Needs a connection, still trying", "Could not load · try again" and gap lines,
+  which need history past the window. TICKET-029 stays OPEN for its last-error list.
 
 ---
 
@@ -11167,7 +11172,7 @@ parts about the old page and the screens are 085a and 085b, the parts about `exe
 2. TICKET-081  (Lift record and verdict)     — DONE (PR #68)
 3. TICKET-082  (Hold recent workouts)       — DONE (PR #69); its other-phone proof moved to 085a
 3b. TICKET-088 (Older-month counts and reads) — DONE 2026-11-17: older workouts load by page, no month count, nothing stored
-4. TICKET-085a (History home: shell and Workouts tab) — Placeholder Session; TEMPORARY hub button; needs 081, 082, 088
+4. TICKET-085a (History home: shell and Workouts tab) — DONE (PR #75); placeholder Session and TEMPORARY hub button stay until 083 and 085b; open proof moved to 086
 5. TICKET-083  (Session screen, landing)     — After 085a; replaces the placeholder
 6. TICKET-084  (Exercise screen)
 7. TICKET-085b (Exercises tab; the switch; removes the old page)
