@@ -5,6 +5,7 @@ import {
   getLastWorkoutOfPlan,
   getNewestSessionStamp,
   getOlderWorkoutsPage,
+  getSessionsOfExercisePage,
   getWorkoutById,
   getWorkoutWindowFromServer,
 } from "../services/db/workoutSessions";
@@ -26,7 +27,7 @@ import {
 import { createSyncRunner, type CheckRun as RunBase, type ReadoutEntry as SyncReadoutEntry, type SyncFields } from "./syncRunner";
 import { usePlansStore } from "./usePlansStore";
 import { WORKOUTS_CHECK_SKIP_MS, WORKOUTS_CHECK_WAIT_MS, WORKOUTS_OLDER_RETRY_GAP_MS, WORKOUTS_ON_PHONE_MIN } from "../config/sync";
-import { OLDER_WORKOUTS_PAGE_SIZE } from "../config/display";
+import { EXERCISE_LOG_PAGE_SIZE, OLDER_WORKOUTS_PAGE_SIZE } from "../config/display";
 import { WORKOUTS_STORAGE_KEY } from "../config/storageKeys";
 import { createOnDemandReads, type OnDemandState } from "./onDemandReads";
 
@@ -118,6 +119,39 @@ export function olderOf(
   return workoutWindow !== null && held !== undefined && held.windowStart === workoutWindow.windowStart ? held : null;
 }
 
+/**
+ * A lift's sessions older than the window, loaded by page for the Exercise screen's log (TICKET-084 stage 3). Memory only,
+ * one list per exercise id, in the shape of `OlderWorkouts` and under the same rule: a list loaded before the window moved
+ * is read as not loaded.
+ */
+export function exerciseOlderOf(
+  exerciseOlder: Readonly<Record<string, OlderWorkouts>>,
+  workoutWindow: Pick<WorkoutWindow, "windowStart"> | null,
+  exerciseId: string
+): OlderWorkouts | null {
+  const held = exerciseOlder[exerciseId];
+  return workoutWindow !== null && held !== undefined && held.windowStart === workoutWindow.windowStart ? held : null;
+}
+
+/**
+ * Where a lift's log stands past the window: whether anything older may exist, and where the next page starts.
+ *
+ * The History home's All list (`olderOf(.., null)`) is every workout from the window's start down to its oldest, so
+ * everything of this lift in that stretch is in the log already: the next page starts below the lower of that list's edge
+ * and this lift's own pages' edge, and a read there would otherwise fetch documents the phone holds. When the All list has
+ * reached the first workout, or this lift's pages have, nothing is older.
+ * `windowStart` null: the window holds the whole history, so there is no "past the window" at all.
+ */
+export function exercisePaging(
+  windowStart: number | null,
+  allOlder: Pick<OlderWorkouts, "sessions" | "reachedStart"> | null,
+  own: Pick<OlderWorkouts, "sessions" | "reachedStart"> | null
+): { reachedStart: boolean; before: number | null } {
+  if (windowStart === null || allOlder?.reachedStart || own?.reachedStart) return { reachedStart: true, before: null };
+  const edges = [windowStart, ...[allOlder, own].flatMap((list) => (list && list.sessions.length > 0 ? [list.sessions[list.sessions.length - 1].startedAt] : []))];
+  return { reachedStart: false, before: Math.min(...edges) };
+}
+
 export type WorkoutsCheckKind = "full" | "change";
 export type WorkoutsReadoutEntry = SyncReadoutEntry<WorkoutsCheckKind>;
 
@@ -136,6 +170,8 @@ interface WorkoutsStore extends SyncFields<WorkoutsCheckKind> {
   olderWorkouts: Record<string, OlderWorkouts>;
   /** Workouts opened by id that the phone did not hold, by session id (`loadSession`). Memory only. */
   fetchedSessions: Record<string, OnDemandState<FetchedSession>>;
+  /** A lift's sessions older than the window, by exercise id (`loadOlderOfExercise`). Memory only. */
+  exerciseOlder: Record<string, OlderWorkouts>;
 
   /** A reader opened: load the saved copy for `uid`, then check. */
   open: (uid: string) => Promise<void>;
@@ -148,6 +184,13 @@ interface WorkoutsStore extends SyncFields<WorkoutsCheckKind> {
    * is inside its wait; a refused read is asked again, not within `WORKOUTS_OLDER_RETRY_GAP_MS`.
    */
   loadOlder: (planId: string | null) => Promise<void>;
+  /**
+   * Read the next page of one lift's sessions older than the window (`EXERCISE_LOG_PAGE_SIZE`, 1 read each; a `deleted`
+   * marker is read and skipped), into `exerciseOlder`. Nothing when the window holds the whole history, when the start was
+   * reached (by this lift's pages, or by the History home's All list, which then already holds them), or while a read is
+   * inside its wait; a refused read is asked again, not within `WORKOUTS_OLDER_RETRY_GAP_MS`.
+   */
+  loadOlderOfExercise: (exerciseId: string) => Promise<void>;
   /**
    * Read one workout by id, for a Session opened that is neither held nor queued: 1 read, answer kept in
    * `fetchedSessions`. Nothing when it is already read or inside its wait; a refused read is asked again,
@@ -162,7 +205,7 @@ interface WorkoutsStore extends SyncFields<WorkoutsCheckKind> {
   clear: () => void;
 }
 
-type State = Omit<WorkoutsStore, "open" | "check" | "loadOlder" | "loadSession" | "applyNote" | "applyFinished" | "clear">;
+type State = Omit<WorkoutsStore, "open" | "check" | "loadOlder" | "loadOlderOfExercise" | "loadSession" | "applyNote" | "applyFinished" | "clear">;
 
 const initialState = {
   uid: null,
@@ -176,6 +219,7 @@ const initialState = {
   lastSeen: null,
   lastFullAt: null,
   olderWorkouts: {},
+  exerciseOlder: {},
   fetchedSessions: {},
   lastSaveMs: null,
   readout: { reads: 0, log: [] }, // debug readout (Plans Store page)
@@ -332,6 +376,12 @@ const askForOlder = createOnDemandReads<OlderPage>({
   retryGapMs: WORKOUTS_OLDER_RETRY_GAP_MS,
 });
 
+/** The same rules for a lift's pages (TICKET-084): a key per exercise, so two lifts paging at once do not join. */
+const askForExerciseOlder = createOnDemandReads<OlderPage>({
+  waitMs: WORKOUTS_CHECK_WAIT_MS,
+  retryGapMs: WORKOUTS_OLDER_RETRY_GAP_MS,
+});
+
 /** `session` with its note set, or removed for null (the key is left out, never `undefined`: Firestore here rejects it). */
 function withNote(session: WorkoutSessionDoc, note: string | null): WorkoutSessionDoc {
   const { note: _old, ...rest } = session;
@@ -412,6 +462,10 @@ export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
         repeatable: true,
         setState: (read) =>
           set((s) => {
+            // The window moved while the page was being read (a trim or a full reload): the page was asked from an edge that no
+            // longer exists, and filing it under the old `windowStart` would only waste it. Dropped; the next tap reads from the new
+            // edge (found in the review of PR #77, which fixed the same shape in `loadOlderOfExercise`).
+            if (s.workoutWindow?.windowStart !== windowStart) return {};
             const base = olderOf(s.olderWorkouts, s.workoutWindow, planId) ?? { windowStart, sessions: [], reachedStart: false, read: null };
             const next: OlderWorkouts =
               read.status === "ready"
@@ -429,6 +483,44 @@ export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
           const { sessions, docsRead, reachedStart } = await getOlderWorkoutsPage(uid, before, planId, OLDER_WORKOUTS_PAGE_SIZE);
           bill(docsRead);
           return { status: "ready", sessions, reachedStart };
+        },
+      });
+    },
+
+    loadOlderOfExercise: async (exerciseId) => {
+      const { uid, workoutWindow, olderWorkouts, exerciseOlder } = get();
+      // Not knowing the window, nothing is known to be older than it.
+      if (uid === null || workoutWindow === null) return;
+      const held = exerciseOlderOf(exerciseOlder, workoutWindow, exerciseId);
+      const { reachedStart, before } = exercisePaging(workoutWindow.windowStart, olderOf(olderWorkouts, workoutWindow, null), held);
+      if (reachedStart || before === null) return;
+      const windowStart = workoutWindow.windowStart as number;
+      const epoch = get().epoch;
+      return askForExerciseOlder(exerciseId, {
+        current: held?.read ?? undefined,
+        repeatable: true,
+        setState: (read) =>
+          set((s) => {
+            // The window moved while the page was being read (a trim or a full reload): the page was asked from an edge that no
+            // longer exists, and filing it under the old `windowStart` would only waste it. Dropped; the next tap reads from the new edge.
+            if (s.workoutWindow?.windowStart !== windowStart) return {};
+            const base = exerciseOlderOf(s.exerciseOlder, s.workoutWindow, exerciseId) ?? { windowStart, sessions: [], reachedStart: false, read: null };
+            const next: OlderWorkouts =
+              read.status === "ready"
+                ? {
+                    ...base,
+                    read,
+                    reachedStart: read.reachedStart,
+                    sessions: [...new Map([...base.sessions, ...read.sessions].map((session) => [session.sessionId, session])).values()].sort(compareSessions),
+                  }
+                : { ...base, read };
+            return { exerciseOlder: { ...s.exerciseOlder, [exerciseId]: next } };
+          }),
+        isCurrent: () => runner.isCurrent(epoch),
+        read: async () => {
+          const { sessions, docsRead, reachedStart: reached } = await getSessionsOfExercisePage(uid, exerciseId, before, EXERCISE_LOG_PAGE_SIZE);
+          bill(docsRead);
+          return { status: "ready", sessions, reachedStart: reached };
         },
       });
     },
@@ -458,6 +550,12 @@ export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
         workoutWindow: held && s.workoutWindow ? addToWindow(s.workoutWindow, [withNote(held, note)], WORKOUTS_ON_PHONE_MIN) : s.workoutWindow,
         olderWorkouts: Object.fromEntries(
           Object.entries(s.olderWorkouts).map(([key, older]) => [
+            key,
+            { ...older, sessions: older.sessions.map((session) => (session.sessionId === sessionId ? withNote(session, note) : session)) },
+          ])
+        ),
+        exerciseOlder: Object.fromEntries(
+          Object.entries(s.exerciseOlder).map(([key, older]) => [
             key,
             { ...older, sessions: older.sessions.map((session) => (session.sessionId === sessionId ? withNote(session, note) : session)) },
           ])

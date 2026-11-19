@@ -23,6 +23,8 @@ export const WorkoutRoutes = {
     HistoryHome: "HistoryHome",
     // One workout: every lift a card (TICKET-083).
     Session: "Session",
+    // One lift's log across workouts (TICKET-084). Opened from a Session's compare, later from the Exercises tab (085b).
+    Exercise: "Exercise",
     // Debug tooling, kept (TICKET-070): PlansStoreDebugScreen.
     PlansStoreDebug: "PlansStoreDebug",
 } as const;

@@ -10,6 +10,7 @@ import { olderOf, useRecentWorkoutsStore } from "../../stores/useRecentWorkoutsS
 import { drainPendingUploads, useWorkoutStore } from "../../stores/useWorkoutStore";
 import { planFilterRows } from "../../utils/workoutWindow";
 import { historyNotice } from "../../utils/historyNotice";
+import { HistoryNoticeStrip } from "../../components/history/HistoryNoticeStrip";
 import { buildRail, mergePending, type RailRow, type RailWorkout } from "../../utils/historyRail";
 import { WorkoutRoutes } from "../../constants/routes";
 import type { WorkoutSessionDoc } from "../../types/workoutSession";
@@ -189,23 +190,7 @@ export default function HistoryHomeScreen() {
         </View>
       </View>
 
-      {notice && (
-        <View style={[styles.notice, notice.kind === "didNotUpload" && styles.noticeDanger]} testID="history-notice">
-          <Ionicons
-            name={notice.kind === "didNotUpload" ? "alert-circle-outline" : "time-outline"}
-            size={16}
-            color={notice.kind === "didNotUpload" ? t.colors.role.danger : t.colors.role.textSecondary}
-          />
-          <TextBase style={styles.noticeText} numberOfLines={2}>
-            {notice.text}
-          </TextBase>
-          {notice.tryAgain && (
-            <TouchableOpacity onPress={tryAgain} disabled={retrying} accessibilityRole="button" accessibilityLabel="Try again">
-              <TextBase style={styles.noticeAction}>Try again</TextBase>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
+      {notice && <HistoryNoticeStrip notice={notice} retrying={retrying} onTryAgain={tryAgain} />}
 
       {rows === null ? (
         <View style={styles.body}>
@@ -281,21 +266,6 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
       gap: 6,
     },
     filterText: { flexShrink: 1, fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.textPrimary },
-    notice: {
-      height: 44,
-      marginHorizontal: SPACING.xMedium,
-      paddingHorizontal: SPACING.xMedium,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: t.colors.role.hairlineStrong,
-      backgroundColor: t.colors.role.surface,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: SPACING.small,
-    },
-    noticeDanger: { borderColor: t.colors.role.danger },
-    noticeText: { flex: 1, fontSize: t.fonts.xMedium, color: t.colors.role.textPrimary },
-    noticeAction: { fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.accent },
     body: { flex: 1, paddingHorizontal: SPACING.xMedium, paddingTop: SPACING.medium },
     listEnd: { paddingBottom: SPACING.xxLarge },
     loading: { paddingVertical: SPACING.xxxLarge, alignItems: "center" },

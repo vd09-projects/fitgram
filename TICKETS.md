@@ -52,13 +52,15 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 081 | History data foundation: the lift record and the verdict | Large | **Built 2026-11-14, in review (PR #68).** Raised 2026-11-13 (user). No screen. `lifts[]` (with the sets) and `note` on the session doc, one verdict function, a compare script. After 087. Reps-only lifts and the count word are decided |
 | 082 | Hold recent workouts on the phone | Med-Large | After 081. Replaces the 5-per-plan window with the newest whole months; month shards; older months fetched on tap |
 | 083 | Session screen and landing after Finish | Large | After 081, 082. Ships alone: the user lands on it after Finish |
-| 084 | Exercise screen | Med-Large | After 083. Graph drawn from Views (decided in 087) |
+| 084 | Exercise screen | Med-Large | **Built, PR #77 (two review passes, fixes pushed).** Graph drawn from Views (decided in 087) |
 | 085 | History home: Workouts and Exercises tabs | Large | After 081-084. Replaces the old History page; closes 029 |
 | 086 | Delete a workout | Med-Large | After 083. Shares `rebuildExerciseSummary` with 032 |
 | (parked) | Edit session UI | Design only | The option is shown switched off; the user decides the UI later |
 | 079 | Rest time on the Android lock screen: logic and native | Medium | Nice to have, raised 2026-11-10 (user). Spike done: it works on the emulator. Settle two things first (silent channel, staying at 0:00), then build. Wording and permission flow are 080. iOS later |
 | 080 | Lock-screen rest timer: design | Small-Medium | Split from 079 (2026-11-10). Wording, permission flow, buttons; options on the Drafts canvas first |
 | 091 | Change an exercise's units mid-workout | Medium | Raised 2026-11-16 (user). **Design merged, PR #73.** Freestyle, Swap and Add start in kg with no way to switch; hits about 1 lift in 5 every session |
+| 092 | History: what a lift with no weight shows | Small-Medium | Raised 2026-11-20 (user). **Open, after the History build and user testing.** The Exercise screen has no measure for a time or distance lift |
+| 093 | Exercise log: virtualise a long list | Small-Medium | Raised 2026-11-20 (PR #77 review, deferred by the user). **Open; measure first.** "All" with many loaded pages renders every row |
 
 ### Not tickets — verification owed
 
@@ -10361,7 +10363,7 @@ each of the three sources (the History home's held months and loaded Older worko
 
 ### TICKET-084: Exercise Screen
 
-**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN** — raised 2026-11-13 (user)
+**Priority:** Medium | **Effort:** Medium-Large | **Status: BUILT, in review (PR #77)** — all four stages built 2026-11-19/20 on `feat/ticket-084-exercise-screen` (stages are commits on that one branch); raised 2026-11-13 (user)
 
 **Description:**
 The Exercise screen of the design (`HistExercise*`): header "History · Bench Press", graph, one scrolling
@@ -10392,6 +10394,47 @@ the Exercises tab (085b).
 **CLAUDE.md rules skipped:** none.
 
 **Dependencies:** TICKET-081, 083. TICKET-036 (unit on trend points) matters only for a graph past 10 sessions.
+
+**Stages (decided 2026-11-19, user: by screen state, each stage's functions built with the screen part that uses them; nothing in a stage is overwritten by the next):**
+1. **Log** (boards 05, 07, 08, 09, 11, 12, 13): the `Exercise` route with `getId` by exercise id, the log from held workouts, the unit-break line, waiting and did-not-upload strip, the "<Lift> history" link in the Session compare. `utils/exerciseLog.ts`.
+2. **Graph** (01, 04, 10, graph half of 09): `graphPoints` and placement, peek card, the new-lift state. Last-N is a parameter, fixed at 10 until stage 4.
+3. **Past the window:** `getSessionsOfExercise`, the "Older sessions" row, offline and failed states, the index in `firestore.indexes.json` (prepared, the user deploys), a TEMPORARY read counter.
+4. **View options** (02, 03, 06): Total lifted, Graph and list / Graph only / List only, Last 5, 10, 20, All, the dot. Memory only per visit (user, 2026-11-19). "All" is everything loaded, older through stage 3's row.
+
+**Deviations from this ticket's text, confirmed by the user 2026-11-19 (the board is right, the ticket predates it):**
+- The measure is **Average weight** (the mean of a session's set weights, a drop set counting its first weight; defined in `averageWeight`), with **no trend word**. The ticket's "Typical weight" and "Going up" are not built.
+- A new lift shows no graph until 5 sessions ("The graph starts after 5 sessions. 2 so far."), board 10; the ticket said 1 to 2.
+
+**Stage 1 built (2026-11-19), committed 2026-11-20 as 0804b7c:**
+- Decisions, each in a comment where it lives: the table's columns follow the newest session's set count, older longer rows show "+N" (rejected: the most sets anywhere, the board sizes by the newest); one row per lift record, so a workout with the lift in two slots shows both; a unit break is a change of weight unit between neighbours, and two lifts with no weight field never break; a session whose average cannot be computed shows "–" and says why, never a partial mean.
+- `HistoryNoticeStrip` is now shared by the History home and this screen; `EffortMark` is shared by the Session card and the log.
+- Not done here: the graph, the options icon and sheets, paging past the window (stages 2 to 4).
+- **Device run (2026-11-20, emulator, `pinky`, read-only):** passed, with four layout bugs found and fixed (cell units, same-day dates, a word unit, the Freestyle caption); the log read 0 (every check skipped). Details and what stayed unrun: `docs/TESTING_NOTES.md`. Open for the user: a lift with no weight shows "Average weight" and "–"; its own measure belongs to stage 4's sheet.
+
+**Stage 2 built (2026-11-20), committed as ca06d8d:** `utils/exerciseGraph.ts` (all placement: `graphInput`, `graphLayout`, `lineSegment`, `peekPosition`) and `ExerciseGraph`, drawn from Views. Decisions, each in a comment where it lives:
+- The vertical scale is the run's lowest to highest value, never narrower than `EXERCISE_GRAPH_MIN_SPAN` of its highest, centred on the data, so a 2.5 kg change in a 60 kg lift is a ripple, not a swing. Derived from the boards: it reproduces HistExercise01's and 09's coordinates.
+- Points are spaced by order, not by date (as the boards); each run of one weight unit has its own scale and the line stops between runs; the highest and lowest of each run are labelled (the newest where values tie).
+- `EXERCISE_GRAPH_SESSIONS` and `EXERCISE_GRAPH_MIN_SESSIONS` are the named limit and minimum; stage 4's "Last N" replaces the fixed use of the first.
+- **Deviation:** the peek card is a one-line chip in a top corner, not beside the dot (see TESTING_NOTES: beside the dot it covered the line and the peak's label, and no place around a dot is clear in a graph this short). The card opens the session; a tap elsewhere closes it.
+- Not done here: graph-only and list-only views, Total lifted (stage 4); a graph past the held window (stage 3 supplies the older sessions it draws).
+
+**Stage 3 built (2026-11-20), committed as abd73a6:** `getSessionsOfExercisePage` (array-contains on `exerciseIds`, `startedAt` descending, `deleted` markers skipped: the loop `getOlderWorkoutsPage` has, extracted and shared), the store's `exerciseOlder` and `loadOlderOfExercise` with `exercisePaging`, the **Older sessions** row (`olderRow.ts` is the wording the History home's row now shares), `EXERCISE_LOG_PAGE_SIZE`.
+- **Index:** `firestore.indexes.json` declares the composite `sessions (exerciseIds array-contains, startedAt desc)`. The user created it in the console (the first attempt saved field 2 as `sessions`, a field that does not exist, and is still there to delete; the second is right and READY). Before it existed the row said "Could not load · try again" (confirmed on the emulator and with the admin SDK: `FAILED_PRECONDITION: The query requires an index`).
+- Decisions, each in a comment where it lives: the History home's All list is the cursor for a lift's first page (it is every workout from the window's start to its edge, so a read there would fetch documents the phone holds), and once it has reached the first workout nothing is read; a lift's pages merge into the log and the graph by session id; with the window holding the whole history there is no row and the empty state says "No sessions of this exercise.", otherwise "...in the workouts on this phone."
+- **Device run with the index live (2026-11-20):** a loaded page, the short page ending the log, the home-then-lift cursor and the reads per page all passed (a page of 1 document billed 1; a lift opened after the home reached the start billed 0). Unrun: the offline wait's "still trying" wording, a full page of 20 (`pinky` has at most 5 sessions of a lift), a Finish while a page loads.
+- Not done here: a lift's `reachedStart` message ("Your first session") is not drawn, the row simply goes.
+
+**Stage 4 built (2026-11-20), committed as ba2a616:** the view options (`utils/exerciseView.ts`, `ExerciseViewSheet`), **Total lifted** (`totalLifted`, which is `computeSessionVolume`: the app's one definition of volume, so the log and a stored volume cannot disagree), the measure label's choices, **Show**, **Sessions shown**, the two Details switches, and the **per-set better / lower marks** (`setArrows`, the Session compare's own rule). Device run done (TESTING_NOTES).
+- Decisions, each in a comment where it lives: a measure is a session's number and every consumer (the figure, the rows, the graph, the peek card) reads it through `valueOf`; a total never sums a set that did not parse (no partial sum); "Last N" limits the graph and the log together, and "Older sessions" is offered only while a page would be shown (with Last 10 and ten loaded it would change nothing, so it is hidden); the view is memory for the visit (user, 2026-11-19), so leaving the lift resets it.
+- **Stage 1 omission, corrected here:** the boards show better / lower marks on every set of the log and a switch for them; stage 1 left them out. They are in now.
+- **Deviation:** the measure choices open as a bottom sheet, not an anchored popup.
+- **Open, deferred by the user (2026-11-20) to TICKET-092:** a lift with no weight (a time hold) has no measure of its own: "Average weight" and "Total lifted" both say there is no weight to use. To be decided after the History build, from user testing, together with the other cases of that shape.
+- **The proof "the log agrees with the held summaries (a test)"** was missing from the first four stages (found in the PR #77 review); it is `exerciseLog.test.ts`: the same sessions in the same order as a lift's `exercise_stats` summary, each total equal to the volume the write path stored, and the same set counts.
+- **PR #77 review, pass 1 (multi-perspective, 2026-11-20): no blockers; five should-fix and five consider, all fixed here except one, which became TICKET-093.** Fixed: the table's shape from the newest session that has sets (it was column 0 for an empty newest session); a set's mark against the previous *session*, not the other slot of its own workout; one date label per workout (two slots of one workout showed a time as if two sessions fell that day); a row's accessibility label now says its numbers, sets, effort and marks (it replaced them with "Sets of Push"); the screen reads only older lists loaded under the current window (as the History home does); a page that lands after the window moved is dropped; a comment's wrong rounding example; the sheet's choices get a 48 dp touch area and the "Close the card" layer leaves the accessibility tree when no card is open; stale status text here and in the notes.
+- **Deferred to TICKET-093 (user, 2026-11-20):** the log is not virtualised (hundreds of rows with "All" and many loaded pages). A cost that lands late and loudly (a slow scroll, not a wrong number) at a history size the app's 5 to 10 users will not reach soon, and a virtualised list has to keep the date column and the set columns aligned, which is its own design: measure first, then decide.
+- **PR #77 review, pass 2 (2026-11-20): no blockers.** Fixed: the sheet's choices are a real 48 dp touchable with the 36 dp button drawn inside (the pass-1 hit slop could not extend past its parent, so it did nothing); the spoken labels say which measure the number is, and the sets row says its date (the date column and the sets rows are two separate stacks for a screen reader).
+- **Also fixed here (user, 2026-11-20):** the History home's `loadOlder` had the same shape as `loadOlderExercise` on `main` (a page landing after the window moved was filed under the old edge); it now drops it too, with a test.
+- **Ticket 084 is built in four stages; what remains is the review and the unrun items above.**
 
 ---
 
@@ -11139,6 +11182,59 @@ drafts and the rejected options on the "Fitgram Weight Unit Mid-Workout" canvas)
 
 **Not in scope:** remembering the chosen unit for the next Freestyle (the notice names it, the label changes it);
 the History sheet carrying the same button; a board for a 3-field custom exercise (described, not drawn).
+
+
+---
+
+### TICKET-092: History — What a Lift With No Weight Shows
+
+**Priority:** Low | **Effort:** Small-Medium | **Status: OPEN** — raised 2026-11-20 (user), found in TICKET-084; deliberately deferred
+
+**Description:**
+The Exercise screen (TICKET-084) offers two measures, **Average weight** and **Total lifted**, and both are numbers built from weight. A lift
+with no weight field (a timed hold, a distance, reps only) has neither: the figure reads "–", the line under it says "No weight to average"
+or "No weight to total", and the graph says "There is no weight in these sessions to graph". The boards have no state for it. This ticket is
+to decide what such a lift shows, and to look at the other cases of the same shape (assisted lifts, a lift whose unit changed kind, a
+bodyweight lift with no added weight, a session with one unreadable set) rather than fix this one alone.
+
+**Why it waits (user, 2026-11-20):** the goal is to finish the whole History page first, then test it with real users and decide from
+what they do with each case, not from assumptions made now. Inventing a measure today (total time? best set? total reps?) would be a guess
+(CLAUDE.md 2.5: a missing field in the model is the signal to stop, not to add one more case).
+
+**Questions to answer then:**
+- What does each lift type's session sum up as: time, distance, reps, assisted weight?
+- Does the measure sheet list only the measures that apply to the lift, or all of them, greyed?
+- Does the graph draw a different measure for these lifts, or none?
+
+**Out of scope:** the History build itself (081 to 085); changing what TICKET-084 draws for lifts that do have weight.
+
+**Dependencies:** TICKET-084 merged; some user testing of the History page.
+
+---
+
+### TICKET-093: Exercise Log — Virtualise a Long List
+
+**Priority:** Low | **Effort:** Small-Medium | **Status: OPEN** — raised 2026-11-20 (PR #77 review, pass 1), deferred by the user to its own ticket; measure before building
+
+**Description:**
+The Exercise screen's log (TICKET-084) is a plain `ScrollView` of rows: every session loaded is on screen at once, each with two touchables
+and a cell per set. With "Sessions shown: All" and several pages of "Older sessions" loaded that is hundreds of rows. Nothing is wrong
+with the numbers; the cost is a slow scroll and memory. Rows are memoised per block (`Block`), which helps a re-render but not the first draw.
+
+**Why it waits:** the cost lands late and loudly (a slow scroll, not a wrong value, CLAUDE.md 3.6), at a history size the app's 5 to 10
+users will not reach soon. A fix that is not measured first may not be the right one.
+
+**Do first (CLAUDE.md 3.1):** measure on the emulator with a dummy lift of 200 and 500 sessions (a script with `--dry-run`, as 088 did):
+time to first draw, scroll frame rate, memory. Decide from the number whether anything is needed.
+
+**If it is:** the hard part is the layout. The date column stays put while the set columns scroll sideways, and they are two stacks that
+share each row's height (`rowHeight` in `ExerciseLogTable`). A virtualised list has to keep both aligned per row, and a unit break
+starts a new block with its own header. Options to weigh: one `FlatList` whose rows draw both halves (the date column then scrolls with the sets,
+which loses the pinned column), two lists scrolled together, or limiting what "All" draws and paging the log itself.
+
+**Out of scope:** the graph (it draws at most the newest N points); the History home's rail.
+
+**Dependencies:** TICKET-084 merged; a user with a long enough history, or the dummy data above.
 
 ---
 

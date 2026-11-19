@@ -7,6 +7,7 @@ import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 import { verdictText, type RailRow } from "../../utils/historyRail";
 import { OLDER_WORKOUTS_PAGE_SIZE } from "../../config/display";
+import { olderRowBusy, olderRowDetail } from "../../utils/olderRow";
 import type { OlderWorkouts } from "../../stores/useRecentWorkoutsStore";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -70,22 +71,12 @@ export const HistoryRailRow = React.memo(function HistoryRailRow({
       );
 
     case "olderMore": {
-      const loading = olderRead?.status === "loading";
-      const detail =
-        olderRead?.status === "loading"
-          ? olderRead.waitOver
-            ? "Needs a connection, still trying"
-            : "Loading…"
-          : olderRead?.status === "offline"
-            ? "Needs a connection"
-            : olderRead?.status === "failed"
-              ? "Could not load · try again"
-              : `Show ${OLDER_WORKOUTS_PAGE_SIZE}`;
+      const detail = olderRowDetail(olderRead, OLDER_WORKOUTS_PAGE_SIZE);
       return (
         <TouchableOpacity
           style={styles.monthRow}
           // A read inside its wait is joined by the store; disabled here too, so a tap shows no change.
-          disabled={loading && !olderRead.waitOver}
+          disabled={olderRowBusy(olderRead)}
           onPress={onLoadOlder}
           accessibilityRole="button"
           accessibilityLabel={`Older workouts, ${detail}`}

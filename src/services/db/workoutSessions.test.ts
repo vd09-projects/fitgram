@@ -1,5 +1,5 @@
 import { Timestamp, getDocFromServer, getDocs, getDocsFromServer, limit, runTransaction, serverTimestamp, startAfter, where, writeBatch } from "firebase/firestore";
-import { getAllExerciseStats, getLastWorkoutOfPlan, getOlderWorkoutsPage, getWorkoutById, getWorkoutSessions, saveWorkoutSession, setWorkoutNote } from "./workoutSessions";
+import { getAllExerciseStats, getLastWorkoutOfPlan, getOlderWorkoutsPage, getSessionsOfExercisePage, getWorkoutById, getWorkoutSessions, saveWorkoutSession, setWorkoutNote } from "./workoutSessions";
 import { buildExercise, buildStats, buildWorkout } from "../../test/fixtures";
 import * as liftRecord from "../../utils/liftRecord";
 
@@ -277,6 +277,20 @@ describe("a page of workouts older than the phone holds", () => {
   });
 });
 
+describe("a page of one lift's sessions older than the phone holds", () => {
+  const docOf = (sessionId: string) => ({ data: () => ({ sessionId, workoutId: "p", startedAt: 1 }) });
+  const answer = (docs: ReturnType<typeof docOf>[]) => ({ metadata: { fromCache: false }, empty: docs.length === 0, size: docs.length, docs });
+
+  it("asks for the workouts that list the lift, before the edge, and says the start when the answer is short", async () => {
+    (getDocsFromServer as jest.Mock).mockReset();
+    (where as jest.Mock).mockClear();
+    (getDocsFromServer as jest.Mock).mockResolvedValue(answer([docOf("a")]));
+    await expect(getSessionsOfExercisePage("u1", "bench", 1_000, 2)).resolves.toMatchObject({ docsRead: 1, reachedStart: true });
+    expect(where).toHaveBeenCalledWith("exerciseIds", "array-contains", "bench");
+    expect(where).toHaveBeenCalledWith("startedAt", "<", 1_000);
+    await expect(getSessionsOfExercisePage("u1", "", 1_000, 2)).rejects.toThrow("Missing exercise");
+  });
+});
 
 // TICKET-083: a workout opened by id that the phone does not hold.
 describe("one workout by id", () => {

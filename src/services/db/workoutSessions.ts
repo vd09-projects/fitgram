@@ -27,6 +27,7 @@ import {
   where,
   writeBatch,
   DocumentData,
+  QueryConstraint,
   QueryDocumentSnapshot,
   QuerySnapshot,
 } from "firebase/firestore";
@@ -358,7 +359,35 @@ export const getOlderWorkoutsPage = async (
   before: number,
   planId: string | null,
   size: number
+): Promise<{ sessions: WorkoutSessionDoc[]; docsRead: number; reachedStart: boolean }> =>
+  pageOfSessions(userId, planId === null ? null : where("workoutId", "==", planId), before, size);
+
+/**
+ * One page of the workouts that have `exerciseId` and are older than `before` (TICKET-084 stage 3): the Exercise screen's log
+ * past the phone's window. `exerciseIds` is the list derived from `lifts` (`exerciseIds` array-contains), newest first, so a page
+ * is `size` workouts of this lift and nothing else. Needs the composite index `(exerciseIds array-contains, startedAt desc)`
+ * in `firestore.indexes.json`, which the user deploys: without it the read is refused (`failed-precondition`) and the screen
+ * says it could not load. Everything else (markers skipped, the start, the known same-millisecond gap, offline rejecting)
+ * is `getOlderWorkoutsPage`'s, as it is the same loop.
+ * Each document carries every lift of its workout, so a page of 20 is about 64 KB (measured on fixtures in TICKET-087).
+ */
+export const getSessionsOfExercisePage = async (
+  userId: string,
+  exerciseId: string,
+  before: number,
+  size: number
 ): Promise<{ sessions: WorkoutSessionDoc[]; docsRead: number; reachedStart: boolean }> => {
+  if (!exerciseId) throw new Error("Missing exercise");
+  return pageOfSessions(userId, where("exerciseIds", "array-contains", exerciseId), before, size);
+};
+
+/** The loop both pages share: `filter` (or none), `startedAt` before `before`, newest first, `deleted` markers skipped. */
+async function pageOfSessions(
+  userId: string,
+  filter: QueryConstraint | null,
+  before: number,
+  size: number
+): Promise<{ sessions: WorkoutSessionDoc[]; docsRead: number; reachedStart: boolean }> {
   if (!userId) throw new Error("Missing user");
   const sessions: WorkoutSessionDoc[] = [];
   let docsRead = 0;
@@ -369,7 +398,7 @@ export const getOlderWorkoutsPage = async (
       await getDocsFromServer(
         query(
           sessionsRef(userId),
-          ...(planId === null ? [] : [where("workoutId", "==", planId)]),
+          ...(filter === null ? [] : [filter]),
           where("startedAt", "<", before),
           orderBy("startedAt", "desc"),
           ...(after ? [startAfter(after)] : []),
@@ -383,7 +412,7 @@ export const getOlderWorkoutsPage = async (
     if (sessions.length >= size) return { sessions, docsRead, reachedStart: false };
     after = answer.docs[answer.docs.length - 1];
   }
-};
+}
 
 /**
  * One workout by its id, or null when it does not exist or is a `deleted` marker (TICKET-083: a workout
