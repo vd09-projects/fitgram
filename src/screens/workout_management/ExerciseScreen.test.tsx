@@ -1,11 +1,13 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import ExerciseScreen from "./ExerciseScreen";
 import { renderScreen, TEST_USER_ID } from "../../test/renderScreen";
-import { getWorkoutById, getWorkoutWindowFromServer } from "../../services/db/workoutSessions";
+import { getSessionsOfExercisePage, getWorkoutById, getWorkoutWindowFromServer } from "../../services/db/workoutSessions";
 import { buildSessionId } from "../../utils/exerciseStats";
 import { serveRecentWorkouts } from "../../test/recentWorkouts";
 import { buildExercise, buildWorkout } from "../../test/fixtures";
 import { WorkoutRoutes } from "../../constants/routes";
+import { WORKOUTS_ON_PHONE_MIN } from "../../config/sync";
+import { EXERCISE_LOG_PAGE_SIZE } from "../../config/display";
 import type { LiftRecord, WorkoutSessionDoc } from "../../types/workoutSession";
 import type { PendingUpload } from "../../types/zustandWorkoutType";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
@@ -27,6 +29,7 @@ jest.mock("../../services/db/workoutSessions", () => ({
   getLastWorkoutOfPlan: jest.fn(),
   getChangedSessions: jest.fn(),
   getWorkoutById: jest.fn(),
+  getSessionsOfExercisePage: jest.fn(),
 }));
 
 const lb = [
@@ -115,9 +118,10 @@ describe("ExerciseScreen: the log", () => {
     expect(await screen.findByText("Before this the sets were in kg, so they are not compared")).toBeOnTheScreen();
   });
 
-  it("says no session is on the phone, not that the lift was never done, when none of the held workouts has it", async () => {
+  it("says there are no sessions when the phone holds the whole history and none has the lift, with no Older sessions row", async () => {
     await open([session("s1", day(9), [lift("Squat", [100])])]);
-    expect(await screen.findByText("No sessions of this exercise in the workouts on this phone.")).toBeOnTheScreen();
+    expect(await screen.findByText("No sessions of this exercise.")).toBeOnTheScreen();
+    expect(screen.queryByTestId("exercise-older")).not.toBeOnTheScreen();
   });
 });
 
@@ -172,5 +176,39 @@ describe("ExerciseScreen: the graph", () => {
     fireEvent.press(screen.getByTestId("graph-dot-s3:0"));
     fireEvent.press(screen.getByTestId("graph-dot-s3:0"));
     expect(screen.queryByTestId("graph-peek")).not.toBeOnTheScreen();
+  });
+});
+
+describe("ExerciseScreen: past the window", () => {
+  const DAY = 86_400_000;
+  /** A full window of workouts that do not have the lift, so the history reaches back past what the phone holds. */
+  const fullWindow = () => Array.from({ length: WORKOUTS_ON_PHONE_MIN }, (_, i) => session(`w${i}`, Date.now() - i * DAY, [lift("Squat", [100])]));
+  const old = (id: string, daysAgo: number, weight: number) => session(id, Date.now() - (WORKOUTS_ON_PHONE_MIN + daysAgo) * DAY, [lift("Bench", [weight])]);
+
+  it("says the lift is not in the held workouts, not that it was never done, and offers the older sessions", async () => {
+    await open(fullWindow());
+    expect(await screen.findByText("No sessions of this exercise in the workouts on this phone.")).toBeOnTheScreen();
+    expect(screen.getByLabelText(`Older sessions, Show ${EXERCISE_LOG_PAGE_SIZE}`)).toBeOnTheScreen();
+  });
+
+  it("a tap loads the next page into the log and the graph, and the row goes once the start is reached", async () => {
+    jest.mocked(getSessionsOfExercisePage).mockResolvedValue({ sessions: [old("a", 10, 60), old("b", 20, 55)], docsRead: 2, reachedStart: true });
+    await open(fullWindow());
+    fireEvent.press(await screen.findByTestId("exercise-older"));
+    expect(await screen.findByTestId("exercise-log-date-a:0")).toBeOnTheScreen();
+    expect(screen.getByTestId("exercise-log-date-b:0")).toBeOnTheScreen();
+    expect(getSessionsOfExercisePage).toHaveBeenCalledWith(TEST_USER_ID, "bench", expect.any(Number), EXERCISE_LOG_PAGE_SIZE);
+    expect(screen.queryByTestId("exercise-older")).not.toBeOnTheScreen();
+  });
+
+  it("says it needs a connection when the page is refused, and keeps what was already loaded", async () => {
+    jest.mocked(getSessionsOfExercisePage).mockResolvedValueOnce({ sessions: [old("a", 10, 60)], docsRead: 1, reachedStart: false });
+    await open(fullWindow());
+    fireEvent.press(await screen.findByTestId("exercise-older"));
+    await screen.findByTestId("exercise-log-date-a:0");
+    jest.mocked(getSessionsOfExercisePage).mockRejectedValue(Object.assign(new Error("client is offline"), { code: "unavailable" }));
+    fireEvent.press(screen.getByTestId("exercise-older"));
+    expect(await screen.findByLabelText("Older sessions, Needs a connection")).toBeOnTheScreen();
+    expect(screen.getByTestId("exercise-log-date-a:0")).toBeOnTheScreen();
   });
 });

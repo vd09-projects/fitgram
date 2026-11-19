@@ -15,6 +15,14 @@
         { "fieldPath": "workoutId", "order": "ASCENDING" },
         { "fieldPath": "startedAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "sessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "exerciseIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "startedAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

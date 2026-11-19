@@ -1,12 +1,13 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { waitFor } from "@testing-library/react-native";
-import { olderOf, useRecentWorkoutsStore, workoutsRunFor } from "./useRecentWorkoutsStore";
+import { exerciseOlderOf, exercisePaging, olderOf, useRecentWorkoutsStore, workoutsRunFor } from "./useRecentWorkoutsStore";
 import { usePlansStore } from "./usePlansStore";
 import {
   getChangedSessions,
   getLastWorkoutOfPlan,
   getNewestSessionStamp,
   getOlderWorkoutsPage,
+  getSessionsOfExercisePage,
   getWorkoutById,
   getWorkoutWindowFromServer,
 } from "../services/db/workoutSessions";
@@ -16,7 +17,7 @@ import { serializeStoredWorkouts } from "../utils/workoutWindow";
 import { WORKOUTS_STORAGE_KEY } from "../config/storageKeys";
 import { WORKOUTS_CHECK_WAIT_MS, WORKOUTS_OLDER_RETRY_GAP_MS, WORKOUTS_ON_PHONE_MIN } from "../config/sync";
 import { serveRecentWorkouts } from "../test/recentWorkouts";
-import { OLDER_WORKOUTS_PAGE_SIZE } from "../config/display";
+import { EXERCISE_LOG_PAGE_SIZE, OLDER_WORKOUTS_PAGE_SIZE } from "../config/display";
 
 jest.mock("../services/firebase/firebase", () => ({ db: {} }));
 jest.mock("../services/db/workoutSessions", () => ({
@@ -25,6 +26,7 @@ jest.mock("../services/db/workoutSessions", () => ({
   getLastWorkoutOfPlan: jest.fn(),
   getChangedSessions: jest.fn(),
   getOlderWorkoutsPage: jest.fn(),
+  getSessionsOfExercisePage: jest.fn(),
   getWorkoutById: jest.fn(),
 }));
 jest.mock("../services/db/userDB", () => ({
@@ -368,5 +370,113 @@ describe("workouts older than the window, by page", () => {
     const { olderWorkouts, workoutWindow } = useRecentWorkoutsStore.getState();
     expect(olderOf(olderWorkouts, workoutWindow, null)).not.toBeNull();
     expect(olderOf(olderWorkouts, { windowStart: at(11, 1) }, null)).toBeNull();
+  });
+});
+
+describe("a lift's sessions past the window", () => {
+  const at = (month: number, day: number) => new Date(2026, month - 1, day, 10).getTime();
+  const WINDOW_START = at(10, 1);
+  const bench = (id: string, startedAt: number) => session(id, "push", startedAt, { exerciseIds: ["bench"] });
+  const own = (id = "bench") => exerciseOlderOf(useRecentWorkoutsStore.getState().exerciseOlder, useRecentWorkoutsStore.getState().workoutWindow, id);
+
+  async function openWithWindowFromOctober(windowStart: number | null = WINDOW_START) {
+    usePlansStore.setState({ uid: UID, plans: [plan("push")], storedRead: true });
+    await AsyncStorage.multiSet(
+      serializeStoredWorkouts(UID, {
+        sessions: [session("oct", "push", at(10, 5))],
+        windowStart,
+        lastByPlan: { push: session("oct", "push", at(10, 5)) },
+        lastSeen: { seconds: 5, nanoseconds: 0 },
+        lastFullAt: 0,
+      })
+    );
+    await useRecentWorkoutsStore.getState().open(UID);
+    jest.mocked(getSessionsOfExercisePage).mockReset();
+  }
+
+  it("the first page starts at the window's start, the next below the oldest loaded; pages add up, bill what they read, and go with the sign-out", async () => {
+    await openWithWindowFromOctober();
+    jest.mocked(getSessionsOfExercisePage)
+      .mockResolvedValueOnce({ sessions: [bench("a", at(9, 20)), bench("b", at(9, 10))], docsRead: 2, reachedStart: false })
+      .mockResolvedValueOnce({ sessions: [bench("c", at(8, 30))], docsRead: 1, reachedStart: false });
+    const before = useRecentWorkoutsStore.getState().billedReads;
+
+    await useRecentWorkoutsStore.getState().loadOlderOfExercise("bench");
+    expect(getSessionsOfExercisePage).toHaveBeenLastCalledWith(UID, "bench", WINDOW_START, EXERCISE_LOG_PAGE_SIZE);
+    await useRecentWorkoutsStore.getState().loadOlderOfExercise("bench");
+    expect(getSessionsOfExercisePage).toHaveBeenLastCalledWith(UID, "bench", at(9, 10), EXERCISE_LOG_PAGE_SIZE);
+
+    expect(own()?.sessions.map((s) => s.sessionId)).toEqual(["a", "b", "c"]);
+    expect(useRecentWorkoutsStore.getState().billedReads - before).toBe(3);
+    useRecentWorkoutsStore.getState().clear();
+    expect(useRecentWorkoutsStore.getState().exerciseOlder).toEqual({});
+  });
+
+  it("each lift pages on its own, and a lift's pages are not the History home's", async () => {
+    await openWithWindowFromOctober();
+    jest.mocked(getSessionsOfExercisePage).mockResolvedValue({ sessions: [bench("a", at(9, 20))], docsRead: 1, reachedStart: false });
+    await useRecentWorkoutsStore.getState().loadOlderOfExercise("bench");
+    await useRecentWorkoutsStore.getState().loadOlderOfExercise("squat");
+    expect(getSessionsOfExercisePage).toHaveBeenLastCalledWith(UID, "squat", WINDOW_START, EXERCISE_LOG_PAGE_SIZE);
+    expect(useRecentWorkoutsStore.getState().olderWorkouts).toEqual({});
+  });
+
+  it("two lifts asked for at once each keep their answer: one lift's late answer is not dropped because another lift asked meanwhile", async () => {
+    await openWithWindowFromOctober();
+    let answerBench: (page: { sessions: WorkoutSessionDoc[]; docsRead: number; reachedStart: boolean }) => void = () => {};
+    jest.mocked(getSessionsOfExercisePage).mockImplementationOnce(() => new Promise((resolve) => (answerBench = resolve)));
+    const benchRead = useRecentWorkoutsStore.getState().loadOlderOfExercise("bench");
+    jest.mocked(getSessionsOfExercisePage).mockResolvedValue({ sessions: [bench("s", at(9, 20))], docsRead: 1, reachedStart: false });
+    await useRecentWorkoutsStore.getState().loadOlderOfExercise("squat");
+    answerBench({ sessions: [bench("b", at(9, 25))], docsRead: 1, reachedStart: false });
+    await benchRead;
+    expect(own("squat")?.sessions.map((s) => s.sessionId)).toEqual(["s"]);
+    expect(own("bench")?.sessions.map((s) => s.sessionId)).toEqual(["b"]);
+  });
+
+  it("starts below what the History home already loaded, and reads nothing once that list reached the first workout or the window holds everything", async () => {
+    await openWithWindowFromOctober();
+    jest.mocked(getOlderWorkoutsPage).mockResolvedValueOnce({ sessions: [session("x", "push", at(9, 1)), session("y", "push", at(8, 15))], docsRead: 2, reachedStart: false });
+    await useRecentWorkoutsStore.getState().loadOlder(null);
+    jest.mocked(getSessionsOfExercisePage).mockResolvedValue({ sessions: [], docsRead: 0, reachedStart: false });
+    await useRecentWorkoutsStore.getState().loadOlderOfExercise("bench");
+    expect(getSessionsOfExercisePage).toHaveBeenLastCalledWith(UID, "bench", at(8, 15), EXERCISE_LOG_PAGE_SIZE);
+
+    jest.mocked(getOlderWorkoutsPage).mockResolvedValueOnce({ sessions: [], docsRead: 0, reachedStart: true });
+    await useRecentWorkoutsStore.getState().loadOlder(null);
+    jest.mocked(getSessionsOfExercisePage).mockClear();
+    await useRecentWorkoutsStore.getState().loadOlderOfExercise("bench");
+    expect(getSessionsOfExercisePage).not.toHaveBeenCalled();
+
+    useRecentWorkoutsStore.getState().clear();
+    await openWithWindowFromOctober(null);
+    await useRecentWorkoutsStore.getState().loadOlderOfExercise("bench");
+    expect(getSessionsOfExercisePage).not.toHaveBeenCalled();
+  });
+
+  it("a refused page leaves the pages already loaded, says offline, and is not the start; a failure says failed", async () => {
+    await openWithWindowFromOctober();
+    jest.mocked(getSessionsOfExercisePage).mockResolvedValueOnce({ sessions: [bench("a", at(9, 20))], docsRead: 1, reachedStart: false });
+    await useRecentWorkoutsStore.getState().loadOlderOfExercise("bench");
+    jest.mocked(getSessionsOfExercisePage).mockRejectedValue(Object.assign(new Error("client is offline"), { code: "unavailable" }));
+    await useRecentWorkoutsStore.getState().loadOlderOfExercise("bench");
+    expect(own()?.read).toEqual({ status: "offline", error: "client is offline" });
+    expect(own()?.sessions.map((s) => s.sessionId)).toEqual(["a"]);
+    expect(own()?.reachedStart).toBe(false);
+
+    jest.useFakeTimers().setSystemTime(Date.now() + WORKOUTS_OLDER_RETRY_GAP_MS + 1_000);
+    jest.mocked(getSessionsOfExercisePage).mockRejectedValue(Object.assign(new Error("needs an index"), { code: "failed-precondition" }));
+    await useRecentWorkoutsStore.getState().loadOlderOfExercise("bench");
+    jest.useRealTimers();
+    expect(own()?.read).toEqual({ status: "failed", error: "needs an index" });
+  });
+
+  it("exercisePaging: no start without a window start, the lowest edge of the lists, and the start once either list reached it", () => {
+    const list = (...days: number[]) => ({ sessions: days.map((d) => bench(`s${d}`, at(9, d))), reachedStart: false });
+    expect(exercisePaging(null, null, null)).toEqual({ reachedStart: true, before: null });
+    expect(exercisePaging(WINDOW_START, null, null)).toEqual({ reachedStart: false, before: WINDOW_START });
+    expect(exercisePaging(WINDOW_START, list(20, 10), list(25))).toEqual({ reachedStart: false, before: at(9, 10) });
+    expect(exercisePaging(WINDOW_START, list(20), { ...list(), reachedStart: true }).reachedStart).toBe(true);
+    expect(exercisePaging(WINDOW_START, { ...list(), reachedStart: true }, null).reachedStart).toBe(true);
   });
 });

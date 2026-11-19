@@ -90,3 +90,10 @@ export const EXERCISE_GRAPH_MIN_SESSIONS = 5;
  * The boards fit this exactly (HistExercise01 and 09).
  */
 export const EXERCISE_GRAPH_MIN_SPAN = 0.12;
+
+/**
+ * How many of a lift's sessions one tap on "Older sessions" loads on the Exercise screen (TICKET-084 stage 3). Each is one
+ * document read, and each document carries every lift of its workout (about 3 KB), so a tap costs about this many reads and
+ * about 64 KB. The row's label reads this value.
+ */
+export const EXERCISE_LOG_PAGE_SIZE = 20;
