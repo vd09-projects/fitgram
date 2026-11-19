@@ -71,3 +71,22 @@ export const SESSION_COMPARE_COUNT = 3;
  * this is the ticket's "up to 4 sets" read as a count, to be judged against the boards on the device.
  */
 export const SESSION_CARD_SETS_SHOWN = 4;
+
+/**
+ * How many of a lift's newest sessions the Exercise screen's graph draws (TICKET-084). They come from the held log,
+ * so a bigger number costs no read. Stage 4's "Last 5, 10, 20, All" view option replaces the fixed use of this value.
+ */
+export const EXERCISE_GRAPH_SESSIONS = 10;
+
+/**
+ * Below this many sessions the Exercise screen draws no graph and says how many there are (board HistExercise10): a
+ * line through two or three points reads as a trend that is not there.
+ */
+export const EXERCISE_GRAPH_MIN_SESSIONS = 5;
+
+/**
+ * The graph's vertical scale never spans less than this fraction of its highest value (TICKET-084). Without a floor a
+ * 2.5 kg wobble in a 60 kg lift fills the whole chart and reads as a swing; with it the same wobble is a ripple.
+ * The boards fit this exactly (HistExercise01 and 09).
+ */
+export const EXERCISE_GRAPH_MIN_SPAN = 0.12;

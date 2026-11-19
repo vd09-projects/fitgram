@@ -7,7 +7,7 @@ import { useRecentWorkoutsStore } from "../../stores/useRecentWorkoutsStore";
 import { drainPendingUploads, useWorkoutStore } from "../../stores/useWorkoutStore";
 import { historyNotice } from "../../utils/historyNotice";
 import { mergePending, type RailWorkout } from "../../utils/historyRail";
-import { averageReason, averageText, exerciseLog, type LogEntry } from "../../utils/exerciseLog";
+import { averageReason, averageText, exerciseLog } from "../../utils/exerciseLog";
 import { compareHeaderParts } from "../../utils/sessionView";
 import { WorkoutRoutes } from "../../constants/routes";
 import { SPACING } from "../../constants/styles";
@@ -16,6 +16,7 @@ import BackButton from "../../components/BackButton";
 import { TextBase } from "../../components/TextBase";
 import LoadingData from "../../components/LoadingData";
 import { HistoryNoticeStrip } from "../../components/history/HistoryNoticeStrip";
+import { ExerciseGraph } from "../../components/history/ExerciseGraph";
 import { ExerciseLogTable } from "../../components/history/ExerciseLogTable";
 import { ReturnTypeUseThemeTokens } from "../../components/app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
@@ -27,7 +28,7 @@ import { useThemeStyles } from "../../utils/useThemeStyles";
  *
  * Where the sessions come from: the held window, the queue (`mergePending`), and the pages the History home loaded:
  * 0 reads. A lift last done before the window shows nothing here until stage 3 pages past it, and says so rather than
- * claiming the lift was never done. The graph is stage 2, the view options stage 4.
+ * claiming the lift was never done. The graph above the log is stage 2 (`ExerciseGraph`), the view options stage 4.
  *
  * The notice strip counts only the waiting or rejected workouts that contain this lift (boards HistExercise11, 12):
  * the History home's strip counts every one, and a lift's screen must not report uploads that are not its own.
@@ -74,9 +75,9 @@ export default function ExerciseScreen() {
     return historyNotice(pending.filter((entry) => theirs.has(entry.sessionId)), uid, false);
   }, [entries, pending, uid]);
 
-  const open = useCallback(
-    (entry: LogEntry) =>
-      navigation.navigate(WorkoutRoutes.Session, { sessionId: entry.sessionId, workoutName: entry.workoutName, startedAt: entry.startedAt }),
+  const openSession = useCallback(
+    (session: { sessionId: string; workoutName: string; startedAt: number }) =>
+      navigation.navigate(WorkoutRoutes.Session, { sessionId: session.sessionId, workoutName: session.workoutName, startedAt: session.startedAt }),
     [navigation]
   );
 
@@ -137,7 +138,8 @@ export default function ExerciseScreen() {
                   Average weight<TextBase style={styles.measureNote}> · {latest?.kind === "none" ? averageReason(latest.reason) : "last session"}</TextBase>
                 </TextBase>
               </View>
-              <ExerciseLogTable log={log} dateLabels={dateLabels} onOpen={open} />
+              <ExerciseGraph log={log} now={now} onOpen={openSession} />
+              <ExerciseLogTable log={log} dateLabels={dateLabels} onOpen={openSession} />
             </>
           )}
           {log.unreadable > 0 && (

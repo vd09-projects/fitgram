@@ -136,3 +136,41 @@ describe("ExerciseScreen: uploads", () => {
     expect(screen.queryByTestId("history-notice")).not.toBeOnTheScreen();
   });
 });
+
+describe("ExerciseScreen: the graph", () => {
+  const size = () => fireEvent(screen.getByTestId("exercise-graph"), "layout", { nativeEvent: { layout: { x: 0, y: 0, width: 362, height: 116 } } });
+  const six = () => [1, 2, 3, 4, 5, 6].map((d) => session(`s${d}`, day(d), [lift("Bench", [50 + d * 2.5])]));
+
+  it("says how many sessions there are, and draws no graph, below the minimum", async () => {
+    await open(six().slice(0, 2));
+    await screen.findByTestId("exercise-figure");
+    size();
+    expect(await screen.findByText("The graph starts after 5 sessions. 2 so far.")).toBeOnTheScreen();
+    expect(screen.queryByTestId("graph-dot-s1:0")).not.toBeOnTheScreen();
+  });
+
+  it("opens a peek card from a dot, and the card opens that session", async () => {
+    await open(six());
+    await screen.findByTestId("exercise-figure");
+    size();
+    fireEvent.press(await screen.findByTestId("graph-dot-s3:0"));
+    await screen.findByTestId("graph-peek");
+    expect(screen.getByText("Nov 3")).toBeOnTheScreen();
+    expect(screen.getAllByText("57.5 kg")).toHaveLength(2); // the card, and the log row of the same day
+    fireEvent.press(screen.getByTestId("graph-peek"));
+    expect(await screen.findByText(`route:Workout/${WorkoutRoutes.Session}`)).toBeOnTheScreen();
+  });
+
+  it("closes the card on a tap anywhere else, and on the same dot again", async () => {
+    await open(six());
+    await screen.findByTestId("exercise-figure");
+    size();
+    fireEvent.press(await screen.findByTestId("graph-dot-s3:0"));
+    await screen.findByTestId("graph-peek");
+    fireEvent.press(screen.getByLabelText("Close the card"));
+    expect(screen.queryByTestId("graph-peek")).not.toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId("graph-dot-s3:0"));
+    fireEvent.press(screen.getByTestId("graph-dot-s3:0"));
+    expect(screen.queryByTestId("graph-peek")).not.toBeOnTheScreen();
+  });
+});

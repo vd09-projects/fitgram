@@ -10403,11 +10403,18 @@ the Exercises tab (085b).
 - The measure is **Average weight** (the mean of a session's set weights, a drop set counting its first weight; defined in `averageWeight`), with **no trend word**. The ticket's "Typical weight" and "Going up" are not built.
 - A new lift shows no graph until 5 sessions ("The graph starts after 5 sessions. 2 so far."), board 10; the ticket said 1 to 2.
 
-**Stage 1 built (2026-11-19):**
+**Stage 1 built (2026-11-19), committed 2026-11-20 as 0804b7c:**
 - Decisions, each in a comment where it lives: the table's columns follow the newest session's set count, older longer rows show "+N" (rejected: the most sets anywhere, the board sizes by the newest); one row per lift record, so a workout with the lift in two slots shows both; a unit break is a change of weight unit between neighbours, and two lifts with no weight field never break; a session whose average cannot be computed shows "–" and says why, never a partial mean.
 - `HistoryNoticeStrip` is now shared by the History home and this screen; `EffortMark` is shared by the Session card and the log.
 - Not done here: the graph, the options icon and sheets, paging past the window (stages 2 to 4).
 - **Device run (2026-11-20, emulator, `pinky`, read-only):** passed, with four layout bugs found and fixed (cell units, same-day dates, a word unit, the Freestyle caption); the log read 0 (every check skipped). Details and what stayed unrun: `docs/TESTING_NOTES.md`. Open for the user: a lift with no weight shows "Average weight" and "–"; its own measure belongs to stage 4's sheet.
+
+**Stage 2 built (2026-11-20), same branch, uncommitted:** `utils/exerciseGraph.ts` (all placement: `graphInput`, `graphLayout`, `lineSegment`, `peekPosition`) and `ExerciseGraph`, drawn from Views. Decisions, each in a comment where it lives:
+- The vertical scale is the run's lowest to highest value, never narrower than `EXERCISE_GRAPH_MIN_SPAN` of its highest, centred on the data, so a 2.5 kg change in a 60 kg lift is a ripple, not a swing. Derived from the boards: it reproduces HistExercise01's and 09's coordinates.
+- Points are spaced by order, not by date (as the boards); each run of one weight unit has its own scale and the line stops between runs; the highest and lowest of each run are labelled (the newest where values tie).
+- `EXERCISE_GRAPH_SESSIONS` and `EXERCISE_GRAPH_MIN_SESSIONS` are the named limit and minimum; stage 4's "Last N" replaces the fixed use of the first.
+- **Deviation:** the peek card is a one-line chip in a top corner, not beside the dot (see TESTING_NOTES: beside the dot it covered the line and the peak's label, and no place around a dot is clear in a graph this short). The card opens the session; a tap elsewhere closes it.
+- Not done here: graph-only and list-only views, Total lifted (stage 4); a graph past the held window (stage 3 supplies the older sessions it draws).
 
 ---
 
