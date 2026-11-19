@@ -60,6 +60,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 080 | Lock-screen rest timer: design | Small-Medium | Split from 079 (2026-11-10). Wording, permission flow, buttons; options on the Drafts canvas first |
 | 091 | Change an exercise's units mid-workout | Medium | Raised 2026-11-16 (user). **Design merged, PR #73.** Freestyle, Swap and Add start in kg with no way to switch; hits about 1 lift in 5 every session |
 | 092 | History: what a lift with no weight shows | Small-Medium | Raised 2026-11-20 (user). **Open, after the History build and user testing.** The Exercise screen has no measure for a time or distance lift |
+| 093 | Exercise log: virtualise a long list | Small-Medium | Raised 2026-11-20 (PR #77 review, deferred by the user). **Open; measure first.** "All" with many loaded pages renders every row |
 
 ### Not tickets — verification owed
 
@@ -10429,8 +10430,9 @@ the Exercises tab (085b).
 - **Deviation:** the measure choices open as a bottom sheet, not an anchored popup.
 - **Open, deferred by the user (2026-11-20) to TICKET-092:** a lift with no weight (a time hold) has no measure of its own: "Average weight" and "Total lifted" both say there is no weight to use. To be decided after the History build, from user testing, together with the other cases of that shape.
 - **The proof "the log agrees with the held summaries (a test)"** was missing from the first four stages (found in the PR #77 review); it is `exerciseLog.test.ts`: the same sessions in the same order as a lift's `exercise_stats` summary, each total equal to the volume the write path stored, and the same set counts.
-- **PR #77 review, pass 1 (multi-perspective, 2026-11-20): no blockers; five should-fix and five consider, all fixed here except one.** Fixed: the table's shape from the newest session that has sets (it was column 0 for an empty newest session); a set's mark against the previous *session*, not the other slot of its own workout; one date label per workout (two slots of one workout showed a time as if two sessions fell that day); a row's accessibility label now says its numbers, sets, effort and marks (it replaced them with "Sets of Push"); the screen reads only older lists loaded under the current window (as the History home does); a page that lands after the window moved is dropped; a comment's wrong rounding example; the sheet's choices get a 48 dp touch area and the "Close the card" layer leaves the accessibility tree when no card is open; stale status text here and in the notes.
-- **Deferred, with the reason:** the log is not virtualised (hundreds of rows with "All" and many loaded pages). It is a cost that lands late and loudly (a slow scroll, not a wrong number) at a history size the app's 5 to 10 users will not reach soon, and it needs the date column and the set columns to stay aligned across a virtualised list, which is its own design. Measure it when a user's history is long. The same stale-answer shape exists in the History home's `loadOlder` on `main` (inherited, not introduced here); not changed in this PR.
+- **PR #77 review, pass 1 (multi-perspective, 2026-11-20): no blockers; five should-fix and five consider, all fixed here except one, which became TICKET-093.** Fixed: the table's shape from the newest session that has sets (it was column 0 for an empty newest session); a set's mark against the previous *session*, not the other slot of its own workout; one date label per workout (two slots of one workout showed a time as if two sessions fell that day); a row's accessibility label now says its numbers, sets, effort and marks (it replaced them with "Sets of Push"); the screen reads only older lists loaded under the current window (as the History home does); a page that lands after the window moved is dropped; a comment's wrong rounding example; the sheet's choices get a 48 dp touch area and the "Close the card" layer leaves the accessibility tree when no card is open; stale status text here and in the notes.
+- **Deferred to TICKET-093 (user, 2026-11-20):** the log is not virtualised (hundreds of rows with "All" and many loaded pages). A cost that lands late and loudly (a slow scroll, not a wrong number) at a history size the app's 5 to 10 users will not reach soon, and a virtualised list has to keep the date column and the set columns aligned, which is its own design: measure first, then decide.
+- **Also fixed here (user, 2026-11-20):** the History home's `loadOlder` had the same shape as `loadOlderExercise` on `main` (a page landing after the window moved was filed under the old edge); it now drops it too, with a test.
 - **Ticket 084 is built in four stages; what remains is the review and the unrun items above.**
 
 ---
@@ -11206,6 +11208,32 @@ what they do with each case, not from assumptions made now. Inventing a measure 
 **Out of scope:** the History build itself (081 to 085); changing what TICKET-084 draws for lifts that do have weight.
 
 **Dependencies:** TICKET-084 merged; some user testing of the History page.
+
+---
+
+### TICKET-093: Exercise Log — Virtualise a Long List
+
+**Priority:** Low | **Effort:** Small-Medium | **Status: OPEN** — raised 2026-11-20 (PR #77 review, pass 1), deferred by the user to its own ticket; measure before building
+
+**Description:**
+The Exercise screen's log (TICKET-084) is a plain `ScrollView` of rows: every session loaded is on screen at once, each with two touchables
+and a cell per set. With "Sessions shown: All" and several pages of "Older sessions" loaded that is hundreds of rows. Nothing is wrong
+with the numbers; the cost is a slow scroll and memory. Rows are memoised per block (`Block`), which helps a re-render but not the first draw.
+
+**Why it waits:** the cost lands late and loudly (a slow scroll, not a wrong value, CLAUDE.md 3.6), at a history size the app's 5 to 10
+users will not reach soon. A fix that is not measured first may not be the right one.
+
+**Do first (CLAUDE.md 3.1):** measure on the emulator with a dummy lift of 200 and 500 sessions (a script with `--dry-run`, as 088 did):
+time to first draw, scroll frame rate, memory. Decide from the number whether anything is needed.
+
+**If it is:** the hard part is the layout. The date column stays put while the set columns scroll sideways, and they are two stacks that
+share each row's height (`rowHeight` in `ExerciseLogTable`). A virtualised list has to keep both aligned per row, and a unit break
+starts a new block with its own header. Options to weigh: one `FlatList` whose rows draw both halves (the date column then scrolls with the sets,
+which loses the pinned column), two lists scrolled together, or limiting what "All" draws and paging the log itself.
+
+**Out of scope:** the graph (it draws at most the newest N points); the History home's rail.
+
+**Dependencies:** TICKET-084 merged; a user with a long enough history, or the dummy data above.
 ---
 
 ## Recommended Execution Order

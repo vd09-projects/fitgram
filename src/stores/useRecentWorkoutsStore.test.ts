@@ -363,6 +363,17 @@ describe("workouts older than the window, by page", () => {
     expect(older()?.reachedStart).toBe(false);
   });
 
+  it("drops a page that lands after the window moved, instead of filing it under an edge that no longer exists", async () => {
+    await openWithWindowFromOctober();
+    let answer: (page: { sessions: WorkoutSessionDoc[]; docsRead: number; reachedStart: boolean }) => void = () => {};
+    jest.mocked(getOlderWorkoutsPage).mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+    const read = useRecentWorkoutsStore.getState().loadOlder(null);
+    useRecentWorkoutsStore.setState({ workoutWindow: { ...useRecentWorkoutsStore.getState().workoutWindow!, windowStart: at(11, 1) } });
+    answer({ sessions: [oldWorkout("late", at(9, 20))], docsRead: 1, reachedStart: false });
+    await read;
+    expect(useRecentWorkoutsStore.getState().olderWorkouts["*"]?.sessions ?? []).toEqual([]);
+  });
+
   it("a list loaded before the window moved is read as not loaded", async () => {
     await openWithWindowFromOctober();
     jest.mocked(getOlderWorkoutsPage).mockResolvedValue({ sessions: [oldWorkout("a", at(9, 20))], docsRead: 1, reachedStart: false });

@@ -462,6 +462,10 @@ export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
         repeatable: true,
         setState: (read) =>
           set((s) => {
+            // The window moved while the page was being read (a trim or a full reload): the page was asked from an edge that no
+            // longer exists, and filing it under the old `windowStart` would only waste it. Dropped; the next tap reads from the new
+            // edge (found in the review of PR #77, which fixed the same shape in `loadOlderOfExercise`).
+            if (s.workoutWindow?.windowStart !== windowStart) return {};
             const base = olderOf(s.olderWorkouts, s.workoutWindow, planId) ?? { windowStart, sessions: [], reachedStart: false, read: null };
             const next: OlderWorkouts =
               read.status === "ready"
