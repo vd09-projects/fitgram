@@ -5,7 +5,7 @@ import { EffortMark } from "./EffortMark";
 import { SetArrow } from "./SetArrow";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
-import { measureText, rowCells, rowUnit, spokenSet, unitBreakText, valueOf, type ExerciseLog, type LogEntry, type LogSegment, type Measure } from "../../utils/exerciseLog";
+import { measureLabel, measureText, rowCells, rowUnit, spokenSet, unitBreakText, valueOf, type ExerciseLog, type LogEntry, type LogSegment, type Measure } from "../../utils/exerciseLog";
 import type { HeaderParts } from "../../utils/sessionView";
 import type { SetView } from "../../utils/sessionView";
 
@@ -28,7 +28,7 @@ const rowValue = (entry: LogEntry, measure: Measure): { number: string; unit: st
 /** What a screen reader says for a row's date cell: the date, the workout, the number under the date and the captions. */
 const dateSpoken = (entry: LogEntry, label: HeaderParts, measure: Measure): string => {
   const value = valueOf(entry, measure);
-  const number = value.kind === "value" ? `${measureText(measure, value.value)} ${value.unit}`.trim() : "no number";
+  const number = value.kind === "value" ? `${measureLabel(measure).toLowerCase()} ${measureText(measure, value.value)} ${value.unit}`.trim() : `no ${measureLabel(measure).toLowerCase()}`;
   return [[label.date, ...stampLines(label)].join(" "), entry.workoutName, number, ...captionsOf(entry)].join(", ");
 };
 
@@ -194,7 +194,7 @@ function SetsRow({
       style={[styles.setsRow, { height: rowHeight(entry, label) }, latest && styles.latest]}
       onPress={() => onOpen(entry)}
       accessibilityRole="button"
-      accessibilityLabel={`${entry.workoutName}, ${entry.sets.map((set, i) => `set ${i + 1}: ${spokenSet(set, { effort: showEffort, marks: showMarks })}`).join(". ")}`}
+      accessibilityLabel={`${[label.date, ...stampLines(label)].join(" ")}, ${entry.workoutName}, ${entry.sets.map((set, i) => `set ${i + 1}: ${spokenSet(set, { effort: showEffort, marks: showMarks })}`).join(". ")}`}
     >
       {cells.map((cell, i) => (
         <View key={i} style={[styles.setCell, { width: columnWidth }]}>

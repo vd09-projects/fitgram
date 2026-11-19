@@ -288,8 +288,9 @@ describe("ExerciseScreen: review of PR #77", () => {
   it("says a row's numbers aloud, not only its date and workout", async () => {
     await open([session("a", day(9), [lift("Bench", [60, 50], { sets: [{ segments: [{ Weight: 60, Reps: 8 }], effort: "hard" }, { segments: [{ Weight: 50, Reps: 8 }], effort: null }] })])]);
     await screen.findByTestId("exercise-figure");
-    expect(screen.getByLabelText(/^9 Nov, Push, 55\.0 kg/)).toBeOnTheScreen();
-    expect(screen.getByLabelText(/set 1: 60 × 8, felt hard.*set 2: 50 × 8/)).toBeOnTheScreen();
+    expect(screen.getByLabelText(/^9 Nov, Push, average weight 55\.0 kg/)).toBeOnTheScreen();
+    // The sets row is a separate stack from the dates, so it must say which row it is.
+    expect(screen.getByLabelText(/^9 Nov, Push, set 1: 60 × 8, felt hard.*set 2: 50 × 8/)).toBeOnTheScreen();
   });
 
   it("ignores an older list loaded before the window moved", async () => {

@@ -52,7 +52,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 081 | History data foundation: the lift record and the verdict | Large | **Built 2026-11-14, in review (PR #68).** Raised 2026-11-13 (user). No screen. `lifts[]` (with the sets) and `note` on the session doc, one verdict function, a compare script. After 087. Reps-only lifts and the count word are decided |
 | 082 | Hold recent workouts on the phone | Med-Large | After 081. Replaces the 5-per-plan window with the newest whole months; month shards; older months fetched on tap |
 | 083 | Session screen and landing after Finish | Large | After 081, 082. Ships alone: the user lands on it after Finish |
-| 084 | Exercise screen | Med-Large | **Built, PR #77 (review fixes in progress).** Graph drawn from Views (decided in 087) |
+| 084 | Exercise screen | Med-Large | **Built, PR #77 (two review passes, fixes pushed).** Graph drawn from Views (decided in 087) |
 | 085 | History home: Workouts and Exercises tabs | Large | After 081-084. Replaces the old History page; closes 029 |
 | 086 | Delete a workout | Med-Large | After 083. Shares `rebuildExerciseSummary` with 032 |
 | (parked) | Edit session UI | Design only | The option is shown switched off; the user decides the UI later |
@@ -10363,7 +10363,7 @@ each of the three sources (the History home's held months and loaded Older worko
 
 ### TICKET-084: Exercise Screen
 
-**Priority:** Medium | **Effort:** Medium-Large | **Status: BUILT, awaiting review** — all four stages built 2026-11-19/20 on `feat/ticket-084-exercise-screen` (stages are commits on that one branch); raised 2026-11-13 (user)
+**Priority:** Medium | **Effort:** Medium-Large | **Status: BUILT, in review (PR #77)** — all four stages built 2026-11-19/20 on `feat/ticket-084-exercise-screen` (stages are commits on that one branch); raised 2026-11-13 (user)
 
 **Description:**
 The Exercise screen of the design (`HistExercise*`): header "History · Bench Press", graph, one scrolling
@@ -10432,6 +10432,7 @@ the Exercises tab (085b).
 - **The proof "the log agrees with the held summaries (a test)"** was missing from the first four stages (found in the PR #77 review); it is `exerciseLog.test.ts`: the same sessions in the same order as a lift's `exercise_stats` summary, each total equal to the volume the write path stored, and the same set counts.
 - **PR #77 review, pass 1 (multi-perspective, 2026-11-20): no blockers; five should-fix and five consider, all fixed here except one, which became TICKET-093.** Fixed: the table's shape from the newest session that has sets (it was column 0 for an empty newest session); a set's mark against the previous *session*, not the other slot of its own workout; one date label per workout (two slots of one workout showed a time as if two sessions fell that day); a row's accessibility label now says its numbers, sets, effort and marks (it replaced them with "Sets of Push"); the screen reads only older lists loaded under the current window (as the History home does); a page that lands after the window moved is dropped; a comment's wrong rounding example; the sheet's choices get a 48 dp touch area and the "Close the card" layer leaves the accessibility tree when no card is open; stale status text here and in the notes.
 - **Deferred to TICKET-093 (user, 2026-11-20):** the log is not virtualised (hundreds of rows with "All" and many loaded pages). A cost that lands late and loudly (a slow scroll, not a wrong number) at a history size the app's 5 to 10 users will not reach soon, and a virtualised list has to keep the date column and the set columns aligned, which is its own design: measure first, then decide.
+- **PR #77 review, pass 2 (2026-11-20): no blockers.** Fixed: the sheet's choices are a real 48 dp touchable with the 36 dp button drawn inside (the pass-1 hit slop could not extend past its parent, so it did nothing); the spoken labels say which measure the number is, and the sets row says its date (the date column and the sets rows are two separate stacks for a screen reader).
 - **Also fixed here (user, 2026-11-20):** the History home's `loadOlder` had the same shape as `loadOlderExercise` on `main` (a page landing after the window moved was filed under the old edge); it now drops it too, with a test.
 - **Ticket 084 is built in four stages; what remains is the review and the unrun items above.**
 
@@ -11234,6 +11235,7 @@ which loses the pinned column), two lists scrolled together, or limiting what "A
 **Out of scope:** the graph (it draws at most the newest N points); the History home's rail.
 
 **Dependencies:** TICKET-084 merged; a user with a long enough history, or the dummy data above.
+
 ---
 
 ## Recommended Execution Order

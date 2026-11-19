@@ -4,7 +4,7 @@ import { TextBase } from "../TextBase";
 import { SPACING } from "../../constants/styles";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
-import type { ExerciseLog, Measure } from "../../utils/exerciseLog";
+import { measureLabel, type ExerciseLog, type Measure } from "../../utils/exerciseLog";
 import {
   axisDate,
   graphInput,
@@ -120,7 +120,7 @@ export function ExerciseGraph({
                     style={[styles.hit, { left: point.x - HIT / 2, top: point.y - HIT / 2 }]}
                     onPress={() => setSelected(on ? null : point.key)}
                     accessibilityRole="button"
-                    accessibilityLabel={`${axisDate(point.startedAt, now)}, ${graphValueText(point.value as number, measure)} ${point.unit ?? ""}`.trim()}
+                    accessibilityLabel={`${axisDate(point.startedAt, now)}, ${measureLabel(measure).toLowerCase()} ${graphValueText(point.value as number, measure)} ${point.unit ?? ""}`.trim()}
                     testID={`graph-dot-${point.key}`}
                   >
                     <View

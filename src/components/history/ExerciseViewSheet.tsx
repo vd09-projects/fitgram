@@ -131,17 +131,19 @@ function Choices({ choices, onPick }: { choices: { key: string; label: string; o
       {choices.map((choice) => (
         <TouchableOpacity
           key={choice.key}
-          style={[styles.choice, choice.on && styles.choiceOn]}
-          // 36 dp is the board's height; Android's target is 48, so the touch area grows past the drawn button.
-          hitSlop={{ top: 6, bottom: 6 }}
+          // The touchable is Android's 48 dp target and the drawn button inside it is the board's 36: a `hitSlop` would not do, it never
+          // extends past the parent's bounds, and the parent row was exactly the drawn height (pass 2 of the PR #77 review).
+          style={styles.choiceHit}
           onPress={() => onPick(choice.key)}
           accessibilityRole="radio"
           accessibilityState={{ selected: choice.on }}
           accessibilityLabel={choice.label}
         >
-          <TextBase style={[styles.choiceText, choice.on && styles.choiceTextOn]} numberOfLines={1}>
-            {choice.label}
-          </TextBase>
+          <View style={[styles.choice, choice.on && styles.choiceOn]}>
+            <TextBase style={[styles.choiceText, choice.on && styles.choiceTextOn]} numberOfLines={1}>
+              {choice.label}
+            </TextBase>
+          </View>
         </TouchableOpacity>
       ))}
     </View>
@@ -165,7 +167,8 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
     title: { fontSize: t.fonts.medium, fontWeight: "bold", color: t.colors.role.textPrimary, marginBottom: SPACING.small },
     sectionLabel: { fontSize: t.fonts.small, color: t.colors.role.textSecondary, marginTop: SPACING.small, marginBottom: 6 },
     choices: { flexDirection: "row", gap: SPACING.xSmall },
-    choice: { flex: 1, height: 36, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+    choiceHit: { flex: 1, height: 48, justifyContent: "center" },
+    choice: { height: 36, borderRadius: 8, alignItems: "center", justifyContent: "center" },
     choiceOn: { backgroundColor: t.colors.role.raised, borderWidth: 1, borderColor: t.colors.role.accent },
     choiceText: { fontSize: t.fonts.xMedium, color: t.colors.role.textSecondary },
     choiceTextOn: { fontWeight: "bold", color: t.colors.role.accent },
