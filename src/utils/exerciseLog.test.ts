@@ -1,4 +1,4 @@
-import { averageWeight, exerciseLog, rowCells, rowUnit, unitBreakText } from "./exerciseLog";
+import { averageWeight, exerciseLog, limitLog, measureReason, measureText, rowCells, rowUnit, totalLifted, unitBreakText, valueOf } from "./exerciseLog";
 import type { RailWorkout } from "./historyRail";
 import type { LiftRecord } from "../types/workoutSession";
 
@@ -104,5 +104,61 @@ describe("exerciseLog", () => {
     expect(rowCells(older.sets, log.columns).more).toBe(2);
     expect(rowCells(older.sets.slice(0, 1), log.columns).cells.map((c) => c === null)).toEqual([false, true, true]);
     expect(exerciseLog([], "bench")).toEqual({ segments: [], columns: 0, unreadable: 0 });
+  });
+});
+
+describe("Total lifted, the marks and the limit (stage 4)", () => {
+  const bench = (...weights: number[]) => lift("bench", weights.map((w) => set(w, 10)));
+
+  it("totals weight × reps over every set, a drop set's later segments included, and gives no total for a set that does not parse", () => {
+    const drop = { segments: [{ Weight: 60, Reps: 5 }, { Weight: 40, Reps: 5 }], effort: null };
+    expect(totalLifted(lift("bench", [set(60, 8), drop]))).toEqual({ kind: "value", value: 480 + 300 + 200, unit: "kg" });
+    expect(totalLifted(lift("bench", [set(60, 8), set("", 8)]))).toEqual({ kind: "none", reason: "unreadable" });
+    expect(totalLifted(lift("run", [{ segments: [{ Time: 600 }], effort: null }], timed))).toEqual({ kind: "none", reason: "no_weight" });
+    expect(totalLifted(lift("bench", []))).toEqual({ kind: "none", reason: "no_sets" });
+  });
+
+  it("writes a total with thousands separators and a decimal only when it has one, an average to one decimal, and picks by measure", () => {
+    expect(measureText("total", 1590)).toBe("1,590");
+    expect(measureText("total", 1405.5)).toBe("1,405.5");
+    expect(measureText("total", 980)).toBe("980");
+    expect(measureText("total", 1234567)).toBe("1,234,567");
+    expect(measureText("average", 59.25)).toBe("59.3");
+    const entry = exerciseLog([workout(1_000, [bench(60, 60)])], "bench").segments[0].entries[0];
+    expect(valueOf(entry, "average")).toMatchObject({ value: 60 });
+    expect(valueOf(entry, "total")).toMatchObject({ value: 1200 });
+  });
+
+  it("says which measure had no weight to work with, and the same for a set that could not be read", () => {
+    expect(measureReason("average", "no_weight")).toBe("No weight to average");
+    expect(measureReason("total", "no_weight")).toBe("No weight to total");
+    expect(measureReason("total", "unreadable")).toBe("A set could not be read");
+  });
+
+  it("marks each set against the same-numbered set of the entry just older, and none on the oldest, across a unit change or where it did not change", () => {
+    const log = exerciseLog(
+      [workout(3_000, [bench(65, 60, 50)]), workout(2_000, [bench(60, 60, 55)]), workout(1_000, [bench(50, 50, 50)])],
+      "bench"
+    );
+    const [newest, middle, oldest] = log.segments[0].entries;
+    expect(newest.sets.map((x) => x.arrow)).toEqual(["up", null, "down"]);
+    expect(middle.sets.map((x) => x.arrow)).toEqual(["up", "up", "up"]);
+    expect(oldest.sets.map((x) => x.arrow)).toEqual([null, null, null]);
+
+    const changed = exerciseLog([workout(2_000, [lift("fly", [set(100)], lb)]), workout(1_000, [lift("fly", [set(15)])])], "fly").segments[0].entries[0];
+    expect(changed.sets.map((x) => x.arrow)).toEqual([null]);
+  });
+
+  it("keeps the newest sessions up to the count across unit segments, and every session for null, with the table's shape unchanged", () => {
+    const log = exerciseLog(
+      [workout(4_000, [lift("fly", [set(40)], lb)]), workout(3_000, [lift("fly", [set(15)])]), workout(2_000, [lift("fly", [set(15)])]), workout(1_000, [lift("fly", [set(15)])])],
+      "fly"
+    );
+    const two = limitLog(log, 2);
+    expect(two.segments.map((x) => x.entries.length)).toEqual([1, 1]);
+    expect(two.segments.map((x) => x.entries[0].startedAt)).toEqual([4_000, 3_000]); // the newest of each run, not the oldest
+    expect(limitLog(log, 1).segments).toHaveLength(1);
+    expect(limitLog(log, null)).toBe(log);
+    expect(two.columns).toBe(log.columns);
   });
 });

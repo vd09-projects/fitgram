@@ -5,7 +5,7 @@
 // wrong placement cannot hide as a plausible chart (CLAUDE.md 3.2). The graph is drawn from Views, not SVG
 // (decided in TICKET-087): `lineSegment` turns two points into the one rotated View that joins them.
 
-import { averageText, type ExerciseLog } from "./exerciseLog";
+import { measureText, valueOf, type ExerciseLog, type Measure } from "./exerciseLog";
 import { MONTHS } from "./sessionView";
 import { EXERCISE_GRAPH_MIN_SPAN } from "../config/display";
 
@@ -22,10 +22,10 @@ export type GraphInput = {
 };
 
 /**
- * The log's sessions as graph input, oldest first. The measure is the session's average weight (stage 4 lets a
- * session's total be drawn instead); a session with no average is a point with no value, never a zero.
+ * The log's sessions as graph input, oldest first, each valued by `measure` (the average weight, or the total lifted). A
+ * session with no number for it is a point with no value, never a zero.
  */
-export function graphInput(log: ExerciseLog): GraphInput[] {
+export function graphInput(log: ExerciseLog, measure: Measure = "average"): GraphInput[] {
   return log.segments
     .flatMap((segment, run) =>
       segment.entries.map((entry): GraphInput => ({
@@ -33,7 +33,7 @@ export function graphInput(log: ExerciseLog): GraphInput[] {
         sessionId: entry.sessionId,
         workoutName: entry.workoutName,
         startedAt: entry.startedAt,
-        value: entry.average.kind === "value" ? entry.average.value : null,
+        value: valueOf(entry, measure).kind === "value" ? (valueOf(entry, measure) as { value: number }).value : null,
         unit: segment.unit,
         run,
       }))
@@ -78,8 +78,8 @@ const TOP = 26;
 const BOTTOM = 12;
 const LABEL_EDGE = 40;
 
-/** "59.2", "10", "1,700": one decimal, trailing zero dropped. The board writes a whole figure whole. */
-export const graphValueText = (value: number): string => String(Number(averageText(value)));
+/** "59.2", "10", "1,700": the measure's number with a trailing ".0" dropped, as the board writes a whole figure whole. */
+export const graphValueText = (value: number, measure: Measure = "average"): string => measureText(measure, value).replace(/\.0$/, "");
 
 export const axisDate = (startedAt: number, now: number): string => {
   const d = new Date(startedAt);
@@ -94,7 +94,7 @@ const anchorAt = (x: number, width: number): LabelAnchor => (x < LABEL_EDGE ? "s
  *
  * - `few`: fewer than `minSessions` sessions in all (not only the ones drawn): the screen says how many there are.
  * - `no_value`: none of the drawn sessions has a number to plot (a time lift): nothing to draw, said so.
- * - Only the newest `limit` sessions are drawn, evenly spaced by order, not by date: a gap of a month between two
+ * - Only the newest `limit` sessions are drawn (null: all of them), evenly spaced by order, not by date: a gap of a month between two
  *   sessions is not a longer line, as the boards draw it.
  * - Each run of one weight unit has its own scale and the line stops between runs (nothing is converted, 087). A run
  *   is scaled from its lowest to its highest value, but never narrower than `EXERCISE_GRAPH_MIN_SPAN` of its highest,
@@ -105,10 +105,10 @@ const anchorAt = (x: number, width: number): LabelAnchor => (x < LABEL_EDGE ? "s
 export function graphLayout(
   input: readonly GraphInput[],
   box: GraphBox,
-  options: { limit: number; minSessions: number; now: number }
+  options: { limit: number | null; minSessions: number; now: number; measure?: Measure }
 ): GraphLayout {
   if (input.length < options.minSessions) return { kind: "few", have: input.length, need: options.minSessions };
-  const drawn = input.slice(-options.limit);
+  const drawn = options.limit === null ? [...input] : input.slice(-options.limit);
   if (drawn.every((point) => point.value === null)) return { kind: "no_value" };
 
   // One slot per point, and one more where the unit changes, which is where the break is drawn.
@@ -155,7 +155,7 @@ export function graphLayout(
       x,
       y: point.value === null ? null : (yOf.get(point.run) as (v: number) => number)(point.value),
       latest: i === drawn.length - 1,
-      label: labelled ? { text: graphValueText(point.value as number), anchor: anchorAt(x, box.width) } : null,
+      label: labelled ? { text: graphValueText(point.value as number, options.measure), anchor: anchorAt(x, box.width) } : null,
     };
   });
 

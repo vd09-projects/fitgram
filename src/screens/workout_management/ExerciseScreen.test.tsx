@@ -212,3 +212,63 @@ describe("ExerciseScreen: past the window", () => {
     expect(screen.getByTestId("exercise-log-date-a:0")).toBeOnTheScreen();
   });
 });
+
+describe("ExerciseScreen: the view options", () => {
+  const sessionsOf = (n: number) => Array.from({ length: n }, (_, i) => session(`v${i}`, day(1 + i), [lift("Bench", [50 + i * 2.5, 50, 45])]));
+  const options = () => fireEvent.press(screen.getByTestId("exercise-options"));
+  const rows = () => screen.queryAllByTestId(/^exercise-log-date-/);
+
+  it("the measure label opens its choices, and Total lifted changes the figure, the label and the row to weight × reps added up", async () => {
+    await open([session("s1", day(9), [lift("Bench", [60, 50])])]);
+    expect(await screen.findByTestId("exercise-figure")).toHaveTextContent("55.0 kg");
+    fireEvent.press(screen.getByTestId("exercise-measure"));
+    fireEvent.press(await screen.findByLabelText(/^Total lifted, Weight × reps/));
+    expect(screen.getByTestId("exercise-figure")).toHaveTextContent("880 kg");
+    expect(screen.getByText("Total lifted")).toBeOnTheScreen();
+    expect(screen.getAllByText("880 kg")).toHaveLength(2); // the figure, and the row under its date
+  });
+
+  it("Show: List has no graph, Graph has no log, and the options icon wears a dot only while a setting is not the default", async () => {
+    await open(sessionsOf(6));
+    await screen.findByTestId("exercise-figure");
+    expect(screen.queryByTestId("exercise-options-dot")).not.toBeOnTheScreen();
+    options();
+    fireEvent.press(await screen.findByLabelText("List"));
+    expect(screen.queryByTestId("exercise-graph")).not.toBeOnTheScreen();
+    expect(screen.getByTestId("exercise-log")).toBeOnTheScreen();
+    expect(screen.getByTestId("exercise-options-dot")).toBeOnTheScreen();
+    fireEvent.press(screen.getByLabelText("Graph"));
+    expect(screen.getByTestId("exercise-graph")).toBeOnTheScreen();
+    expect(screen.queryByTestId("exercise-log")).not.toBeOnTheScreen();
+    fireEvent.press(screen.getByLabelText("Graph and list"));
+    expect(screen.queryByTestId("exercise-options-dot")).not.toBeOnTheScreen();
+  });
+
+  it("Sessions shown limits the log to the newest, and All lists every one the phone has", async () => {
+    await open(sessionsOf(8));
+    await screen.findByTestId("exercise-figure");
+    expect(rows()).toHaveLength(8); // the default shows up to ten
+    options();
+    fireEvent.press(await screen.findByLabelText("Last 5"));
+    expect(rows()).toHaveLength(5);
+    expect(screen.getByTestId("exercise-log-date-v7:0")).toBeOnTheScreen(); // the newest stays
+    expect(screen.queryByTestId("exercise-log-date-v0:0")).not.toBeOnTheScreen();
+    fireEvent.press(screen.getByLabelText("All"));
+    expect(rows()).toHaveLength(8);
+  });
+
+  it("the Details switches take the H and E badges, and the better and lower marks, off the sets", async () => {
+    await open([
+      session("a", day(2), [lift("Bench", [50, 50], { sets: [{ segments: [{ Weight: 60, Reps: 8 }], effort: "hard" }, { segments: [{ Weight: 50, Reps: 8 }], effort: null }] })]),
+      session("b", day(1), [lift("Bench", [50, 50])]),
+    ]);
+    await screen.findByTestId("exercise-figure");
+    expect(screen.getAllByText("H")).toHaveLength(1);
+    expect(screen.getAllByLabelText("better than last time").length).toBeGreaterThan(0);
+    options();
+    fireEvent(await screen.findByLabelText("Effort badges"), "valueChange", false);
+    expect(screen.getAllByText("H")).toHaveLength(1); // only the sheet's own legend remains
+    fireEvent(screen.getByLabelText("Better and lower marks"), "valueChange", false);
+    expect(screen.queryAllByLabelText("better than last time")).toHaveLength(1); // only the sheet's own legend remains
+  });
+});

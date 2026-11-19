@@ -2,21 +2,29 @@ import React from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, useWindowDimensions, View } from "react-native";
 import { TextBase } from "../TextBase";
 import { EffortMark } from "./EffortMark";
+import { SetArrow } from "./SetArrow";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
-import { averageText, rowCells, rowUnit, unitBreakText, type ExerciseLog, type LogEntry, type LogSegment } from "../../utils/exerciseLog";
+import { measureText, rowCells, rowUnit, unitBreakText, valueOf, type ExerciseLog, type LogEntry, type LogSegment, type Measure } from "../../utils/exerciseLog";
 import type { HeaderParts } from "../../utils/sessionView";
 import type { SetView } from "../../utils/sessionView";
 
 // Layout of the board (HistExercise05 to 09), in dp. The date column stays put while the set columns scroll beside it.
 const DATE_COLUMN = 72;
-// Up to this many set columns share the width; more scroll, each this wide.
-const SHARED_COLUMNS = 3;
-const SCROLL_COLUMN = 90;
+// The set columns share the width beside the date column, but none is narrower than this: a set with its H badge and its
+// better or lower mark needs about this much ("17.5 × 10" and both), and narrower cells ran into each other on the emulator.
+// When they do not fit they scroll sideways, the date column staying put.
+const MIN_COLUMN = 120;
 const HEADER_HEIGHT = 24;
 // The date line (26), the average line (24) and the 4 dp of padding above and below.
 const ROW_BASE = 58;
 const LINE = 18;
+/** A row's number under its date and the unit beside it (`rowUnit`: a symbol only), or "–" with no number. */
+const rowValue = (entry: LogEntry, measure: Measure): { number: string; unit: string | null } => {
+  const value = valueOf(entry, measure);
+  return value.kind === "value" ? { number: measureText(measure, value.value), unit: rowUnit(value.unit) } : { number: "–", unit: null };
+};
+
 /** Caption lines under a row's date: what kind of session it was. */
 const captionsOf = (entry: LogEntry): string[] => [...(entry.freestyle ? ["Freestyle"] : []), ...(entry.dropSet ? ["Drop set"] : [])];
 
@@ -39,11 +47,19 @@ const rowHeight = (entry: LogEntry, label: HeaderParts): number =>
 export function ExerciseLogTable({
   log,
   dateLabels,
+  measure,
+  showEffort,
+  showMarks,
   onOpen,
 }: {
   log: ExerciseLog;
   /** Entry key → its date text (`compareHeaders`), computed over the whole log so a day with two sessions shows times. */
   dateLabels: Readonly<Record<string, HeaderParts>>;
+  /** What each row's number under its date is: the average weight, or the total lifted. */
+  measure: Measure;
+  /** The H and E badges, and the ▲ and ▼ marks: the view options' Details. */
+  showEffort: boolean;
+  showMarks: boolean;
   onOpen: (entry: LogEntry) => void;
 }) {
   const { styles } = useThemeStyles(createStyles);
@@ -53,7 +69,7 @@ export function ExerciseLogTable({
       {log.segments.map((segment, index) => (
         <View key={segment.entries[0].key}>
           {index > 0 && <TextBase style={styles.unitBreak}>{unitBreakText(segment.unit)}</TextBase>}
-          <Block segment={segment} columns={log.columns} dateLabels={dateLabels} newest={newest} onOpen={onOpen} />
+          <Block segment={segment} columns={log.columns} dateLabels={dateLabels} measure={measure} showEffort={showEffort} showMarks={showMarks} newest={newest} onOpen={onOpen} />
         </View>
       ))}
     </View>
@@ -64,11 +80,17 @@ const Block = React.memo(function Block({
   segment,
   columns,
   dateLabels,
+  measure,
+  showEffort,
+  showMarks,
   newest,
   onOpen,
 }: {
   segment: LogSegment;
   columns: number;
+  measure: Measure;
+  showEffort: boolean;
+  showMarks: boolean;
   dateLabels: Readonly<Record<string, HeaderParts>>;
   newest: string | undefined;
   onOpen: (entry: LogEntry) => void;
@@ -76,7 +98,7 @@ const Block = React.memo(function Block({
   const { styles } = useThemeStyles(createStyles);
   const { width } = useWindowDimensions();
   const available = width - DATE_COLUMN;
-  const columnWidth = columns <= SHARED_COLUMNS ? available / Math.max(columns, 1) : SCROLL_COLUMN;
+  const columnWidth = Math.max(available / Math.max(columns, 1), MIN_COLUMN);
   return (
     <View style={styles.block}>
       <View style={styles.dateColumn}>
@@ -102,7 +124,8 @@ const Block = React.memo(function Block({
                 </TextBase>
               ))}
               <TextBase numeric style={[styles.average, latest && styles.averageLatest]}>
-                {entry.average.kind === "value" ? [averageText(entry.average.value), rowUnit(entry.average.unit)].filter(Boolean).join(" ") : "–"}
+                {rowValue(entry, measure).number}
+                {rowValue(entry, measure).unit !== null && <TextBase style={styles.averageUnit}> {rowValue(entry, measure).unit}</TextBase>}
               </TextBase>
               {captionsOf(entry).map((caption) => (
                 <TextBase key={caption} style={styles.caption} numberOfLines={1}>
@@ -130,7 +153,7 @@ const Block = React.memo(function Block({
             ))}
           </View>
           {segment.entries.map((entry) => (
-            <SetsRow key={entry.key} entry={entry} label={dateLabels[entry.key]} columns={columns} columnWidth={columnWidth} latest={entry.key === newest} onOpen={onOpen} />
+            <SetsRow key={entry.key} entry={entry} label={dateLabels[entry.key]} showEffort={showEffort} showMarks={showMarks} columns={columns} columnWidth={columnWidth} latest={entry.key === newest} onOpen={onOpen} />
           ))}
         </View>
       </ScrollView>
@@ -141,6 +164,8 @@ const Block = React.memo(function Block({
 function SetsRow({
   entry,
   label,
+  showEffort,
+  showMarks,
   columns,
   columnWidth,
   latest,
@@ -148,6 +173,8 @@ function SetsRow({
 }: {
   entry: LogEntry;
   label: HeaderParts;
+  showEffort: boolean;
+  showMarks: boolean;
   columns: number;
   columnWidth: number;
   latest: boolean;
@@ -164,14 +191,14 @@ function SetsRow({
     >
       {cells.map((cell, i) => (
         <View key={i} style={[styles.setCell, { width: columnWidth }]}>
-          {cell === null ? null : <Cell set={cell} more={i === columns - 1 ? more : 0} />}
+          {cell === null ? null : <Cell set={cell} more={i === columns - 1 ? more : 0} showEffort={showEffort} showMarks={showMarks} />}
         </View>
       ))}
     </TouchableOpacity>
   );
 }
 
-function Cell({ set, more }: { set: SetView; more: number }) {
+function Cell({ set, more, showEffort, showMarks }: { set: SetView; more: number; showEffort: boolean; showMarks: boolean }) {
   const { styles } = useThemeStyles(createStyles);
   return (
     <>
@@ -183,7 +210,8 @@ function Cell({ set, more }: { set: SetView; more: number }) {
             {set.text}
           </TextBase>
         )}
-        <EffortMark effort={set.effort} />
+        {showEffort && <EffortMark effort={set.effort} />}
+        {showMarks && <SetArrow arrow={set.arrow} />}
         {more > 0 && (
           <TextBase style={styles.more} accessibilityLabel={`${more} more sets`}>
             +{more}
@@ -213,11 +241,13 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
     dot: { position: "absolute", left: 4, top: 13, width: 6, height: 6, borderRadius: 3, backgroundColor: t.colors.role.accent },
     date: { height: 26, lineHeight: 26, fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.textPrimary },
     average: { height: 24, lineHeight: 24, fontSize: t.fonts.small, color: t.colors.role.textSecondary },
+    // The board writes the unit smaller than the number, which is what lets "1,870 kg" fit the date column.
+    averageUnit: { fontSize: t.fonts.xSmall, fontWeight: "normal", color: t.colors.role.textSecondary },
     averageLatest: { fontWeight: "bold", color: t.colors.role.textPrimary },
     caption: { height: LINE, fontSize: t.fonts.small, color: t.colors.role.textSecondary },
     setsRow: { flexDirection: "row", paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: t.colors.role.hairline },
     setCell: { alignItems: "center", justifyContent: "flex-start", paddingTop: 4 },
-    cellLine: { flexDirection: "row", alignItems: "center", gap: 4, minHeight: 26 },
+    cellLine: { flexDirection: "row", alignItems: "center", gap: 3, minHeight: 26 },
     setText: { fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.textPrimary },
     unreadable: { fontSize: t.fonts.small, color: t.colors.role.textSecondary },
     split: { fontSize: t.fonts.small, color: t.colors.role.textSecondary, height: LINE },

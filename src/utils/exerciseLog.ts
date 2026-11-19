@@ -7,9 +7,10 @@
 // The log is read from the workouts the phone holds (the window, the queue, the pages the History home
 // loaded): 0 reads. Pages past them are stage 3.
 
+import { computeSessionVolume } from "./exerciseStats";
 import { decodeStoredSets, plannedSegment, splitSegments } from "./storedSets";
 import { parseSet, resolveNumericFields } from "./exerciseFields";
-import { setViews, type SetView } from "./sessionView";
+import { setArrows, setViews, type SetView } from "./sessionView";
 import { formatStepValue } from "./setLogger";
 import { compareSessions } from "./workoutWindow";
 import { isFreestyle } from "../constants/freestyle";
@@ -27,9 +28,15 @@ import type { LiftRecord } from "../types/workoutSession";
  * sets, and a lift with any set that does not parse, because an average of the sets that did parse is a wrong
  * number that looks like data.
  */
-export type AverageWeight =
+export type MeasureValue =
   | { kind: "value"; value: number; unit: string }
   | { kind: "none"; reason: "no_weight" | "no_sets" | "unreadable" };
+export type AverageWeight = MeasureValue;
+
+/** What a session of a lift is summed up as, in the figure, the graph and the row: the measure picked in the view options. */
+export type Measure = "average" | "total";
+
+export const measureLabel = (measure: Measure): string => (measure === "average" ? "Average weight" : "Total lifted");
 
 export function averageWeight(lift: Pick<LiftRecord, "fields" | "sets">): AverageWeight {
   const numeric = resolveNumericFields([...lift.fields]);
@@ -42,8 +49,39 @@ export function averageWeight(lift: Pick<LiftRecord, "fields" | "sets">): Averag
   return { kind: "value", value: total / weights.length, unit: numeric.weight.unit ?? "" };
 }
 
+/**
+ * A session's "Total lifted" of a lift: weight × reps over every set added up, **every segment of a drop set included**
+ * (board HistExercise06 opens a drop set into its total). It is `computeSessionVolume`, the one definition of volume the app
+ * has, so this and a lift's stored volume cannot disagree; its rule stands: a session with any set that does not parse has
+ * no total, never a partial sum.
+ */
+export function totalLifted(lift: Pick<LiftRecord, "fields" | "sets">): MeasureValue {
+  const numeric = resolveNumericFields([...lift.fields]);
+  if (!numeric) return { kind: "none", reason: "no_weight" };
+  const sets = decodeStoredSets(lift.sets);
+  if (sets.length === 0) return { kind: "none", reason: "no_sets" };
+  const { value } = computeSessionVolume(sets, numeric);
+  return value === null ? { kind: "none", reason: "unreadable" } : { kind: "value", value, unit: numeric.weight.unit ?? "" };
+}
+
 /** "59.2" for 59.25: one decimal, as the boards show it. The unit is drawn beside it. */
 export const averageText = (value: number): string => value.toFixed(1);
+
+/**
+ * A measure's number as written: the average to one decimal ("59.2"), a total with thousands separators and a decimal only
+ * when it has one ("1,590", "1,405.5"), as the boards write them. Separators are put in by hand: `toLocaleString` is not
+ * dependable across the JS engines the app runs on.
+ */
+export function measureText(measure: Measure, value: number): string {
+  if (measure === "average") return averageText(value);
+  const rounded = String(Math.round(value * 10) / 10);
+  const [whole, fraction] = rounded.split(".");
+  return `${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}${fraction ? `.${fraction}` : ""}`;
+}
+
+/** A session's number for `measure`, from its entry. */
+export const valueOf = (entry: Pick<LogEntry, "average" | "total">, measure: Measure): MeasureValue =>
+  measure === "average" ? entry.average : entry.total;
 
 /**
  * The unit a row writes beside its average ("59.2 kg"), or null for none. The board writes it on every row; a unit that
@@ -53,11 +91,11 @@ export const averageText = (value: number): string => value.toFixed(1);
  */
 export const rowUnit = (unit: string): string | null => (unitSpec(unit)?.singular === undefined ? unit : null);
 
-/** Why a session has no average, in the words the screen shows under the figure. */
-export function averageReason(reason: Extract<AverageWeight, { kind: "none" }>["reason"]): string {
+/** Why a session has no number for `measure`, in the words the screen shows under the figure. */
+export function measureReason(measure: Measure, reason: Extract<MeasureValue, { kind: "none" }>["reason"]): string {
   switch (reason) {
     case "no_weight":
-      return "No weight to average";
+      return measure === "average" ? "No weight to average" : "No weight to total";
     case "no_sets":
       return "No sets";
     case "unreadable":
@@ -77,9 +115,9 @@ export const weightUnitOf = (fields: LiftRecord["fields"]): string | null => res
  * effort badge was cut off (found on the emulator). A lift with no weight × reps pair keeps `setViews`' text, units
  * and all: there the cell is the only place the unit appears. A split segment is written the same way.
  */
-function logSetViews(lift: Pick<LiftRecord, "fields" | "sets">): SetView[] {
+function logSetViews(lift: Pick<LiftRecord, "fields" | "sets">, arrows: readonly ("up" | "down" | null)[]): SetView[] {
   const numeric = resolveNumericFields([...lift.fields]);
-  const views = setViews(lift.fields, lift.sets);
+  const views = setViews(lift.fields, lift.sets, arrows);
   if (!numeric) return views;
   const plain = (segment: Parameters<typeof parseSet>[0]): string | null => {
     const { weight, reps } = parseSet(segment, numeric);
@@ -102,7 +140,8 @@ export type LogEntry = {
   state: RailWorkout["state"];
   /** The session's own fields: a value is in the unit it was logged in, nothing is converted. */
   sets: SetView[];
-  average: AverageWeight;
+  average: MeasureValue;
+  total: MeasureValue;
   freestyle: boolean;
   /** Any set of the lift was split (a drop set). */
   dropSet: boolean;
@@ -141,8 +180,7 @@ export function exerciseLog(workouts: readonly RailWorkout[], exerciseId: string
     .sort((a, b) => compareSessions(a.session, b.session))
     .filter(({ session }) => !seen.has(session.sessionId) && seen.add(session.sessionId));
 
-  const entries: LogEntry[] = [];
-  const units: (string | null)[] = [];
+  const found: { session: RailWorkout["session"]; state: RailWorkout["state"]; index: number; lift: LiftRecord }[] = [];
   let unreadable = 0;
   for (const { session, state } of ordered) {
     if (session.liftsUnreadable) {
@@ -150,21 +188,26 @@ export function exerciseLog(workouts: readonly RailWorkout[], exerciseId: string
       continue;
     }
     session.lifts.forEach((lift, index) => {
-      if (lift.id !== exerciseId) return;
-      entries.push({
-        key: `${session.sessionId}:${index}`,
-        sessionId: session.sessionId,
-        workoutName: session.workoutName,
-        startedAt: session.startedAt,
-        state,
-        sets: logSetViews(lift),
-        average: averageWeight(lift),
-        freestyle: isFreestyle(session.workoutId),
-        dropSet: decodeStoredSets(lift.sets).some((set) => set.segments.length > 1),
-      });
-      units.push(weightUnitOf(lift.fields));
+      if (lift.id === exerciseId) found.push({ session, state, index, lift });
     });
   }
+
+  // Each set's mark is against the same-numbered set of the entry just older in the log, as the Session's compare does
+  // (`setArrows`: nothing across a unit change, nothing without an older entry). The oldest entry loaded has none, so it shows
+  // no marks until a page older than it is loaded: no mark, never a guessed "same".
+  const entries: LogEntry[] = found.map(({ session, state, index, lift }, i) => ({
+    key: `${session.sessionId}:${index}`,
+    sessionId: session.sessionId,
+    workoutName: session.workoutName,
+    startedAt: session.startedAt,
+    state,
+    sets: logSetViews(lift, setArrows(lift, found[i + 1]?.lift ?? null)),
+    average: averageWeight(lift),
+    total: totalLifted(lift),
+    freestyle: isFreestyle(session.workoutId),
+    dropSet: decodeStoredSets(lift.sets).some((set) => set.segments.length > 1),
+  }));
+  const units = found.map(({ lift }) => weightUnitOf(lift.fields));
 
   const segments: LogSegment[] = [];
   entries.forEach((entry, i) => {
@@ -172,6 +215,22 @@ export function exerciseLog(workouts: readonly RailWorkout[], exerciseId: string
     segments[segments.length - 1].entries.push(entry);
   });
   return { segments, columns: entries[0]?.sets.length ?? 0, unreadable };
+}
+
+/**
+ * The newest `count` entries of a log (null: all of them), with the segments that remain: "Last 5" of the view options. The
+ * columns and the unreadable count are the whole log's: what the newest session did sets the table's shape whatever is hidden.
+ */
+export function limitLog(log: ExerciseLog, count: number | null): ExerciseLog {
+  if (count === null) return log;
+  let left = count;
+  const segments = log.segments.flatMap((segment) => {
+    if (left <= 0) return [];
+    const entries = segment.entries.slice(0, left);
+    left -= entries.length;
+    return [{ ...segment, entries }];
+  });
+  return { ...log, segments };
 }
 
 /** The sets a row shows in `columns` columns: a cell per column (null where the session had fewer), and how many sets did not fit. */

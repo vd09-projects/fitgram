@@ -7,7 +7,8 @@ import { exerciseOlderOf, exercisePaging, olderOf, useRecentWorkoutsStore } from
 import { drainPendingUploads, useWorkoutStore } from "../../stores/useWorkoutStore";
 import { historyNotice } from "../../utils/historyNotice";
 import { mergePending, type RailWorkout } from "../../utils/historyRail";
-import { averageReason, averageText, exerciseLog } from "../../utils/exerciseLog";
+import { exerciseLog, limitLog, measureLabel, measureReason, measureText, valueOf, type Measure } from "../../utils/exerciseLog";
+import { DEFAULT_EXERCISE_VIEW, isChangedView, olderPageUseful, showsGraph, showsList, type ExerciseView } from "../../utils/exerciseView";
 import { compareHeaderParts } from "../../utils/sessionView";
 import { olderRowBusy, olderRowDetail } from "../../utils/olderRow";
 import { EXERCISE_LOG_PAGE_SIZE } from "../../config/display";
@@ -18,7 +19,10 @@ import BackButton from "../../components/BackButton";
 import { TextBase } from "../../components/TextBase";
 import LoadingData from "../../components/LoadingData";
 import { HistoryNoticeStrip } from "../../components/history/HistoryNoticeStrip";
-import { ExerciseGraph } from "../../components/history/ExerciseGraph";
+import { Ionicons } from "@expo/vector-icons";
+import MenuSheet from "../../components/MenuSheet";
+import { ExerciseGraph, GRAPH_ONLY_HEIGHT } from "../../components/history/ExerciseGraph";
+import { ExerciseViewSheet } from "../../components/history/ExerciseViewSheet";
 import { ExerciseLogTable } from "../../components/history/ExerciseLogTable";
 import { ReturnTypeUseThemeTokens } from "../../components/app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
@@ -53,6 +57,10 @@ export default function ExerciseScreen() {
   const waitOver = useRecentWorkoutsStore((s) => s.waitOver);
   const pending = useWorkoutStore((s) => s.pendingUploads);
   const [retrying, setRetrying] = useState(false);
+  // The view options live for the visit only (user, 2026-11-19): leaving the screen puts them back to their defaults.
+  const [view, setView] = useState<ExerciseView>(DEFAULT_EXERCISE_VIEW);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [measureOpen, setMeasureOpen] = useState(false);
   // For the year on an old date: read once when the screen opens, as the Session's compare.
   const [now] = useState(() => Date.now());
 
@@ -102,7 +110,19 @@ export default function ExerciseScreen() {
     }
   };
 
-  const latest = entries[0]?.average ?? null;
+  const latest = entries[0] ? valueOf(entries[0], view.measure) : null;
+  // The log lists the newest sessions up to the view's count; the graph is given the whole log and limits itself.
+  const shown = useMemo(() => (log === null ? null : limitLog(log, view.sessions)), [log, view.sessions]);
+  const measureItems = (["average", "total"] as Measure[]).map((value) => ({
+    key: value,
+    title: measureLabel(value),
+    detail:
+      value === "average"
+        ? "The average weight of your sets. A drop set counts its first weight."
+        : "Weight × reps, every set added up",
+    renderIcon: (color: string) => <Ionicons name={view.measure === value ? "radio-button-on" : "radio-button-off"} size={20} color={color} />,
+    onPress: () => setView((v) => ({ ...v, measure: value })),
+  }));
 
   return (
     <View style={styles.screen}>
@@ -112,6 +132,12 @@ export default function ExerciseScreen() {
           <TextBase style={styles.headerHistory}>History · </TextBase>
           {exerciseName}
         </TextBase>
+        {log !== null && entries.length > 0 && (
+          <TouchableOpacity style={styles.optionsButton} onPress={() => setOptionsOpen(true)} accessibilityRole="button" accessibilityLabel="View options" testID="exercise-options">
+            <Ionicons name="options-outline" size={22} color={t.colors.role.textSecondary} />
+            {isChangedView(view) && <View style={styles.optionsDot} testID="exercise-options-dot" />}
+          </TouchableOpacity>
+        )}
       </View>
 
       {notice && <HistoryNoticeStrip notice={notice} retrying={retrying} onTryAgain={tryAgain} />}
@@ -141,7 +167,7 @@ export default function ExerciseScreen() {
               <View style={styles.figureBlock}>
                 {latest?.kind === "value" ? (
                   <TextBase numeric style={styles.figure} testID="exercise-figure">
-                    {averageText(latest.value)}
+                    {measureText(view.measure, latest.value)}
                     <TextBase style={styles.figureUnit}> {latest.unit}</TextBase>
                   </TextBase>
                 ) : (
@@ -149,15 +175,41 @@ export default function ExerciseScreen() {
                     –
                   </TextBase>
                 )}
-                <TextBase style={styles.measure}>
-                  Average weight<TextBase style={styles.measureNote}> · {latest?.kind === "none" ? averageReason(latest.reason) : "last session"}</TextBase>
-                </TextBase>
+                <TouchableOpacity
+                  style={styles.measureButton}
+                  onPress={() => setMeasureOpen(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${measureLabel(view.measure)}, change the measure`}
+                  testID="exercise-measure"
+                >
+                  <TextBase style={styles.measure}>{measureLabel(view.measure)}</TextBase>
+                  <Ionicons name="chevron-down" size={14} color={t.colors.role.accent} />
+                  <TextBase style={styles.measureNote}>· {latest?.kind === "none" ? measureReason(view.measure, latest.reason) : "last session"}</TextBase>
+                </TouchableOpacity>
               </View>
-              <ExerciseGraph log={log} now={now} onOpen={openSession} />
-              <ExerciseLogTable log={log} dateLabels={dateLabels} onOpen={openSession} />
+              {showsGraph(view.show) && (
+                <ExerciseGraph
+                  log={log}
+                  now={now}
+                  measure={view.measure}
+                  limit={view.sessions}
+                  height={view.show === "graph" ? GRAPH_ONLY_HEIGHT : undefined}
+                  onOpen={openSession}
+                />
+              )}
+              {showsList(view.show) && shown !== null && (
+                <ExerciseLogTable
+                  log={shown}
+                  dateLabels={dateLabels}
+                  measure={view.measure}
+                  showEffort={view.effort}
+                  showMarks={view.marks}
+                  onOpen={openSession}
+                />
+              )}
             </>
           )}
-          {!paging.reachedStart && (
+          {!paging.reachedStart && olderPageUseful(view.sessions, entries.length) && (
             <TouchableOpacity
               style={styles.olderRow}
               // A read inside its wait is joined by the store; disabled here too, so a tap shows no change.
@@ -178,6 +230,8 @@ export default function ExerciseScreen() {
           )}
         </ScrollView>
       )}
+      <ExerciseViewSheet visible={optionsOpen} view={view} onChange={setView} onClose={() => setOptionsOpen(false)} />
+      <MenuSheet visible={measureOpen} title="Measure" groups={[measureItems]} onClose={() => setMeasureOpen(false)} testID="exercise-measure-sheet" />
     </View>
   );
 }
@@ -196,7 +250,11 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
     figureBlock: { paddingHorizontal: SPACING.medium, paddingTop: SPACING.xSmall, paddingBottom: SPACING.medium },
     figure: { fontSize: t.fonts.xLarge, fontWeight: "bold", color: t.colors.role.textPrimary },
     figureUnit: { fontSize: t.fonts.xMedium, fontWeight: "normal", color: t.colors.role.textSecondary },
-    measure: { marginTop: 2, fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.accent },
+    measureButton: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 2, marginTop: 2, minHeight: 28 },
+    measure: { fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.accent },
+    optionsButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center", marginLeft: "auto" },
+    // The dot says the view is not the default; its ring is the screen's own colour so it reads as a badge on the icon.
+    optionsDot: { position: "absolute", top: 9, right: 9, width: 8, height: 8, borderRadius: 4, backgroundColor: t.colors.role.accent, borderWidth: 2, borderColor: t.colors.role.ground },
     olderRow: {
       minHeight: 48,
       marginHorizontal: SPACING.medium,
@@ -208,5 +266,5 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
     },
     olderName: { fontSize: t.fonts.medium, fontWeight: "bold", color: t.colors.role.textPrimary },
     olderDetail: { flex: 1, fontSize: t.fonts.small, color: t.colors.role.textSecondary },
-    measureNote: { fontSize: t.fonts.small, fontWeight: "normal", color: t.colors.role.textSecondary },
+    measureNote: { marginLeft: 4, fontSize: t.fonts.small, color: t.colors.role.textSecondary },
   });

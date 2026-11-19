@@ -4,7 +4,7 @@ import { TextBase } from "../TextBase";
 import { SPACING } from "../../constants/styles";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
-import type { ExerciseLog } from "../../utils/exerciseLog";
+import type { ExerciseLog, Measure } from "../../utils/exerciseLog";
 import {
   axisDate,
   graphInput,
@@ -18,9 +18,11 @@ import {
   type GraphPoint,
   type LabelAnchor,
 } from "../../utils/exerciseGraph";
-import { EXERCISE_GRAPH_MIN_SESSIONS, EXERCISE_GRAPH_SESSIONS } from "../../config/display";
+import { EXERCISE_GRAPH_MIN_SESSIONS } from "../../config/display";
 
+// The graph's height, in dp: the boards draw it at 116 beside the log, and taller on its own (HistExercise04).
 const HEIGHT = 116;
+export const GRAPH_ONLY_HEIGHT = 280;
 const LINE = 1.5;
 const DOT = 5;
 const DOT_LATEST = 10;
@@ -41,22 +43,30 @@ const PEEK = { width: 148, height: 32 };
 export function ExerciseGraph({
   log,
   now,
+  measure,
+  limit,
+  height = HEIGHT,
   onOpen,
 }: {
   log: ExerciseLog;
   now: number;
+  /** What each point is: the average weight, or the total lifted. */
+  measure: Measure;
+  /** The newest this many sessions are drawn; null: every one loaded. */
+  limit: number | null;
+  height?: number;
   onOpen: (point: Pick<GraphPoint, "sessionId" | "workoutName" | "startedAt">) => void;
 }) {
   const { styles, t } = useThemeStyles(createStyles);
   const [width, setWidth] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
-  const input = useMemo(() => graphInput(log), [log]);
+  const input = useMemo(() => graphInput(log, measure), [log, measure]);
   const layout = useMemo(
     () =>
       width === 0
         ? null
-        : graphLayout(input, { width, height: HEIGHT }, { limit: EXERCISE_GRAPH_SESSIONS, minSessions: EXERCISE_GRAPH_MIN_SESSIONS, now }),
-    [input, width, now]
+        : graphLayout(input, { width, height }, { limit, minSessions: EXERCISE_GRAPH_MIN_SESSIONS, now, measure }),
+    [input, width, height, limit, now, measure]
   );
   const onLayout = (event: LayoutChangeEvent) => setWidth(Math.round(event.nativeEvent.layout.width));
 
@@ -72,10 +82,10 @@ export function ExerciseGraph({
     <View style={styles.wrap} onLayout={onLayout} testID="exercise-graph">
       {layout?.kind === "graph" && (
         <>
-          <View style={styles.plot}>
+          <View style={[styles.plot, { height }]}>
             <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setSelected(null)} accessibilityLabel="Close the card" />
             {[...layout.breaks, ...layout.points.filter((p) => p.latest).map((p) => p.x)].map((x, i) => (
-              <View key={`rule${i}`} pointerEvents="none" style={[styles.rule, { left: x }]} />
+              <View key={`rule${i}`} pointerEvents="none" style={[styles.rule, { left: x, height: height - 28 }]} />
             ))}
             {layout.lines.map(([a, b]) => {
               const { left, top, length, angle } = lineSegment({ x: a.x, y: a.y as number }, { x: b.x, y: b.y as number }, LINE);
@@ -102,7 +112,7 @@ export function ExerciseGraph({
                     style={[styles.hit, { left: point.x - HIT / 2, top: point.y - HIT / 2 }]}
                     onPress={() => setSelected(on ? null : point.key)}
                     accessibilityRole="button"
-                    accessibilityLabel={`${axisDate(point.startedAt, now)}, ${graphValueText(point.value as number)} ${point.unit ?? ""}`.trim()}
+                    accessibilityLabel={`${axisDate(point.startedAt, now)}, ${graphValueText(point.value as number, measure)} ${point.unit ?? ""}`.trim()}
                     testID={`graph-dot-${point.key}`}
                   >
                     <View
@@ -127,7 +137,7 @@ export function ExerciseGraph({
                 style={[
                   styles.peek,
                   PEEK,
-                  peekPosition({ x: chosen.x, y: chosen.y }, PEEK, { width, height: HEIGHT }, {
+                  peekPosition({ x: chosen.x, y: chosen.y }, PEEK, { width, height }, {
                     lines: layout.lines.map(([a, b]) => [{ x: a.x, y: a.y as number }, { x: b.x, y: b.y as number }] as const),
                     labels: layout.points.flatMap((point) => pointLabelRect(point) ?? []),
                   }),
@@ -139,7 +149,7 @@ export function ExerciseGraph({
               >
                 <TextBase style={styles.peekDate}>{axisDate(chosen.startedAt, now)}</TextBase>
                 <TextBase numeric style={styles.peekValue}>
-                  {`${graphValueText(chosen.value as number)} ${chosen.unit ?? ""}`.trim()}
+                  {`${graphValueText(chosen.value as number, measure)} ${chosen.unit ?? ""}`.trim()}
                 </TextBase>
               </TouchableOpacity>
             )}
@@ -165,8 +175,8 @@ const labelBox = (x: number, anchor: LabelAnchor, top: number) => ({
 const createStyles = (t: ReturnTypeUseThemeTokens) =>
   StyleSheet.create({
     wrap: { marginHorizontal: SPACING.xMedium, marginTop: 6 },
-    plot: { height: HEIGHT },
-    rule: { position: "absolute", top: 20, height: HEIGHT - 28, width: 1, backgroundColor: t.colors.role.hairlineStrong },
+    plot: {},
+    rule: { position: "absolute", top: 20, width: 1, backgroundColor: t.colors.role.hairlineStrong },
     line: { position: "absolute", height: LINE, backgroundColor: t.colors.role.textSecondary },
     hit: { position: "absolute", width: HIT, height: HIT, alignItems: "center", justifyContent: "center" },
     // A label sits over its dot's hit box: it must not take the press.

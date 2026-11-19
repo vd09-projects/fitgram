@@ -97,3 +97,9 @@ export const EXERCISE_GRAPH_MIN_SPAN = 0.12;
  * about 64 KB. The row's label reads this value.
  */
 export const EXERCISE_LOG_PAGE_SIZE = 20;
+
+/**
+ * The "Sessions shown" choices of the Exercise screen's view options (TICKET-084 stage 4, board HistExercise03), besides
+ * "All": how many of a lift's newest sessions the graph draws and the log lists. The default is `EXERCISE_GRAPH_SESSIONS`.
+ */
+export const EXERCISE_VIEW_SESSION_CHOICES = [5, 10, 20] as const;

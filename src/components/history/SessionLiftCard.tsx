@@ -6,6 +6,7 @@ import { SPACING } from "../../constants/styles";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 import { EffortMark } from "./EffortMark";
+import { SetArrow } from "./SetArrow";
 import { closedSets, type CompareColumn, type LiftCardView, type LiftCompare, type SetView } from "../../utils/sessionView";
 
 /**
@@ -101,19 +102,6 @@ export const SessionLiftCard = React.memo(function SessionLiftCard({
   );
 });
 
-function Arrow({ arrow }: { arrow: SetView["arrow"] }) {
-  const { t } = useThemeStyles(createStyles);
-  if (arrow === null) return null;
-  return (
-    <Ionicons
-      name={arrow === "up" ? "caret-up" : "caret-down"}
-      size={11}
-      color={arrow === "up" ? t.colors.role.signal : t.colors.role.textSecondary}
-      accessibilityLabel={arrow === "up" ? "better than last time" : "lower than last time"}
-    />
-  );
-}
-
 function SetChip({ set }: { set: SetView }) {
   const { styles } = useThemeStyles(createStyles);
   return (
@@ -131,7 +119,7 @@ function SetChip({ set }: { set: SetView }) {
         </TextBase>
       )}
       <EffortMark effort={set.effort} />
-      <Arrow arrow={set.arrow} />
+      <SetArrow arrow={set.arrow} />
     </View>
   );
 }
@@ -177,7 +165,7 @@ function Compare({ compare, today }: { compare: LiftCompare | null; today: SetVi
                         {cell.text ?? "Not readable"}
                       </TextBase>
                       <EffortMark effort={cell.effort} />
-                      {index === 0 && <Arrow arrow={cell.arrow} />}
+                      {index === 0 && <SetArrow arrow={cell.arrow} />}
                     </View>
                     {cell.split.map((line, i) => (
                       <TextBase key={i} numeric style={styles.split}>

@@ -83,6 +83,15 @@ describe("graphLayout", () => {
   });
 });
 
+describe("graphLayout, by measure and with no limit", () => {
+  it("writes the labels in the measure's own format, and draws every session when the limit is null", () => {
+    const layout = drawn(graphLayout(series([1380, 1405, 1590, 1700, 1500, 1550, 1600]), box, { ...options, limit: null, measure: "total" }));
+    expect(layout.points).toHaveLength(7);
+    expect(layout.points.filter((p) => p.label).map((p) => p.label?.text)).toEqual(["1,380", "1,700"]);
+    expect(graphValueText(1590, "total")).toBe("1,590");
+  });
+});
+
 describe("lineSegment and peekPosition", () => {
   it("joins two points with one rotated View: its length, its angle, and its centre on their middle", () => {
     expect(lineSegment({ x: 0, y: 10 }, { x: 40, y: 10 }, 2)).toEqual({ left: 0, top: 9, length: 40, angle: 0 });
