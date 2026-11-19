@@ -61,6 +61,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 091 | Change an exercise's units mid-workout | Medium | Raised 2026-11-16 (user). **Design merged, PR #73.** Freestyle, Swap and Add start in kg with no way to switch; hits about 1 lift in 5 every session |
 | 092 | History: what a lift with no weight shows | Small-Medium | Raised 2026-11-20 (user). **Open, after the History build and user testing.** The Exercise screen has no measure for a time or distance lift |
 | 093 | Exercise log: virtualise a long list | Small-Medium | Raised 2026-11-20 (PR #77 review, deferred by the user). **Open; measure first.** "All" with many loaded pages renders every row |
+| 094 | History home: the Exercises tab | Medium | **Lowest priority; open.** Split from 085b (2026-11-20, user): build only if users want to browse lifts and see Better / Lower / Same. Until then no list of lifts exists once 085b removes the old page |
 
 ### Not tickets — verification owed
 
@@ -10530,32 +10531,34 @@ Deviations, for the user to overrule:
 
 ---
 
-### TICKET-085b: History Home — Exercises Tab and the Switch
+### TICKET-085b: History Home — the Switch and Removing the Old Page
 
-**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN** — split from TICKET-085 on 2026-11-15 (user)
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — split from TICKET-085 on 2026-11-15 (user); the Exercises tab split out as TICKET-094 on 2026-11-20 (user)
 
 **Description:**
-The second half of the History home: the Exercises tab, and making the new home the History entry in place of
-the old page. Until it ships, the old page is still the hub's History button.
+The second half of the History home: making the new home the History entry in place of the old page, and removing the old page.
+Until it ships, the old page is still the hub's History button. The Exercises tab was part of this ticket and is now TICKET-094, the lowest
+priority: users may never ask for it (user, 2026-11-20).
 
 **Build:**
-- **Exercises tab:** search, one row per lift from the held summaries (Better/Lower/Same by 081's
-  function, last sets, days ago), filter by workout through `lifts` membership (held months), "Most recent first".
-  A row opens 084's Exercise screen.
 - **The switch:** the hub's History button opens the new home; the TEMPORARY "History (new)" button (085a) goes.
 - Removes `WorkoutLogsScreen`, `WorkoutHistoricalLogsFilter`, the log table components, `freestyleHistory`
   and the two window constants. Their reads (Freestyle's 50 on every visit, up to 50 sets per tap) go.
 - The guided tour names the old screen (`WORKOUT_LOGS` in `commonStepNames.ts`): repoint it, or log a tour note for TICKET-053.
 
-**Proof:** reads of a whole History visit (Workouts and Exercises) before and after, the old page's reads
-measured before it is removed; cold start offline shows Workouts and Exercises with 0 reads; the Exercises tab
-tapped through to 084's screen on the emulator.
+**Consequence of the split, to confirm before building (CLAUDE.md 2.6):** the old page is the only place that lists every lift to browse.
+Without the Exercises tab (094), once it is removed the only way into a lift's history is the "<Lift> history" link in a Session's compare
+(TICKET-084). The History home keeps its Exercises tab switched off with its reason, as 085a built it. If that loss is not wanted, 094 comes
+first, or the old page stays until it ships.
 
-**Out of scope:** stopping the `exercise_sessions` writes (085c).
+**Proof:** reads of a History visit (Workouts) before and after, the old page's reads measured before it is removed; cold start offline shows
+Workouts with 0 reads.
+
+**Out of scope:** the Exercises tab (094); stopping the `exercise_sessions` writes (085c).
 
 **CLAUDE.md rules skipped:** none.
 
-**Dependencies:** TICKET-081, 082, 083, 084, 085a.
+**Dependencies:** TICKET-081, 082, 083, 085a. (084 is no longer a dependency: nothing here opens the Exercise screen.)
 
 ---
 
@@ -11235,6 +11238,35 @@ which loses the pinned column), two lists scrolled together, or limiting what "A
 **Out of scope:** the graph (it draws at most the newest N points); the History home's rail.
 
 **Dependencies:** TICKET-084 merged; a user with a long enough history, or the dummy data above.
+
+---
+
+### TICKET-094: History Home — the Exercises Tab
+
+**Priority:** Lowest | **Effort:** Medium | **Status: OPEN** — split from TICKET-085b on 2026-11-20 (user); build only if users ask
+
+**Description:**
+The Exercises tab of the History home (boards `HistHome14` to `18`), which 085a built switched off with its reason. A list of every lift the
+user has done, so a lift's history can be reached without opening a workout first.
+
+**Why it waits (user, 2026-11-20):** it is only worth building if users want to browse by lift, and see whether a lift went Better, Lower or the
+Same. Until they say so, a lift's history is one tap from any Session that has it (the "<Lift> history" link, TICKET-084). The choice is theirs,
+from using the app, not an assumption made now.
+
+**Build (from 085b's text, unchanged):**
+- Search, one row per lift from the held summaries (Better/Lower/Same by 081's function, last sets, days ago), filter by workout through `lifts`
+  membership (held months), "Most recent first". A row opens 084's Exercise screen.
+- The tab switches on in `HistoryHomeScreen` (today hard-coded off at its tab row).
+- Rows come from the exercise summaries store (`useExerciseHistoryStore`): 0 reads once held; a lift last done before the held window is in the
+  summaries but not in the held workouts, so "filter by workout" covers held months only (said on the tab).
+
+**Proof:** cold start offline shows the Exercises tab with 0 reads; the tab tapped through to 084's screen on the emulator.
+
+**Consequence to know:** until this ships, and once 085b removes the old page, nothing lists lifts to browse (see 085b).
+
+**Out of scope:** anything on the Exercise screen itself.
+
+**Dependencies:** TICKET-081, 082, 084 (merged), 085a. Best after 085b, but independent of it.
 
 ---
 
