@@ -52,7 +52,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 081 | History data foundation: the lift record and the verdict | Large | **Built 2026-11-14, in review (PR #68).** Raised 2026-11-13 (user). No screen. `lifts[]` (with the sets) and `note` on the session doc, one verdict function, a compare script. After 087. Reps-only lifts and the count word are decided |
 | 082 | Hold recent workouts on the phone | Med-Large | After 081. Replaces the 5-per-plan window with the newest whole months; month shards; older months fetched on tap |
 | 083 | Session screen and landing after Finish | Large | After 081, 082. Ships alone: the user lands on it after Finish |
-| 084 | Exercise screen | Med-Large | **Built, PR #77 (two review passes, fixes pushed).** Graph drawn from Views (decided in 087) |
+| 084 | Exercise screen | Med-Large | **Done 2026-11-20, merged in PR #77; open proof listed in the ticket.** Graph drawn from Views (decided in 087) |
 | 085 | History home: Workouts and Exercises tabs | Large | After 081-084. Replaces the old History page; closes 029 |
 | 086 | Delete a workout | Med-Large | After 083. Shares `rebuildExerciseSummary` with 032 |
 | (parked) | Edit session UI | Design only | The option is shown switched off; the user decides the UI later |
@@ -10363,7 +10363,7 @@ each of the three sources (the History home's held months and loaded Older worko
 
 ### TICKET-084: Exercise Screen
 
-**Priority:** Medium | **Effort:** Medium-Large | **Status: BUILT, in review (PR #77)** — all four stages built 2026-11-19/20 on `feat/ticket-084-exercise-screen` (stages are commits on that one branch); raised 2026-11-13 (user)
+**Priority:** Medium | **Effort:** Medium-Large | **Status: DONE** (PR #77, merged 2026-11-20; proof partly open, see below) — all four stages built 2026-11-19/20 on `feat/ticket-084-exercise-screen` (stages are commits on that one branch); raised 2026-11-13 (user)
 
 **Description:**
 The Exercise screen of the design (`HistExercise*`): header "History · Bench Press", graph, one scrolling
@@ -10434,7 +10434,7 @@ the Exercises tab (085b).
 - **Deferred to TICKET-093 (user, 2026-11-20):** the log is not virtualised (hundreds of rows with "All" and many loaded pages). A cost that lands late and loudly (a slow scroll, not a wrong number) at a history size the app's 5 to 10 users will not reach soon, and a virtualised list has to keep the date column and the set columns aligned, which is its own design: measure first, then decide.
 - **PR #77 review, pass 2 (2026-11-20): no blockers.** Fixed: the sheet's choices are a real 48 dp touchable with the 36 dp button drawn inside (the pass-1 hit slop could not extend past its parent, so it did nothing); the spoken labels say which measure the number is, and the sets row says its date (the date column and the sets rows are two separate stacks for a screen reader).
 - **Also fixed here (user, 2026-11-20):** the History home's `loadOlder` had the same shape as `loadOlderExercise` on `main` (a page landing after the window moved was filed under the old edge); it now drops it too, with a test.
-- **Ticket 084 is built in four stages; what remains is the review and the unrun items above.**
+- **Merged 2026-11-20 as c5620fe after two multi-perspective review passes (no blockers in either).** Open after merge: (a) the waiting / did-not-upload strips on a device (need a written workout; wait for TICKET-086's delete); (b) a full page of 20 older sessions, and the offline "still trying" wording; (c) the options sheet and the log at a phone narrower than the emulator, and 5 or more set columns with marks; (d) TalkBack on the spoken labels; (e) the user's wrong console index `exerciseIds | sessions` to delete. Deferred by decision: TICKET-092 (a lift with no weight), TICKET-093 (a long log, measure first).
 
 ---
 
