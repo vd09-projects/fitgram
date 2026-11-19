@@ -1,4 +1,5 @@
-import { averageWeight, exerciseLog, limitLog, measureReason, measureText, rowCells, rowUnit, totalLifted, unitBreakText, valueOf } from "./exerciseLog";
+import { averageWeight, exerciseLog, limitLog, measureReason, measureText, rowCells, rowUnit, spokenSet, totalLifted, unitBreakText, valueOf } from "./exerciseLog";
+import { buildStats } from "../test/fixtures";
 import type { RailWorkout } from "./historyRail";
 import type { LiftRecord } from "../types/workoutSession";
 
@@ -160,5 +161,49 @@ describe("Total lifted, the marks and the limit (stage 4)", () => {
     expect(limitLog(log, 1).segments).toHaveLength(1);
     expect(limitLog(log, null)).toBe(log);
     expect(two.columns).toBe(log.columns);
+  });
+});
+
+describe("review of PR #77", () => {
+  const bench = (...weights: number[]) => lift("bench", weights.map((w) => set(w, 10)));
+
+  it("agrees with the held summaries (the ticket's proof): the same sessions in the same order, each total the volume the write path stored", () => {
+    const T = (n: number) => 1_800_000_000_000 + n * 86_400_000;
+    const drop = { segments: [{ Weight: 60, Reps: 5 }, { Weight: 40, Reps: 5 }] };
+    const specs = [
+      { performedAt: T(3), sets: [{ Weight: 62.5, Reps: 8 }, drop] },
+      { performedAt: T(2), sets: [{ Weight: 60, Reps: 9 }, { Weight: 55, Reps: 10 }] },
+      { performedAt: T(1), sets: [{ Weight: 57.5, Reps: 8 }] },
+    ];
+    const stats = buildStats("Bench", specs);
+    const workouts = stats.recentSessions.map((entry) =>
+      workout(entry.performedAt, [{ id: "bench", name: "Bench", fields: entry.fields, sets: entry.sets, verdict: null, reason: "pending" }])
+    );
+    const entries = exerciseLog(workouts, "bench").segments.flatMap((segment) => segment.entries);
+    expect(entries.map((entry) => entry.startedAt)).toEqual(stats.recentSessions.map((entry) => entry.performedAt));
+    expect(entries.map((entry) => (entry.total.kind === "value" ? entry.total.value : null))).toEqual(stats.recentSessions.map((entry) => entry.volume));
+    expect(entries.map((entry) => entry.sets.length)).toEqual(stats.recentSessions.map((entry) => entry.sets.length));
+  });
+
+  it("takes the table's shape from the newest session that has sets, not from a newest one with none", () => {
+    const log = exerciseLog([workout(2_000, [lift("bench", [])]), workout(1_000, [bench(60, 60, 55)])], "bench");
+    expect(log.columns).toBe(3);
+    expect(exerciseLog([workout(1_000, [lift("bench", [])])], "bench").columns).toBe(0);
+  });
+
+  it("marks a set against the previous session, never against the other slot of the same workout", () => {
+    const older = workout(1_000, [bench(60)]);
+    const newer = workout(2_000, [bench(55), lift("fly", [set(10)]), bench(50)]);
+    const [first, second, previous] = exerciseLog([older, newer], "bench").segments[0].entries;
+    expect(first.sets[0].arrow).toBe("down"); // 55 against the older session's 60; against its own other slot's 50 it would read "up"
+    expect(second.sets[0].arrow).toBe("down"); // 50 against 60
+    expect(previous.sets[0].arrow).toBeNull(); // the oldest has nothing older
+  });
+
+  it("says a set aloud with its values, split rows, and the effort and mark only when the log shows them", () => {
+    const view = { text: "62.5 × 8", split: ["52.5 × 3"], effort: "hard", arrow: "up", number: 1 } as unknown as Parameters<typeof spokenSet>[0];
+    expect(spokenSet(view, { effort: true, marks: true })).toBe("62.5 × 8, then 52.5 × 3, felt hard, better than last time");
+    expect(spokenSet(view, { effort: false, marks: false })).toBe("62.5 × 8, then 52.5 × 3");
+    expect(spokenSet({ ...view, text: null, split: [], effort: null, arrow: "down" }, { effort: true, marks: true })).toBe("not readable, lower than last time");
   });
 });

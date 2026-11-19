@@ -5,7 +5,7 @@ import { EffortMark } from "./EffortMark";
 import { SetArrow } from "./SetArrow";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
-import { measureText, rowCells, rowUnit, unitBreakText, valueOf, type ExerciseLog, type LogEntry, type LogSegment, type Measure } from "../../utils/exerciseLog";
+import { measureText, rowCells, rowUnit, spokenSet, unitBreakText, valueOf, type ExerciseLog, type LogEntry, type LogSegment, type Measure } from "../../utils/exerciseLog";
 import type { HeaderParts } from "../../utils/sessionView";
 import type { SetView } from "../../utils/sessionView";
 
@@ -23,6 +23,13 @@ const LINE = 18;
 const rowValue = (entry: LogEntry, measure: Measure): { number: string; unit: string | null } => {
   const value = valueOf(entry, measure);
   return value.kind === "value" ? { number: measureText(measure, value.value), unit: rowUnit(value.unit) } : { number: "–", unit: null };
+};
+
+/** What a screen reader says for a row's date cell: the date, the workout, the number under the date and the captions. */
+const dateSpoken = (entry: LogEntry, label: HeaderParts, measure: Measure): string => {
+  const value = valueOf(entry, measure);
+  const number = value.kind === "value" ? `${measureText(measure, value.value)} ${value.unit}`.trim() : "no number";
+  return [[label.date, ...stampLines(label)].join(" "), entry.workoutName, number, ...captionsOf(entry)].join(", ");
 };
 
 /** Caption lines under a row's date: what kind of session it was. */
@@ -113,7 +120,7 @@ const Block = React.memo(function Block({
               style={[styles.dateCell, { height: rowHeight(entry, dateLabels[entry.key]) }, latest && styles.latest]}
               onPress={() => onOpen(entry)}
               accessibilityRole="button"
-              accessibilityLabel={`${[dateLabels[entry.key].date, ...stampLines(dateLabels[entry.key])].join(" ")}, ${entry.workoutName}`}
+              accessibilityLabel={dateSpoken(entry, dateLabels[entry.key], measure)}
               testID={`exercise-log-date-${entry.key}`}
             >
               {latest && <View style={styles.dot} />}
@@ -187,7 +194,7 @@ function SetsRow({
       style={[styles.setsRow, { height: rowHeight(entry, label) }, latest && styles.latest]}
       onPress={() => onOpen(entry)}
       accessibilityRole="button"
-      accessibilityLabel={`Sets of ${entry.workoutName}`}
+      accessibilityLabel={`${entry.workoutName}, ${entry.sets.map((set, i) => `set ${i + 1}: ${spokenSet(set, { effort: showEffort, marks: showMarks })}`).join(". ")}`}
     >
       {cells.map((cell, i) => (
         <View key={i} style={[styles.setCell, { width: columnWidth }]}>

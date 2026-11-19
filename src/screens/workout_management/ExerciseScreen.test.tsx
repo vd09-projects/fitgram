@@ -11,6 +11,7 @@ import { EXERCISE_LOG_PAGE_SIZE } from "../../config/display";
 import type { LiftRecord, WorkoutSessionDoc } from "../../types/workoutSession";
 import type { PendingUpload } from "../../types/zustandWorkoutType";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
+import { useRecentWorkoutsStore } from "../../stores/useRecentWorkoutsStore";
 
 let mockParams: { exerciseId: string; exerciseName: string };
 jest.mock("@react-navigation/native", () => ({
@@ -270,5 +271,32 @@ describe("ExerciseScreen: the view options", () => {
     expect(screen.getAllByText("H")).toHaveLength(1); // only the sheet's own legend remains
     fireEvent(screen.getByLabelText("Better and lower marks"), "valueChange", false);
     expect(screen.queryAllByLabelText("better than last time")).toHaveLength(1); // only the sheet's own legend remains
+  });
+});
+
+describe("ExerciseScreen: review of PR #77", () => {
+  it("does not give the two rows of one workout a time as if two sessions fell on the day", async () => {
+    await open([
+      session("a", new Date(2026, 10, 9, 18).getTime(), [lift("Bench", [60]), lift("Fly", [10]), lift("Bench", [50])]),
+      session("b", new Date(2026, 10, 2, 18).getTime(), [lift("Bench", [55])]),
+    ]);
+    await screen.findByTestId("exercise-figure");
+    expect(screen.getAllByText("9 Nov")).toHaveLength(2);
+    expect(screen.queryByText("18:00")).not.toBeOnTheScreen();
+  });
+
+  it("says a row's numbers aloud, not only its date and workout", async () => {
+    await open([session("a", day(9), [lift("Bench", [60, 50], { sets: [{ segments: [{ Weight: 60, Reps: 8 }], effort: "hard" }, { segments: [{ Weight: 50, Reps: 8 }], effort: null }] })])]);
+    await screen.findByTestId("exercise-figure");
+    expect(screen.getByLabelText(/^9 Nov, Push, 55\.0 kg/)).toBeOnTheScreen();
+    expect(screen.getByLabelText(/set 1: 60 × 8, felt hard.*set 2: 50 × 8/)).toBeOnTheScreen();
+  });
+
+  it("ignores an older list loaded before the window moved", async () => {
+    await open([session("a", day(9), [lift("Bench", [60])])]);
+    await screen.findByTestId("exercise-figure");
+    const stale = session("gone", day(1), [lift("Bench", [40])]);
+    act(() => useRecentWorkoutsStore.setState({ olderWorkouts: { "*": { windowStart: 123, sessions: [stale], reachedStart: false, read: null } } }));
+    expect(screen.queryByTestId("exercise-log-date-gone:0")).not.toBeOnTheScreen();
   });
 });

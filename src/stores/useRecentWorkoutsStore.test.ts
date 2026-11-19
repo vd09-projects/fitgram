@@ -471,6 +471,18 @@ describe("a lift's sessions past the window", () => {
     expect(own()?.read).toEqual({ status: "failed", error: "needs an index" });
   });
 
+  it("drops a page that lands after the window moved, instead of filing it under an edge that no longer exists", async () => {
+    await openWithWindowFromOctober();
+    let answer: (page: { sessions: WorkoutSessionDoc[]; docsRead: number; reachedStart: boolean }) => void = () => {};
+    jest.mocked(getSessionsOfExercisePage).mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+    const read = useRecentWorkoutsStore.getState().loadOlderOfExercise("bench");
+    const moved = { ...useRecentWorkoutsStore.getState().workoutWindow!, windowStart: at(11, 1) };
+    useRecentWorkoutsStore.setState({ workoutWindow: moved });
+    answer({ sessions: [bench("late", at(9, 20))], docsRead: 1, reachedStart: false });
+    await read;
+    expect(useRecentWorkoutsStore.getState().exerciseOlder.bench?.sessions ?? []).toEqual([]);
+  });
+
   it("exercisePaging: no start without a window start, the lowest edge of the lists, and the start once either list reached it", () => {
     const list = (...days: number[]) => ({ sessions: days.map((d) => bench(`s${d}`, at(9, d))), reachedStart: false });
     expect(exercisePaging(null, null, null)).toEqual({ reachedStart: true, before: null });

@@ -132,6 +132,8 @@ function Choices({ choices, onPick }: { choices: { key: string; label: string; o
         <TouchableOpacity
           key={choice.key}
           style={[styles.choice, choice.on && styles.choiceOn]}
+          // 36 dp is the board's height; Android's target is 48, so the touch area grows past the drawn button.
+          hitSlop={{ top: 6, bottom: 6 }}
           onPress={() => onPick(choice.key)}
           accessibilityRole="radio"
           accessibilityState={{ selected: choice.on }}

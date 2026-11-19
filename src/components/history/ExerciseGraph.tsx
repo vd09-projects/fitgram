@@ -83,7 +83,15 @@ export function ExerciseGraph({
       {layout?.kind === "graph" && (
         <>
           <View style={[styles.plot, { height }]}>
-            <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setSelected(null)} accessibilityLabel="Close the card" />
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              activeOpacity={1}
+              onPress={() => setSelected(null)}
+              // Only a way out while a card is open: with none, it would be a screen-wide button that does nothing.
+              accessible={chosen !== undefined}
+              importantForAccessibility={chosen !== undefined ? "yes" : "no-hide-descendants"}
+              accessibilityLabel="Close the card"
+            />
             {[...layout.breaks, ...layout.points.filter((p) => p.latest).map((p) => p.x)].map((x, i) => (
               <View key={`rule${i}`} pointerEvents="none" style={[styles.rule, { left: x, height: height - 28 }]} />
             ))}

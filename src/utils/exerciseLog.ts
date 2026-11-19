@@ -64,7 +64,7 @@ export function totalLifted(lift: Pick<LiftRecord, "fields" | "sets">): MeasureV
   return value === null ? { kind: "none", reason: "unreadable" } : { kind: "value", value, unit: numeric.weight.unit ?? "" };
 }
 
-/** "59.2" for 59.25: one decimal, as the boards show it. The unit is drawn beside it. */
+/** "59.3" for 59.25: one decimal, as the boards show it. The unit is drawn beside it. */
 export const averageText = (value: number): string => value.toFixed(1);
 
 /**
@@ -195,13 +195,16 @@ export function exerciseLog(workouts: readonly RailWorkout[], exerciseId: string
   // Each set's mark is against the same-numbered set of the entry just older in the log, as the Session's compare does
   // (`setArrows`: nothing across a unit change, nothing without an older entry). The oldest entry loaded has none, so it shows
   // no marks until a page older than it is loaded: no mark, never a guessed "same".
+  // "Just older" means the previous session: the lift's other slot in the same workout is not what it is compared with
+  // (a planned and an added slot of one workout would otherwise be marked against each other, review of PR #77).
+  const previousOf = (i: number): LiftRecord | null => found.slice(i + 1).find((later) => later.session.sessionId !== found[i].session.sessionId)?.lift ?? null;
   const entries: LogEntry[] = found.map(({ session, state, index, lift }, i) => ({
     key: `${session.sessionId}:${index}`,
     sessionId: session.sessionId,
     workoutName: session.workoutName,
     startedAt: session.startedAt,
     state,
-    sets: logSetViews(lift, setArrows(lift, found[i + 1]?.lift ?? null)),
+    sets: logSetViews(lift, setArrows(lift, previousOf(i))),
     average: averageWeight(lift),
     total: totalLifted(lift),
     freestyle: isFreestyle(session.workoutId),
@@ -214,7 +217,9 @@ export function exerciseLog(workouts: readonly RailWorkout[], exerciseId: string
     if (i === 0 || units[i] !== units[i - 1]) segments.push({ unit: units[i], entries: [] });
     segments[segments.length - 1].entries.push(entry);
   });
-  return { segments, columns: entries[0]?.sets.length ?? 0, unreadable };
+  // The newest entry that has any sets sets the shape: a newest session with none (a lift opened and left empty) would make every
+  // older row show no sets at all and no "+N" (review of PR #77).
+  return { segments, columns: entries.find((entry) => entry.sets.length > 0)?.sets.length ?? 0, unreadable };
 }
 
 /**
@@ -239,6 +244,17 @@ export function rowCells(sets: readonly SetView[], columns: number): { cells: (S
     cells: Array.from({ length: columns }, (_, i) => sets[i] ?? null),
     more: Math.max(0, sets.length - columns),
   };
+}
+
+/**
+ * What a screen reader says for one set: the values, any split rows, the effort and the mark, each only if the log shows it. A
+ * row's label that replaced its content would say "Sets of Push" and nothing else (review of PR #77).
+ */
+export function spokenSet(set: SetView, show: { effort: boolean; marks: boolean }): string {
+  const parts = [set.text ?? "not readable", ...set.split.map((line) => `then ${line}`)];
+  if (show.effort && set.effort !== null) parts.push(set.effort === "hard" ? "felt hard" : "felt easy");
+  if (show.marks && set.arrow !== null) parts.push(set.arrow === "up" ? "better than last time" : "lower than last time");
+  return parts.join(", ");
 }
 
 /** The line between two unit segments (board HistExercise09), naming the older unit when it has one. */

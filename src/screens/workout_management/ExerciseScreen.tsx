@@ -9,7 +9,7 @@ import { historyNotice } from "../../utils/historyNotice";
 import { mergePending, type RailWorkout } from "../../utils/historyRail";
 import { exerciseLog, limitLog, measureLabel, measureReason, measureText, valueOf, type Measure } from "../../utils/exerciseLog";
 import { DEFAULT_EXERCISE_VIEW, isChangedView, olderPageUseful, showsGraph, showsList, type ExerciseView } from "../../utils/exerciseView";
-import { compareHeaderParts } from "../../utils/sessionView";
+import { compareHeaderParts, type HeaderParts } from "../../utils/sessionView";
 import { olderRowBusy, olderRowDetail } from "../../utils/olderRow";
 import { EXERCISE_LOG_PAGE_SIZE } from "../../config/display";
 import { WorkoutRoutes } from "../../constants/routes";
@@ -67,9 +67,15 @@ export default function ExerciseScreen() {
   // Every older page the History home loaded, any plan filter: the log wants all of this lift's sessions, and
   // `exerciseLog` drops the workouts that two lists both hold.
   const own = exerciseOlderOf(exerciseOlder, workoutWindow, exerciseId);
+  // Only the lists loaded under the window as it stands now (`windowStart`), as the History home reads them: one loaded before the
+  // window moved no longer meets it, and could hold a session the server has since deleted (review of PR #77).
+  const windowStart = workoutWindow?.windowStart;
   const loadedOlder = useMemo(
-    () => [...Object.values(olderWorkouts).flatMap((older) => older.sessions), ...(own?.sessions ?? [])],
-    [olderWorkouts, own]
+    () => [
+      ...Object.values(olderWorkouts).flatMap((older) => (older.windowStart === windowStart ? older.sessions : [])),
+      ...(own?.sessions ?? []),
+    ],
+    [olderWorkouts, own, windowStart]
   );
   // Whether the log may go on past what the phone holds (`exercisePaging`): not when the window holds the whole history.
   const paging = exercisePaging(workoutWindow?.windowStart ?? null, olderOf(olderWorkouts, workoutWindow, null), own);
@@ -84,9 +90,13 @@ export default function ExerciseScreen() {
 
   const log = useMemo(() => (workouts === null ? null : exerciseLog(workouts, exerciseId)), [workouts, exerciseId]);
   const entries = useMemo(() => log?.segments.flatMap((segment) => segment.entries) ?? [], [log]);
+  // One date label per workout, not per row: a workout that did the lift in two slots has two rows on one day, and counting both
+  // would give each a time as if two sessions fell on that day (review of PR #77).
   const dateLabels = useMemo(() => {
-    const labels = compareHeaderParts(entries.map((entry) => entry.startedAt), now);
-    return Object.fromEntries(entries.map((entry, i) => [entry.key, labels[i]]));
+    const workoutsOnLog = [...new Map(entries.map((entry) => [entry.sessionId, entry.startedAt])).entries()];
+    const parts = compareHeaderParts(workoutsOnLog.map(([, startedAt]) => startedAt), now);
+    const byWorkout = new Map(workoutsOnLog.map(([sessionId], i) => [sessionId, parts[i]]));
+    return Object.fromEntries(entries.map((entry) => [entry.key, byWorkout.get(entry.sessionId) as HeaderParts]));
   }, [entries, now]);
 
   const notice = useMemo(() => {

@@ -592,7 +592,7 @@ To run, from the History home (**History (new)** on the hub). Compare each scree
 To run: History home → a workout → tap a lift card to open its compare → **<Lift> history ›** under it. Compare each screenshot to boards `HistExercise05` to `12`.
 1. The screen opens on "History · Bench Press": the newest session's average weight as the figure ("Average weight · last session"), then the log newest first. No read happens (held workouts only).
 2. Each row: the date, its average weight under it, one column per set with the effort badge (H or E). The newest row has a dot and a raised background. Freestyle sessions say "Freestyle"; a drop set says "Drop set" and shows its split rows under the set.
-3. The table has as many columns as the newest session had sets. A longer older session shows "+N" for the sets that do not fit. Up to three columns share the width; more scroll sideways with the date column staying put.
+3. The table has as many columns as the newest session had sets. A longer older session shows "+N" for the sets that do not fit. The set columns share the width but are never narrower than a floor (a value, an H badge and a mark need about that much), so with more than three they scroll sideways with the date column staying put.
 4. A lift logged in kg and later in lb: a line between them ("Before this the sets were in kg, so they are not compared") with its own Date and Set header above the older block.
 5. Tap a row: that workout's Session. Back returns with the log where it was.
 6. A queued workout with this lift: the strip says "1 workout waiting to upload"; after a rejection "1 workout didn't upload" with Try again. A queued workout without this lift: no strip.
@@ -654,3 +654,8 @@ To run: any lift's Exercise screen (Bent-Over Row has 5 sessions, 4 sets, a hard
 - **[omission, mine] Stage 1 left out the per-set marks the boards show in every log cell** (and the Details switch for them): they were never on the screen until now. They are in the ticket's own list ("per-set marks"); I should have found them when reading the boards for stage 1.
 - **[pending] Not run:** the options sheet at a phone width narrower than the emulator's (the segmented choices at 393 dp); a lift with no weight under the options (its reason line reads "No weight to total": unit-tested, not seen); 5 or more set columns with marks (no lift in `pinky` has that).
 - **[deviation] From the boards:** the measure choices open as a bottom sheet (the board anchors a small popup under the label); the sessions count limits both the graph and the log (the board shows one count and does not say); Details switches are the platform's Switch, not the board's drawn one.
+
+### TICKET-084 PR #77 review fixes (unit-tested; each seen failing with its fix broken, 2026-11-20)
+
+- The table's columns come from the newest session that has sets; a set's mark is against the previous session, never the other slot of its own workout; one date label per workout; a row's spoken label carries its numbers, sets, effort and marks; the screen ignores older lists loaded before the window moved; a page that lands after the window moved is dropped. One test (the slot mark) first passed with the fix broken, because its numbers gave the same answer either way; it was changed until it failed.
+- **[pending] Not run:** the spoken labels with TalkBack (their text is checked, not how a screen reader reads it aloud); the 48 dp touch area of the sheet's choices (set as a hit slop, not measured).
