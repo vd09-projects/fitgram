@@ -143,6 +143,14 @@ describe("SessionScreen", () => {
     expect(screen.queryByText(/beat last time|no earlier session|No lift/)).not.toBeOnTheScreen();
   });
 
+  it("opens the lift's Exercise screen from the link under an open card's compare", async () => {
+    await open([session("s1", [lift("Bench")])], "s1");
+    expect(screen.queryByTestId("session-lift-history-bench")).not.toBeOnTheScreen();
+    fireEvent.press(await screen.findByTestId("session-lift-bench"));
+    fireEvent.press(await screen.findByTestId("session-lift-history-bench"));
+    expect(await screen.findByText(`route:Workout/${WorkoutRoutes.Exercise}`)).toBeOnTheScreen();
+  });
+
   it("opens a card on tap into the compare, with no read, and shows each earlier session in its own unit", async () => {
     const DAY = 86_400_000;
     const held = session("s1", [lift("Bench", { verdict: "better", reason: null })]);

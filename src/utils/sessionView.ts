@@ -272,12 +272,14 @@ export function sessionDateLine(startedAt: number, endedAt: number | null): stri
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
+export type HeaderParts = { date: string; year: string | null; clock: string | null };
+
 /**
- * Column headers for a compare, one per time given: "2 Nov". Two sessions on the same day (TICKET-037) would
- * read identically, so every one of such a day gets its time too: "2 Nov 18:30". The year is added when it is
- * not `now`'s, so an old session is not mistaken for this year's. Local time throughout, as the rail's months.
+ * The pieces of a session's date label: "2 Nov", its year when it is not `now`'s (an old session is not mistaken for this
+ * year's), and its time when another session of the list is on the same day (TICKET-037), since two would read identically.
+ * Local time throughout, as the rail's months. `compareHeaders` joins them; a narrow column (the Exercise log's) stacks them.
  */
-export function compareHeaders(times: readonly number[], now: number): string[] {
+export function compareHeaderParts(times: readonly number[], now: number): HeaderParts[] {
   const dayOf = (time: number) => {
     const d = new Date(time);
     return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -286,11 +288,17 @@ export function compareHeaders(times: readonly number[], now: number): string[] 
   times.forEach((time) => perDay.set(dayOf(time), (perDay.get(dayOf(time)) ?? 0) + 1));
   return times.map((time) => {
     const d = new Date(time);
-    const year = d.getFullYear() === new Date(now).getFullYear() ? "" : ` ${d.getFullYear()}`;
-    const clock = (perDay.get(dayOf(time)) ?? 0) > 1 ? ` ${pad(d.getHours())}:${pad(d.getMinutes())}` : "";
-    return `${d.getDate()} ${MONTHS[d.getMonth()]}${year}${clock}`;
+    return {
+      date: `${d.getDate()} ${MONTHS[d.getMonth()]}`,
+      year: d.getFullYear() === new Date(now).getFullYear() ? null : String(d.getFullYear()),
+      clock: (perDay.get(dayOf(time)) ?? 0) > 1 ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : null,
+    };
   });
 }
+
+/** Column headers for a compare, one per time given: "2 Nov", "1 Mar 2025", "2 Nov 18:30" (`compareHeaderParts`). */
+export const compareHeaders = (times: readonly number[], now: number): string[] =>
+  compareHeaderParts(times, now).map(({ date, year, clock }) => [date, year, clock].filter(Boolean).join(" "));
 
 export type CompareColumn = {
   /** "Today" for the workout itself; otherwise the session's date (`compareHeaders`). */

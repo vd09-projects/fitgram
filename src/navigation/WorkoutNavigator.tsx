@@ -10,6 +10,7 @@ import WorkoutLogsScreen from '../screens/workout_management/WorkoutLogsScreen';
 import ExerciseHistoryDebugScreen from '../screens/workout_management/ExerciseHistoryDebugScreen';
 import HistoryHomeScreen from '../screens/workout_management/HistoryHomeScreen';
 import SessionScreen from '../screens/workout_management/SessionScreen';
+import ExerciseScreen from '../screens/workout_management/ExerciseScreen';
 // Debug tooling, kept (TICKET-070): PlansStoreDebugScreen.
 import PlansStoreDebugScreen from '../screens/workout_management/PlansStoreDebugScreen';
 import { useThemeTokens } from '../components/app_manager/ThemeContext';
@@ -25,6 +26,7 @@ export type WorkoutStackParamList = {
   HistoryHome: undefined;
   /** `finished`: opened by Finish, so the screen says "Workout saved" once the workout is on the server (TICKET-083). */
   Session: { sessionId: string; workoutName: string; startedAt: number; finished?: true };
+  Exercise: { exerciseId: string; exerciseName: string };
   PlansStoreDebug: undefined;
 };
 
@@ -101,6 +103,14 @@ export default function WorkoutNavigator() {
         name={WorkoutRoutes.Session}
         getId={({ params }) => params.sessionId}
         component={SessionScreen}
+        options={{ headerShown: false }}
+      />
+
+      {/* Own id per exercise, as the Session's: a lift opened from a Session of another lift must not move the first. */}
+      <Stack.Screen
+        name={WorkoutRoutes.Exercise}
+        getId={({ params }) => params.exerciseId}
+        component={ExerciseScreen}
         options={{ headerShown: false }}
       />
 

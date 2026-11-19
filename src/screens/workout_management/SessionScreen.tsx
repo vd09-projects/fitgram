@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { RouteProp, useRoute } from "@react-navigation/native";
+import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import { useAuthUser } from "../../hooks/useAuthUser";
 import { useRecentWorkouts } from "../../hooks/useRecentWorkouts";
 import { useExerciseHistoryStore } from "../../stores/useExerciseHistoryStore";
@@ -12,7 +12,7 @@ import { setWorkoutNote } from "../../services/db/workoutSessions";
 import type { RailWorkout } from "../../utils/historyRail";
 import { WorkoutRoutes } from "../../constants/routes";
 import { SPACING } from "../../constants/styles";
-import type { WorkoutStackParamList } from "../../navigation/WorkoutNavigator";
+import type { WorkoutScreenNavigationProp, WorkoutStackParamList } from "../../navigation/WorkoutNavigator";
 import BackButton from "../../components/BackButton";
 import { TextBase } from "../../components/TextBase";
 import LoadingData from "../../components/LoadingData";
@@ -46,6 +46,7 @@ import { useThemeStyles } from "../../utils/useThemeStyles";
  */
 export default function SessionScreen() {
   const { styles, t } = useThemeStyles(createStyles);
+  const navigation = useNavigation<WorkoutScreenNavigationProp<typeof WorkoutRoutes.Session>>();
   const { params } = useRoute<RouteProp<WorkoutStackParamList, typeof WorkoutRoutes.Session>>();
   const { sessionId } = params;
   const { user } = useAuthUser();
@@ -276,6 +277,7 @@ export default function SessionScreen() {
                     : null
                 }
                 onToggle={() => toggleCard(index)}
+                onOpenHistory={() => navigation.navigate(WorkoutRoutes.Exercise, { exerciseId: card.id, exerciseName: card.name })}
               />
             ))}
           </>

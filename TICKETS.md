@@ -10361,7 +10361,7 @@ each of the three sources (the History home's held months and loaded Older worko
 
 ### TICKET-084: Exercise Screen
 
-**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN** — raised 2026-11-13 (user)
+**Priority:** Medium | **Effort:** Medium-Large | **Status: IN PROGRESS** — stage 1 built 2026-11-19 on `feat/ticket-084-exercise-screen` (stages are commits on that one branch); raised 2026-11-13 (user)
 
 **Description:**
 The Exercise screen of the design (`HistExercise*`): header "History · Bench Press", graph, one scrolling
@@ -10392,6 +10392,22 @@ the Exercises tab (085b).
 **CLAUDE.md rules skipped:** none.
 
 **Dependencies:** TICKET-081, 083. TICKET-036 (unit on trend points) matters only for a graph past 10 sessions.
+
+**Stages (decided 2026-11-19, user: by screen state, each stage's functions built with the screen part that uses them; nothing in a stage is overwritten by the next):**
+1. **Log** (boards 05, 07, 08, 09, 11, 12, 13): the `Exercise` route with `getId` by exercise id, the log from held workouts, the unit-break line, waiting and did-not-upload strip, the "<Lift> history" link in the Session compare. `utils/exerciseLog.ts`.
+2. **Graph** (01, 04, 10, graph half of 09): `graphPoints` and placement, peek card, the new-lift state. Last-N is a parameter, fixed at 10 until stage 4.
+3. **Past the window:** `getSessionsOfExercise`, the "Older sessions" row, offline and failed states, the index in `firestore.indexes.json` (prepared, the user deploys), a TEMPORARY read counter.
+4. **View options** (02, 03, 06): Total lifted, Graph and list / Graph only / List only, Last 5, 10, 20, All, the dot. Memory only per visit (user, 2026-11-19). "All" is everything loaded, older through stage 3's row.
+
+**Deviations from this ticket's text, confirmed by the user 2026-11-19 (the board is right, the ticket predates it):**
+- The measure is **Average weight** (the mean of a session's set weights, a drop set counting its first weight; defined in `averageWeight`), with **no trend word**. The ticket's "Typical weight" and "Going up" are not built.
+- A new lift shows no graph until 5 sessions ("The graph starts after 5 sessions. 2 so far."), board 10; the ticket said 1 to 2.
+
+**Stage 1 built (2026-11-19):**
+- Decisions, each in a comment where it lives: the table's columns follow the newest session's set count, older longer rows show "+N" (rejected: the most sets anywhere, the board sizes by the newest); one row per lift record, so a workout with the lift in two slots shows both; a unit break is a change of weight unit between neighbours, and two lifts with no weight field never break; a session whose average cannot be computed shows "–" and says why, never a partial mean.
+- `HistoryNoticeStrip` is now shared by the History home and this screen; `EffortMark` is shared by the Session card and the log.
+- Not done here: the graph, the options icon and sheets, paging past the window (stages 2 to 4).
+- **Device run (2026-11-20, emulator, `pinky`, read-only):** passed, with four layout bugs found and fixed (cell units, same-day dates, a word unit, the Freestyle caption); the log read 0 (every check skipped). Details and what stayed unrun: `docs/TESTING_NOTES.md`. Open for the user: a lift with no weight shows "Average weight" and "–"; its own measure belongs to stage 4's sheet.
 
 ---
 

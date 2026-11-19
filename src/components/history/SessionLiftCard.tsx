@@ -5,9 +5,8 @@ import { TextBase } from "../TextBase";
 import { SPACING } from "../../constants/styles";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
+import { EffortMark } from "./EffortMark";
 import { closedSets, type CompareColumn, type LiftCardView, type LiftCompare, type SetView } from "../../utils/sessionView";
-
-const EFFORT_MARK = { easy: "E", hard: "H" } as const;
 
 /**
  * One lift of a Session (TICKET-083, boards HistSession01 to 17), drawn from `liftCards` and `liftCompare`. It owns no
@@ -27,12 +26,15 @@ export const SessionLiftCard = React.memo(function SessionLiftCard({
   open,
   compare,
   onToggle,
+  onOpenHistory,
 }: {
   card: LiftCardView;
   beat: boolean;
   open: boolean;
   compare: LiftCompare | null;
   onToggle: () => void;
+  /** Opens this lift's Exercise screen (TICKET-084). Shown under an open card's compare. */
+  onOpenHistory: () => void;
 }) {
   const { styles, t } = useThemeStyles(createStyles);
   const lower = card.label === "Lower";
@@ -70,7 +72,19 @@ export const SessionLiftCard = React.memo(function SessionLiftCard({
         )}
       </View>
       {open ? (
-        <Compare compare={compare} today={card.sets} />
+        <>
+          <Compare compare={compare} today={card.sets} />
+          <TouchableOpacity
+            style={styles.historyLink}
+            onPress={onOpenHistory}
+            accessibilityRole="link"
+            accessibilityLabel={`${card.name} history`}
+            testID={`session-lift-history-${card.id}`}
+          >
+            <TextBase style={styles.historyLinkText}>{card.name} history</TextBase>
+            <Ionicons name="chevron-forward" size={16} color={t.colors.role.accent} />
+          </TouchableOpacity>
+        </>
       ) : (
         <View style={styles.sets}>
           {shown.map((set) => (
@@ -100,16 +114,6 @@ function Arrow({ arrow }: { arrow: SetView["arrow"] }) {
   );
 }
 
-function Mark({ effort }: { effort: SetView["effort"] }) {
-  const { styles } = useThemeStyles(createStyles);
-  if (effort === null) return null;
-  return (
-    <View style={styles.mark}>
-      <TextBase style={styles.markText}>{EFFORT_MARK[effort]}</TextBase>
-    </View>
-  );
-}
-
 function SetChip({ set }: { set: SetView }) {
   const { styles } = useThemeStyles(createStyles);
   return (
@@ -126,7 +130,7 @@ function SetChip({ set }: { set: SetView }) {
           + {set.split.join(" + ")}
         </TextBase>
       )}
-      <Mark effort={set.effort} />
+      <EffortMark effort={set.effort} />
       <Arrow arrow={set.arrow} />
     </View>
   );
@@ -172,7 +176,7 @@ function Compare({ compare, today }: { compare: LiftCompare | null; today: SetVi
                       <TextBase numeric style={[styles.compareText, index === 0 && styles.compareTextToday]}>
                         {cell.text ?? "Not readable"}
                       </TextBase>
-                      <Mark effort={cell.effort} />
+                      <EffortMark effort={cell.effort} />
                       {index === 0 && <Arrow arrow={cell.arrow} />}
                     </View>
                     {cell.split.map((line, i) => (
@@ -232,7 +236,8 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
     setText: { fontSize: t.fonts.medium, fontWeight: "bold", color: t.colors.role.textPrimary },
     split: { fontSize: t.fonts.small, color: t.colors.role.textSecondary },
     unreadable: { fontSize: t.fonts.small, color: t.colors.role.textSecondary },
-    mark: { width: 20, height: 20, borderRadius: 6, alignItems: "center", justifyContent: "center", backgroundColor: t.colors.role.textPrimary },
+    historyLink: { marginTop: SPACING.medium, flexDirection: "row", alignItems: "center", alignSelf: "flex-start", minHeight: 36 },
+    historyLinkText: { fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.accent },
     compare: { marginTop: SPACING.medium, gap: SPACING.small },
     compareRow: { flexDirection: "row", alignItems: "flex-start", gap: SPACING.small },
     compareHead: { flex: 1, fontSize: t.fonts.small, color: t.colors.role.textSecondary },
@@ -243,5 +248,4 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
     compareTextToday: { fontWeight: "bold", color: t.colors.role.textPrimary },
     compareEmpty: { fontSize: t.fonts.xMedium, color: t.colors.role.textSecondary },
     compareNote: { marginTop: SPACING.small, fontSize: t.fonts.xMedium, color: t.colors.role.textSecondary },
-    markText: { fontSize: t.fonts.small, fontWeight: "bold", color: t.colors.role.ground },
   });
