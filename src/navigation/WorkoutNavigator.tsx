@@ -5,7 +5,6 @@ import { WorkoutRoutes } from '../constants/routes';
 import StartWorkoutScreen from '../screens/workout_management/StartWorkoutScreen';
 import ActiveWorkoutScreen from '../screens/workout_management/ActiveWorkoutScreen';
 import AddExerciseScreen from '../screens/workout_management/AddExerciseScreen';
-import WorkoutLogsScreen from '../screens/workout_management/WorkoutLogsScreen';
 // TEMPORARY — remove with ExerciseHistoryDebugScreen.
 import ExerciseHistoryDebugScreen from '../screens/workout_management/ExerciseHistoryDebugScreen';
 import HistoryHomeScreen from '../screens/workout_management/HistoryHomeScreen';
@@ -17,7 +16,6 @@ import { useThemeTokens } from '../components/app_manager/ThemeContext';
 import { showDebugScreens } from '../config/envConfig';
 
 export type WorkoutStackParamList = {
-  WorkoutLogs: undefined;
   AddExercise: undefined;
   StartWorkout: undefined;
   WorkoutHome: undefined;
@@ -55,13 +53,6 @@ export default function WorkoutNavigator() {
         headerTitleStyle: { fontSize: 18, fontWeight: 'bold' }
       }}
     >
-      <Stack.Screen
-        name={WorkoutRoutes.WorkoutLogs}
-        getId={singleCopy}
-        component={WorkoutLogsScreen}
-        options={{ headerShown: false }}
-      />
-
       <Stack.Screen
         name={WorkoutRoutes.WorkoutHome}
         getId={singleCopy}

@@ -131,7 +131,7 @@ export type LiftReason = "first_time" | "unit_changed" | "no_volume" | "unreadab
  * One lift of a workout as History reads it (TICKET-081, shape B of TICKET-087):
  * what was done, with its sets, and how it compared. `sessions.lifts` is the one
  * source of truth for sets; `exercise_sessions` is written beside it until
- * TICKET-085c retires it (TICKET-085b removes the old History page).
+ * TICKET-085c retires it.
  *
  * `verdict` is null exactly when `reason` is set. Optional keys are left out,
  * never `undefined`: Firestore here rejects it.
@@ -166,7 +166,7 @@ export type WorkoutSessionDoc = {
   workoutName: string;
   startedAt: number;
   endedAt: number;
-  /** Derived from `lifts`, in order: what `recents`, `freestyleHistory` and the saved workouts' validator read. */
+  /** Derived from `lifts`, in order: what `recents` and the saved workouts' validator read. */
   exerciseIds: string[];
   /**
    * Every lift with sets, in workout order (TICKET-081). Written in two phases

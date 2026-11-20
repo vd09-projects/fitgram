@@ -34,7 +34,6 @@ import {
 import { tables } from "../../constants/tables";
 import { db } from "../firebase/firebase";
 import {
-  ExerciseSessionDoc,
   ExerciseStatsDoc,
   WorkoutSessionDoc,
 } from "../../types/workoutSession";
@@ -92,7 +91,7 @@ const sessionFromDoc = (snapshot: QueryDocumentSnapshot<DocumentData>): WorkoutS
  *
  *  1. A `writeBatch` for the session (its `lifts`, with their sets and
  *     `reason: "pending"`) and its exercise_sessions docs, which stay until
- *     TICKET-085c retires them (TICKET-085b removes the old History page). The session is written with
+ *     TICKET-085c retires them. The session is written with
  *     merge, so a replayed upload keeps a `note` the user added since and
  *     writes none itself. Offline it waits in Firestore's memory cache and
  *     completes on reconnect. That cache dies with the app: the upload queue is
@@ -200,39 +199,6 @@ export const saveWorkoutSession = async (
 // ---------------------------------------------------------------------------
 // Read
 // ---------------------------------------------------------------------------
-
-/**
- * History deeper than the rollup keeps — the exercise history sheet. Cross
- * workout by construction: every session of this exercise, whichever plan it was
- * done in, newest first.
- *
- * Index required: `exercise_sessions` on (exerciseId ASC, performedAt DESC).
- */
-export const getExerciseSessions = async (
-  userId: string,
-  exerciseId: string,
-  pageSize = 20,
-  startAfterDoc?: QueryDocumentSnapshot<DocumentData>
-): Promise<{
-  sessions: ExerciseSessionDoc[];
-  lastDoc: QueryDocumentSnapshot<DocumentData> | null;
-}> => {
-  if (!userId || !exerciseId) return { sessions: [], lastDoc: null };
-
-  let q = query(
-    exerciseSessionsRef(userId),
-    where("exerciseId", "==", exerciseId),
-    orderBy("performedAt", "desc"),
-    limitFn(pageSize)
-  );
-  if (startAfterDoc) q = query(q, startAfter(startAfterDoc));
-
-  const snapshot = await getDocs(q);
-  return {
-    sessions: snapshot.docs.map((d) => d.data() as ExerciseSessionDoc),
-    lastDoc: snapshot.docs[snapshot.docs.length - 1] ?? null,
-  };
-};
 
 /**
  * Workout sessions, newest first. Without `workoutId` this is the session
