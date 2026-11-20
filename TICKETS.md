@@ -10533,7 +10533,7 @@ Deviations, for the user to overrule:
 
 ### TICKET-085b: History Home — the Switch and Removing the Old Page
 
-**Priority:** Medium | **Effort:** Medium | **Status: IN PROGRESS** — stages 1 and 2 built 2026-11-20, proper device test pending; split from TICKET-085 on 2026-11-15 (user); the Exercises tab split out as TICKET-094 on 2026-11-20 (user)
+**Priority:** Medium | **Effort:** Medium | **Status: IN PROGRESS** — all three stages built and device-tested 2026-11-20 (emulator, `pinky`, read-only); not pushed, no PR yet; split from TICKET-085 on 2026-11-15 (user); the Exercises tab split out as TICKET-094 on 2026-11-20 (user)
 
 **Description:**
 The second half of the History home: making the new home the History entry in place of the old page, and removing the old page.
@@ -10571,8 +10571,8 @@ code, not a measurement; the new page's reads were measured in 085a and 084.
 - **Beyond the ticket's list, agreed with the user (2026-11-20), each read by the old page alone (grep):** `TableControl`, the `components/collapsible_table/` folder (4 files, one already named `_delete_rough`), and `getExerciseSessions` (no test). The `exercise_sessions` index and the writes stay for 085c. `measureBaseline.ts` keeps its logic; only a comment that named the removed constants was reworded. `CollapsibleSection`, `SearchableInputDropdown`, `BackTitle`, `useWorkoutPlansOnFocus` stay: other screens read them.
 - **Checked, not changed:** Back from the home goes to the hub, from a Session to the home; the only path that could reopen the home with an old filter (the empty state's "Start a workout" moves the hub above it) has no filter to keep, because it shows only with no workouts.
 - **Typecheck clean; 78 suites, 1022 tests pass.** A grep of `src` for every removed name finds only `WORKOUT_LOGS` in `commonStepNames.ts` and `tourSteps.ts` (left for 053, as decided).
-- **Basic device run (emulator, `pinky`, read-only): the hub shows Plans and History only; History opens the home on Workouts, All workouts; a workout opens its Session; Back, Back returns to the home then the hub.** The proper run, with the cold-start-offline 0-read proof, is still to do (TESTING_NOTES).
-- **Not verified:** the old page's reads, never measured (user's decision), so "Freestyle's 50 reads and up to 50 sets per tap go" is a claim from the code; the cold-start-offline 0-read proof; a Finish landing on the home after this change (the `LayoutScreen` test covers the stack, not a device). A `TypeError: Cannot convert undefined value to object` from `ReactNativeJS` sat in the logcat from before the last relaunch; not traced, nothing visible broke.
+- **Device run (emulator, `pinky`, read-only), all passed (TESTING_NOTES): the hub shows Plans and History only; History opens the home on Workouts, All workouts; a plan filter is gone after Back and re-entry; a workout opens its Session; a lift's history link opens the Exercise screen and Back, Back, Back retraces it to the hub; offline cold start shows Workouts with Reads billed 0 this app run (the ticket's proof).**
+- **Not verified:** the old page's reads, never measured (user's decision), so "Freestyle's 50 reads and up to 50 sets per tap go" is a claim from the code; a Finish landing on the home after this change (a write to the real database; the `LayoutScreen` test covers the stack, not a device); the empty state's "Start a workout" (not reachable on `pinky`). A `TypeError: Cannot convert undefined value to object` from `ReactNativeJS` sat in the logcat from before the last relaunch; not traced, nothing visible broke.
 
 ---
 

@@ -662,13 +662,18 @@ To run: any lift's Exercise screen (Bent-Over Row has 5 sessions, 4 sets, a hard
 - **Also (user's call, 2026-11-20): the History home's `loadOlder` drops a page that lands after the window moved**, as `loadOlderExercise` does; unit-tested and seen failing without the guard. Not run on a device (a window moving mid-read cannot be produced on the emulator).
 - **Pass 2 (2026-11-20): the 48 dp touch area is now a real 48 dp touchable** (the pass-1 hit slop could not extend past its 36 dp parent, so it did nothing); the spoken labels name the measure and the sets row its date. **Run on the emulator:** a tap 11 px above the drawn "Last 5" pill (outside its edge, inside the new target) selected it. Not run: TalkBack.
 
-### TICKET-085b stages 1 and 2: the switch and the old page removed (emulator, `pinky`, read-only, 2026-11-20)
+### TICKET-085b: the switch and the old page removed (emulator, `pinky`, read-only, 2026-11-20)
 
-Basic run only; the full test plan comes at the end of the ticket. To run: Workout tab, **History**.
+To run: Workout tab, **History**.
 1. The hub's header has **Plans** and **History** only; no "History (new)".
 2. History opens the home on **Workouts**, **All workouts**; Exercises is greyed.
 3. Tap a workout: its Session. Back returns to the home with the same list; Back again, the hub.
-- **[run] Passed, all three**, on a build with the old page already deleted (stage 2), cold-launched. The Session opened was Shoulders AJ, 30 Oct.
+4. Choose a plan in the filter, Back to the hub, History again: **All workouts** (the home is a fresh visit).
+5. Session, open a lift's card, **<Lift> history**, then Back three times: Session, the home, the hub.
+6. Airplane mode, force-stop, cold start (with `adb reverse tcp:8081 tcp:8081`): hub, History shows the workouts and the strip "Couldn't check for new workouts"; Plans Store → Recent workouts store → **Reads billed**.
+- **[run] Passed, all six**, on a build with the old page already deleted. Session: Shoulders AJ, 30 Oct; lift: Shoulder Press · Machine (4 sessions, "The graph starts after 5 sessions. 4 so far."); filter: Back & Biceps AJ.
+- **[run] The ticket's proof: offline cold start shows Workouts, Reads billed 0 this app run.** The Plans store's own line reads "Server reads: 2 this app run": two failed attempts (its error text is on the page), not billed documents; that counter is the plans store's, not the History home's.
 - **[write] None:** read-only.
-- **[pending] For the end-of-ticket run:** cold start offline shows Workouts with 0 reads (the ticket's proof); a Finish landing on the home then the Session on a device; the empty state's "Start a workout" then History again; a `TypeError: Cannot convert undefined value to object` in the logcat, older than the last relaunch, not traced.
+- **[pending] Not run:** a Finish landing on the home then the Session (a write to the real database, not asked for; the `LayoutScreen` test covers the stack); the empty state's "Start a workout" (`pinky` has workouts, so the empty state cannot be reached without deleting them); a `TypeError: Cannot convert undefined value to object` in the logcat, 3 lines from before this work began, none added by this run; not traced.
+- **[note] The offline cold start repeats what earlier entries recorded:** the Feed reads "Hi, Guest" and a dev-only LogBox shows Firestore's "Could not reach Cloud Firestore backend"; dismissed, not an app error.
 - **[note] No instrument built:** removing code adds nothing to observe (CLAUDE.md 3.3 skipped, said so in the ticket).
