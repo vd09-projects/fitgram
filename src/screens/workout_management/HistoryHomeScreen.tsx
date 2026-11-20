@@ -33,7 +33,7 @@ const NO_SESSIONS: readonly WorkoutSessionDoc[] = [];
  * Workouts rail. The rows are `buildRail`'s (`utils/historyRail.ts`); this screen reads the stores, owns the
  * taps and the two things Back must find as they were left: the filter and which months are open. Both are
  * screen state, and the screen stays mounted under a deeper one (`singleCopy` in WorkoutNavigator). It always
- * opens on Workouts with All selected. The Exercises tab is switched off with its reason until 085b builds it.
+ * opens on Workouts with All selected. The Exercises tab is switched off with its reason; TICKET-094 builds it, if users ask.
  *
  * Reads the shared workouts store as the hub does (`useRecentWorkouts` checks it on focus): no read of its own
  * but a page of older workouts, on tap (`loadOlder`). The rail shows the window and the queue, never the floor:

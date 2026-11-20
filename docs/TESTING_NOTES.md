@@ -527,7 +527,7 @@ Finish on the test plan; kill and airplane-mode cold start; the picker's recents
 
 ### TICKET-085a stage 1: History home shell (emulator, `pinky`, 2026-11-17)
 
-Built and unit-tested only; nothing here has been seen on the emulator. To run: hub, **History (new)** (the old **History** is unchanged).
+Built and unit-tested only; nothing here has been seen on the emulator. To run: hub, **History** (it was **History (new)** until TICKET-085b made it the entry).
 1. Opens on Workouts, All workouts; Exercises is greyed and does not switch.
 2. Filter pill → sheet lists All workouts and each plan with "N on this phone"; choosing one narrows the list; the pill shows its name; open Session and Back, the filter is still set.
 3. Tap a workout → placeholder with its name and date; Back returns. Tap two different workouts in a row: two screens (per-session `getId`), not one moved.
@@ -552,7 +552,7 @@ Untested: all of the above on a device; the per-session `getId` (the test stack 
 
 ### TICKET-083 stages 1 to 3: the Session screen (unit-tested only, nothing seen on the emulator, 2026-11-18)
 
-To run, from the History home (**History (new)** on the hub). Compare each screenshot to boards `HistSession01` to `17`.
+To run, from the History home (hub, **History**; it was **History (new)** until TICKET-085b). Compare each screenshot to boards `HistSession01` to `17`.
 1. Tap a workout in the current month: headline ("X beat last time."), counts line, one card per lift with its word, captions and set chips. No read happens (a held workout).
 2. Tap a card: the compare opens, Today beside up to three earlier sessions, one row per set number; a split set makes its row taller and the columns stay aligned. Tap again: it closes. A lift with more than the closed-card limit of sets shows "+N".
 3. A lift that beat last time: amber edge and word; a set better or lower than the same set last time has its arrow; a unit-changed lift reads "Unit changed" with "Changed from kg to lb" under its name (or the word alone when last time is no longer held).
