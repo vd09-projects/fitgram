@@ -1,9 +1,9 @@
 // TICKET-081 stage 3: the compare script's checks and the repair, on seeded fixtures built by the
 // importer's own path, with saves simulated by the same functions the stats transaction runs.
-import type { ExerciseStatsDoc, WorkoutSessionDoc } from "../types/workoutSession";
+import type { ExerciseStatsDoc, ExerciseStatsMarker, WorkoutSessionDoc } from "../types/workoutSession";
 import { applySessionToStats, rebuildStatsFromSessions } from "../utils/exerciseStats";
 import { exerciseSessionsOf, judgeableBefore, repairedSessions, verdictsFromHistory, withVerdicts } from "../utils/liftRecord";
-import { compareHistory, rebuildRefusal, totalMismatches } from "./historyCompare";
+import { compareHistory, liveSessions, rebuildRefusal, totalMismatches } from "./historyCompare";
 import { generateFixture } from "./historyFixtures";
 import { sessionMinutes } from "../utils/sessionDuration";
 import { settleVerdicts } from "./historyImport";
@@ -103,6 +103,39 @@ describe("compareHistory", () => {
     expect(totalMismatches(report)).toBe(1);
     expect(report.statsDiffer).toEqual([]);
     expect(report.exerciseSessionsOrphan).toEqual([]);
+  });
+});
+
+// TICKET-086: what a delete leaves behind is not a mismatch, and a rebuild must not count the deleted workout.
+describe("a deleted workout", () => {
+  const { sessions, stats } = saveInOrder(inStartOrder);
+  const gone = sessions[30];
+  /** The account as `deleteWorkout` leaves it: a marker that keeps its lifts, no exercise_sessions docs, summaries rebuilt from the rest. */
+  const afterDelete = () => {
+    const rest = sessions.filter((s) => s !== gone);
+    const docs = exerciseSessionsOf(rest);
+    const summaries = stats.map((s) => rebuildStatsFromSessions(s.exerciseId, docs) ?? ({ exerciseId: s.exerciseId, deleted: true } as ExerciseStatsMarker));
+    return { stored: [...rest, { ...gone, deleted: true as const }], docs, summaries };
+  };
+
+  it("leaves no stats or exercise_sessions finding; only the verdicts the next sessions still hold against it", () => {
+    const { stored, docs, summaries } = afterDelete();
+    const report = compareHistory(stored, docs, summaries);
+    expect(report.sessions).toBe(sessions.length - 1);
+    expect([report.statsDiffer, report.exerciseSessionsDiffer, report.exerciseSessionsOrphan, report.exerciseIdsMismatches]).toEqual([[], [], [], []]);
+    expect(report.verdictMismatches.length).toBeGreaterThan(0);
+  });
+
+  it("is found when a marker stands for a lift that still has sessions; a marker for a lift with none is not a finding", () => {
+    const { stored, docs, summaries } = afterDelete();
+    const liftId = summaries[0].exerciseId;
+    const wrongMarker = summaries.map((s, i) => (i === 0 ? ({ exerciseId: liftId, deleted: true } as ExerciseStatsMarker) : s));
+    expect(compareHistory(stored, docs, wrongMarker).statsDiffer).toEqual([liftId]);
+    expect(compareHistory(stored, docs, [...summaries, { exerciseId: "never-done", deleted: true }]).statsDiffer).toEqual([]);
+  });
+
+  it("is left out of what a rebuild reads", () => {
+    expect(liveSessions([sessions[0], { ...gone, deleted: true }]).map((s) => s.sessionId)).toEqual([sessions[0].sessionId]);
   });
 });
 

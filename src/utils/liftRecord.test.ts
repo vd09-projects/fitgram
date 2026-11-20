@@ -1,5 +1,5 @@
 import { buildSessionDocs } from "./exerciseStats";
-import { previousSessionOf, readLifts, withVerdicts } from "./liftRecord";
+import { previousSessionOf, readLifts, summaryWithout, withVerdicts } from "./liftRecord";
 import { STATS_RECENT_SESSION_CAP } from "../config/storedData";
 import { FREESTYLE_ID } from "../constants/freestyle";
 import { buildExercise, buildStats, buildWorkout } from "../test/fixtures";
@@ -91,5 +91,35 @@ describe("readLifts", () => {
     expect(readLifts([{ ...lift, verdict: "best" }])).toBeNull();
     expect(readLifts([{ ...lift, sets: "x" }])).toBeNull();
     expect(readLifts(undefined)).toBeNull();
+  });
+});
+
+// TICKET-086: what a lift's summary becomes once one of its workouts is gone.
+describe("summaryWithout", () => {
+  const bench = (startTime: number, weight: number) =>
+    buildSessionDocs(buildWorkout([], { id: "push", startTime, exercises: [buildExercise("Bench", { sets: [set(weight, 5)] })] }), startTime + 1).session;
+  const typo = bench(2_000, 650);
+  const real = bench(1_000, 60);
+
+  it("drops the record the deleted workout set: the typo's 650 is gone, the earlier 60 stands", () => {
+    const result = summaryWithout("bench", [real, typo], typo.sessionId);
+    expect(result.status === "ready" && result.stats?.bestByReps["5|kg"]?.weight).toBe(60);
+  });
+
+  it("is null, not an empty summary, when the deleted workout was the lift's only session", () => {
+    expect(summaryWithout("bench", [typo], typo.sessionId)).toEqual({ status: "ready", stats: null });
+  });
+
+  it("leaves out a deleted marker as well as the deleted workout, so a query's answer can be passed whole", () => {
+    const marker = { ...bench(3_000, 700), deleted: true as const };
+    const result = summaryWithout("bench", [real, typo, marker], typo.sessionId);
+    expect(result.status === "ready" && result.stats?.bestByReps["5|kg"]?.weight).toBe(60);
+  });
+
+  it("refuses, naming the sessions, when one that is left has unreadable lifts: its sets are unknown, not zero", () => {
+    const old = { ...bench(500, 100), lifts: [], liftsUnreadable: true as const };
+    expect(summaryWithout("bench", [old, real, typo], typo.sessionId)).toEqual({ status: "unreadable", sessionIds: [old.sessionId] });
+    // The deleted workout itself being unreadable does not matter: nothing of it is kept.
+    expect(summaryWithout("bench", [real, { ...typo, lifts: [], liftsUnreadable: true as const }], typo.sessionId).status).toBe("ready");
   });
 });

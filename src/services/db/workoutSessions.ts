@@ -45,7 +45,7 @@ import {
   buildExerciseSessionId,
   buildSessionDocs,
 } from "../../utils/exerciseStats";
-import { readLifts, withVerdicts } from "../../utils/liftRecord";
+import { readLifts, summaryWithout, withVerdicts } from "../../utils/liftRecord";
 import { toStamp, type SyncStamp } from "../../utils/syncCore";
 import { secondQueryStart } from "../../utils/workoutWindow";
 import { localMonthRange } from "../../utils/monthWindow";
@@ -419,6 +419,84 @@ export const setWorkoutNote = async (userId: string, sessionId: string, note: st
     if (!snapshot.exists()) throw Object.assign(new Error("This workout is not on the server"), { code: "not-found" });
     tx.update(ref, { note: note === null ? deleteField() : note, updatedAt: serverTimestamp() });
   });
+};
+
+/**
+ * Every session of one lift, as they stand on the server (`deleted` markers included; the pure
+ * `summaryWithout` skips them): `exerciseIds` array-contains, no limit, so 1 read per workout of the
+ * lift, about 370 reads at 150 workouts of 8 lifts (TICKET-087's fixtures). Automatic index only.
+ * Offline it rejects, as every server read here does.
+ */
+async function getAllSessionsOfExercise(userId: string, exerciseId: string): Promise<WorkoutSessionDoc[]> {
+  const answer = serverOnly(await getDocsFromServer(query(sessionsRef(userId), where("exerciseIds", "array-contains", exerciseId))));
+  return answer.docs.map(sessionFromDoc);
+}
+
+export type DeleteWorkoutResult = {
+  /** What each of the workout's lifts' summary became: a rebuilt summary, or a marker when no session is left. Unstamped, as a Finish's. */
+  summaries: (ExerciseStatsDoc | ExerciseStatsMarker)[];
+  /** Workout docs read to rebuild, for the proof. */
+  docsRead: number;
+};
+
+/**
+ * Delete a workout (TICKET-086). Never a hard delete: a change check cannot see one, so the `sessions` doc stays
+ * with `deleted: true` and a server stamp, and another phone drops it at its next check (`addToWindow`). Its
+ * `exercise_sessions` docs are deleted until TICKET-085c retires them (ids are derived, no read). Each of its
+ * lifts' `exercise_stats` is replaced by a rebuild from the lift's other sessions, or becomes a marker when none
+ * is left (`summaryWithout`), because `bestByReps` cannot be decremented (TICKET-032).
+ *
+ * Reads first (server only, so offline it rejects before anything is written), then one transaction for the writes:
+ * a transaction, as `setWorkoutNote`, because a batch offline would wait in the cache and apply later, and "refused
+ * offline" is the rule. Writes: 1 + 2 per lift. Not in scope, decided with the user (2026-11-21): the next session's
+ * stored verdict is not rewritten (TICKET-095).
+ *
+ * Decided: a Finish landing between the reads and the commit can be overwritten, as `rebuildExerciseSummary` was
+ * specified in 032; delete is rare, refused offline and the app has a handful of users. Rejected: re-reading each
+ * summary's stamp in the transaction, code for a race that needs two phones. `rebuildExerciseStats.ts` heals it.
+ *
+ * Rejects with a `code`: `not-found` (not on the server, so there is nothing to delete) and `unreadable-history`
+ * (a lift has a session in the old shape, `summaryWithout`). Already deleted resolves with nothing written, so a
+ * retry after a lost answer is safe. `dryRun` does the reads and reports, writing nothing (3.3).
+ */
+export const deleteWorkout = async (
+  userId: string,
+  session: Pick<WorkoutSessionDoc, "sessionId" | "exerciseIds">,
+  options: { dryRun?: boolean } = {}
+): Promise<DeleteWorkoutResult> => {
+  if (!userId || !session.sessionId) throw new Error("Missing user or session");
+  const sessionRef = doc(sessionsRef(userId), session.sessionId);
+  const exerciseIds = [...new Set(session.exerciseIds)];
+
+  let docsRead = 0;
+  const summaries: DeleteWorkoutResult["summaries"] = [];
+  for (const exerciseId of exerciseIds) {
+    const sessionsOfLift = await getAllSessionsOfExercise(userId, exerciseId);
+    docsRead += sessionsOfLift.length;
+    const rebuilt = summaryWithout(exerciseId, sessionsOfLift, session.sessionId);
+    if (rebuilt.status === "unreadable") {
+      throw Object.assign(new Error(`${exerciseId} has sessions in the old format: ${rebuilt.sessionIds.join(", ")}`), {
+        code: "unreadable-history",
+      });
+    }
+    summaries.push(rebuilt.stats ?? { exerciseId, deleted: true });
+  }
+  if (options.dryRun) return { summaries, docsRead };
+
+  const alreadyDeleted = await runTransaction(db, async (tx) => {
+    const snapshot = await tx.get(sessionRef);
+    // Coded, as `setWorkoutNote`: a retry cannot make a missing doc appear.
+    if (!snapshot.exists()) throw Object.assign(new Error("This workout is not on the server"), { code: "not-found" });
+    if (snapshot.data().deleted === true) return true;
+    tx.update(sessionRef, { deleted: true, updatedAt: serverTimestamp() });
+    exerciseIds.forEach((exerciseId, index) => {
+      tx.delete(doc(exerciseSessionsRef(userId), buildExerciseSessionId(session.sessionId, exerciseId)));
+      // Replace, never merge: a merge would keep the old bests (TICKET-032).
+      tx.set(doc(exerciseStatsRef(userId), exerciseId), { ...summaries[index], updatedAt: serverTimestamp() });
+    });
+    return false;
+  });
+  return alreadyDeleted ? { summaries: [], docsRead } : { summaries, docsRead };
 };
 
 /**

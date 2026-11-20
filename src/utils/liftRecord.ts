@@ -8,6 +8,7 @@
 import type { ExerciseSessionDoc, ExerciseStatsDoc, LiftReason, LiftRecord, LiftVerdict, WorkoutSessionDoc } from "../types/workoutSession";
 import { STATS_RECENT_SESSION_CAP } from "../config/storedData";
 import { liftVerdict, LiftSession } from "./liftVerdict";
+import { rebuildStatsFromSessions } from "./exerciseStats";
 
 export type PreviousSession =
   | { kind: "found"; session: LiftSession }
@@ -201,4 +202,27 @@ export function repairedSessions(
     if (differs) changed.push({ ...stored, lifts });
   });
   return changed;
+}
+
+export type SummaryWithout =
+  | { status: "ready"; stats: ExerciseStatsDoc | null }
+  | { status: "unreadable"; sessionIds: string[] };
+
+/**
+ * One lift's summary as it stands once `deletedSessionId` is gone, computed from the lift's sessions
+ * (`rebuildExerciseSummary`'s pure half, TICKET-086; TICKET-032 reuses it). `stats` is null when no
+ * session of the lift is left: the delete then writes a marker (`ExerciseStatsMarker`), never an empty
+ * summary. Markers and the deleted workout are left out of `sessions`, so the caller may pass what a
+ * query returned.
+ *
+ * Refuses (`unreadable`) when a session that is left has `lifts` that cannot be read (the old shape):
+ * its sets are not here, so a rebuild would lower the lift's bests for sets that still exist. A wrong
+ * lower record looks like data (CLAUDE.md 2.4); the answer is to name the sessions, not to guess.
+ * Rejected: decoding the old shape, which is TICKET-032's open decision, not this ticket's.
+ */
+export function summaryWithout(exerciseId: string, sessions: readonly WorkoutSessionDoc[], deletedSessionId: string): SummaryWithout {
+  const left = sessions.filter((session) => session.deleted !== true && session.sessionId !== deletedSessionId);
+  const unreadable = left.filter((session) => session.liftsUnreadable === true).map((session) => session.sessionId);
+  if (unreadable.length > 0) return { status: "unreadable", sessionIds: unreadable };
+  return { status: "ready", stats: rebuildStatsFromSessions(exerciseId, exerciseSessionsOf(left)) };
 }

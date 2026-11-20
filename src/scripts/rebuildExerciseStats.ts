@@ -36,7 +36,7 @@ import { WorkoutSessionDoc } from "../types/workoutSession";
 import { rebuildStatsFromSessions } from "../utils/exerciseStats";
 import { exerciseSessionsOf, judgeableBefore, readLifts, repairedSessions } from "../utils/liftRecord";
 import { getAdminFirestore } from "./firebaseAdmin";
-import { rebuildRefusal } from "./historyCompare";
+import { liveSessions, rebuildRefusal } from "./historyCompare";
 import { isConfirmedRun } from "./wipe";
 
 const BATCH_LIMIT = 400;
@@ -46,7 +46,8 @@ const IGNORE_UNREADABLE = process.argv.includes("--ignore-unreadable");
 const rebuild = async (userId: string, onlyExerciseIds: string[]) => {
   const db = await getAdminFirestore();
   const user = db.collection("users").doc(userId);
-  const all = (await user.collection("sessions").get()).docs.map((d) => d.data() as WorkoutSessionDoc);
+  // Not a deleted workout (TICKET-086): its marker keeps its lifts, and counting it would bring its bests back.
+  const all = liveSessions((await user.collection("sessions").get()).docs.map((d) => d.data() as WorkoutSessionDoc));
   const sessions = all.filter((s) => readLifts(s.lifts) !== null);
   if (sessions.length < all.length) {
     console.warn(`  NOT COUNTED: ${all.length - sessions.length} session(s) with no readable lifts:`);
