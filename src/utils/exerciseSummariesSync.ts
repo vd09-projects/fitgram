@@ -64,6 +64,21 @@ export function withFinishedSummaries(held: SummariesById, finished: readonly Ex
 }
 
 /**
+ * A delete's summaries, as its transaction wrote them (TICKET-086), put into what is held: a rebuilt summary
+ * replaces the held one whatever its stamp (as `withFinishedSummaries`: the server's stamp is not known here, and
+ * the next check brings the stamped copy back), and a marker removes the lift, so it reads "First time" again.
+ * `lastSeen` does not move, so the check finds this phone's own writes again: one read per lift, on purpose.
+ */
+export function withDeletedSummaries(held: SummariesById, results: readonly (ExerciseStatsDoc | ExerciseStatsMarker)[]): SummariesById {
+  const next = { ...held };
+  for (const doc of results) {
+    if (isStatsMarker(doc)) delete next[doc.exerciseId];
+    else next[doc.exerciseId] = doc;
+  }
+  return next;
+}
+
+/**
  * `lastSeen` after a check.
  * - change check: forward only, over every doc returned (`lastSeenAfter`).
  * - full load: the newest stamp in the answer, whatever was held, so it may

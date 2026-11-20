@@ -12,6 +12,7 @@ import {
   withPlanLookups,
   planFilterRows,
   readStoredWorkouts,
+  removeFromWindow,
   serializeStoredWorkouts,
   shardKeysNamedBy,
   windowFromFirstLoad,
@@ -240,6 +241,31 @@ describe("the floor: the newest workout of each plan, apart from the months", ()
     expect("push" in w.lastByPlan).toBe(false);
     expect(plansToLookUp(w, ["push"])).toEqual(["push"]);
     expect(ids(w)).toEqual(["l-other"]);
+  });
+
+  // TICKET-086: this phone's own delete has no server stamp to give a marker, so it is not `addToWindow`.
+  it("this phone's own delete of a plan's newest workout drops it and moves the floor to the next newest, with no lookup", () => {
+    const newest = push("p-new", "2026-10-20T10:00:00Z");
+    const w0 = windowOf([newest, push("p-mid", "2026-10-10T10:00:00Z"), legs("l-other", "2026-10-25T10:00:00Z")], OCT, { push: newest, legs: oldLegs });
+    const w = removeFromWindow(w0, "p-new", 10);
+    expect(ids(w)).toEqual(["l-other", "p-mid"]);
+    expect(w.lastByPlan.push!.sessionId).toBe("p-mid");
+    expect(w.lastByPlan.legs).toBe(oldLegs);
+  });
+
+  it("deleting the plan's only workout in the window sends the plan to be looked up; deleting one held nowhere changes nothing", () => {
+    const only = push("p-only", "2026-10-20T10:00:00Z");
+    const w0 = windowOf([only], OCT, { push: only });
+    const w = removeFromWindow(w0, "p-only", 10);
+    expect(plansToLookUp(w, ["push"])).toEqual(["push"]);
+    expect(removeFromWindow(w0, "nowhere", 10)).toBe(w0);
+  });
+
+  it("a floor entry the window does not hold is dropped too, so the plan is looked up again", () => {
+    const w0 = windowOf([push("p1", "2026-10-05T10:00:00Z")], OCT, { push: push("p1", "2026-10-05T10:00:00Z"), legs: oldLegs });
+    const w = removeFromWindow(w0, "legs-old", 10);
+    expect(plansToLookUp(w, ["legs"])).toEqual(["legs"]);
+    expect(ids(w)).toEqual(["p1"]);
   });
 
   it("a floor doc never appears in a month, a count or a plan filter", () => {

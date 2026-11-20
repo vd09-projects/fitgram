@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import SessionScreen from "./SessionScreen";
 import { renderScreen, TEST_USER_ID } from "../../test/renderScreen";
-import { getWorkoutById, getWorkoutWindowFromServer, setWorkoutNote } from "../../services/db/workoutSessions";
+import { deleteWorkout, getWorkoutById, getWorkoutWindowFromServer, setWorkoutNote } from "../../services/db/workoutSessions";
 import { serveRecentWorkouts } from "../../test/recentWorkouts";
 import { buildExercise, buildStats, buildWorkout } from "../../test/fixtures";
 import { WorkoutRoutes } from "../../constants/routes";
@@ -29,6 +29,7 @@ jest.mock("../../services/db/workoutSessions", () => ({
   getChangedSessions: jest.fn(),
   getWorkoutById: jest.fn(),
   setWorkoutNote: jest.fn(),
+  deleteWorkout: jest.fn(),
 }));
 
 const lift = (name: string, rest: Partial<LiftRecord> = {}): LiftRecord => ({
@@ -70,6 +71,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.mocked(getWorkoutById).mockResolvedValue(null);
   jest.mocked(setWorkoutNote).mockResolvedValue(undefined);
+  jest.mocked(deleteWorkout).mockResolvedValue({ summaries: [], docsRead: 0 });
 });
 afterEach(() => jest.restoreAllMocks());
 
@@ -216,6 +218,52 @@ describe("SessionScreen", () => {
     expect(await screen.findByRole("button", { name: /^Add a note, Available once the workout has uploaded/, disabled: true })).toBeOnTheScreen();
     expect(screen.getByRole("button", { name: /^Edit session/, disabled: true })).toBeOnTheScreen();
     expect(screen.getByRole("button", { name: /^Delete session/, disabled: true })).toBeOnTheScreen();
+  });
+
+  // TICKET-086
+  describe("Delete session", () => {
+    const toConfirm = async () => {
+      await open([session("s1", [lift("Bench")])], "s1");
+      await screen.findByText("One lift, no earlier session to compare with.");
+      fireEvent.press(screen.getByRole("button", { name: "Session options" }));
+      fireEvent.press(await screen.findByRole("button", { name: /^Delete session/ }));
+      await screen.findByText("Delete this workout?");
+    };
+    const heldIds = () => useRecentWorkoutsStore.getState().workoutWindow?.sessions.map((s) => s.sessionId);
+
+    it("Keep it closes the question and deletes nothing", async () => {
+      await toConfirm();
+      fireEvent.press(screen.getByText("Keep it"));
+      expect(screen.queryByText("Delete this workout?")).not.toBeOnTheScreen();
+      expect(deleteWorkout).not.toHaveBeenCalled();
+      expect(heldIds()).toEqual(["s1"]);
+    });
+
+    it("deletes on the server, drops the workout from the phone, hands the summaries on, and goes back to Workouts without a read by id", async () => {
+      const summaries = [{ exerciseId: "bench", deleted: true as const }];
+      jest.mocked(deleteWorkout).mockResolvedValue({ summaries, docsRead: 3 });
+      const applyDeleted = jest.spyOn(useExerciseHistoryStore.getState(), "applyDeleted");
+      await toConfirm();
+      await act(async () => {
+        fireEvent.press(screen.getByText("Delete"));
+      });
+      expect(deleteWorkout).toHaveBeenCalledWith(TEST_USER_ID, expect.objectContaining({ sessionId: "s1" }));
+      expect(applyDeleted).toHaveBeenCalledWith(TEST_USER_ID, summaries);
+      expect(heldIds()).toEqual([]);
+      expect(await screen.findByText(`route:Workout/${WorkoutRoutes.HistoryHome}`)).toBeOnTheScreen();
+      expect(getWorkoutById).not.toHaveBeenCalled();
+    });
+
+    it("offline, says so and leaves the workout on the screen and on the phone", async () => {
+      jest.mocked(deleteWorkout).mockRejectedValue(offline());
+      await toConfirm();
+      await act(async () => {
+        fireEvent.press(screen.getByText("Delete"));
+      });
+      expect(await screen.findByText("Needs a connection to delete a workout.")).toBeOnTheScreen();
+      expect(heldIds()).toEqual(["s1"]);
+      expect(screen.queryByText(`route:Workout/${WorkoutRoutes.HistoryHome}`)).not.toBeOnTheScreen();
+    });
   });
 
   it("opens the exercise summaries itself, since nothing before it has after a cold start", async () => {

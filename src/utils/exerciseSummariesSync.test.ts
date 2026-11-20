@@ -7,6 +7,7 @@ import {
   summariesLastSeenAfter,
   summariesRunFor,
   summaryEntry,
+  withDeletedSummaries,
   type HeldSummaries,
 } from "./exerciseSummariesSync";
 import { EXERCISE_SUMMARIES_STORAGE_KEY, exerciseSummariesShardKey } from "../config/storageKeys";
@@ -50,6 +51,16 @@ describe("mergeSummaries with a deleted marker", () => {
     const afterMarker = mergeSummaries({}, [summary("bench", 8), marker("bench", 6)]);
     expect(afterMarker.bench?.updatedAt).toEqual(stamp(8));
     expect(mergeSummaries({ bench: summary("bench", 8) }, [marker("bench", 9)])).toEqual({});
+  });
+});
+
+describe("withDeletedSummaries", () => {
+  it("a rebuilt summary replaces the held one even against a stamped copy, and a marker removes the lift", () => {
+    const held = { bench: summary("bench", 9, 500), dips: summary("dips", 9), row: summary("row", 9) };
+    const next = withDeletedSummaries(held, [summary("bench", undefined, 100), { exerciseId: "dips", deleted: true }]);
+    expect(next.bench.lastPerformedAt).toBe(100);
+    expect(Object.keys(next).sort()).toEqual(["bench", "row"]);
+    expect(held.dips).toBeDefined(); // the held copy is not mutated
   });
 });
 

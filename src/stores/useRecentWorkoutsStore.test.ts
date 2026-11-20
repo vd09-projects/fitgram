@@ -168,6 +168,38 @@ it("a saved note is shown in the window and the plan's floor entry with no read,
   expect(getWorkoutWindowFromServer).not.toHaveBeenCalled();
 });
 
+// TICKET-086: this phone deleted a workout on the server; every copy it holds drops it, with no read.
+it("own delete: the window, the plan's floor, the older lists, a lift's log and a read by id all drop it, with no read", async () => {
+  serveRecentWorkouts([session("a", "push", 500, { updatedAt: { seconds: 5, nanoseconds: 0 } }), session("b", "push", 400, { updatedAt: { seconds: 5, nanoseconds: 0 } })]);
+  usePlansStore.setState({ uid: UID, plans: [plan("push")], storedRead: true });
+  await useRecentWorkoutsStore.getState().open(UID);
+  await waitFor(() => expect(sessionIds()).toEqual(["a", "b"]));
+  const windowStart = useRecentWorkoutsStore.getState().workoutWindow!.windowStart;
+  const list = (...ids: string[]) => ({ windowStart, sessions: ids.map((id) => session(id, "push", 100)), reachedStart: false, read: null });
+  useRecentWorkoutsStore.setState({
+    olderWorkouts: { all: list("a", "z") },
+    exerciseOlder: { bench: list("a", "y") },
+    fetchedSessions: { a: { status: "ready", session: session("a", "push", 500) }, z: { status: "ready", session: session("z", "push", 100) } },
+  });
+  jest.clearAllMocks();
+
+  useRecentWorkoutsStore.getState().applyDeleted(UID, "a");
+
+  expect(sessionIds()).toEqual(["b"]);
+  expect(floor()?.push?.sessionId).toBe("b");
+  expect(Object.values(useRecentWorkoutsStore.getState().olderWorkouts)[0].sessions.map((s) => s.sessionId)).toEqual(["z"]);
+  expect(useRecentWorkoutsStore.getState().exerciseOlder.bench.sessions.map((s) => s.sessionId)).toEqual(["y"]);
+  expect(useRecentWorkoutsStore.getState().fetchedSessions.a).toMatchObject({ status: "ready", session: null });
+  expect(useRecentWorkoutsStore.getState().fetchedSessions.z).toMatchObject({ session: { sessionId: "z" } });
+  expect(getChangedSessions).not.toHaveBeenCalled();
+  expect(getWorkoutWindowFromServer).not.toHaveBeenCalled();
+  expect(getLastWorkoutOfPlan).not.toHaveBeenCalled();
+
+  // Another user's sign-in is not this phone's delete.
+  useRecentWorkoutsStore.getState().applyDeleted("someone-else", "b");
+  expect(sessionIds()).toEqual(["b"]);
+});
+
 // TICKET-083: a workout opened by id that the phone does not hold.
 describe("a workout read by id", () => {
   const opened = async () => {
