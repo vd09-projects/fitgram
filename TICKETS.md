@@ -10533,11 +10533,11 @@ Deviations, for the user to overrule:
 
 ### TICKET-085b: History Home — the Switch and Removing the Old Page
 
-**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — split from TICKET-085 on 2026-11-15 (user); the Exercises tab split out as TICKET-094 on 2026-11-20 (user)
+**Priority:** Medium | **Effort:** Medium | **Status: IN PROGRESS** — stages 1 to 3 (switch, removal, docs) built and device-tested 2026-11-20 (emulator, `pinky`, read-only); PR #78 open, multi-perspective review pass 1: approve; split from TICKET-085 on 2026-11-15 (user); the Exercises tab split out as TICKET-094 on 2026-11-20 (user)
 
 **Description:**
 The second half of the History home: making the new home the History entry in place of the old page, and removing the old page.
-Until it ships, the old page is still the hub's History button. The Exercises tab was part of this ticket and is now TICKET-094, the lowest
+Until this ticket merges, the old page is still the hub's History button on `main`. The Exercises tab was part of this ticket and is now TICKET-094, the lowest
 priority: users may never ask for it (user, 2026-11-20).
 
 **Build:**
@@ -10561,9 +10561,18 @@ code, not a measurement; the new page's reads were measured in 085a and 084.
 
 **Out of scope:** the Exercises tab (094); stopping the `exercise_sessions` writes (085c).
 
-**CLAUDE.md rules skipped:** 3.1's measured before/after for the old page's reads (user, 2026-11-20, above), and the tour note (user, above). Nothing else.
+**CLAUDE.md rules skipped:** 3.1's measured before/after for the old page's reads (user, 2026-11-20, above), and the tour note (user, above). Also 3.3 (a disposable instrument): removing code adds nothing invisible to observe. Nothing else.
 
 **Dependencies:** TICKET-081, 082, 083, 085a. (084 is no longer a dependency: nothing here opens the Exercise screen.)
+
+**Built (2026-11-20), on `feat/ticket-085b-history-switch` (one branch, stages are commits):**
+- **Stage 1 (c4dcca2): the switch.** The hub's History button opens `HistoryHome`; the TEMPORARY "History (new)" pill, its prop, its row and styles are gone. The hub test's `History` row now expects `HistoryHome` (seen failing with `onHistory` pointed back at `WorkoutLogs`).
+- **Stage 2 (1915702): the old page, with everything only it read.** Deleted: `WorkoutLogsScreen`, `WorkoutHistoricalLogsFilter` and its test (6 tests), `ExerciseSetLogTable`, `ExerciseLogTableFlatList`, `types/workoutLogs.ts`, `freestyleHistory` and its test (2 tests), the two window constants, the `WorkoutLogs` route, navigator entry and param, the `LayoutScreen.test` mock. 8 tests went with their code; each covered only the old filter (Freestyle's exercise list, its re-read per visit, plan narrowing), nothing the new home or the stores still do.
+- **Beyond the ticket's list, agreed with the user (2026-11-20), each read by the old page alone (grep):** `TableControl`, the `components/collapsible_table/` folder (4 files, one already named `_delete_rough`), and `getExerciseSessions` (no test). The `exercise_sessions` index and the writes stay for 085c. `measureBaseline.ts` keeps its logic; only a comment that named the removed constants was reworded. `CollapsibleSection`, `SearchableInputDropdown`, `BackTitle`, `useWorkoutPlansOnFocus` stay: other screens read them.
+- **Checked, not changed:** Back from the home goes to the hub, from a Session to the home; the only path that could reopen the home with an old filter (the empty state's "Start a workout" moves the hub above it) has no filter to keep, because it shows only with no workouts.
+- **Typecheck clean; 78 suites, 1022 tests pass.** A grep of `src` for every removed name finds only `WORKOUT_LOGS` in `commonStepNames.ts` and `tourSteps.ts` (left for 053, as decided). I grepped `src` only; the PR #78 review repeated it over scripts, docs and firestore config with the same result.
+- **Device run (emulator, `pinky`, read-only), all passed (TESTING_NOTES): the hub shows Plans and History only; History opens the home on Workouts, All workouts; a plan filter is gone after Back and re-entry; a workout opens its Session; a lift's history link opens the Exercise screen and Back, Back, Back retraces it to the hub; offline cold start shows Workouts with Reads billed 0 this app run (the ticket's proof).**
+- **Not verified:** the old page's reads, never measured (user's decision), so "Freestyle's 50 reads and up to 50 sets per tap go" is a claim from the code; a Finish landing on the home after this change (a write to the real database; the `LayoutScreen` test covers the stack, not a device); the empty state's "Start a workout" (not reachable on `pinky`). A `TypeError: Cannot convert undefined value to object` from `ReactNativeJS` sat in the logcat from before the last relaunch; not traced, nothing visible broke.
 
 ---
 
@@ -10576,7 +10585,7 @@ The stored-data half of the old stage 4, as its own ticket because it is hard to
 It runs last, once nothing reads `exercise_sessions` (085b removed the old page).
 
 **Build:** stop writing `exercise_sessions` in `saveWorkoutSession`, drop its readers (`getExerciseSessions` and the
-old page's queries) and its index, and remove the pre-launch test data in the old shape. A Finish is then 10 writes
+old page's queries: both already removed in 085b) and its index, and remove the pre-launch test data in the old shape. A Finish is then 10 writes
 (9 if the session is written once). The rebuild and compare scripts already read `sessions` (081). Dropping the
 index means editing `firestore.indexes.json`, which the user deploys.
 
@@ -11321,7 +11330,7 @@ parts about the old page and the screens are 085a and 085b, the parts about `exe
 4. TICKET-085a (History home: shell and Workouts tab) — DONE (PR #75); placeholder Session and TEMPORARY hub button stay until 083 and 085b; open proof moved to 086
 5. TICKET-083  (Session screen, landing)     — DONE (PR #76); open proof: the did-not-upload notice and the read by id on a device
 6. TICKET-084  (Exercise screen)
-7. TICKET-085b (Exercises tab; the switch; removes the old page)
+7. TICKET-085b (the switch; removes the old page) — stages 1 and 2 built; the Exercises tab is TICKET-094
 8. TICKET-086  (Delete a workout)            — After 083 and 085a, independent of 084, 085b, 085c
 9. TICKET-085c (Retire exercise_sessions)    — Last; after 085b
 ```

@@ -10,7 +10,7 @@ import { MANAGE_WOURKOUT_STEP_NAMES } from "../../tour_steps/manageWorkout";
 
 /**
  * The hub's title row (TICKET-066): "Workout", then the Plans (Manage Workout)
- * and History (Workout Logs) pills. Plans carries the Manage tour's first step,
+ * and History (the History home) pills. Plans carries the Manage tour's first step,
  * moved here from the old Add New Workout tile.
  *
  * Type sizes, board px through the System board's table: title 26 → xLarge
@@ -19,16 +19,12 @@ import { MANAGE_WOURKOUT_STEP_NAMES } from "../../tour_steps/manageWorkout";
 export function HubHeader({
   onPlans,
   onHistory,
-  onHistoryNew,
 }: {
   onPlans: () => void;
   onHistory: () => void;
-  /** TEMPORARY (TICKET-085a): opens the new History home. 085b makes History open it and removes this. */
-  onHistoryNew: () => void;
 }) {
   const { styles } = useThemeStyles(createStyles);
   return (
-    <View style={styles.wrap}>
     <View style={styles.header}>
       <TextBase style={styles.title} accessibilityRole="header">
         Workout
@@ -40,12 +36,6 @@ export function HubHeader({
         </View>
       </MaybeTourStep>
       <Pill icon="time-outline" label="History" onPress={onHistory} />
-    </View>
-    {/* TEMPORARY — remove in TICKET-085b, with this prop and the hub's onHistoryNew. Its own row: a third
-        pill beside the title squeezed "Workout" to one letter a line (emulator, 2026-11-17). */}
-    <View style={styles.tempRow}>
-      <Pill icon="albums-outline" label="History (new)" onPress={onHistoryNew} />
-    </View>
     </View>
   );
 }
@@ -70,8 +60,6 @@ function Pill({
 
 const createStyles = (t: ReturnTypeUseThemeTokens) =>
   StyleSheet.create({
-    wrap: { gap: SPACING.small },
-    tempRow: { flexDirection: "row" },
     header: {
       flexDirection: "row",
       alignItems: "center",

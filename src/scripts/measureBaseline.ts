@@ -111,9 +111,8 @@ async function run() {
   console.log(`Compared lifts: ${percents.length}; abs % change median ${pc.median?.toFixed(1)}, max ${pc.max?.toFixed(1)}; within 5%: ${percents.filter((p) => Math.abs(p) <= 5).length}; Better within 5%: ${percents.filter((p) => p > 0 && p <= 5).length}`);
   console.log(`\n"Better" only because of more sets: ${moreSets} of ${better} Better`);
 
-  // Old History page reads (WorkoutHistoricalLogsFilter): one Freestyle query per visit
-  // (up to FREESTYLE_HISTORY_WINDOW docs, 1 billed when none) and one exercise query per
-  // pick (up to HISTORY_FILTER_SESSION_WINDOW docs, across every plan). Billed = docs returned.
+  // Freestyle and per-lift session counts. They sized the old History page's reads (removed in
+  // TICKET-085b): one Freestyle query per visit and one exercise query per pick, up to 50 docs each.
   const freestyle = sessions.filter((x) => (x.data as unknown as WorkoutSessionDoc).workoutId === "freestyle").length;
   const perExercise = summarise([...byExercise.values()].map((l) => l.length));
   console.log(`\nFreestyle sessions: ${freestyle}. Sessions per lift: median ${perExercise.median}, max ${perExercise.max}.`);

@@ -28,22 +28,6 @@ export const HISTORY_RECENT_SESSION_COUNT = 3;
 export const HISTORY_TREND_SESSION_COUNT = 6;
 
 /**
- * Exercise sessions the History filter screen reads per exercise, newest
- * first, before narrowing them to the selected plan. A plan whose sessions of
- * this exercise are all older than this window shows none.
- */
-export const HISTORY_FILTER_SESSION_WINDOW = 50;
-
-/**
- * Freestyle sessions read to list its exercises: one query, the
- * `sessions (workoutId, startedAt desc)` index, newest first. Matches
- * `HISTORY_FILTER_SESSION_WINDOW`, the exercise sessions the filter reads per
- * exercise. An exercise done only in an older Freestyle is not offered;
- * rejected: paging through every Freestyle on each History open.
- */
-export const FREESTYLE_HISTORY_WINDOW = 50;
-
-/**
  * The History home's Workouts rail shows the current month in full; when that month has fewer
  * workouts than this, it runs back into earlier months until it has this many (TICKET-085a). A
  * month that gets cut is split: its newest workouts are in the rail, the rest sit in its Earlier

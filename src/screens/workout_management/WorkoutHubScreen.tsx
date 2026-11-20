@@ -212,8 +212,7 @@ export default function WorkoutHubScreen() {
       <ScrollableScreen style={styles.scroll} innerContainerStyle={styles.inner}>
         <HubHeader
           onPlans={() => navigation.navigate(WorkoutRoutes.AddExercise)}
-          onHistory={() => navigation.navigate(WorkoutRoutes.WorkoutLogs)}
-          onHistoryNew={() => navigation.navigate(WorkoutRoutes.HistoryHome)}
+          onHistory={() => navigation.navigate(WorkoutRoutes.HistoryHome)}
         />
         {activeWorkout && (
           <HubResumeBar

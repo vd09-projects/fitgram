@@ -36,7 +36,6 @@ function mockStub(text: string, next?: string) {
 jest.mock("./workout_management/WorkoutHubScreen", () => mockStub("screen:Workout", "StartWorkout"));
 jest.mock("./workout_management/StartWorkoutScreen", () => mockStub("screen:NestedStart", "LogWorkout"));
 jest.mock("./workout_management/AddExerciseScreen", () => mockStub("screen:Manage"));
-jest.mock("./workout_management/WorkoutLogsScreen", () => mockStub("screen:Logs"));
 jest.mock("./workout_management/HistoryHomeScreen", () => mockStub("screen:HistoryHome"));
 jest.mock("./workout_management/SessionScreen", () => mockStub("screen:Session"));
 jest.mock("./workout_management/ExerciseHistoryDebugScreen", () => mockStub("screen:HistoryDebug"));
