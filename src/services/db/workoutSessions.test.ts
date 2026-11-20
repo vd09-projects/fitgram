@@ -162,6 +162,31 @@ describe("the server stamp on sessions", () => {
   });
 
   // A derived value must not block the rollup: the fold goes on and the lifts stay pending.
+  // TICKET-086: the lift's last session was deleted, so its stats doc is a marker. Folding onto it as if it
+  // were a rollup would carry the flag, or crash, and the lift would never read First time.
+  it("a Finish onto a lift's deleted marker starts the lift from nothing and writes no flag", async () => {
+    const batchSet = jest.fn();
+    (writeBatch as jest.Mock).mockReturnValue({ set: batchSet, commit: jest.fn().mockResolvedValue(undefined) });
+    const marker = { exists: () => true, data: () => ({ exerciseId: "bench-press", deleted: true }) };
+    const tx = { get: jest.fn().mockResolvedValue(marker), set: jest.fn() };
+    (runTransaction as jest.Mock).mockImplementation(async (_db, fn) => fn(tx));
+    const workout = buildWorkout([], {
+      id: "plan-a",
+      startTime: 1_000,
+      exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: 60, Reps: 5 }] }] })],
+    });
+
+    const { session, summaries } = await saveWorkoutSession("u1", workout, 2_000);
+
+    // Folded onto the marker, the name and fields would be undefined, which Firestore refuses.
+    expect(summaries[0]).toMatchObject({ exerciseName: "Bench Press", lastPerformedAt: 1_000 });
+    expect(summaries[0].fields.length).toBeGreaterThan(0);
+    expect(summaries[0]).not.toHaveProperty("deleted");
+    expect(summaries[0].recentSessions).toHaveLength(1);
+    expect(tx.set.mock.calls.find(([, data]) => data.exerciseId !== undefined)![1]).not.toHaveProperty("deleted");
+    expect(session.lifts[0]).toMatchObject({ verdict: null, reason: "first_time" });
+  });
+
   it("if the verdicts cannot be computed the fold still commits and the lifts stay pending", async () => {
     const batchSet = jest.fn();
     (writeBatch as jest.Mock).mockReturnValue({ set: batchSet, commit: jest.fn().mockResolvedValue(undefined) });

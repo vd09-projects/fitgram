@@ -35,6 +35,8 @@ import { tables } from "../../constants/tables";
 import { db } from "../firebase/firebase";
 import {
   ExerciseStatsDoc,
+  ExerciseStatsMarker,
+  isStatsMarker,
   WorkoutSessionDoc,
 } from "../../types/workoutSession";
 import { ActiveWorkout } from "../../types/zustandWorkoutType";
@@ -163,9 +165,14 @@ export const saveWorkoutSession = async (
     // Firestore requires every read before any write.
     const snapshots = await Promise.all(refs.map((ref) => tx.get(ref)));
 
-    const existing = snapshots.map((snapshot) =>
-      snapshot.exists() ? (snapshot.data() as ExerciseStatsDoc) : null
-    );
+    // A `deleted` marker (TICKET-086) is no rollup: the lift starts again from nothing, so a deleted
+    // lift's old bests cannot come back and `withVerdicts` says First time. The `set` below replaces
+    // the marker whole, so the flag goes with it.
+    const existing = snapshots.map((snapshot) => {
+      if (!snapshot.exists()) return null;
+      const data = snapshot.data() as ExerciseStatsDoc | ExerciseStatsMarker;
+      return isStatsMarker(data) ? null : data;
+    });
     // Verdicts from the rollups as they stand before this session is folded in.
     const statsById = new Map(exerciseSessions.map((e, index) => [e.exerciseId, existing[index]]));
     // A derived value must not block the rollup: if the verdicts cannot be computed the lifts
@@ -467,20 +474,21 @@ export const getChangedSessions = async (userId: string, after: SyncStamp): Prom
  * (`toStamp` refuses it). A `>` on a Timestamp never returns those docs
  * (Firestore compares within one type), so only a full read sees them.
  */
-const summaryFromDoc = (snapshot: QueryDocumentSnapshot<DocumentData>): ExerciseStatsDoc => {
+// A lift's `deleted` marker comes back as it is (`ExerciseStatsMarker`): the store's merge drops it.
+const summaryFromDoc = (snapshot: QueryDocumentSnapshot<DocumentData>): ExerciseStatsDoc | ExerciseStatsMarker => {
   const { updatedAt, ...data } = snapshot.data();
   const stamp = toStamp(updatedAt);
-  return { ...(data as ExerciseStatsDoc), ...(stamp ? { updatedAt: stamp } : {}) };
+  return { ...(data as ExerciseStatsDoc | ExerciseStatsMarker), ...(stamp ? { updatedAt: stamp } : {}) };
 };
 
 /** Every summary the user has: one query, one read per doc (1 when there are none). */
-export const getAllExerciseStats = async (userId: string): Promise<ExerciseStatsDoc[]> => {
+export const getAllExerciseStats = async (userId: string): Promise<(ExerciseStatsDoc | ExerciseStatsMarker)[]> => {
   if (!userId) throw new Error("Missing user");
   return serverOnly(await getDocsFromServer(exerciseStatsRef(userId))).docs.map(summaryFromDoc);
 };
 
 /** Summaries written after `after`. Nothing changed: no docs, billed 1 read. */
-export const getChangedExerciseStats = async (userId: string, after: SyncStamp): Promise<ExerciseStatsDoc[]> => {
+export const getChangedExerciseStats = async (userId: string, after: SyncStamp): Promise<(ExerciseStatsDoc | ExerciseStatsMarker)[]> => {
   if (!userId) throw new Error("Missing user");
   const snapshot = serverOnly(
     await getDocsFromServer(

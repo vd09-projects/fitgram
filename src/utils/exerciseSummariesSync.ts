@@ -7,7 +7,7 @@
 // `syncCore.ts`.
 
 import type { ExerciseHistoryEntry } from "../types/exerciseHistory";
-import type { ExerciseStatsDoc } from "../types/workoutSession";
+import { isStatsMarker, type ExerciseStatsDoc, type ExerciseStatsMarker } from "../types/workoutSession";
 import type { SyncResult } from "../stores/syncRunner";
 import { compareStamps, isStamp, lastSeenAfter, openEnvelope, type SyncStamp } from "./syncCore";
 import {
@@ -32,11 +32,16 @@ export type SummariesCheckKind = "full" | "change";
  * `lastPerformedAt`: a rebuild can rewrite a summary with no newer
  * session in it, and lower its bests.
  */
-export function mergeSummaries(held: SummariesById, incoming: readonly ExerciseStatsDoc[]): SummariesById {
+export function mergeSummaries(held: SummariesById, incoming: readonly (ExerciseStatsDoc | ExerciseStatsMarker)[]): SummariesById {
   const next = { ...held };
   for (const doc of incoming) {
     const current = next[doc.exerciseId];
-    if (!current || compareStamps(doc.updatedAt, current.updatedAt) >= 0) next[doc.exerciseId] = doc;
+    if (current && compareStamps(doc.updatedAt, current.updatedAt) < 0) continue;
+    // A `deleted` marker removes what it is not older than and is never kept (TICKET-032's rule), as
+    // `addToWindow` does for workouts. A marker for a lift not held changes nothing. An unstamped marker
+    // (never written: the delete stamps it) would lose to any stamped copy, as an unstamped summary does.
+    if (isStatsMarker(doc)) delete next[doc.exerciseId];
+    else next[doc.exerciseId] = doc;
   }
   return next;
 }
@@ -74,7 +79,7 @@ export function withFinishedSummaries(held: SummariesById, finished: readonly Ex
 export function summariesLastSeenAfter(
   kind: SummariesCheckKind,
   lastSeen: SyncStamp | null,
-  docs: readonly ExerciseStatsDoc[]
+  docs: readonly (ExerciseStatsDoc | ExerciseStatsMarker)[]
 ): SyncStamp | null {
   return lastSeenAfter(kind === "full" ? null : lastSeen, docs);
 }
@@ -85,11 +90,11 @@ export function summariesLastSeenAfter(
  *
  * No timed full reload, as plans and workouts (TICKET-076 stage 2): every
  * write of a summary is stamped, so a change check finds it. All a timer would
- * catch is a deleted summary, and only the wipe scripts delete one; it would
+ * catch is a hard-deleted summary, and only the wipe scripts do that; it would
  * read every summary each time, and that grows with exercises done. After a
- * wipe, sign out and in (the clear makes the next check a first load). The
- * first feature that can make a summary disappear writes a `deleted` marker
- * instead of deleting the doc (recorded on TICKET-032).
+ * wipe, sign out and in (the clear makes the next check a first load). A delete
+ * in the app writes a `deleted` marker instead (TICKET-086, rule of 032), which
+ * a change check finds and `mergeSummaries` drops.
  */
 export function summariesRunFor(
   state: { byId: SummariesById | null; lastSeen: SyncStamp | null },

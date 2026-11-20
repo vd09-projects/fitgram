@@ -1,4 +1,4 @@
-import type { ExerciseStatsDoc } from "../types/workoutSession";
+import type { ExerciseStatsDoc, ExerciseStatsMarker } from "../types/workoutSession";
 import {
   mergeSummaries,
   readStoredSummaries,
@@ -32,6 +32,24 @@ describe("mergeSummaries", () => {
     expect(merged.bench.updatedAt).toEqual(stamp(1));
     expect(merged.squat).toBe(older); // an older stamp never replaces, even with a later workout in it
     expect(Object.keys(merged).sort()).toEqual(["bench", "row", "squat"]);
+  });
+});
+
+const marker = (exerciseId: string, seconds: number): ExerciseStatsMarker => ({ exerciseId, deleted: true, updatedAt: stamp(seconds) });
+
+// TICKET-086: the last session of a lift is deleted, and another phone must stop showing its record.
+describe("mergeSummaries with a deleted marker", () => {
+  it("a marker not older than the held copy removes it and is never kept; an older one changes nothing", () => {
+    const held = { bench: summary("bench", 5), squat: summary("squat", 5), row: summary("row", 5) };
+    const merged = mergeSummaries(held, [marker("bench", 5), marker("squat", 4), marker("never-held", 9)]);
+    expect(Object.keys(merged).sort()).toEqual(["row", "squat"]);
+    expect(merged).not.toHaveProperty("never-held");
+  });
+
+  it("a Finish after the marker brings the lift back, and a marker after it removes it again, whichever arrives first", () => {
+    const afterMarker = mergeSummaries({}, [summary("bench", 8), marker("bench", 6)]);
+    expect(afterMarker.bench?.updatedAt).toEqual(stamp(8));
+    expect(mergeSummaries({ bench: summary("bench", 8) }, [marker("bench", 9)])).toEqual({});
   });
 });
 
