@@ -10544,19 +10544,24 @@ priority: users may never ask for it (user, 2026-11-20).
 - **The switch:** the hub's History button opens the new home; the TEMPORARY "History (new)" button (085a) goes.
 - Removes `WorkoutLogsScreen`, `WorkoutHistoricalLogsFilter`, the log table components, `freestyleHistory`
   and the two window constants. Their reads (Freestyle's 50 on every visit, up to 50 sets per tap) go.
-- The guided tour names the old screen (`WORKOUT_LOGS` in `commonStepNames.ts`): repoint it, or log a tour note for TICKET-053.
+- ~~The guided tour names the old screen (`WORKOUT_LOGS` in `commonStepNames.ts`): repoint it, or log a tour note for TICKET-053.~~
+  **Skipped for now (user, 2026-11-20).** The tour is not working and is rewritten once in TICKET-053; no tour note is logged here. When the old
+  screen goes, `WORKOUT_LOGS` in `commonStepNames.ts` and `tourSteps.ts` keep naming a route that no longer exists. Checked by grep (2026-11-20): those two
+  definitions are all there is in `src`, nothing else reads the constant, and 053 is where the tour is fixed. The real route `WorkoutLogs` is another
+  matter and does go with the page: `routes.tsx`, `WorkoutNavigator.tsx`, `WorkoutHubScreen`'s History button, and the two tests that name it.
 
-**Consequence of the split, to confirm before building (CLAUDE.md 2.6):** the old page is the only place that lists every lift to browse.
+**Consequence of the split, decided by the user (2026-11-20): accepted.** The old page is the only place that lists every lift to browse.
 Without the Exercises tab (094), once it is removed the only way into a lift's history is the "<Lift> history" link in a Session's compare
-(TICKET-084). The History home keeps its Exercises tab switched off with its reason, as 085a built it. If that loss is not wanted, 094 comes
-first, or the old page stays until it ships.
+(TICKET-084). The History home keeps its Exercises tab switched off with its reason, as 085a built it.
 
-**Proof:** reads of a History visit (Workouts) before and after, the old page's reads measured before it is removed; cold start offline shows
-Workouts with 0 reads.
+**Proof:** cold start offline shows Workouts with 0 reads; the hub's History button opens the new home and the temporary button is gone, on the emulator.
+**The old page's before/after reads are not required (user, 2026-11-20; read as: the old page's reads need not be measured before it is
+removed).** What is lost by that: the number behind "Freestyle's 50 reads on every visit and up to 50 sets per tap go". It stays a claim from reading the
+code, not a measurement; the new page's reads were measured in 085a and 084.
 
 **Out of scope:** the Exercises tab (094); stopping the `exercise_sessions` writes (085c).
 
-**CLAUDE.md rules skipped:** none.
+**CLAUDE.md rules skipped:** 3.1's measured before/after for the old page's reads (user, 2026-11-20, above), and the tour note (user, above). Nothing else.
 
 **Dependencies:** TICKET-081, 082, 083, 085a. (084 is no longer a dependency: nothing here opens the Exercise screen.)
 
