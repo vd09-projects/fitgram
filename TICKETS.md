@@ -10614,8 +10614,8 @@ which then reuses it.
 - `rebuildExerciseSummary(userId, exerciseId)` as TICKET-032 specifies (a server read of the lift's
   records: `sessions` by `exerciseIds`, 084's index, one stamped replace, no sessions left means a `deleted` marker on the stats doc).
 - One `writeBatch`: a `deleted: true` marker on the `sessions` doc with a server stamp (never a hard
-  delete: a change check cannot see one), (until 085c, also delete that workout's `exercise_sessions` docs) replace each lift's
-  summary, and rewrite each successor session's `lifts` verdict against its new previous session (081 stage 3 built the pure parts: `verdictsFromHistory` and `repairedSessions` recompute from the sets in hand; the successor is the lift's next session in start order).
+  delete: a change check cannot see one), (until 085c, also delete that workout's `exercise_sessions` docs) and replace each lift's
+  summary. **Successor verdicts are NOT rewritten here (user, 2026-11-21; see Deviation).**
 - Refused offline. A Finish landing between the read and the write can overwrite the rebuild: decided in
   the ticket (re-read the stamps, or accept and heal with the rebuild script).
 - Enable the option on the Session screen with the confirm; after it, Back to Workouts. A workout opened from the loaded Older
@@ -10626,10 +10626,26 @@ which then reuses it.
 could come from the held copy for held months. Acceptable for a rare action that is refused offline.
 
 **Proof:** read and write counts for a lift with about 100 sessions; the 081 compare script reports 0
-mismatches after a delete; two phones: the deleted workout leaves the other phone's list on its next check.
+mismatches in `exercise_stats` and `exercise_sessions` after a delete (its verdict mismatches are expected, see Deviation); two phones: the deleted workout leaves the other phone's list on its next check.
 Also, from TICKET-085a: with delete available, run the History strip's device test (finish a test workout offline: "waiting to upload"; a rejected upload: "didn't upload" with Try again), then delete the test session with the new delete.
 
-**Out of scope:** Edit session (UI parked: the user will decide it later); editing a set (032).
+**Out of scope:** Edit session (UI parked: the user will decide it later); editing a set (032); rewriting the next session's
+Better/Lower/Same verdict (TICKET-095).
+
+**Deviation (user, 2026-11-21):** the verdict logic is going to change, so 086 does not rewrite the successor session's
+`lifts` verdict. Consequence, stated so it is not silent (CLAUDE.md 2.4, 2.6): after a delete, the lift's next session
+still shows the verdict it was given against the deleted session until TICKET-095 or `rebuildExerciseStats.ts` repairs it.
+That is a plausible wrong value, small and bounded to one session per lift. The compare script will report it as a verdict
+mismatch. `verdictsFromHistory` / `repairedSessions` stay unused by 086.
+
+**Stages 1 and 2 built 2026-11-21 (unstaged, nothing committed):**
+- **Stage 1, the marker for a lift with no session left:** `ExerciseStatsMarker`; `mergeSummaries` drops it by stamp; the two summary reads return it; `saveWorkoutSession` reads a marker as "no rollup" (folded onto it, a Finish got `exerciseName` and `fields` undefined, which Firestore refuses).
+- **Stage 2, the service:** pure `summaryWithout` (liftRecord.ts) and `deleteWorkout` (reads each lift's sessions from the server, then one transaction: marker on the `sessions` doc, delete its `exercise_sessions` docs, replace each lift's summary or write its marker; `dryRun` writes nothing). Refuses offline (the reads reject first), refuses with `unreadable-history` when a lift has a session in the old shape (rebuilding would lower its bests for sets that exist), resolves with nothing written when already deleted. `rebuildExerciseSummary` of 032's text is this pair: 032 reuses them.
+- **Scope grown, found by reading the scripts (2.7):** `compareHistory` and `rebuildExerciseStats.ts` counted a deleted workout as live (its marker keeps its `lifts`), so after a delete the compare reported the delete's own writes as mismatches, and a rebuild would have brought the deleted workout's bests back. Both now pass sessions through `liveSessions`; the compare reads a stats marker as no doc.
+- **Decided:** a Finish landing between the reads and the commit can overwrite the rebuild; accepted, healed by `rebuildExerciseStats.ts` (not re-reading stamps).
+- **Stage 3, the phone side (built 2026-11-21, unstaged):** `removeFromWindow` (this phone's own delete has no server stamp to give a marker, so it is not `addToWindow`; it moves the plan's floor entry the same way); `useRecentWorkoutsStore.applyDeleted` removes the workout from the window, the floor, `olderWorkouts`, `exerciseOlder` and a read by id (0 reads); `useExerciseHistoryStore.applyDeleted` (`withDeletedSummaries`: a rebuilt summary replaces the held one, a marker removes the lift); the Session screen's Delete session (switched off for a queued workout) asks "Keep it" / "Delete", deletes on the server first, then in both stores, then goes to the History home; a refusal says why and changes nothing.
+- **A bug the screen test found:** a store update re-renders at once, before a state set in the same tick lands, so the screen saw "not on the phone" and read the deleted workout by id (1 wasted read). The guard is a ref set before the stores change.
+- **Not verified:** nothing has run against Firestore or on a device: the transaction, the marker's server stamp, another phone's change check dropping the workout and the summary, the read count for a lift with about 100 sessions, the dialog and error line at a real width. The `rebuildExerciseStats.ts` change is one line, covered by the `liveSessions` test but not run. The plan is in TESTING_NOTES.md; it writes to `pinky`, so it waits for the user's go-ahead (1.3).
 
 **CLAUDE.md rules skipped:** none.
 
@@ -11284,6 +11300,27 @@ from using the app, not an assumption made now.
 
 ---
 
+### TICKET-095: Better / Lower / Same — Decide Where the Verdict Comes From
+
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — raised 2026-11-21 (user), from TICKET-086's scope
+
+**Description:**
+Today a lift's verdict is computed at Finish and stored on the workout's `lifts` (081). The user plans to change that logic,
+and asked whether it could be derived at runtime instead of stored. 086 deletes a workout without rewriting the next session's
+verdict (see 086's Deviation), so after a delete that stored verdict can be stale.
+
+**Analysis first (do not build before the numbers):** a verdict needs the lift's true previous session, however far back
+(`verdictsFromHistory`), and the phone holds only a recent window. Measure what a runtime verdict costs (reads per Session
+open, per lift, for a lift with about 100 sessions) against storing it, and decide: keep stored with a delete rewrite, derive
+at runtime, or derive and cache. Also covers `bestByReps` and `recentSessions` in `exercise_stats` (also stored, also all-time),
+and what it would make obsolete (`rebuildExerciseStats.ts`, the compare script, parts of 076 and 084).
+
+**Out of scope:** any screen.
+
+**Dependencies:** TICKET-086 (leaves the stale verdict this ticket resolves).
+
+---
+
 ## Recommended Execution Order
 
 Finished tickets have been removed — they are not blockers for anything.
@@ -11331,7 +11368,7 @@ parts about the old page and the screens are 085a and 085b, the parts about `exe
 5. TICKET-083  (Session screen, landing)     — DONE (PR #76); open proof: the did-not-upload notice and the read by id on a device
 6. TICKET-084  (Exercise screen)
 7. TICKET-085b (the switch; removes the old page) — DONE (PR #78); the Exercises tab is TICKET-094; open proof: a Finish landing on the home, the empty state's "Start a workout"
-8. TICKET-086  (Delete a workout)            — After 083 and 085a, independent of 084, 085b, 085c
+8. TICKET-086  (Delete a workout)            — After 083 and 085a, independent of 084, 085b, 085c; leaves the next session's verdict to 095
 9. TICKET-085c (Retire exercise_sessions)    — Last; after 085b
 ```
 
