@@ -10533,11 +10533,11 @@ Deviations, for the user to overrule:
 
 ### TICKET-085b: History Home — the Switch and Removing the Old Page
 
-**Priority:** Medium | **Effort:** Medium | **Status: IN PROGRESS** — all three stages built and device-tested 2026-11-20 (emulator, `pinky`, read-only); not pushed, no PR yet; split from TICKET-085 on 2026-11-15 (user); the Exercises tab split out as TICKET-094 on 2026-11-20 (user)
+**Priority:** Medium | **Effort:** Medium | **Status: IN PROGRESS** — stages 1 to 3 (switch, removal, docs) built and device-tested 2026-11-20 (emulator, `pinky`, read-only); PR #78 open, multi-perspective review pass 1: approve; split from TICKET-085 on 2026-11-15 (user); the Exercises tab split out as TICKET-094 on 2026-11-20 (user)
 
 **Description:**
 The second half of the History home: making the new home the History entry in place of the old page, and removing the old page.
-Until it ships, the old page is still the hub's History button. The Exercises tab was part of this ticket and is now TICKET-094, the lowest
+Until this ticket merges, the old page is still the hub's History button on `main`. The Exercises tab was part of this ticket and is now TICKET-094, the lowest
 priority: users may never ask for it (user, 2026-11-20).
 
 **Build:**
@@ -10570,7 +10570,7 @@ code, not a measurement; the new page's reads were measured in 085a and 084.
 - **Stage 2 (1915702): the old page, with everything only it read.** Deleted: `WorkoutLogsScreen`, `WorkoutHistoricalLogsFilter` and its test (6 tests), `ExerciseSetLogTable`, `ExerciseLogTableFlatList`, `types/workoutLogs.ts`, `freestyleHistory` and its test (2 tests), the two window constants, the `WorkoutLogs` route, navigator entry and param, the `LayoutScreen.test` mock. 8 tests went with their code; each covered only the old filter (Freestyle's exercise list, its re-read per visit, plan narrowing), nothing the new home or the stores still do.
 - **Beyond the ticket's list, agreed with the user (2026-11-20), each read by the old page alone (grep):** `TableControl`, the `components/collapsible_table/` folder (4 files, one already named `_delete_rough`), and `getExerciseSessions` (no test). The `exercise_sessions` index and the writes stay for 085c. `measureBaseline.ts` keeps its logic; only a comment that named the removed constants was reworded. `CollapsibleSection`, `SearchableInputDropdown`, `BackTitle`, `useWorkoutPlansOnFocus` stay: other screens read them.
 - **Checked, not changed:** Back from the home goes to the hub, from a Session to the home; the only path that could reopen the home with an old filter (the empty state's "Start a workout" moves the hub above it) has no filter to keep, because it shows only with no workouts.
-- **Typecheck clean; 78 suites, 1022 tests pass.** A grep of `src` for every removed name finds only `WORKOUT_LOGS` in `commonStepNames.ts` and `tourSteps.ts` (left for 053, as decided).
+- **Typecheck clean; 78 suites, 1022 tests pass.** A grep of `src` for every removed name finds only `WORKOUT_LOGS` in `commonStepNames.ts` and `tourSteps.ts` (left for 053, as decided). I grepped `src` only; the PR #78 review repeated it over scripts, docs and firestore config with the same result.
 - **Device run (emulator, `pinky`, read-only), all passed (TESTING_NOTES): the hub shows Plans and History only; History opens the home on Workouts, All workouts; a plan filter is gone after Back and re-entry; a workout opens its Session; a lift's history link opens the Exercise screen and Back, Back, Back retraces it to the hub; offline cold start shows Workouts with Reads billed 0 this app run (the ticket's proof).**
 - **Not verified:** the old page's reads, never measured (user's decision), so "Freestyle's 50 reads and up to 50 sets per tap go" is a claim from the code; a Finish landing on the home after this change (a write to the real database; the `LayoutScreen` test covers the stack, not a device); the empty state's "Start a workout" (not reachable on `pinky`). A `TypeError: Cannot convert undefined value to object` from `ReactNativeJS` sat in the logcat from before the last relaunch; not traced, nothing visible broke.
 
