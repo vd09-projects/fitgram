@@ -10533,7 +10533,7 @@ Deviations, for the user to overrule:
 
 ### TICKET-085b: History Home — the Switch and Removing the Old Page
 
-**Priority:** Medium | **Effort:** Medium | **Status: IN PROGRESS** — stages 1 to 3 (switch, removal, docs) built and device-tested 2026-11-20 (emulator, `pinky`, read-only); PR #78 open, multi-perspective review pass 1: approve; split from TICKET-085 on 2026-11-15 (user); the Exercises tab split out as TICKET-094 on 2026-11-20 (user)
+**Priority:** Medium | **Effort:** Medium | **Status: DONE** (PR #78, merged 2026-11-21; proof partly open, see "Not verified" below) — stages 1 to 3 (switch, removal, docs) built and device-tested 2026-11-20 (emulator, `pinky`, read-only); multi-perspective review pass 1: approve, no blockers; split from TICKET-085 on 2026-11-15 (user); the Exercises tab split out as TICKET-094 on 2026-11-20 (user)
 
 **Description:**
 The second half of the History home: making the new home the History entry in place of the old page, and removing the old page.
@@ -11330,7 +11330,7 @@ parts about the old page and the screens are 085a and 085b, the parts about `exe
 4. TICKET-085a (History home: shell and Workouts tab) — DONE (PR #75); placeholder Session and TEMPORARY hub button stay until 083 and 085b; open proof moved to 086
 5. TICKET-083  (Session screen, landing)     — DONE (PR #76); open proof: the did-not-upload notice and the read by id on a device
 6. TICKET-084  (Exercise screen)
-7. TICKET-085b (the switch; removes the old page) — stages 1 and 2 built; the Exercises tab is TICKET-094
+7. TICKET-085b (the switch; removes the old page) — DONE (PR #78); the Exercises tab is TICKET-094; open proof: a Finish landing on the home, the empty state's "Start a workout"
 8. TICKET-086  (Delete a workout)            — After 083 and 085a, independent of 084, 085b, 085c
 9. TICKET-085c (Retire exercise_sessions)    — Last; after 085b
 ```
