@@ -752,3 +752,29 @@ No screen yet; nothing to see on a phone. Checked by unit tests only.
 
 **Each seen failing with its line broken:** F1 (guard removed: the two-taps test), F2 (`onKeep` a no-op: the saves-only-after test; `setConfirmFinish(false)` removed from `handleFinish`: the failed-write test). F3 and F4 are styling, read against the boards and not run on a device again.
 
+
+## TICKET-097: Rest-over sound (Android, 2026-11-21)
+
+**Unit [run], `tsc` clean.** The change is native (Kotlin) plus the copy and a stored sound preference: unit-tested only where it is TS (`buildRestCopy` names both channels and carries the sound, `restSoundStore` load and set; each seen failing with its line broken: `isRestSound` loosened to any string and `buildRestCopy`'s `sound` hardcoded, 3 tests went red, then restored, during the session and not recorded elsewhere). The Kotlin has no test harness (no JVM or Robolectric setup in the module); adding one was left out of this PR. The sound, the alarm, the Handler and the wake lock have no unit test: they need a device.
+
+**Device plan [run on the emulator, 2026-11-21; phone run pending].** Android 16 emulator, a 1:30 rest from a 30 s hip stretch, `adb logcat | grep RestNotification`.
+1. Rest runs to 0:00 with the screen on: `done via=handler first=true lateMs=10`, then the app's repeat `via=js first=false`. One sound.
+2. Same with the screen off for the whole rest: the Handler at +71 ms (the emulator never suspends its CPU, so this says nothing about a phone). The inexact alarm (option A as first built) fired 58.9 s late: the reason for the wake lock.
+3. After 0:00 rang, tap **+30s**: the countdown replaces the done post, and 30 s later `done via=handler first=true lateMs=12`. It rings again. `dumpsys power` shows `fitgram:rest` acquired for that +30 and released at done.
+4. Skip, finish and discard each release the wake lock and clear the post (`dumpsys power`, `dumpsys notification` show neither).
+5. Channels: `rest_timer` silent; the done channel importance 4 with sound and vibration on (`dumpsys notification`).
+
+**Phone run [run, 2026-11-22].** OnePlus 7T, Android 12, a dev copy (`com.vd09.fitgram.dev`, side by side with the real app). Run 1: no sound. Read off the phone: the done post was on `rest_done`, importance 4, vibration on, volume full, not silent, no Do Not Disturb, and the phone's default notification sound was None. Fixed (alarm-sound fallback, new channel id). Run 2, screen locked for the rest: the user heard the sound at 0:00, "working as expected". Not measured: the delay in ms (no number was read), a killed or OEM-frozen app, +30 and Skip on the phone, silent mode, Do Not Disturb.
+
+**[pending] Not run:**
+- The delay in ms with the CPU asleep (the `SHOW_LATENESS` text is removed, unread).
+- Silent mode, Do Not Disturb, +30 and Skip on the phone.
+- A killed or OEM-frozen app: only the late inexact alarm remains.
+- The race the stale-post guard covers (add-time tapped while the alarm's receiver runs): by reading only.
+- iOS.
+
+**PR #81 review fixes (pass 1) [run on the emulator, 2026-11-22; phone not re-run].** Fixed: (B1) a done post whose sound already played is dropped when the notification has been swiped away, and a post that goes out cancels the alarm; (B2) `clear` records the end it ended and a done post for that end is refused; (S1) `OnDestroy` cancels the queued Handler; (S2) a done post with no end time is refused, no key `0`; (S3) channels are created or deleted only when missing or stale; (S4) a failed `show` clears the old alarm, wake lock and end, and a failing wake lock no longer stops the Handler; (S6) the sound falls back through alarm, ringtone, the first installed sound; minor: the legacy `rest_done` id and `applicationContext`. Left: (S7) the 098 groundwork stays, its ids are the settings screen's; empty `doneChannelName` not guarded (the string comes from `src/config`).
+
+Emulator results after the fixes (1:30 rest; `logcat -b events` `notification_enqueue`, `dumpsys power`, `dumpsys alarm`): (B1) rest to 0:00: one alerting done post (`flags=0`), then the app's repaint quiet (`ONLY_ALERT_ONCE`), the wake lock released and **no RestDoneReceiver alarm left pending**; swiped the done post away, left the screen and came back (the rest panel remounts and calls `showDone`): **no new post**; then +30: rang again at the new end (`flags=0`), repaint quiet. (Skip) skipped a rest: wake lock released, alarm gone, **no done post at the old end time** 95 s later. [pending] Not run: the (B2) race itself (a receiver already running when Skip is tapped: needs a millisecond window), (S1) a module reload, (S4) a failed `postCountdown`, (S6) a phone with all three defaults None, and the dead-process alarm path on any device.
+
+**PR #81 review pass 2 (2026-11-22): approved, with nits fixed.** `firstInstalled` reads its uri from the one cursor; `scheduleAlarm` has its own try so a failing alarm cannot stop the Handler; a comment says why the three early refusals in `postDone` leave the wake lock and alarm to their own cleanup; TICKET-098 cites Android's documented channel behaviour, not the emulator listing. Not changed, with reasons: `endedMs` holds one value (a receiver spanning two skips is negligible); `OnDestroy` also runs on host teardown with the process alive (leaves only the late alarm; whether a back-press exit triggers it is unconfirmed). Not run: the MediaStore read in `firstInstalled`, and any of this on the phone.

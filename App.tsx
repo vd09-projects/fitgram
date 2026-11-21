@@ -17,6 +17,7 @@ import { refreshLastActive } from './src/services/initAuth';
 import { drainPendingUploads } from './src/stores/useWorkoutStore';
 import { useRestPreferenceStore } from './src/stores/restPreferenceStore';
 import { useRestNotificationStore, watchRestNotificationForeground } from './src/stores/restNotificationStore';
+import { useRestSoundStore } from './src/stores/restSoundStore';
 import { startRestNotificationSync } from './src/services/restNotification/adapter';
 import RestNotificationPrompt from './src/components/RestNotificationPrompt';
 
@@ -33,6 +34,7 @@ export default function App() {
     // Not awaited and not gating the first render: the default rest is usable.
     useRestPreferenceStore.getState().loadFromStorage();
     useRestNotificationStore.getState().loadFromStorage();
+    useRestSoundStore.getState().loadFromStorage();
     // Follows `rest` for the lock-screen timer; also clears a post the last run left behind.
     const stopRestNotificationSync = startRestNotificationSync();
     const stopRestNotificationForeground = watchRestNotificationForeground();

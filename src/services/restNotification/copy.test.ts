@@ -1,4 +1,4 @@
-import { REST_NOTIF_TEXT_BUDGET } from "../../config/restNotification";
+import { DEFAULT_REST_SOUND, REST_NOTIF_TEXT_BUDGET } from "../../config/restNotification";
 import { buildRestCopy } from "./copy";
 
 describe("buildRestCopy", () => {
@@ -23,6 +23,20 @@ describe("buildRestCopy", () => {
     expect(copy.text).not.toMatch(/·|\s{2}/);
     expect(copy.text).toContain("2");
     expect(copy.textDone).not.toMatch(/^\s|·/);
+  });
+
+  // TICKET-097: the countdown channel is silent and the end-of-rest one is not, so the native side needs both names.
+  it("names both channels, and they differ", () => {
+    const copy = buildRestCopy("Squat", 1);
+    expect(copy.channelName).not.toBe("");
+    expect(copy.doneChannelName).not.toBe("");
+    expect(copy.doneChannelName).not.toBe(copy.channelName);
+  });
+
+  // TICKET-098: the chosen sound travels with the copy; without a choice it is the default's.
+  it("carries the chosen sound, and the default when none is given", () => {
+    expect(buildRestCopy("Squat", 1, "alarm").sound).toBe("alarm");
+    expect(buildRestCopy("Squat", 1).sound).toBe(DEFAULT_REST_SOUND);
   });
 
   it("does not cut a name that fits", () => {

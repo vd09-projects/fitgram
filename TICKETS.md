@@ -62,6 +62,8 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 092 | History: what a lift with no weight shows | Small-Medium | Raised 2026-11-20 (user). **Open, after the History build and user testing.** The Exercise screen has no measure for a time or distance lift |
 | 093 | Exercise log: virtualise a long list | Small-Medium | Raised 2026-11-20 (PR #77 review, deferred by the user). **Open; measure first.** "All" with many loaded pages renders every row |
 | 094 | History home: the Exercises tab | Medium | **Lowest priority; open.** Split from 085b (2026-11-20, user): build only if users want to browse lifts and see Better / Lower / Same. Until then no list of lifts exists once 085b removes the old page |
+| 097 | Bug: no sound or buzz when the rest timer ends | Medium | Raised 2026-11-21 (user). **Done 2026-11-22 (PR pending); A2 (wake lock) built, heard on a phone.** Reverses 079's "no sound at 0:00 in v1" |
+| 098 | Choose the rest-over sound | Medium | Raised 2026-11-21 (user). **Open;** stage 1 (logic, native, store) landed with 097; the settings row waits for a canvas design. Stacked on 097: it picks the channel 097's done post goes out on |
 
 ### Not tickets — verification owed
 
@@ -11352,6 +11354,107 @@ Existing Finish tests tap the confirmation; four new screen tests and two for `f
 
 **Device run (emulator, `pinky`, 2026-11-21):** passed on both dialog variants, Keep logging, Back, a real Finish and its Delete, and the no-set skip. Found and fixed: at 393 dp with the font at 1.3 the card's label and value touched (no gap).
 **Not verified:** the server side after the delete (`compareHistory.ts`); the guided tour step; iOS.
+
+---
+
+### TICKET-097: Bug — No Sound or Buzz When the Rest Timer Ends
+
+**Priority:** High | **Effort:** Medium | **Status: DONE 2026-11-22 (PR #81); review fixes pending a device run of the dead-process alarm path, see TESTING_NOTES** — raised 2026-11-21 (user); branch `fix/ticket-097-rest-end-sound`
+
+**Description (bug report, 2026-11-21):** when the rest ends nothing is heard, so the user keeps checking the phone. Away from it, they do not
+know the rest is over and rest longer than planned (a 90 s rest becomes 120 or 150 s). A workout app should not make you watch it.
+
+**Cause (read, not guessed):**
+- Nothing in the app makes a sound or buzz at 0:00, with the app open or closed. No sound or haptic code exists in `src/` or `modules/`
+  (grep: none). `VIBRATE` is already in the manifest.
+- It is a recorded decision, not an oversight: 079 "No sound or buzz at 0:00 in v1" (user, 2026-11-10), because an exact alarm needs
+  `SCHEDULE_EXACT_ALARM`, which a fresh install lacks. The user now reverses it.
+- The channel is silent by design: `rest_timer` has `setSound(null)`, vibration off, and the done post is `setOnlyAlertOnce(true)`
+  (`RestNotificationModule.kt`). A channel's sound cannot be changed after creation.
+
+**Load-bearing fact for any fix (checked in code, not yet on a phone):** the 0:00 swap to the done notification is a `Handler.postDelayed`,
+which runs on uptime. The code's own comment (`adapter.ts`, `announceRestDone`) says a phone in deep sleep can run it late. The emulator showed
+it firing 1 ms and 8 ms after the end time, but an emulator does not suspend the CPU as a phone does with the screen off. So the case in this
+report (phone put down, screen off) is the one the current swap is least likely to serve on time. A sound hung on that swap would inherit the
+lateness. The fix needs something the OS wakes the phone for.
+
+**Options:**
+- **A. (Recommended) A new sound channel for "done", fired by `AlarmManager.setAndAllowWhileIdle`, with the Handler kept for the awake case.**
+  A second channel `rest_done` (sound and vibration on, importance high); the countdown stays on the silent `rest_timer`, so starting a rest
+  never makes a noise. The alarm posts the done notification on `rest_done`, replacing the countdown by id. No permission. Not exact: the OS
+  may run it late in deep Doze. In a workout the phone is used every few minutes, so it is usually not in deep Doze; unmeasured. The sound
+  follows the phone's own volume, silent and Do Not Disturb settings and the channel's settings page, so it never blasts in a quiet room.
+- **B. The same with an exact alarm.** On time every time, but `SCHEDULE_EXACT_ALARM` must be granted by hand in system settings, and
+  `USE_EXACT_ALARM` is for alarm and timer apps (079's reading). Fall back to A when not granted. Costs a settings detour and a Play policy
+  question for the same gain, which only shows in deep Doze.
+- **Rejected:** a foreground service (Play declarations, a permanent notification, for a 90 s timer); `setAlarmClock` (exact with no permission,
+  but it puts an alarm icon in the status bar and a "next alarm" on the lock screen for every rest).
+
+**To decide (user):** A or B. And: with notifications off (denied) there is no lock-screen timer and, under either option, no sound. Should the
+app also play a short in-app cue while it is open? Recommended: no for v1, the notification path covers an open app too.
+
+**Proof to produce (CLAUDE.md 3.1):** the delay between the end time and the sound, with the screen off, for 60 and 180 s rests, on the
+emulator (an upper bound on the awake case) and, the number that matters, on the user's own phone with a debug build. Without the phone run,
+"on time when away from the phone" stays unproven and must be said so.
+
+**Out of scope:** iOS; a settings toggle (Android's channel settings already mute it; add one only if the user asks).
+
+**Measured, option A as built (emulator, Android 16, arm64, 2026-11-21; screen off 12 s after a set, rest 1:30, one run):**
+- The Handler posted the done notification **71 ms** after the end time. The emulator does not suspend its CPU, so this says nothing about a phone with the screen off.
+- The `setAndAllowWhileIdle` alarm fired **58 923 ms** after the end time (`dumpsys alarm`: `window=+58s850ms`). An inexact alarm's window grows with the time until it is due, about three quarters of it, so a 90 s rest can sound at about 150 s: the report's own "1.5 became 2.5". **As a wake-up backstop, A's alarm is not usable.**
+- The once-only guard held: the alarm's late post was `first=false` and made no second sound.
+- The `rest_done` channel exists with importance high, the system notification sound and vibration on, and the countdown channel stays silent. The heads-up showed with the screen on. Sound itself was not heard (emulator): the settings were read from `dumpsys notification`, not the speaker.
+- Light Doze starts 4 min after the screen goes off (`light_after_inactive_to`), later than a rest. So what delays the Handler on a phone is the CPU suspending with the screen off, not Doze.
+
+**Revised options (A's alarm replaced; the channel, the receiver and the once-only guard stay):**
+- **A2 (built, the one that shipped):** hold a timed `PARTIAL_WAKE_LOCK` for the length of the rest, so the Handler fires on time while the screen is off. `WAKE_LOCK` is a normal permission (no user step). Keep the inexact alarm as the backstop for a killed process or Doze. Cost: the CPU stays awake for each rest (a few minutes per workout), including with the app in the foreground (accepted).
+- **A2 built (2026-11-21), emulator results:** the wake lock is acquired at `show`, released on done, `clear` and skip, and times out at the end plus a grace if a release is missed. Add-time after 0:00 rang: second done post `via=handler first=true` (+12 ms), the JS repeat `first=false`. The lock was held 30 s for that +30 and released at done. A stale done post (add-time tapped while the alarm receiver runs) is now dropped when `currentEndMs` differs. Unproven: CPU-suspended behaviour, a killed or OEM-frozen process, and the audio itself. Needs the user's phone.
+- **Phone result (OnePlus 7T, Android 12, 2026-11-22):** the first run was silent. Cause read off the phone: its default notification sound was None
+  (`settings get system notification_sound` = null), so the channel, which follows that default, posted and vibrated with no sound. Fixed: the
+  sound falls back to the alarm sound when the default is None (`RestNotifier.doneSound`), on a new channel id (a channel's sound cannot change, and
+  recreating the same id brings the old one back). After that the user heard it at 0:00 with the screen locked: "working as expected".
+  **Not measured:** how late it was (the `SHOW_LATENESS` text was never read back and the phone's log dropped the app's `Log.i` lines), so
+  "on time with the CPU asleep" is the user's ear, not a number. `SHOW_LATENESS` is removed.
+- **B:** exact alarm when `SCHEDULE_EXACT_ALARM` is granted, else A2. On time in every case, with a settings detour.
+- **C:** `setAlarmClock`: exact with no permission, but an alarm icon and a "next alarm" on the lock screen for every rest.
+
+### TICKET-098: Choose the Rest-Over Sound
+
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN, stage 1 landed with 097 (PR pending); stage 2 (UI) needs a design** — raised 2026-11-21 (user); stacked on TICKET-097
+
+**Description (user, 2026-11-21):** let the user pick a default sound for the end of a rest, from 2-3 choices. Set once in settings; every
+rest then uses it. Not a per-rest or runtime choice.
+
+**Decisions:**
+- **One channel per sound.** A channel's sound cannot change once it exists, and deleting and recreating a channel does not take a new
+  one: Android keeps a deleted channel's settings and restores them when the same id is created again (Android's documented behaviour, not
+  something the emulator showed; it showed only that a deleted channel stays listed, `mDeleted=true`). So each sound has its own channel id,
+  and the setting only picks which id the done post goes out on. Rejected: one channel recreated on change. Consequence: a channel's sound is
+  fixed when it is first created, so switching away from a sound and back returns the sound that channel was created with, and a change to
+  how a sound is *resolved* needs a new id (097 did this once, `rest_done` to `rest_done_notification`).
+- **Built-in sounds, not bundled files** (user, 2026-11-21): the phone's default notification, alarm and ringtone sounds
+  (`RingtoneManager.getActualDefaultRingtoneUri`, which is null where the default is None, then a fallback chain: alarm, ringtone, the first
+  installed sound, so a cue is never silent unless the phone has no sounds). They exist on every Android phone, so there is no asset and no licence. Rejected for now: files in
+  `res/raw` (same on every phone, but someone must supply and license them). Open risk: the alarm and ringtone sounds can be long, and a
+  channel sound plays to its end. Check the length on a phone; if too long, swap the choice for another built-in notification sound.
+- **The default is today's sound** (the system notification sound), so an unset or unknown value changes nothing.
+- **Unused done channels are deleted** when a sound is chosen, so Android's settings page lists one "Rest over". A user's own tweaks to a
+  deleted channel are lost, which is acceptable at this scale.
+- **The choice travels to native with the copy and inside the alarm's extras**, because the alarm receiver can run with the app dead.
+
+**Stages (each typechecks and runs on its own):**
+1. Logic, native and store: `restSound` choices and the pure channel pick, the per-sound channels, preview, the stored setting. No UI.
+2. The settings row and the preview tap, **after a design on the Drafts canvas** (repo rule). Wording in `src/config/restNotification.ts`.
+
+**Stage 1 result (emulator, 2026-11-21):** with the default temporarily set to `alarm`, the done channel became `rest_done_alarm` with sound
+`content://settings/system/alarm_alert`, played as USAGE_NOTIFICATION; the old `rest_done` showed `mDeleted=true`; the done post went out on
+`rest_done_alarm` (`done via=handler first=true`, +14 ms). The default was restored. Tests: the store's load and set, and the copy carrying the
+sound (each seen failing when its line was broken). **Not verified:** the audio, the preview (no caller until stage 2), how long the alarm and
+ringtone sounds play on a phone, and whether a deleted-then-recreated channel keeps stale settings.
+
+**Not in scope:** bundled sound files; iOS (no channels there; later); overriding silent or Do Not Disturb (a sound choice cannot).
+
+---
 
 ---
 

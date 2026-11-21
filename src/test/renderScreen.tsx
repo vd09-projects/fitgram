@@ -38,6 +38,7 @@ import { useWorkoutStore } from "../stores/useWorkoutStore";
 import { useExerciseHistoryStore } from "../stores/useExerciseHistoryStore";
 import { useAuthStore } from "../stores/authStore";
 import { useRestPreferenceStore } from "../stores/restPreferenceStore";
+import { useRestSoundStore } from "../stores/restSoundStore";
 import { useCatalogStore } from "../stores/useCatalogStore";
 import { usePlansStore } from "../stores/usePlansStore";
 import { useRecentWorkoutsStore } from "../stores/useRecentWorkoutsStore";
@@ -88,6 +89,7 @@ export const TEST_USER_ID = "test-user";
 const workoutInitial = useWorkoutStore.getInitialState();
 const authInitial = useAuthStore.getInitialState();
 const restPreferenceInitial = useRestPreferenceStore.getInitialState();
+const restSoundInitial = useRestSoundStore.getInitialState();
 const catalogInitial = useCatalogStore.getInitialState();
 
 /**
@@ -99,6 +101,7 @@ export function resetStores() {
   useWorkoutStore.setState(workoutInitial, true);
   useAuthStore.setState(authInitial, true);
   useRestPreferenceStore.setState(restPreferenceInitial, true);
+  useRestSoundStore.setState(restSoundInitial, true);
   useCatalogStore.setState(catalogInitial, true);
   // `clear` also drops the store's module state (a check in flight, the
   // stored-copy read), which `setState` cannot reach.
