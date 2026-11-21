@@ -24,7 +24,6 @@ import {
   SETTINGS_ROW_ON,
   SETTINGS_ROW_TITLE,
 } from "../config/restNotification";
-import { SPACING } from "../constants/styles";
 import { useRestNotificationStore } from "../stores/restNotificationStore";
 import { useThemeStyles } from "../utils/useThemeStyles";
 import { TextBase } from "./TextBase";
@@ -75,16 +74,12 @@ export default function RestNotificationRow() {
 }
 
 const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
+  // The card around it is `RestSettingsCard`'s: this row shares it with the sound row (TICKET-098).
   row: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    marginTop: SPACING.small,
     padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: t.colors.role.hairline,
-    backgroundColor: t.colors.role.surface,
   },
   icon: {
     width: 36,

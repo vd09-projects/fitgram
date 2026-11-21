@@ -23,6 +23,22 @@ export type RestSound = (typeof REST_SOUNDS)[number];
 /** Today's sound before any choice existed, so an unset or unknown value changes nothing. */
 export const DEFAULT_REST_SOUND: RestSound = "notification";
 
+/**
+ * The settings row for the sound (TICKET-098; boards "Sound 1" and "Sound 2"). The name is what the row's line
+ * shows once chosen; the detail sits under each choice. The sounds themselves are the phone's, so the detail
+ * says whose they are, not what they sound like.
+ */
+export const SOUND_ROW_TITLE = "Rest-over sound";
+export const REST_SOUND_LABELS: Record<RestSound, { name: string; detail: string }> = {
+  notification: { name: "Notification sound", detail: "Your phone's notification sound" },
+  alarm: { name: "Alarm sound", detail: "Your phone's alarm sound" },
+  ringtone: { name: "Ringtone", detail: "Your phone's ringtone" },
+};
+// The sound is a notification, so it needs the lock-screen row's permission. These name the step above it.
+export const SOUND_ROW_NEEDS_ON = "Turn on rest time on lock screen first";
+export const SOUND_ROW_NEEDS_ANDROID = "Allow notifications in Android settings first";
+export const SOUND_PLAY_LABEL = "Play {name}";
+
 export const REST_NOTIF_SUBTEXT = "Workout";
 export const REST_NOTIF_TITLE = "Catch your breath";
 export const REST_NOTIF_TITLE_DONE = "Go time";
