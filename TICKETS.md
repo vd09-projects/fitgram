@@ -11530,7 +11530,7 @@ board compared side by side beyond a screenshot; iOS. Screenshots took up to 19 
 
 ### TICKET-100: Bug — the Current Exercise Is Hard to Tell Apart in the Progress Bar
 
-**Priority:** Medium | **Effort:** Small | **Status: OPEN, built 2026-11-22, branch `feat/ticket-100-current-segment`, unmerged** — raised 2026-11-22 (user, from a screenshot)
+**Priority:** Medium | **Effort:** Small | **Status: MERGED** — PR #84, 2026-11-22; device run on the emulator, including the fill at 1, 2 and 3 of 3 sets; open items listed below — raised 2026-11-22 (user, from a screenshot); branch `feat/ticket-100-current-segment`
 
 **Description (user, 2026-11-22):** with the first exercise logged and the user on the third, it is "very difficult to see the difference in the
 highlight": which segment of the progress bar is the one they are on. The segments are small.
