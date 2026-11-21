@@ -11,7 +11,7 @@ import { TextBase } from '../components/TextBase';
 import CollapsibleSection from '../components/CollapsibleSection';
 import SignInMethodsSection from '../components/SignInMethodsSection';
 import { ColorSchemaSelector } from '../components/ColorSchemaSelector';
-import RestNotificationRow from '../components/RestNotificationRow';
+import RestSettingsCard from '../components/RestSettingsCard';
 import { ReturnTypeUseThemeTokens } from '../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../utils/useThemeStyles';
 import { useTour } from '../components/guide_tour/TourGuideProvider';
@@ -69,8 +69,8 @@ export default function ProfileScreen() {
         </CollapsibleSection>
       </MaybeTourStep>
 
-      {/* TICKET-079: the lock-screen rest timer, below Appearance, above the tour button. */}
-      <RestNotificationRow />
+      {/* TICKET-079, 098: the lock-screen rest timer and its end-of-rest sound, below Appearance, above the tour button. */}
+      <RestSettingsCard />
 
       <MaybeTourStep stepId={PROFILE_STEP_NAMES.START_TOUR_BUTTON} >
         <TouchableOpacity style={styles.button} onPress={() => { startTour(FIRST_TOUR_STEP_ID, undefined, true); }}>

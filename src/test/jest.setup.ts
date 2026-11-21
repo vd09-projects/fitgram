@@ -60,5 +60,7 @@ jest.mock("../../modules/rest-notification", () => ({
     show: () => false,
     showDone: () => false,
     clear: () => false,
+    previewSound: () => false,
+    stopPreview: () => false,
   },
 }));

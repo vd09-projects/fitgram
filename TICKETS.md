@@ -63,7 +63,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 093 | Exercise log: virtualise a long list | Small-Medium | Raised 2026-11-20 (PR #77 review, deferred by the user). **Open; measure first.** "All" with many loaded pages renders every row |
 | 094 | History home: the Exercises tab | Medium | **Lowest priority; open.** Split from 085b (2026-11-20, user): build only if users want to browse lifts and see Better / Lower / Same. Until then no list of lifts exists once 085b removes the old page |
 | 097 | Bug: no sound or buzz when the rest timer ends | Medium | Raised 2026-11-21 (user). **Done 2026-11-22, merged in PR #81 (`3b8f4b0`); A2 (wake lock) built, heard on a phone. Open proof listed in the ticket.** Reverses 079's "no sound at 0:00 in v1" |
-| 098 | Choose the rest-over sound | Medium | Raised 2026-11-21 (user). **Open;** stage 1 (logic, native, store) merged with 097 (PR #81); the settings row waits for a canvas design. Stacked on 097: it picks the channel 097's done post goes out on |
+| 098 | Choose the rest-over sound | Medium | Raised 2026-11-21 (user). **Open;** stage 1 (logic, native, store) merged with 097 (PR #81); **design decided 2026-11-22 (user), stage 2 (the row) built 2026-11-22, in review.** Stacked on 097: it picks the channel 097's done post goes out on |
 
 ### Not tickets — verification owed
 
@@ -11421,7 +11421,7 @@ emulator (an upper bound on the awake case) and, the number that matters, on the
 
 ### TICKET-098: Choose the Rest-Over Sound
 
-**Priority:** Medium | **Effort:** Medium | **Status: OPEN, stage 1 merged with 097 (PR #81); stage 2 (UI) needs a design** — raised 2026-11-21 (user); stacked on TICKET-097
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN, stage 1 merged with 097 (PR #81); stage 2 (the row) built 2026-11-22, branch `feat/ticket-098-rest-sound-choice`, unmerged** — raised 2026-11-21 (user); stacked on TICKET-097
 
 **Description (user, 2026-11-21):** let the user pick a default sound for the end of a rest, from 2-3 choices. Set once in settings; every
 rest then uses it. Not a per-rest or runtime choice.
@@ -11445,13 +11445,32 @@ rest then uses it. Not a per-rest or runtime choice.
 
 **Stages (each typechecks and runs on its own):**
 1. Logic, native and store: `restSound` choices and the pure channel pick, the per-sound channels, preview, the stored setting. No UI.
-2. The settings row and the preview tap, **after a design on the Drafts canvas** (repo rule). Wording in `src/config/restNotification.ts`.
+2. The settings row and the preview tap. **Design decided (user, 2026-11-22), boards "Sound 1" and "Sound 2" on the main Workout Flow canvas** (drafts A, B, C on
+   the Drafts canvas; B, a sheet, is not built): a second row in the lock-screen row's card; tapping it opens the three choices in place; tapping a row
+   chooses it (saved at once, no Save button); a play button on each choice plays it once without choosing it (`RestNotification.previewSound`). The row
+   is dimmed and not tappable when the lock-screen row is Off or Blocked, with the line naming the step above it (the sound is a notification, so it needs
+   the same permission: `postDone` posts nothing without it). Wording goes in `src/config/restNotification.ts`; the board's copy is in its sticky note.
 
 **Stage 1 result (emulator, 2026-11-21):** with the default temporarily set to `alarm`, the done channel became `rest_done_alarm` with sound
 `content://settings/system/alarm_alert`, played as USAGE_NOTIFICATION; the old `rest_done` showed `mDeleted=true`; the done post went out on
 `rest_done_alarm` (`done via=handler first=true`, +14 ms). The default was restored. Tests: the store's load and set, and the copy carrying the
 sound (each seen failing when its line was broken). **Not verified:** the audio, the preview (no caller until stage 2), how long the alarm and
 ringtone sounds play on a phone, and whether a deleted-then-recreated channel keeps stale settings.
+
+**Stage 2 decisions and result (2026-11-22):**
+- **Applies from the next rest.** `copyFor` reads the stored sound when a rest starts, so a rest already running keeps the old one. If it is changed
+  mid-rest, the in-app 0:00 post (`announceRestDone` builds its copy then) can use the new sound while the native alarm holds the old; it ends as one
+  post, and the case is rare. Not stated in the UI.
+- **Choosing stops a preview; a preview stops when the choices close, the screen is left, or the row goes away.** The choices also close for good when
+  the permission goes (they do not spring open again when it returns).
+- **Play is a sibling of the choosing area, as on the board**, so a screen reader reaches both and a press on play cannot reach the radio.
+- **Silent mode and Do Not Disturb:** play does nothing audible and gives no sign (the sound is a notification). The board's "follows your volume" line
+  is in the sheet's footnote only, not in the app. Left as is.
+- **Deviations from the boards, by token:** the selected fill is `role.raised` (board #1E2A2D, no token); the inner dividers are `hairline` (#2A2F31,
+  board #22272A). The dimmed row's explanation is at 0.45 opacity, as drawn.
+- **Result (emulator, Android 16):** the card matches the structure of boards Sound 1 and 2; Alarm chosen and kept across a restart; a rest with Alarm
+  chosen posted on `rest_done_alarm`; permission revoked: the row dimmed with the step named; a real touch on Ringtone's play button left Alarm chosen.
+  Not verified: any audio, Blocked, a large system font, TalkBack.
 
 **Not in scope:** bundled sound files; iOS (no channels there; later); overriding silent or Do Not Disturb (a sound choice cannot).
 
