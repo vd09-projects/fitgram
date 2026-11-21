@@ -10602,7 +10602,7 @@ mismatches on the imported account before and after; nothing in `src/` reads the
 
 ### TICKET-086: Delete a Workout
 
-**Priority:** Medium | **Effort:** Medium-Large | **Status: OPEN** — raised 2026-11-13 (user)
+**Priority:** Medium | **Effort:** Medium-Large | **Status: DONE** — raised 2026-11-13 (user); merged 2026-11-21 as 013eb42 (PR #79, squashed) after three review passes. Open proof (device, unit-tested only): the replay of an upload for a workout deleted while queued, a real `changed` retry, the read count for a lift with about 100 sessions, TalkBack and narrow width. Verdict staleness is TICKET-095. Open from pass 3: `measureBaseline.ts` and `measureShapes.ts` count markers.
 
 **Description:**
 The options sheet's Delete session (one question first: "Keep it" or "Delete"). No delete exists in the app:
