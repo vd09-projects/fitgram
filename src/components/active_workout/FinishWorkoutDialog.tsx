@@ -88,7 +88,9 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
       color: t.colors.role.textPrimary,
     },
     // The sentence stays in the display face (it is prose with numbers in it, as in the Discard dialog); the card's
-    // values are numeric (the board's mono). Size from the board's 14 px.
+    // values are numeric (the board's mono). Sizes go through t.fonts: the message is the board's 14 px, and the
+    // card's label and value are the board's 13 px, which maps to the same xMedium token (13 to 14.5), so the card
+    // reads one step under the title and level with the message.
     message: {
       fontSize: t.fonts.xMedium,
       color: t.colors.role.textSecondary,

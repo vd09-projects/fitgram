@@ -11347,7 +11347,7 @@ and what it would make obsolete (`rebuildExerciseStats.ts`, the compare script, 
 - "Has sets" is `buildSessionDocs`'s own filter (`finishSummary`), so the dialog never promises what the save does not do.
 
 **Built:** `src/utils/finishSummary.ts` (pure), `FinishWorkoutDialog`, `AlertBase` takes `children`, `ActiveWorkoutScreen` asks first.
-Existing Finish tests tap the confirmation; four new screen tests and two for `finishSummary`, each seen failing with its line broken.
+Existing Finish tests tap the confirmation; four new screen tests and two for `finishSummary`. Seen failing with a line broken: the gate always saving (the saves-only-after test), the gate always opening (the no-set skip), the summary counting every exercise as logged (the `finishSummary` and card tests), and, from the PR #80 review, the in-flight guard, `onKeep` and `setConfirmFinish(false)`. The all-logged sentence test was not broken on its own.
 
 **Main canvas:** the two boards were first refused ("newer version"); a whole-canvas read before publishing fixed it, and they are on the main canvas (2026-11-21).
 
