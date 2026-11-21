@@ -11426,11 +11426,12 @@ emulator (an upper bound on the awake case) and, the number that matters, on the
 rest then uses it. Not a per-rest or runtime choice.
 
 **Decisions:**
-- **One channel per sound.** A channel's sound cannot change once it exists, and deleting and recreating a channel does not take
-  a new one (Android restores the old settings: seen on the emulator, the deleted `rest_done` stayed listed with `mDeleted=true`). So each
-  sound has its own channel id, and the setting only picks which id the done post goes out on. Rejected: one channel recreated on change.
-  Consequence: a channel's sound is fixed when it is first created, so switching away from a sound and back returns the sound that channel
-  was created with, and a change to how a sound is *resolved* needs a new id (097 did this once, `rest_done` to `rest_done_notification`).
+- **One channel per sound.** A channel's sound cannot change once it exists, and deleting and recreating a channel does not take a new
+  one: Android keeps a deleted channel's settings and restores them when the same id is created again (Android's documented behaviour, not
+  something the emulator showed; it showed only that a deleted channel stays listed, `mDeleted=true`). So each sound has its own channel id,
+  and the setting only picks which id the done post goes out on. Rejected: one channel recreated on change. Consequence: a channel's sound is
+  fixed when it is first created, so switching away from a sound and back returns the sound that channel was created with, and a change to
+  how a sound is *resolved* needs a new id (097 did this once, `rest_done` to `rest_done_notification`).
 - **Built-in sounds, not bundled files** (user, 2026-11-21): the phone's default notification, alarm and ringtone sounds
   (`RingtoneManager.getActualDefaultRingtoneUri`, which is null where the default is None, then a fallback chain: alarm, ringtone, the first
   installed sound, so a cue is never silent unless the phone has no sounds). They exist on every Android phone, so there is no asset and no licence. Rejected for now: files in

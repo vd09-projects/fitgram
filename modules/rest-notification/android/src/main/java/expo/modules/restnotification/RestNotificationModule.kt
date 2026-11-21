@@ -11,6 +11,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
+import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
@@ -114,8 +115,16 @@ internal object RestNotifier {
 
   /** The first notification sound installed on the phone, for a phone whose three defaults are all None. */
   private fun firstInstalled(context: Context): Uri? = try {
+    // Read the uri from the one cursor: `getRingtoneUri` would open a second one on the same manager.
     val ringtones = RingtoneManager(context).apply { setType(RingtoneManager.TYPE_NOTIFICATION) }
-    ringtones.cursor.use { if (it.count > 0) ringtones.getRingtoneUri(0) else null }
+    ringtones.cursor.use {
+      if (it.moveToFirst()) {
+        ContentUris.withAppendedId(
+          Uri.parse(it.getString(RingtoneManager.URI_COLUMN_INDEX)),
+          it.getLong(RingtoneManager.ID_COLUMN_INDEX),
+        )
+      } else null
+    }
   } catch (e: Throwable) {
     Log.w(TAG, "no installed sound", e)
     null
@@ -237,6 +246,9 @@ internal object RestNotifier {
   fun postDone(context: Context, copy: RestCopy, endMs: Long?): Boolean {
     if (endMs == null) return false
     synchronized(lock) {
+      // These three refusals leave the wake lock and the alarm to their own timeouts: the first is a
+      // phone with notifications off, where there is nothing to cancel, and the other two are a rest
+      // that `clear` or `show` has already taken over, whose own cleanup ran.
       val manager = manager(context)
       if (!manager.areNotificationsEnabled()) return false
       if (endMs == endedMs) return false
@@ -391,8 +403,13 @@ class RestNotificationModule : Module() {
           }
           RestNotifier.currentEndMs = end
           if (RestNotifier.endedMs == end) RestNotifier.endedMs = null
-          RestNotifier.scheduleAlarm(context, copy, end)
-          // The Handler below matters more than the wake lock: a lock that fails to take must not stop it.
+          // The Handler below matters more than the alarm and the wake lock: one that fails to take must
+          // not stop it.
+          try {
+            RestNotifier.scheduleAlarm(context, copy, end)
+          } catch (e: Throwable) {
+            Log.w(TAG, "alarm failed", e)
+          }
           try {
             RestNotifier.holdAwake(context, end)
           } catch (e: Throwable) {
