@@ -807,3 +807,15 @@ Emulator results after the fixes (1:30 rest; `logcat -b events` `notification_en
 
 **[pending] Not run:** audio alongside the chip; a large system font and a narrow phone (393 dp); TalkBack (the label reads "Rest 0:41 left on X. Go to X", reasoned, not heard); the lock-screen post alongside; the chip's colours against the board beyond a screenshot (the fill is the accent at 0.35 opacity, the board's #2B5560 has no token); iOS. `announceRestDone` is still not called off the resting exercise (TICKET-099, Open).
 
+## TICKET-100: the current exercise in the progress bar (2026-11-22)
+
+**Unit [run], `tsc` clean, full suite 86 suites / 1085 tests.** New (`WorkoutProgressBar.test.tsx`): the current segment is bigger than a done one, outlined in the done colour and not filled like it; the fill inside it grows with the sets logged. Seen failing with a line broken: the old grey track with no outline (red), no outline (red), the outline in another colour (red), the fill ignoring progress (red).
+
+**Device plan [run on the emulator, `pinky`, Android 16, 2026-11-22]:** the user's own running workout was already open (Back & Biceps AJ, exercise 4 of 11, one done, nothing on the current one), so nothing was logged or discarded.
+1. Logging screen: the fourth segment is a larger capsule outlined in the accent, the first is solid and thin, the rest thin and dark; it reads at a glance, unlike the screenshot that was reported.
+2. Workout tab, the plan's sheet: the same bar, the same capsule on the fourth segment.
+
+**PR #84 review fixes (pass 1) [run].** Comment and test fixes as in TICKET-100 (test 1 now compares to the accent token; mutations re-run: red for another outline colour and for the old grey track, green when `done` is recoloured). **Fill inside the capsule, on the emulator (`pinky`, a fresh "Shoulders AJ" with a target of three sets, discarded after):** 1 of 3, 2 of 3 and 3 of 3 sets logged: the accent fill grows from the left, follows the capsule's inner rounding and stops at the outline; full, it fills the capsule. A faint seam between outline and fill is visible zoomed in, not at normal size. The user's own running workout was no longer on the emulator by then (not discarded by this work, cause unknown).
+
+**[pending] Not run:** the purple theme; the dimmed fill for an assumed target on a device; a narrow phone and large font; iOS.
+

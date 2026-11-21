@@ -11528,6 +11528,49 @@ board compared side by side beyond a screenshot; iOS. Screenshots took up to 19 
 
 ---
 
+### TICKET-100: Bug — the Current Exercise Is Hard to Tell Apart in the Progress Bar
+
+**Priority:** Medium | **Effort:** Small | **Status: OPEN, built 2026-11-22, branch `feat/ticket-100-current-segment`, unmerged** — raised 2026-11-22 (user, from a screenshot)
+
+**Description (user, 2026-11-22):** with the first exercise logged and the user on the third, it is "very difficult to see the difference in the
+highlight": which segment of the progress bar is the one they are on. The segments are small.
+
+**Cause (measured, then the code):** `WorkoutProgressBar` draws three states by lightness alone, in a 4 px bar. The current segment is the
+progress-track grey (`hairlineStrong`) and an untouched one is `raised`: 1.49:1 apart (teal; 1.55:1 purple), and the current one is only 1.8:1
+against the screen. With no set logged on the current exercise (the reported case) there is no accent fill to help, so "you are here" is a slightly lighter grey
+sliver. One 4 px segment is asked to say both "this one" and "how far through it", by shade only.
+
+**Decided (user, 2026-11-22; Drafts "Position 1 to 3" and "Outline 3a to 3d", main canvas board "Progress mark"):**
+- **The current segment is a taller capsule outlined in the accent, dark inside**, with the accent fill growing inside it as before. Position now
+  reads by size and by colour (the outline is 6.8:1 against the screen in teal, 8.2:1 in purple). It cannot be taken for a done segment, which stays solid and thin.
+- Variant **3b**, the biggest of the options (the user chose it over a tint, a number inside, and a pointer): `CURRENT_HEIGHT` and `CURRENT_OUTLINE`.
+  Rejected: taller only, or wider only (the track grey stays 1.8:1 against the screen, so shape alone); a number inside (the fill would cover it once
+  sets are logged, and it needs a second state); a pointer above (14 px of height for the same cue).
+- **Cost: the bar's row is taller, so what is below it moves down.** Done and untouched segments stay thin and sit in the middle of the row.
+
+**Scope (2.7):** `WorkoutProgressBar` is shared. `PlanCard`'s running-workout card draws the same bar ("as the logger draws it"), so it changes
+too, by the same amount. Not changed: the boards other than "Progress mark" still draw the old bar (every copy of the logging board); the new
+board supersedes it.
+
+**Built (2026-11-22):** `WorkoutProgressBar`: `SEGMENT_HEIGHT`, `CURRENT_HEIGHT`, `CURRENT_OUTLINE`; the row is as tall as the capsule and
+centres the thin segments; the current track is an accent outline over `role.ground`. Test IDs on the segments. Two tests (the current segment is
+bigger than a done one, outlined in the done colour and not filled like it; the fill inside grows with the sets logged), each seen failing with its
+line broken (back to the grey track, no outline, an outline in another colour, a fill that ignores progress). `tsc` clean; full suite 86 suites / 1085 tests.
+**Device run (emulator, `pinky`, 2026-11-22):** the user's own running workout ("Back & Biceps AJ", exercise 4 of 11, one done, nothing logged on the
+current one: the reported state), looked at and not changed. On the logging screen the current segment is clearly the outlined capsule; in the plan
+sheet's bar (`PlanCard`) the same.
+**PR #84 review (pass 1, approved) fixes [run]:** the header comment says `done` and the outline differ by size and the dark inside, not shade; test 1 compares
+the outline to the accent token (it was the done colour, so recolouring `done` would have failed it for the wrong reason: seen red for an outline in another
+colour and for the old grey, green when `done` is recoloured); `untouched` gets a test ID. The review's one open point, the fill inside the bordered capsule
+never seen on a device, is **closed on the emulator (`pinky`, a fresh "Shoulders AJ", discarded after):** one, two and three sets of a target of three: the
+fill grows from the left, follows the capsule's inner rounding at both ends and stops at the outline; full, it fills the capsule. (The user's own running
+workout had gone from the emulator by then; the cause is unknown, it was not discarded by this work.)
+**Not verified:** the purple theme; the dimmed fill for an assumed target on a device (`targetSource: "default"`); a narrow phone or large font; iOS.
+
+**Not in scope:** the segment states or what "done" and the fill mean (`ProgressSegment`); colours of done and untouched; iOS.
+
+---
+
 ---
 
 ## Recommended Execution Order
