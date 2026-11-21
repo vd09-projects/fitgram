@@ -11476,6 +11476,55 @@ ringtone sounds play on a phone, and whether a deleted-then-recreated channel ke
 
 ---
 
+### TICKET-099: Show the Rest Timer on Every Exercise
+
+**Priority:** Medium | **Effort:** Small | **Status: BUILT 2026-11-22, branch `feat/ticket-099-rest-chip`, unmerged** — raised 2026-11-22 (user, from a screen recording)
+
+**Description (user, 2026-11-22):** moving to the next exercise while resting, the timer keeps running but the screen shows nothing about it; "I don't
+know how much time is left". Make it global, or something better.
+
+**Cause (the recording, then the code):** the rest card is the set card's replacement and is drawn by `ExerciseLogger` only for `rest.exerciseId`
+(`RestPanel`: "the timer shows only there"). `rest` itself is one global value in `useWorkoutStore`, so nothing was lost, only not shown.
+
+**Decided (user, 2026-11-22; Drafts options A, B, C, main canvas boards "Rest chip 1" and "Rest chip 2"):**
+- **A chip in the header beside the elapsed time**, on every exercise except the resting one (there the full card is on screen). It fills left to
+  right behind the time as the rest runs. Rejected: B, a pill above Finish (covers the list, near Finish, a mis-tap), C, a bar under the progress
+  segments (pushes the screen down 60 px; its +30s was the only thing the chip lacks, and +30s is one tap away on the card).
+- **Tap goes to the exercise the rest belongs to.** It does not touch the timer. The card there has +30s and Skip rest.
+- **No cross button.** Skip rest is one tap from the chip, logging a set replaces the old rest, and the chip clears itself.
+- **Rest over:** the chip turns solid with a check and "Rest over", stays a few seconds (`REST_DONE_CHIP_MS`), then clears.
+
+**Decided in code (these edge the boards):**
+- **The auto-clear is display only. `rest` stays in the store.** `RestPanel` keeps a finished rest on screen until the user acts ("dismissing it by
+  itself would swap the layout under a user who is not looking"), and the card withholds Log set while `rest` exists. So after the chip is gone the
+  resting exercise still reads "Rest done" and still asks for Next set. Cost: once the chip clears, nothing on other exercises says that one is waiting.
+- **The chip's whole life is derived from `rest` and `now`** (`restChipState`, pure): running while the rest runs, "Rest over" for the window after its
+  end, nothing after. No timer state of its own, so a remount or a return from the background shows the right thing. A clock that moved backwards
+  shows no chip (the rest's true age is unknowable; `restCountdown` calls it done, which would show a "Rest over" that never happened).
+- **The fill is `elapsedFraction` from `restCountdown`**, so it agrees with the card's bar. Add-time lengthens the rest, so the fill steps back; it is
+  only seen on return, because the chip is hidden on the resting exercise.
+- **Deviation from the board, by token:** the fill is `role.accent` at 0.35 opacity (board #2B5560, no token).
+
+**Open (not built):** `announceRestDone` runs only from a mounted `RestPanel`, so off the resting exercise nothing calls it. It is the safety net for
+a lock-screen "0:00" swap that ran late (deep sleep). The chip could call it as well. Pre-existing (097/079), left for a decision.
+
+**Built (2026-11-22):** `restChipState` (pure, `src/utils/restChip.ts`), `RestChip` in `WorkoutHeader`'s new `restChip` slot, `REST_DONE_CHIP_MS`
+in `src/config/workout.ts`, `ActiveWorkoutScreen` passes the chip and the jump. The clock is in the chip's inner component and stops at the end of the
+"Rest over" window (`restChipEndsAt`), though `rest` stays in the store. Tests: 5 for `restChipState`, 5 for the chip (the screen, and the chip alone) (time on another exercise and none on the resting one; tap goes there and
+leaves the timer alone; "Rest over", then clear, rest still in the store). Each seen failing with its line broken: chip on the resting exercise
+(`restChipState` test), the done window never closing, a backwards clock showing done, the tap doing nothing, the tap ending the rest, the chip
+clearing the rest, the clock never stopping, and the clock not restarting after add-time (PR #83 review, pass 1: the claim "no interval when there is no rest" was false until the clock stopped itself). A screen test (a skipped rest drops the chip) was cut: no change to the code made it fail.
+**Device run (emulator, `pinky`, "Shoulders AJ", 2026-11-22; nothing finished, the workout was discarded):** passed. Chip under the elapsed time on
+exercise 2 after logging on exercise 1, counting down (1:27 to 1:01 over 25 s) with the fill growing; tap went to exercise 1, whose card read the
+untouched timer, and the chip was gone there; back on exercise 2 the chip returned; "Rest over" (solid, check) seen after +30s on a finished rest, and gone
+after the window; on return the resting exercise still read "Rest done" with Next set (the rest outlives the chip).
+**Not verified:** audio with the chip (the "as the sound plays" line on the board is unchecked); a large system font; a narrow phone; TalkBack; the
+board compared side by side beyond a screenshot; iOS. Screenshots took up to 19 s on the emulator, so the "Rest over" frame was caught by a burst, not timed.
+
+**Not in scope:** a cross or long-press to skip; counting past the target; +30s on the chip; iOS.
+
+---
+
 ---
 
 ## Recommended Execution Order

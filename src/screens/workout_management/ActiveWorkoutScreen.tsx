@@ -10,6 +10,7 @@ import { DiscardWorkoutDialog } from "../../components/active_workout/DiscardWor
 import { FinishWorkoutDialog } from "../../components/active_workout/FinishWorkoutDialog";
 import { finishSummary } from "../../utils/finishSummary";
 import WorkoutHeader from "../../components/active_workout/WorkoutHeader";
+import RestChip from "../../components/active_workout/RestChip";
 import ExerciseNavHeader from "../../components/active_workout/ExerciseNavHeader";
 import WorkoutProgressBar from "../../components/active_workout/WorkoutProgressBar";
 import RemovedExerciseBar from "../../components/active_workout/RemovedExerciseBar";
@@ -94,6 +95,11 @@ export default function ActiveWorkoutScreen() {
   // without it the bar assumes DEFAULT_TARGET_SETS.
   const history = useExerciseHistory(currentExercise?.id);
   const lastSessionSetCount = history.lastSession?.sets.length ?? null;
+
+  // The rest running elsewhere gets a chip in the header (TICKET-099). The index
+  // is -1 only if its exercise is gone, which ends the rest (swap, remove).
+  const rest = useWorkoutStore((s) => s.rest);
+  const restIndex = rest ? exercises.findIndex((e) => e.id === rest.exerciseId) : -1;
 
   const goTo = (index: number) => {
     setCurrentExerciseIndex(index);
@@ -275,6 +281,16 @@ export default function ActiveWorkoutScreen() {
         startTime={activeWorkout.startTime}
         onBack={handleBack}
         onOpenMenu={() => setWorkoutMenuOpen(true)}
+        restChip={
+          restIndex !== -1 && (
+            <RestChip
+              rest={rest}
+              viewingExerciseId={currentExercise?.id ?? null}
+              exerciseName={names[restIndex].title}
+              onPress={() => goTo(restIndex)}
+            />
+          )
+        }
       />
 
       {/* Under the header, away from Finish (TICKET-069, board RemoveLanded);

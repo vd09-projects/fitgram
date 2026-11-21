@@ -11,6 +11,14 @@ export const DEFAULT_REST_MS = 90_000;
 export const ADD_REST_MS = 30_000;
 
 /**
+ * How long the header chip keeps reading "Rest over" after a rest ends, on an
+ * exercise other than the resting one. Long enough to catch the corner of an
+ * eye, short enough that the chip is not left over a set the user has started
+ * (TICKET-099). Only the chip: the rest itself stays until the user acts.
+ */
+export const REST_DONE_CHIP_MS = 5000;
+
+/**
  * Planned set count assumed for an exercise with no usable history. The plan
  * records no set count, so without last session to go on this is a guess —
  * chosen deliberately over showing nothing. 3 is the common default; at 2 sets
