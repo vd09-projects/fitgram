@@ -63,7 +63,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 093 | Exercise log: virtualise a long list | Small-Medium | Raised 2026-11-20 (PR #77 review, deferred by the user). **Open; measure first.** "All" with many loaded pages renders every row |
 | 094 | History home: the Exercises tab | Medium | **Lowest priority; open.** Split from 085b (2026-11-20, user): build only if users want to browse lifts and see Better / Lower / Same. Until then no list of lifts exists once 085b removes the old page |
 | 097 | Bug: no sound or buzz when the rest timer ends | Medium | Raised 2026-11-21 (user). **Done 2026-11-22 (PR pending); A2 (wake lock) built, heard on a phone.** Reverses 079's "no sound at 0:00 in v1" |
-| 098 | Choose the rest-over sound | Medium | Raised 2026-11-21 (user). ****Open;** stage 1 (logic, native, store) landed with 097; the settings row waits for a canvas design.** Stacked on 097: it picks the channel 097's done post goes out on |
+| 098 | Choose the rest-over sound | Medium | Raised 2026-11-21 (user). **Open;** stage 1 (logic, native, store) landed with 097; the settings row waits for a canvas design. Stacked on 097: it picks the channel 097's done post goes out on |
 
 ### Not tickets — verification owed
 
@@ -11359,7 +11359,7 @@ Existing Finish tests tap the confirmation; four new screen tests and two for `f
 
 ### TICKET-097: Bug — No Sound or Buzz When the Rest Timer Ends
 
-**Priority:** High | **Effort:** Medium | **Status: DONE 2026-11-22 (PR pending)** — raised 2026-11-21 (user); branch `fix/ticket-097-rest-end-sound`
+**Priority:** High | **Effort:** Medium | **Status: DONE 2026-11-22 (PR #81); review fixes pending a device run of the dead-process alarm path, see TESTING_NOTES** — raised 2026-11-21 (user); branch `fix/ticket-097-rest-end-sound`
 
 **Description (bug report, 2026-11-21):** when the rest ends nothing is heard, so the user keeps checking the phone. Away from it, they do not
 know the rest is over and rest longer than planned (a 90 s rest becomes 120 or 150 s). A workout app should not make you watch it.
@@ -11407,7 +11407,7 @@ emulator (an upper bound on the awake case) and, the number that matters, on the
 - Light Doze starts 4 min after the screen goes off (`light_after_inactive_to`), later than a rest. So what delays the Handler on a phone is the CPU suspending with the screen off, not Doze.
 
 **Revised options (A's alarm replaced; the channel, the receiver and the once-only guard stay):**
-- **A2 (recommended next):** hold a timed `PARTIAL_WAKE_LOCK` for the length of the rest, so the Handler fires on time while the screen is off. `WAKE_LOCK` is a normal permission (no user step). Keep the inexact alarm as the backstop for a killed process or Doze. Cost: the CPU stays awake for each rest (a few minutes per workout). Unproven: needs the user's phone.
+- **A2 (built, the one that shipped):** hold a timed `PARTIAL_WAKE_LOCK` for the length of the rest, so the Handler fires on time while the screen is off. `WAKE_LOCK` is a normal permission (no user step). Keep the inexact alarm as the backstop for a killed process or Doze. Cost: the CPU stays awake for each rest (a few minutes per workout), including with the app in the foreground (accepted).
 - **A2 built (2026-11-21), emulator results:** the wake lock is acquired at `show`, released on done, `clear` and skip, and times out at the end plus a grace if a release is missed. Add-time after 0:00 rang: second done post `via=handler first=true` (+12 ms), the JS repeat `first=false`. The lock was held 30 s for that +30 and released at done. A stale done post (add-time tapped while the alarm receiver runs) is now dropped when `currentEndMs` differs. Unproven: CPU-suspended behaviour, a killed or OEM-frozen process, and the audio itself. Needs the user's phone.
 - **Phone result (OnePlus 7T, Android 12, 2026-11-22):** the first run was silent. Cause read off the phone: its default notification sound was None
   (`settings get system notification_sound` = null), so the channel, which follows that default, posted and vibrated with no sound. Fixed: the
@@ -11426,11 +11426,14 @@ emulator (an upper bound on the awake case) and, the number that matters, on the
 rest then uses it. Not a per-rest or runtime choice.
 
 **Decisions:**
-- **One channel per sound.** A channel's sound cannot change once it exists, and deleting and recreating a channel does not reliably take
-  a new one (Android restores the old settings). So each sound has its own channel id, and the setting only picks which id the done post
-  goes out on. Rejected: one channel recreated on change.
+- **One channel per sound.** A channel's sound cannot change once it exists, and deleting and recreating a channel does not take
+  a new one (Android restores the old settings: seen on the emulator, the deleted `rest_done` stayed listed with `mDeleted=true`). So each
+  sound has its own channel id, and the setting only picks which id the done post goes out on. Rejected: one channel recreated on change.
+  Consequence: a channel's sound is fixed when it is first created, so switching away from a sound and back returns the sound that channel
+  was created with, and a change to how a sound is *resolved* needs a new id (097 did this once, `rest_done` to `rest_done_notification`).
 - **Built-in sounds, not bundled files** (user, 2026-11-21): the phone's default notification, alarm and ringtone sounds
-  (`RingtoneManager.getDefaultUri`). They exist on every Android phone, so there is no asset and no licence. Rejected for now: files in
+  (`RingtoneManager.getActualDefaultRingtoneUri`, which is null where the default is None, then a fallback chain: alarm, ringtone, the first
+  installed sound, so a cue is never silent unless the phone has no sounds). They exist on every Android phone, so there is no asset and no licence. Rejected for now: files in
   `res/raw` (same on every phone, but someone must supply and license them). Open risk: the alarm and ringtone sounds can be long, and a
   channel sound plays to its end. Check the length on a phone; if too long, swap the choice for another built-in notification sound.
 - **The default is today's sound** (the system notification sound), so an unset or unknown value changes nothing.

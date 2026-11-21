@@ -32,10 +32,9 @@ private const val TAG = "RestNotification"
 private const val CHANNEL_ID = "rest_timer"
 // One done channel per sound (TICKET-098): a channel's sound cannot change once it exists, and deleting
 // and recreating the same id brings the old sound back. So a change to how a sound is chosen needs a new
-// id: "rest_done" (the system default URI, silent on a phone whose default is None, TICKET-097) is gone,
-// and is only listed so it is deleted from a phone that has it.
+// id. The first sound's id says which sound it is, like the others, so none is a bare "rest_done".
 private const val DONE_CHANNEL_ID = "rest_done_notification"
-private val DONE_CHANNEL_IDS = listOf(DONE_CHANNEL_ID, "rest_done_alarm", "rest_done_ringtone", "rest_done")
+private val DONE_CHANNEL_IDS = listOf(DONE_CHANNEL_ID, "rest_done_alarm", "rest_done_ringtone")
 private const val NOTIFICATION_ID = 4242
 private const val ALARM_REQUEST = 4243
 private const val WAKE_LOCK_TAG = "fitgram:rest"
@@ -68,6 +67,11 @@ internal object RestNotifier {
   // The rest in progress: its end time, set by `show`, cleared by `clear`. Null in a fresh process.
   var currentEndMs: Long? = null
 
+  // The end time of the rest `clear` last ended (Skip, finish, remove). `currentEndMs` alone cannot tell
+  // "cleared" from "no rest began in this process", and a receiver already running when Skip is tapped
+  // must not ring for the rest the user just ended. Caller holds `lock`.
+  var endedMs: Long? = null
+
   // The end time of the last rest whose done post was allowed to make a sound.
   private var alertedEndMs: Long? = null
 
@@ -90,7 +94,8 @@ internal object RestNotifier {
    *
    * A phone whose default for that kind is "None" has no actual default (found on a OnePlus 7T, whose
    * notification sound was None: the channel was posted and vibrated, and made no sound). The end of a
-   * rest must be heard, so that falls back to the alarm sound, then to the system's own default URI.
+   * rest must be heard, so that falls back to the alarm default, the ringtone default, the first sound
+   * installed on the phone, and last the system's own default URI (which is the None again).
    * Chosen over staying silent because a silent cue is the bug this exists to fix; rejected: a sound
    * bundled in the app, which needs a file (TICKET-098's other option).
    */
@@ -102,7 +107,18 @@ internal object RestNotifier {
     }
     return RingtoneManager.getActualDefaultRingtoneUri(context, type)
       ?: RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_ALARM)
+      ?: RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_RINGTONE)
+      ?: firstInstalled(context)
       ?: RingtoneManager.getDefaultUri(type)
+  }
+
+  /** The first notification sound installed on the phone, for a phone whose three defaults are all None. */
+  private fun firstInstalled(context: Context): Uri? = try {
+    val ringtones = RingtoneManager(context).apply { setType(RingtoneManager.TYPE_NOTIFICATION) }
+    ringtones.cursor.use { if (it.count > 0) ringtones.getRingtoneUri(0) else null }
+  } catch (e: Throwable) {
+    Log.w(TAG, "no installed sound", e)
+    null
   }
 
   /** Played as a notification whatever the kind, so volume, silent mode and Do Not Disturb treat all three alike. */
@@ -123,26 +139,34 @@ internal object RestNotifier {
    * notification even for the alarm and ringtone sounds (`soundAttributes`), so it follows the phone's
    * volume, silent mode and Do Not Disturb, and the user can change it on the channel's own settings
    * page. Only the chosen sound's channel exists: the others are deleted, so Android's settings page
-   * lists one "Rest over" (TICKET-098; a user's own tweaks to a deleted channel go with it).
+   * lists one "Rest over" (TICKET-098; a user's own tweaks to a deleted channel go with it). Each
+   * channel is touched only when it is missing or stale: deleting one also drops the notification
+   * posted on it, and this runs on every post.
    */
   private fun ensureChannels(context: Context, manager: NotificationManager, name: String, doneName: String, sound: String) {
-    val timer = NotificationChannel(CHANNEL_ID, name, NotificationManager.IMPORTANCE_DEFAULT)
-    timer.setSound(null, null)
-    timer.enableVibration(false)
-    timer.enableLights(false)
-    timer.setShowBadge(false)
-    timer.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-    manager.createNotificationChannel(timer)
+    if (manager.getNotificationChannel(CHANNEL_ID) == null) {
+      val timer = NotificationChannel(CHANNEL_ID, name, NotificationManager.IMPORTANCE_DEFAULT)
+      timer.setSound(null, null)
+      timer.enableVibration(false)
+      timer.enableLights(false)
+      timer.setShowBadge(false)
+      timer.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+      manager.createNotificationChannel(timer)
+    }
 
     val doneId = doneChannelId(sound)
-    DONE_CHANNEL_IDS.filter { it != doneId }.forEach { manager.deleteNotificationChannel(it) }
-    val done = NotificationChannel(doneId, doneName, NotificationManager.IMPORTANCE_HIGH)
-    done.setSound(doneSound(context, sound), soundAttributes)
-    done.enableVibration(true)
-    done.enableLights(false)
-    done.setShowBadge(false)
-    done.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-    manager.createNotificationChannel(done)
+    DONE_CHANNEL_IDS
+      .filter { it != doneId && manager.getNotificationChannel(it) != null }
+      .forEach { manager.deleteNotificationChannel(it) }
+    if (manager.getNotificationChannel(doneId) == null) {
+      val done = NotificationChannel(doneId, doneName, NotificationManager.IMPORTANCE_HIGH)
+      done.setSound(doneSound(context, sound), soundAttributes)
+      done.enableVibration(true)
+      done.enableLights(false)
+      done.setShowBadge(false)
+      done.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+      manager.createNotificationChannel(done)
+    }
   }
 
   /** `alert` false on a done post means "the sound already played for this rest": update, stay quiet. */
@@ -199,24 +223,38 @@ internal object RestNotifier {
   /**
    * The end of the rest, from any of three paths: the alarm, the Handler, or JS noticing. Whichever
    * comes first makes the sound; the others only repaint.
+   *
+   * Posts nothing, and returns false, when:
+   * - there is no end time: there is no rest to speak for, and a made-up key would let the first such
+   *   call ring and every later one stay silent;
+   * - the rest was ended by `clear` (Skip, finish) or replaced by add-time since this call was started;
+   * - the sound already played for this end and the post has since been swiped away: `onlyAlertOnce`
+   *   silences an update of a notification that is showing, not a new one, which would ring again.
+   *
+   * A post that goes out also cancels the alarm: the Handler or the app got here first, and a late
+   * alarm would otherwise post it again.
    */
   fun postDone(context: Context, copy: RestCopy, endMs: Long?): Boolean {
+    if (endMs == null) return false
     synchronized(lock) {
       val manager = manager(context)
       if (!manager.areNotificationsEnabled()) return false
-      ensureChannels(context, manager, copy.channelName, copy.doneChannelName, copy.sound)
-      // A post for a rest that has since been replaced (add-time tapped while the alarm's receiver was
-      // already running) must not overwrite the new countdown. `currentEndMs` is null in a process
-      // `show` never ran in, where the alarm is the only voice there is.
+      if (endMs == endedMs) return false
       val current = currentEndMs
       if (current != null && endMs != current) return false
-      val key = endMs ?: 0L
-      val first = alertedEndMs != key
+      val first = alertedEndMs != endMs
+      if (!first && manager.activeNotifications.none { it.id == NOTIFICATION_ID }) {
+        releaseAwake()
+        cancelAlarm(context)
+        return false
+      }
+      ensureChannels(context, manager, copy.channelName, copy.doneChannelName, copy.sound)
       val notification = build(context, copy, null, alert = first, subText = copy.subText)
         ?: return false
       manager.notify(NOTIFICATION_ID, notification)
-      alertedEndMs = key
+      alertedEndMs = endMs
       releaseAwake()
+      cancelAlarm(context)
       return true
     }
   }
@@ -313,6 +351,14 @@ class RestNotificationModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("RestNotification")
 
+    // A reloaded module is a new instance with no `swap`, so an old Handler runnable that is still queued
+    // would ring for a rest the new instance has since cleared. The alarm and the wake lock outlive the
+    // module on purpose: the rest does.
+    OnDestroy {
+      synchronized(lock) { cancelSwap() }
+      handler.post { preview?.stop(); preview = null }
+    }
+
     Function("isEnabled") {
       try {
         context()?.let { RestNotifier.manager(it).areNotificationsEnabled() } ?: false
@@ -336,17 +382,30 @@ class RestNotificationModule : Module() {
             return@Function false
           }
           val end = endAtMs.toLong()
-          if (!RestNotifier.postCountdown(context, copy, end)) return@Function false
+          if (!RestNotifier.postCountdown(context, copy, end)) {
+            // Nothing stands for this rest, so nothing may stand for the one it replaced either.
+            RestNotifier.cancelAlarm(context)
+            RestNotifier.releaseAwake()
+            RestNotifier.currentEndMs = null
+            return@Function false
+          }
           RestNotifier.currentEndMs = end
+          if (RestNotifier.endedMs == end) RestNotifier.endedMs = null
           RestNotifier.scheduleAlarm(context, copy, end)
-          RestNotifier.holdAwake(context, end)
+          // The Handler below matters more than the wake lock: a lock that fails to take must not stop it.
+          try {
+            RestNotifier.holdAwake(context, end)
+          } catch (e: Throwable) {
+            Log.w(TAG, "wake lock failed", e)
+          }
+          val appContext = context.applicationContext
           val runnable = object : Runnable {
             override fun run() {
               synchronized(lock) {
                 // Replaced or cleared since it was scheduled: that rest is no longer this one.
                 if (swap !== this) return
                 try {
-                  RestNotifier.postDone(context, copy, end)
+                  RestNotifier.postDone(appContext, copy, end)
                 } catch (e: Throwable) {
                   Log.w(TAG, "swap to done failed", e)
                 }
@@ -369,7 +428,6 @@ class RestNotificationModule : Module() {
         synchronized(lock) {
           cancelSwap()
           val context = context() ?: return@Function false
-          RestNotifier.cancelAlarm(context)
           RestNotifier.postDone(context, copy, RestNotifier.currentEndMs)
         }
       } catch (e: Throwable) {
@@ -417,6 +475,7 @@ class RestNotificationModule : Module() {
           val context = context() ?: return@Function false
           RestNotifier.cancelAlarm(context)
           RestNotifier.releaseAwake()
+          RestNotifier.endedMs = RestNotifier.currentEndMs ?: RestNotifier.endedMs
           RestNotifier.currentEndMs = null
           RestNotifier.manager(context).cancel(NOTIFICATION_ID)
           true
