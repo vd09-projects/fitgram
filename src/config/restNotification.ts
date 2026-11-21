@@ -9,6 +9,20 @@
 // TICKET-080's copy table, kept there and not repeated here.
 
 export const REST_NOTIF_CHANNEL_NAME = "Rest timer";
+// The second channel, the one with the sound (TICKET-097): its name is what Android's notification settings list.
+export const REST_NOTIF_DONE_CHANNEL_NAME = "Rest over";
+
+/**
+ * The sounds the user can pick for the end of a rest (TICKET-098): the phone's own default notification,
+ * alarm and ringtone sounds, resolved by name in Kotlin (`RestNotifier.doneSound`). Built in, so there is
+ * no file to supply or license. Each is its own notification channel, because a channel's sound cannot
+ * change once it exists. A name here needs a branch there; an unknown name falls back to the default.
+ */
+export const REST_SOUNDS = ["notification", "alarm", "ringtone"] as const;
+export type RestSound = (typeof REST_SOUNDS)[number];
+/** Today's sound before any choice existed, so an unset or unknown value changes nothing. */
+export const DEFAULT_REST_SOUND: RestSound = "notification";
+
 export const REST_NOTIF_SUBTEXT = "Workout";
 export const REST_NOTIF_TITLE = "Catch your breath";
 export const REST_NOTIF_TITLE_DONE = "Go time";

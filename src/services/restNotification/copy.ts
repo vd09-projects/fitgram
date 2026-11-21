@@ -4,13 +4,16 @@
 // src/config/restNotification.ts). Pure, so the cut is tested directly.
 
 import {
+  DEFAULT_REST_SOUND,
   REST_NOTIF_CHANNEL_NAME,
+  REST_NOTIF_DONE_CHANNEL_NAME,
   REST_NOTIF_SUBTEXT,
   REST_NOTIF_TEXT,
   REST_NOTIF_TEXT_BUDGET,
   REST_NOTIF_TEXT_DONE,
   REST_NOTIF_TITLE,
   REST_NOTIF_TITLE_DONE,
+  RestSound,
 } from "../../config/restNotification";
 import type { RestCopy } from "../../../modules/rest-notification";
 
@@ -32,14 +35,19 @@ export function fillLine(template: string, exercise: string, setNumber: number):
   return withName(`${exercise.slice(0, Math.max(0, room)).trimEnd()}${ELLIPSIS}`);
 }
 
-/** Every string the native module needs for one rest, for the exercise and the set it leads to. */
-export function buildRestCopy(exercise: string, nextSetNumber: number): RestCopy {
+/**
+ * Everything the native module needs for one rest, for the exercise and the set it leads to, and the
+ * sound its end makes (TICKET-098).
+ */
+export function buildRestCopy(exercise: string, nextSetNumber: number, sound: RestSound = DEFAULT_REST_SOUND): RestCopy {
   return {
     channelName: REST_NOTIF_CHANNEL_NAME,
+    doneChannelName: REST_NOTIF_DONE_CHANNEL_NAME,
     subText: REST_NOTIF_SUBTEXT,
     title: REST_NOTIF_TITLE,
     text: fillLine(REST_NOTIF_TEXT, exercise, nextSetNumber),
     titleDone: REST_NOTIF_TITLE_DONE,
     textDone: fillLine(REST_NOTIF_TEXT_DONE, exercise, nextSetNumber),
+    sound,
   };
 }

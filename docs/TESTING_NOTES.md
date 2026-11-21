@@ -752,3 +752,23 @@ No screen yet; nothing to see on a phone. Checked by unit tests only.
 
 **Each seen failing with its line broken:** F1 (guard removed: the two-taps test), F2 (`onKeep` a no-op: the saves-only-after test; `setConfirmFinish(false)` removed from `handleFinish`: the failed-write test). F3 and F4 are styling, read against the boards and not run on a device again.
 
+
+## TICKET-097: Rest-over sound (Android, 2026-11-21)
+
+**Unit [run], `tsc` clean.** The change is native (Kotlin) plus one channel name in `copy.ts`: unit-tested only where it is TS (`buildRestCopy` names both channels, seen failing with the second name blanked). The sound, the alarm, the Handler and the wake lock have no unit test: they need a device.
+
+**Device plan [run on the emulator, 2026-11-21; phone run pending].** Android 16 emulator, a 1:30 rest from a 30 s hip stretch, `adb logcat | grep RestNotification`.
+1. Rest runs to 0:00 with the screen on: `done via=handler first=true lateMs=10`, then the app's repeat `via=js first=false`. One sound.
+2. Same with the screen off for the whole rest: the Handler at +71 ms (the emulator never suspends its CPU, so this says nothing about a phone). The inexact alarm (option A as first built) fired 58.9 s late: the reason for the wake lock.
+3. After 0:00 rang, tap **+30s**: the countdown replaces the done post, and 30 s later `done via=handler first=true lateMs=12`. It rings again. `dumpsys power` shows `fitgram:rest` acquired for that +30 and released at done.
+4. Skip, finish and discard each release the wake lock and clear the post (`dumpsys power`, `dumpsys notification` show neither).
+5. Channels: `rest_timer` silent; the done channel importance 4 with sound and vibration on (`dumpsys notification`).
+
+**Phone run [run, 2026-11-22].** OnePlus 7T, Android 12, a dev copy (`com.vd09.fitgram.dev`, side by side with the real app). Run 1: no sound. Read off the phone: the done post was on `rest_done`, importance 4, vibration on, volume full, not silent, no Do Not Disturb, and the phone's default notification sound was None. Fixed (alarm-sound fallback, new channel id). Run 2, screen locked for the rest: the user heard the sound at 0:00, "working as expected". Not measured: the delay in ms (no number was read), a killed or OEM-frozen app, +30 and Skip on the phone, silent mode, Do Not Disturb.
+
+**[pending] Not run:**
+- The delay in ms with the CPU asleep (the `SHOW_LATENESS` text is removed, unread).
+- Silent mode, Do Not Disturb, +30 and Skip on the phone.
+- A killed or OEM-frozen app: only the late inexact alarm remains.
+- The race the stale-post guard covers (add-time tapped while the alarm's receiver runs): by reading only.
+- iOS.

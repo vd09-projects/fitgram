@@ -11,6 +11,7 @@
 
 import RestNotification from "../../../modules/rest-notification";
 import { useCatalogStore } from "../../stores/useCatalogStore";
+import { useRestSoundStore } from "../../stores/restSoundStore";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
 import { CATALOG_NOT_LOADED, exerciseDisplayName } from "../../utils/catalog";
 import { restEndAt, RestTimer } from "../../utils/restTimer";
@@ -62,7 +63,11 @@ export function planRestNotification(
 function copyFor(rest: RestTimer) {
   const exercise = useWorkoutStore.getState().activeWorkout?.exercises.find((e) => e.id === rest.exerciseId);
   const title = exercise ? exerciseDisplayName(exercise, useCatalogStore.getState().catalog?.index ?? null).title : "";
-  return buildRestCopy(title === CATALOG_NOT_LOADED ? "" : title, (exercise?.sets.length ?? rest.setNumber) + 1);
+  return buildRestCopy(
+    title === CATALOG_NOT_LOADED ? "" : title,
+    (exercise?.sets.length ?? rest.setNumber) + 1,
+    useRestSoundStore.getState().restSound
+  );
 }
 
 function apply(prev: RestTimer | null | undefined, next: RestTimer | null, now: number): void {
