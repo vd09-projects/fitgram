@@ -4,11 +4,23 @@ import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 import { ProgressSegment } from "../../utils/workoutProgress";
 
+// The current segment is bigger than the rest (TICKET-100, board "Progress mark"):
+// the bar's row is as tall as it is, and the thin segments sit in the middle.
+const SEGMENT_HEIGHT = 4;
+const CURRENT_HEIGHT = 14;
+const CURRENT_OUTLINE = 2;
+
 /**
- * One segment per exercise. The three states differ in LIGHTNESS, so they read
- * without colour vision: `done` is the light accent, `untouched` is the dark
- * `raised` step, and `current` sits between on the `hairlineStrong` track with
- * accent showing how far through it the user is.
+ * One segment per exercise. `done` is the light accent, thin and solid;
+ * `untouched` is the dark `raised` step, thin; `current` is a bigger capsule
+ * outlined in the accent with accent showing how far through it the user is.
+ *
+ * Why the current one is a capsule, not another shade: it was the `hairlineStrong`
+ * track, 1.5:1 from an untouched segment in a thin bar, and with no set logged
+ * it read as a slightly lighter grey. Rejected: only taller or only wider (the
+ * grey stays 1.8:1 against the screen, so shape alone), a number inside (the
+ * fill covers it once sets are logged), a pointer above (more height for the
+ * same cue).
  *
  * What "done" and the current fill mean is pinned on `ProgressSegment`.
  *
@@ -34,12 +46,13 @@ export default function WorkoutProgressBar({ segments }: { segments: ProgressSeg
       accessibilityLabel={`Exercise ${current + 1} of ${segments.length}, ${done} other ${done === 1 ? "exercise" : "exercises"} logged`}
     >
       {segments.map((segment, index) => {
-        if (segment.state === "done") return <View key={index} style={[styles.segment, styles.done]} />;
+        if (segment.state === "done") return <View key={index} testID="progress-done" style={[styles.segment, styles.done]} />;
         if (segment.state === "untouched") return <View key={index} style={[styles.segment, styles.untouched]} />;
 
         return (
-          <View key={index} style={[styles.segment, styles.currentTrack]}>
+          <View key={index} testID="progress-current" style={[styles.segment, styles.currentTrack]}>
             <View
+              testID="progress-fill"
               style={[
                 styles.fill,
                 segment.targetSource === "default" && styles.fillAssumed,
@@ -56,11 +69,13 @@ export default function WorkoutProgressBar({ segments }: { segments: ProgressSeg
 const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   row: {
     flexDirection: "row",
+    alignItems: "center",
+    height: CURRENT_HEIGHT,
     gap: 4,
   },
   segment: {
     flex: 1,
-    height: 4,
+    height: SEGMENT_HEIGHT,
     borderRadius: 2,
     overflow: "hidden",
   },
@@ -71,7 +86,11 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     backgroundColor: t.colors.role.raised,
   },
   currentTrack: {
-    backgroundColor: t.colors.role.hairlineStrong,
+    height: CURRENT_HEIGHT,
+    borderRadius: CURRENT_HEIGHT / 2,
+    borderWidth: CURRENT_OUTLINE,
+    borderColor: t.colors.role.accent,
+    backgroundColor: t.colors.role.ground,
   },
   fill: {
     height: "100%",

@@ -807,3 +807,13 @@ Emulator results after the fixes (1:30 rest; `logcat -b events` `notification_en
 
 **[pending] Not run:** audio alongside the chip; a large system font and a narrow phone (393 dp); TalkBack (the label reads "Rest 0:41 left on X. Go to X", reasoned, not heard); the lock-screen post alongside; the chip's colours against the board beyond a screenshot (the fill is the accent at 0.35 opacity, the board's #2B5560 has no token); iOS. `announceRestDone` is still not called off the resting exercise (TICKET-099, Open).
 
+## TICKET-100: the current exercise in the progress bar (2026-11-22)
+
+**Unit [run], `tsc` clean, full suite 86 suites / 1085 tests.** New (`WorkoutProgressBar.test.tsx`): the current segment is bigger than a done one, outlined in the done colour and not filled like it; the fill inside it grows with the sets logged. Seen failing with a line broken: the old grey track with no outline (red), no outline (red), the outline in another colour (red), the fill ignoring progress (red).
+
+**Device plan [run on the emulator, `pinky`, Android 16, 2026-11-22]:** the user's own running workout was already open (Back & Biceps AJ, exercise 4 of 11, one done, nothing on the current one), so nothing was logged or discarded.
+1. Logging screen: the fourth segment is a larger capsule outlined in the accent, the first is solid and thin, the rest thin and dark; it reads at a glance, unlike the screenshot that was reported.
+2. Workout tab, the plan's sheet: the same bar, the same capsule on the fourth segment.
+
+**[pending] Not run:** the purple theme; a current exercise with sets logged (fill inside the capsule) on a device; a narrow phone and large font; the guided tour step on the bar; iOS.
+
