@@ -11421,7 +11421,7 @@ emulator (an upper bound on the awake case) and, the number that matters, on the
 
 ### TICKET-098: Choose the Rest-Over Sound
 
-**Priority:** Medium | **Effort:** Medium | **Status: OPEN, stage 1 merged with 097 (PR #81); stage 2 (the row) built 2026-11-22, branch `feat/ticket-098-rest-sound-choice`, unmerged** — raised 2026-11-21 (user); stacked on TICKET-097
+**Priority:** Medium | **Effort:** Medium | **Status: MERGED** — stage 1 with 097 (PR #81), stage 2 (the row) in PR #82, 2026-11-22; device run on the emulator, no audio heard: the sounds and the alarm and ringtone lengths on a phone are still open (see the results below) — raised 2026-11-21 (user); was stacked on TICKET-097; branch `feat/ticket-098-rest-sound-choice`
 
 **Description (user, 2026-11-21):** let the user pick a default sound for the end of a rest, from 2-3 choices. Set once in settings; every
 rest then uses it. Not a per-rest or runtime choice.
