@@ -43,9 +43,11 @@ type Props = {
   startTime: number;
   onBack: () => void;
   onOpenMenu: () => void;
+  /** Under the elapsed time: the rest running on another exercise (TICKET-099). */
+  restChip?: React.ReactNode;
 };
 
-export default function WorkoutHeader({ workoutName, startTime, onBack, onOpenMenu }: Props) {
+export default function WorkoutHeader({ workoutName, startTime, onBack, onOpenMenu, restChip }: Props) {
   const { styles, t } = useThemeStyles(createStyles);
 
   return (
@@ -55,6 +57,7 @@ export default function WorkoutHeader({ workoutName, startTime, onBack, onOpenMe
       <View style={styles.titleBlock}>
         <TextBase style={styles.workoutName} numberOfLines={1}>{workoutName}</TextBase>
         <ElapsedTime startTime={startTime} />
+        {restChip}
       </View>
 
       <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.CANCEL_CURRENT_WORKOUT_LOGER}>

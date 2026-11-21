@@ -942,7 +942,9 @@
     "FinishConfirmPartial.dc.html": {"x": 0, "y": 47700, "w": 390, "h": 844, "radius": 28, "title": "Finish workout · confirm, some exercises have no sets"},
     "FinishConfirmAll.dc.html": {"x": 470, "y": 47700, "w": 390, "h": 844, "radius": 28, "title": "Finish workout · confirm, everything logged"},
     "SoundRow.dc.html": {"x": 0, "y": 49100, "w": 390, "h": 700, "radius": 28, "title": "Sound 1 · Rest-over sound: a row in the settings card, choices in place, each with a play button"},
-    "SoundStates.dc.html": {"x": 470, "y": 49100, "w": 390, "h": 700, "radius": 28, "title": "Sound 2 · The states: On, Off and Blocked"}
+    "SoundStates.dc.html": {"x": 470, "y": 49100, "w": 390, "h": 700, "radius": 28, "title": "Sound 2 · The states: On, Off and Blocked"},
+    "RestChip.dc.html": {"x": 0, "y": 50400, "w": 390, "h": 844, "radius": 28, "title": "Rest chip 1 · On another exercise: a chip in the header fills as the rest runs"},
+    "RestChipOver.dc.html": {"x": 470, "y": 50400, "w": 390, "h": 844, "radius": 28, "title": "Rest chip 2 · Rest over: solid, then it clears itself"}
   },
   "createdOnFiles": {
     "at": "2026-10-03T12:00:00Z",
@@ -1251,7 +1253,9 @@
     "finishConfirm": {"kind": "title1", "maxW": 860, "x": 0, "y": 47460, "text": "Finish workout: one confirm"},
     "finishConfirmWhy": {"fill": "gray", "w": 340, "x": 940, "y": 47700, "text": "A tap on Finish workout opens this dialog; the button stays where it is.\n\nIt says what will be saved. Exercises with no sets are one count, never a list: they are not saved (buildSessionDocs drops them).\n\nFinish is the accent fill, not danger red: nothing is destroyed. No yellow: that marks improvements in the logger.\n\nNo sets logged at all: no dialog. Finish already refuses with 'Nothing to save'.\n\nCard and button shape are the Discard dialog's."},
     "soundTitle": {"kind": "title1", "maxW": 860, "x": 0, "y": 48800, "text": "Rest-over sound: choose it in settings"},
-    "soundWhy": {"fill": "orange", "w": 340, "x": 940, "y": 49100, "text": "DECIDED (user, 2026-11-22). Drafts: Fitgram Design Drafts, boards A, B, C (B, the sheet, is not built).\n\nOne sound, chosen once in settings, plays at the end of every rest. Three built-in choices: the phone's own notification, alarm and ringtone sounds (no files; the sounds differ by phone). The first is the default.\n\nA second row in the lock-screen row's card (existing, unchanged). Tap it and the three choices open in place. Tap a row to choose it: saved at once, no Save button. Tap its play button to hear it once without choosing it.\n\nThe sound is an Android notification, so it needs the lock-screen row's permission. Off or Blocked: the row is dimmed and names the step above it.\n\nCopy: 'Rest-over sound' (its line is the chosen name); 'Notification sound', 'Alarm sound', 'Ringtone', each over \"Your phone's ...\"; 'Turn on rest time on lock screen first'; 'Allow notifications in Android settings first'.\n\nRisks, to check on a phone: alarm and ringtone sounds may play for several seconds; a phone whose notification sound is None plays its alarm sound instead.\n\nNot drawn: custom files, per-exercise sounds, a volume control."}
+    "soundWhy": {"fill": "orange", "w": 340, "x": 940, "y": 49100, "text": "DECIDED (user, 2026-11-22). Drafts: Fitgram Design Drafts, boards A, B, C (B, the sheet, is not built).\n\nOne sound, chosen once in settings, plays at the end of every rest. Three built-in choices: the phone's own notification, alarm and ringtone sounds (no files; the sounds differ by phone). The first is the default.\n\nA second row in the lock-screen row's card (existing, unchanged). Tap it and the three choices open in place. Tap a row to choose it: saved at once, no Save button. Tap its play button to hear it once without choosing it.\n\nThe sound is an Android notification, so it needs the lock-screen row's permission. Off or Blocked: the row is dimmed and names the step above it.\n\nCopy: 'Rest-over sound' (its line is the chosen name); 'Notification sound', 'Alarm sound', 'Ringtone', each over \"Your phone's ...\"; 'Turn on rest time on lock screen first'; 'Allow notifications in Android settings first'.\n\nRisks, to check on a phone: alarm and ringtone sounds may play for several seconds; a phone whose notification sound is None plays its alarm sound instead.\n\nNot drawn: custom files, per-exercise sounds, a volume control."},
+    "restChipTitle": {"kind": "title1", "maxW": 860, "x": 0, "y": 50100, "text": "Rest timer on every exercise"},
+    "restChipWhy": {"fill": "orange", "w": 340, "x": 940, "y": 50400, "text": "DECIDED (user, 2026-11-22). Drafts: Fitgram Design Drafts, boards A, B, C (B, the pill, and C, the bar, are not built).\n\nThe rest card lives on the exercise you just logged, so on any other exercise nothing showed the rest. A chip in the header, beside the elapsed time, now does.\n\nThe screen is the existing logging board (Main), unchanged except the chip. The chip shows only on an exercise that is not the resting one: there the full card is on screen.\n\nThe chip fills left to right behind the time as the rest runs. Tap it: go to the exercise the rest belongs to, where the card has +30s and Skip rest. It does not touch the timer.\n\nAt zero it turns solid with a check and 'Rest over', as the rest-over sound plays, stays a few seconds (a tunable, set in code) and clears itself.\n\nNo cross button: Skip rest is one tap away on the card, logging a set replaces the old rest, and the chip clears itself.\n\nChip is 28 px tall; its tap area is padded to 44.\nNot drawn: counting past the target, and +30s on a chip that has already cleared."}
   },
   "order": [
     "Main.dc.html",
@@ -1449,7 +1453,9 @@
     "FinishConfirmPartial.dc.html",
     "FinishConfirmAll.dc.html",
     "SoundRow.dc.html",
-    "SoundStates.dc.html"
+    "SoundStates.dc.html",
+    "RestChip.dc.html",
+    "RestChipOver.dc.html"
   ],
   "pages": [],
   "title": "Fitgram Workout Flow Redesign"
