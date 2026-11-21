@@ -7,6 +7,8 @@ import type { ActiveWorkout } from "../../types/zustandWorkoutType";
 import ExerciseLogger from "../../components/ExerciseLogger";
 import ScrollableScreen from "../../components/ScrollableScreen";
 import { DiscardWorkoutDialog } from "../../components/active_workout/DiscardWorkoutDialog";
+import { FinishWorkoutDialog } from "../../components/active_workout/FinishWorkoutDialog";
+import { finishSummary } from "../../utils/finishSummary";
 import WorkoutHeader from "../../components/active_workout/WorkoutHeader";
 import ExerciseNavHeader from "../../components/active_workout/ExerciseNavHeader";
 import WorkoutProgressBar from "../../components/active_workout/WorkoutProgressBar";
@@ -54,6 +56,7 @@ export default function ActiveWorkoutScreen() {
    */
   const [picker, setPicker] = useState<{ kind: "swap"; id: string } | { kind: "add" } | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [confirmFinish, setConfirmFinish] = useState(false);
   /**
    * The last removal (TICKET-069) and the workout object it wrote. The Undo bar
    * shows only while the store still holds that object: every later change to
@@ -183,7 +186,19 @@ export default function ActiveWorkoutScreen() {
     );
   }, [isFocused, activeWorkout, queuedSessionId, navigation]);
 
+  // The Finish button (TICKET-096). With no set logged there is nothing to confirm: the store refuses that Finish
+  // with its own "Nothing to save", and a dialog first would only lead into that error.
+  const requestFinish = () => {
+    if (activeWorkout && finishSummary(activeWorkout).sets > 0) setConfirmFinish(true);
+    else handleFinish();
+  };
+
   const handleFinish = async () => {
+    setConfirmFinish(false);
+    // A Finish already running (PR #80 review): two taps in one frame both reach here, the store refuses the second
+    // ("No active workout"), and its refusal would clear `finished` and send the user to the hub instead of the Session.
+    // `finished` is set synchronously below, before the first await, so the second tap sees it.
+    if (finished.current) return;
     if (!activeWorkout) {
       show.alert("No active workout to save.");
       return;
@@ -341,7 +356,7 @@ export default function ActiveWorkoutScreen() {
             {/* Outlined on purpose: the screen's one accent fill belongs to Log set. */}
             <TouchableOpacity
               style={[styles.finishButton, finishing && styles.finishButtonBusy]}
-              onPress={handleFinish}
+              onPress={requestFinish}
               disabled={finishing}
               accessibilityRole="button"
               accessibilityState={{ disabled: finishing, busy: finishing }}
@@ -371,6 +386,13 @@ export default function ActiveWorkoutScreen() {
           onClose={() => setPicker(null)}
         />
       )}
+
+      <FinishWorkoutDialog
+        visible={confirmFinish}
+        summary={finishSummary(activeWorkout)}
+        onKeep={() => setConfirmFinish(false)}
+        onFinish={handleFinish}
+      />
 
       <DiscardWorkoutDialog
         visible={confirmDiscard}

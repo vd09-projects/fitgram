@@ -62,6 +62,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 092 | History: what a lift with no weight shows | Small-Medium | Raised 2026-11-20 (user). **Open, after the History build and user testing.** The Exercise screen has no measure for a time or distance lift |
 | 093 | Exercise log: virtualise a long list | Small-Medium | Raised 2026-11-20 (PR #77 review, deferred by the user). **Open; measure first.** "All" with many loaded pages renders every row |
 | 094 | History home: the Exercises tab | Medium | **Lowest priority; open.** Split from 085b (2026-11-20, user): build only if users want to browse lifts and see Better / Lower / Same. Until then no list of lifts exists once 085b removes the old page |
+| 096 | Confirm before Finish workout | Small | Raised 2026-11-21 (user: a wrong touch finished a workout, and there is no edit). **Built and device-run; PR open.** |
 
 ### Not tickets — verification owed
 
@@ -11324,6 +11325,34 @@ and what it would make obsolete (`rebuildExerciseStats.ts`, the compare script, 
 **Out of scope:** any screen.
 
 **Dependencies:** TICKET-086 (leaves the stale verdict this ticket resolves).
+
+---
+
+### TICKET-096: Confirm Before Finish Workout
+
+**Priority:** Medium | **Effort:** Small | **Status: BUILT, PR open** — raised 2026-11-21 (user); branch `feat/ticket-096-finish-confirm`
+
+**Description (user, 2026-11-21):** someone tapped Finish workout by mistake and it finished the workout. A finished workout cannot be edited
+(Delete exists, 086), so a wrong touch is a bad experience. "Just one extra level of security."
+
+**Decided (discussion, 2026-11-21):**
+- **A dialog, Finish stays where it is.** Rejected: hiding Finish in the ⋯ menu. Finish is the main action of every workout and the mistake is
+  rare; hiding it taxes every session, and the guided tour points at it. Rejected: an undo bar. `endWorkout` empties the active slot and starts
+  the upload, and the screen leaves; an undo needs a held-back state for the one case it guards.
+- **The message says what will be saved.** "Will be saved: 14 sets · 4 exercises", and, only when there are any, "No sets, left out: 2 exercises".
+  A count, never a list of names (user: ten unstarted exercises would make a long list), in the dialog's own greys, not the signal yellow (that
+  marks beating last session). Boards `FinishConfirmPartial` and `FinishConfirmAll` (Drafts options FD1a, FD1b, FD2; the user chose FD1b and FD2).
+- **Finish is the accent fill, not danger red**: nothing is destroyed.
+- **No dialog with no set logged.** `endWorkout` already refuses that Finish ("Nothing to save"); a confirmation would lead into the error.
+- "Has sets" is `buildSessionDocs`'s own filter (`finishSummary`), so the dialog never promises what the save does not do.
+
+**Built:** `src/utils/finishSummary.ts` (pure), `FinishWorkoutDialog`, `AlertBase` takes `children`, `ActiveWorkoutScreen` asks first.
+Existing Finish tests tap the confirmation; four new screen tests and two for `finishSummary`. Seen failing with a line broken: the gate always saving (the saves-only-after test), the gate always opening (the no-set skip), the summary counting every exercise as logged (the `finishSummary` and card tests), and, from the PR #80 review, the in-flight guard, `onKeep` and `setConfirmFinish(false)`. The all-logged sentence test was not broken on its own.
+
+**Main canvas:** the two boards were first refused ("newer version"); a whole-canvas read before publishing fixed it, and they are on the main canvas (2026-11-21).
+
+**Device run (emulator, `pinky`, 2026-11-21):** passed on both dialog variants, Keep logging, Back, a real Finish and its Delete, and the no-set skip. Found and fixed: at 393 dp with the font at 1.3 the card's label and value touched (no gap).
+**Not verified:** the server side after the delete (`compareHistory.ts`); the guided tour step; iOS.
 
 ---
 
