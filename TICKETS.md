@@ -62,7 +62,6 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 092 | History: what a lift with no weight shows | Small-Medium | Raised 2026-11-20 (user). **Open, after the History build and user testing.** The Exercise screen has no measure for a time or distance lift |
 | 093 | Exercise log: virtualise a long list | Small-Medium | Raised 2026-11-20 (PR #77 review, deferred by the user). **Open; measure first.** "All" with many loaded pages renders every row |
 | 094 | History home: the Exercises tab | Medium | **Lowest priority; open.** Split from 085b (2026-11-20, user): build only if users want to browse lifts and see Better / Lower / Same. Until then no list of lifts exists once 085b removes the old page |
-| 096 | Confirm before Finish workout | Small | Raised 2026-11-21 (user: a wrong touch finished a workout, and there is no edit). **Built and device-run; PR open.** |
 
 ### Not tickets — verification owed
 
@@ -11330,7 +11329,7 @@ and what it would make obsolete (`rebuildExerciseStats.ts`, the compare script, 
 
 ### TICKET-096: Confirm Before Finish Workout
 
-**Priority:** Medium | **Effort:** Small | **Status: BUILT, PR open** — raised 2026-11-21 (user); branch `feat/ticket-096-finish-confirm`
+**Priority:** Medium | **Effort:** Small | **Status: MERGED** — PR #80, 2026-11-21; device run on the emulator — raised 2026-11-21 (user); branch `feat/ticket-096-finish-confirm`
 
 **Description (user, 2026-11-21):** someone tapped Finish workout by mistake and it finished the workout. A finished workout cannot be edited
 (Delete exists, 086), so a wrong touch is a bad experience. "Just one extra level of security."
