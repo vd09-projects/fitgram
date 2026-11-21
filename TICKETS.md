@@ -11509,11 +11509,11 @@ know how much time is left". Make it global, or something better.
 a lock-screen "0:00" swap that ran late (deep sleep). The chip could call it as well. Pre-existing (097/079), left for a decision.
 
 **Built (2026-11-22):** `restChipState` (pure, `src/utils/restChip.ts`), `RestChip` in `WorkoutHeader`'s new `restChip` slot, `REST_DONE_CHIP_MS`
-in `src/config/workout.ts`, `ActiveWorkoutScreen` passes the chip and the jump. The clock is in the chip's inner component, so a screen with no rest
-to show runs no interval. Tests: 5 for `restChipState`, 3 for the screen (time on another exercise and none on the resting one; tap goes there and
+in `src/config/workout.ts`, `ActiveWorkoutScreen` passes the chip and the jump. The clock is in the chip's inner component and stops at the end of the
+"Rest over" window (`restChipEndsAt`), though `rest` stays in the store. Tests: 5 for `restChipState`, 5 for the chip (the screen, and the chip alone) (time on another exercise and none on the resting one; tap goes there and
 leaves the timer alone; "Rest over", then clear, rest still in the store). Each seen failing with its line broken: chip on the resting exercise
 (`restChipState` test), the done window never closing, a backwards clock showing done, the tap doing nothing, the tap ending the rest, the chip
-clearing the rest. A fourth screen test (a skipped rest drops the chip) was cut: no change to the code made it fail.
+clearing the rest, the clock never stopping, and the clock not restarting after add-time (PR #83 review, pass 1: the claim "no interval when there is no rest" was false until the clock stopped itself). A screen test (a skipped rest drops the chip) was cut: no change to the code made it fail.
 **Device run (emulator, `pinky`, "Shoulders AJ", 2026-11-22; nothing finished, the workout was discarded):** passed. Chip under the elapsed time on
 exercise 2 after logging on exercise 1, counting down (1:27 to 1:01 over 25 s) with the fill growing; tap went to exercise 1, whose card read the
 untouched timer, and the chip was gone there; back on exercise 2 the chip returned; "Rest over" (solid, check) seen after +30s on a finished rest, and gone

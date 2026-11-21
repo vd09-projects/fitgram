@@ -8,6 +8,21 @@
 import { REST_DONE_CHIP_MS } from "../config/workout";
 import { formatCountdown, restCountdown, RestTimer } from "./restTimer";
 
+/** Whether `rest` belongs to the exercise on screen, where the card is and the chip is not wanted. */
+export function isRestingExercise(rest: RestTimer, viewingExerciseId: string | null): boolean {
+  return rest.exerciseId === viewingExerciseId;
+}
+
+/**
+ * The wall-clock time after which the chip has nothing left to show for `rest`
+ * (the end of the "Rest over" window), for the component to stop its clock.
+ * `restChipState` reads the same moment, so the two cannot disagree. Moves
+ * later when add-time lengthens the rest.
+ */
+export function restChipEndsAt(rest: RestTimer): number {
+  return rest.startedAt + rest.durationMs + REST_DONE_CHIP_MS;
+}
+
 export type RestChipState =
   | {
       kind: "running";
@@ -38,7 +53,7 @@ export function restChipState(
   viewingExerciseId: string | null,
   now: number
 ): RestChipState | null {
-  if (rest === null || rest.exerciseId === viewingExerciseId) return null;
+  if (rest === null || isRestingExercise(rest, viewingExerciseId)) return null;
 
   const countdown = restCountdown(rest.startedAt, rest.durationMs, now);
   if (countdown === null) return null;
@@ -51,5 +66,5 @@ export function restChipState(
   }
 
   const sinceEnd = now - (rest.startedAt + rest.durationMs);
-  return sinceEnd >= 0 && sinceEnd < REST_DONE_CHIP_MS ? { kind: "done" } : null;
+  return sinceEnd >= 0 && now < restChipEndsAt(rest) ? { kind: "done" } : null;
 }

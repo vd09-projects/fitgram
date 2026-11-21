@@ -1,11 +1,10 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { TextBase, NumericText } from "../TextBase";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
-import { useNow } from "../../hooks/useNow";
-import { restChipState } from "../../utils/restChip";
+import { isRestingExercise, restChipEndsAt, restChipState } from "../../utils/restChip";
 import { RestTimer } from "../../utils/restTimer";
 
 type Props = {
@@ -24,17 +23,36 @@ type Props = {
  * as the rest runs, reads "Rest over" for a few seconds at the end, then clears;
  * all of that is `restChipState`.
  *
- * The clock lives in the inner component, so a screen with no rest to show runs
- * no interval.
+ * The clock lives in the inner component, and it stops once the chip has nothing
+ * left to show (the end of the "Rest over" window), though `rest` itself stays in
+ * the store until the user acts on it.
  */
 export default function RestChip({ rest, viewingExerciseId, exerciseName, onPress }: Props) {
-  if (rest === null || rest.exerciseId === viewingExerciseId) return null;
+  // The same test as `restChipState`'s, asked here first so the resting
+  // exercise, where the card is, mounts no clock at all.
+  if (rest === null || isRestingExercise(rest, viewingExerciseId)) return null;
   return <TickingChip rest={rest} viewingExerciseId={viewingExerciseId} exerciseName={exerciseName} onPress={onPress} />;
 }
 
 function TickingChip({ rest, viewingExerciseId, exerciseName, onPress }: Props) {
   const { styles, t } = useThemeStyles(createStyles);
-  const now = useNow(500);
+  // Ticks every half second, as the card does, until the chip's last moment, then
+  // stops: `useNow` has no off switch, and a finished rest can sit in the store
+  // for minutes. Add-time moves `endsAt`, which restarts the clock.
+  const [now, setNow] = useState(() => Date.now());
+  const endsAt = restChipEndsAt(rest);
+  useEffect(() => {
+    if (Date.now() >= endsAt) {
+      setNow(Date.now());
+      return;
+    }
+    const id = setInterval(() => {
+      const tick = Date.now();
+      setNow(tick);
+      if (tick >= endsAt) clearInterval(id);
+    }, 500);
+    return () => clearInterval(id);
+  }, [endsAt]);
   const chip = restChipState(rest, viewingExerciseId, now);
   if (chip === null) return null;
 
@@ -99,6 +117,8 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
     letterSpacing: 1,
     color: t.colors.role.textSecondary,
   },
+  // Type sizes map from the board by the System board's table: the time is 13
+  // (xMedium), "Rest over" 12.5 (small), the REST label 10.5 (xSmall).
   time: {
     fontSize: t.fonts.xMedium,
     fontWeight: "bold",
