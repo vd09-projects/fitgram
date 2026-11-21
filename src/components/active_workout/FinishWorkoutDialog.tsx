@@ -63,11 +63,11 @@ export function FinishWorkoutDialog({
         <View style={styles.summary}>
           <View style={styles.row}>
             <TextBase style={styles.label}>Will be saved</TextBase>
-            <TextBase style={styles.value}>{saved}</TextBase>
+            <TextBase numeric style={styles.value}>{saved}</TextBase>
           </View>
           <View style={[styles.row, styles.rowDivider]}>
             <TextBase style={styles.label}>No sets, left out</TextBase>
-            <TextBase style={[styles.value, styles.valueMuted]}>
+            <TextBase numeric style={[styles.value, styles.valueMuted]}>
               {plural(summary.exercisesWithoutSets, "exercise", "exercises")}
             </TextBase>
           </View>
@@ -87,15 +87,19 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
     title: {
       color: t.colors.role.textPrimary,
     },
+    // The sentence stays in the display face (it is prose with numbers in it, as in the Discard dialog); the card's
+    // values are numeric (the board's mono). Size from the board's 14 px.
     message: {
+      fontSize: t.fonts.xMedium,
       color: t.colors.role.textSecondary,
     },
     summary: {
       backgroundColor: t.colors.role.raised,
       borderWidth: 1,
       borderColor: t.colors.role.hairline,
+      // The board's 12: between BORDER_RADIUS (8) and LARGE_BORDER_RADIUS (16, the dialog's own corner), which would match it.
       borderRadius: 12,
-      marginBottom: 12,
+      marginBottom: SPACING.medium,
     },
     row: {
       flexDirection: "row",
@@ -104,8 +108,8 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
       // The gap and both shrinks: at a 393 dp phone with the system font at 1.3 the label and the value touched
       // ("Will be saved1 set · 1 exercise"); now the longer of the two wraps instead.
       gap: SPACING.medium,
-      paddingHorizontal: 14,
-      paddingVertical: 11,
+      paddingHorizontal: SPACING.xMedium,
+      paddingVertical: SPACING.medium,
     },
     rowDivider: {
       borderTopWidth: 1,

@@ -130,6 +130,9 @@ describe("ActiveWorkoutScreen", () => {
 
     expect(save).toHaveBeenCalledTimes(1);
     expect(useWorkoutStore.getState().activeWorkout).toBeNull();
+    // The second tap's refusal must not take the landing away (PR #80 review): the Session, not the hub.
+    expect(screen.getByText(`route:Workout/${WorkoutRoutes.Session}`)).toBeOnTheScreen();
+    expect(screen.queryByText("route:Workout/WorkoutHome")).toBeNull();
     log.mockRestore();
   });
 });
@@ -152,6 +155,7 @@ describe("Finish confirmation", () => {
 
     fireEvent.press(screen.getByText("Keep logging"));
     expect(endWorkout).not.toHaveBeenCalled();
+    expect(screen.queryByText("Finish this workout?")).toBeNull();
 
     // The positive half: without it, a Finish wired to nothing passes.
     fireEvent.press(finishButton());
@@ -263,6 +267,8 @@ describe("after the workout ends", () => {
         finish({ status: "refused", reason: "Could not write the upload queue." });
       });
       expect(screen.queryByText(/^route:/)).toBeNull();
+      // The put-back must not bring the confirmation back with it: the user already answered it.
+      expect(screen.queryByText("Finish this workout?")).toBeNull();
       expect(finishButton()).toBeOnTheScreen();
     });
   });

@@ -728,9 +728,9 @@ No screen yet; nothing to see on a phone. Checked by unit tests only.
 
 ## TICKET-096: Confirm before Finish workout (2026-11-21)
 
-**Unit [run], 1059 tests, typecheck clean.** New: `finishSummary` (counts, nothing logged); the screen (Finish opens the dialog and saves nothing; Keep logging saves nothing; the confirmation's Finish saves once; the summary card counts exercises with no sets without naming them; all-logged shows one sentence and no card; no set logged skips the dialog and reaches the store's refusal). Each seen failing with its line broken (the gate always saving, the gate always opening, the summary counting every exercise as logged). The existing Finish tests now tap the confirmation; the two-taps-in-one-frame test taps the confirmation twice.
+**Unit [run], 1059 tests, typecheck clean.** New: `finishSummary` (counts, nothing logged); the screen (Finish opens the dialog and saves nothing; Keep logging saves nothing; the confirmation's Finish saves once; the summary card counts exercises with no sets without naming them; all-logged shows one sentence and no card; no set logged skips the dialog and reaches the store's refusal). Seen failing with its line broken: the gate always saving, the gate always opening, the summary counting every exercise as logged (first pass); see the review fixes below for the rest. The existing Finish tests now tap the confirmation; the two-taps-in-one-frame test taps the confirmation twice.
 
-**Device plan [pending: the confirm path finishes and uploads a workout, so it writes to `pinky`].** Emulator, `pinky`.
+**Device plan [run, results below]: the confirm path finishes and uploads a workout, so it wrote to `pinky`.** Emulator, `pinky`.
 1. Start a Freestyle workout with two exercises, log one set on one. Tap Finish workout: the dialog shows "Will be saved 1 set · 1 exercise" and "No sets, left out 1 exercise", no yellow, Finish in the accent fill. **Keep logging**: closes, nothing saved, still on the logger.
 2. Android Back while the dialog is open: closes it (as Keep logging), nothing saved. A tap outside the card does nothing, as in the Discard dialog.
 3. Log a set on the second exercise, Finish workout: one sentence, "2 sets in 2 exercises will be saved.", no card. Finish: lands on the Session as before (writes one test workout; delete it after, 086).
@@ -744,4 +744,11 @@ No screen yet; nothing to see on a phone. Checked by unit tests only.
 
 - **[run] Passed:** (1) one set on one of two exercises: "Will be saved 1 set · 1 exercise", "No sets, left out 1 exercise", no yellow, Finish in the accent fill; **Keep logging** closes it and nothing is saved. (2) Android Back closes the dialog, nothing saved (seen open, then closed). (3) Both exercises logged: "2 sets in 2 exercises will be saved." with no card; **Finish** lands on the Session with "Workout saved", as before. Deleting it from History (⋯, Delete session, Delete) removed it from the list. (4) No set logged: Finish shows "Nothing to save", no dialog first.
 - **[bug found and fixed] The summary card's label and value touched** at 393 x 851 dp with the system font at 1.3 ("Will be saved1 set · 1 exercise"). The row had no gap. It has `gap: SPACING.medium` and both texts may shrink, so the longer one wraps ("Will be / saved", "1 set · 1 / exercise"). Seen on the device before and after. No unit test: it is layout.
-- **[pending] Not run:** (6) the guided tour step (the tour is rewritten in TICKET-053); the server-side `compareHistory.ts` after the delete (the delete is seen in the app only); iOS.
+- **[pending] Not run:** a tap outside the card (plan item 2's second half; the dialog has no backdrop press, from the Discard dialog's `AlertBase`, so it is by reading only); (6) the guided tour step (the tour is rewritten in TICKET-053); the server-side `compareHistory.ts` after the delete (the delete is seen in the app only); iOS.
+
+### TICKET-096 review fixes (PR #80, pass 1)
+
+**Unit [run], typecheck clean, full suite run before the push.** Fixed: (F1) a Finish already running makes `handleFinish` return, so a second dialog-Finish tap in one frame no longer clears the landing and sends the user to the hub (the two-taps test now asserts the Session route; the same bug existed with two footer taps on `origin/main`, the dialog added a second button that reaches it); (F2) Keep logging and the put-back after a failed write are asserted to leave no dialog; (F3) the card's values are `numeric`; (F4) spacing tokens and the board's 14 px message size; the card's radius stays the board's 12 (no token); (F5) doc slips; (F6) the dead `activeWorkout &&` guard and the `AlertBase` `children` comment.
+
+**Each seen failing with its line broken:** F1 (guard removed: the two-taps test), F2 (`onKeep` a no-op: the saves-only-after test; `setConfirmFinish(false)` removed from `handleFinish`: the failed-write test). F3 and F4 are styling, read against the boards and not run on a device again.
+

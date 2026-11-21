@@ -195,6 +195,10 @@ export default function ActiveWorkoutScreen() {
 
   const handleFinish = async () => {
     setConfirmFinish(false);
+    // A Finish already running (PR #80 review): two taps in one frame both reach here, the store refuses the second
+    // ("No active workout"), and its refusal would clear `finished` and send the user to the hub instead of the Session.
+    // `finished` is set synchronously below, before the first await, so the second tap sees it.
+    if (finished.current) return;
     if (!activeWorkout) {
       show.alert("No active workout to save.");
       return;
@@ -383,14 +387,12 @@ export default function ActiveWorkoutScreen() {
         />
       )}
 
-      {activeWorkout && (
-        <FinishWorkoutDialog
-          visible={confirmFinish}
-          summary={finishSummary(activeWorkout)}
-          onKeep={() => setConfirmFinish(false)}
-          onFinish={handleFinish}
-        />
-      )}
+      <FinishWorkoutDialog
+        visible={confirmFinish}
+        summary={finishSummary(activeWorkout)}
+        onKeep={() => setConfirmFinish(false)}
+        onFinish={handleFinish}
+      />
 
       <DiscardWorkoutDialog
         visible={confirmDiscard}

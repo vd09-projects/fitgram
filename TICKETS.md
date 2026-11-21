@@ -11350,7 +11350,6 @@ and what it would make obsolete (`rebuildExerciseStats.ts`, the compare script, 
 Existing Finish tests tap the confirmation; four new screen tests and two for `finishSummary`, each seen failing with its line broken.
 
 **Main canvas:** the two boards were first refused ("newer version"); a whole-canvas read before publishing fixed it, and they are on the main canvas (2026-11-21).
-version", the content unchanged. They are in `design/workout-flow/project/` and wait for a publish.
 
 **Device run (emulator, `pinky`, 2026-11-21):** passed on both dialog variants, Keep logging, Back, a real Finish and its Delete, and the no-set skip. Found and fixed: at 393 dp with the font at 1.3 the card's label and value touched (no gap).
 **Not verified:** the server side after the delete (`compareHistory.ts`); the guided tour step; iOS.

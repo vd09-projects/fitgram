@@ -31,7 +31,7 @@ export interface AlertBaseProps {
   containerStyle?: StyleProp<ViewStyle>;
   titleStyle?: StyleProp<TextStyle>;
   messageStyle?: StyleProp<TextStyle>;
-  /** Between the title and the message: the Finish confirmation's summary card (TICKET-096). */
+  /** Extra content between the title and the message, for a dialog that needs more than a sentence. */
   children?: React.ReactNode;
 }
 
