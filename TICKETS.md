@@ -11478,7 +11478,7 @@ ringtone sounds play on a phone, and whether a deleted-then-recreated channel ke
 
 ### TICKET-099: Show the Rest Timer on Every Exercise
 
-**Priority:** Medium | **Effort:** Small | **Status: BUILT 2026-11-22, branch `feat/ticket-099-rest-chip`, unmerged** — raised 2026-11-22 (user, from a screen recording)
+**Priority:** Medium | **Effort:** Small | **Status: MERGED** — PR #83, 2026-11-22; device run on the emulator before the review fixes; open items listed below — raised 2026-11-22 (user, from a screen recording); branch `feat/ticket-099-rest-chip`
 
 **Description (user, 2026-11-22):** moving to the next exercise while resting, the timer keeps running but the screen shows nothing about it; "I don't
 know how much time is left". Make it global, or something better.
@@ -11520,6 +11520,9 @@ untouched timer, and the chip was gone there; back on exercise 2 the chip return
 after the window; on return the resting exercise still read "Rest done" with Next set (the rest outlives the chip).
 **Not verified:** audio with the chip (the "as the sound plays" line on the board is unchecked); a large system font; a narrow phone; TalkBack; the
 board compared side by side beyond a screenshot; iOS. Screenshots took up to 19 s on the emulator, so the "Rest over" frame was caught by a burst, not timed.
+
+**PR #83 review (pass 1, approved) and merge:** three suggestions fixed in `ddccc27`: the chip's clock stopped only when unmounted (it now stops at the end of the "Rest over" window and restarts on add-time), one `isRestingExercise` for the component and `restChipState`, and the board font mappings written next to the styles. The review's other two were FYI and are in "Open" and "Not verified". **Not re-run on the emulator after those fixes** (unit tests and CI only).
+**Open:** `announceRestDone` off the resting exercise (above). Not verified: audio alongside the chip, a large system font, a narrow phone, TalkBack (the label reads "Rest 0:41 left on X. Go to X"), iOS.
 
 **Not in scope:** a cross or long-press to skip; counting past the target; +30s on the chip; iOS.
 
