@@ -330,73 +330,82 @@ export default function ExercisePicker({
   const backTaken = mode.kind === "swap" && !!mode.planned && inPlan.has(mode.planned.exercise.id);
 
   return (
-    // Rides on the keyboard: KeyboardLift says why a bare KeyboardAvoidingView
-    // is not enough on Android.
-    <KeyboardLift style={[StyleSheet.absoluteFill, styles.screen]} testID="exercise-picker">
-      <View style={styles.top}>
-        <TouchableOpacity style={styles.back} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
-          <Ionicons name="chevron-back" size={22} color={t.colors.role.textPrimary} />
-        </TouchableOpacity>
-        <View style={styles.headingText}>
-          <TextBase style={styles.heading} numberOfLines={2}>
-            {mode.kind === "swap" ? `Swap ${mode.replacing.title}` : "Add exercise"}
-          </TextBase>
-          {mode.kind !== "plan" && <TextBase style={styles.detail}>{headingDetail(mode)}</TextBase>}
-        </View>
-      </View>
-      {/* Board SwapBack: the way back from a swap is here, not on the logger.
-          Taken like any other row: another slot may have been swapped to the
-          plan's exercise, and the store refuses a duplicate id (PR #34 review). */}
-      {mode.kind === "swap" && mode.planned && (
-        <TouchableOpacity
-          style={[styles.backToPlan, backTaken && styles.rowDisabled]}
-          disabled={backTaken}
-          onPress={() => mode.planned && onPick(mode.planned.exercise)}
-          accessibilityRole="button"
-          accessibilityLabel={`Back to plan: ${mode.planned.title}`}
-          accessibilityState={{ disabled: backTaken }}
-        >
-          <Ionicons name="arrow-undo" size={20} color={t.colors.role.accent} />
-          <View style={styles.rowText}>
-            <TextBase style={styles.name}>{`Back to plan: ${mode.planned.title}`}</TextBase>
-            <TextBase style={styles.detail}>The one your plan has</TextBase>
+    // The sheets are siblings of the padded, keyboard-lifted content, not
+    // children of it: their overlays are absoluteFill, and inside the padded
+    // KeyboardLift they filled the padding box, so a sheet sat SPACING.large in
+    // from each side and 80% of a shrunken height (device, 2026-11-21).
+    // Rejected: negative margins on the overlays, which would couple them to
+    // this padding. The sheets have no text field and the keyboard is already
+    // dismissed when one opens, so they need no lift of their own.
+    <View style={StyleSheet.absoluteFill} testID="exercise-picker">
+      {/* Rides on the keyboard: KeyboardLift says why a bare KeyboardAvoidingView
+          is not enough on Android. */}
+      <KeyboardLift style={[styles.fill, styles.screen]}>
+        <View style={styles.top}>
+          <TouchableOpacity style={styles.back} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
+            <Ionicons name="chevron-back" size={22} color={t.colors.role.textPrimary} />
+          </TouchableOpacity>
+          <View style={styles.headingText}>
+            <TextBase style={styles.heading} numberOfLines={2}>
+              {mode.kind === "swap" ? `Swap ${mode.replacing.title}` : "Add exercise"}
+            </TextBase>
+            {mode.kind !== "plan" && <TextBase style={styles.detail}>{headingDetail(mode)}</TextBase>}
           </View>
-          {backTaken && <TextBase style={styles.badge}>{takenLabel(mode, mode.planned.exercise.id)}</TextBase>}
-        </TouchableOpacity>
-      )}
-      {movements === null ? (
-        <TextBase style={[styles.empty, styles.body]}>Exercise catalog not loaded yet. Connect once and reopen.</TextBase>
-      ) : !hasResults ? (
-        <View style={[styles.none, styles.body]}>
-          <TextBase style={styles.noneTitle}>No exercise matches</TextBase>
-          <TextBase style={styles.empty}>
-            {search
-              ? "Every word has to match. Try fewer words, the movement (“low row”) or a muscle (“lats”)."
-              : "Every filter has to match. Clear one to see more."}
-          </TextBase>
         </View>
-      ) : (
-        <FlatList
-          style={styles.body}
-          data={rows}
-          keyExtractor={(row) => row.key}
-          renderItem={renderRow}
-          keyboardShouldPersistTaps="handled"
-          initialNumToRender={12}
-          windowSize={7}
+        {/* Board SwapBack: the way back from a swap is here, not on the logger.
+            Taken like any other row: another slot may have been swapped to the
+            plan's exercise, and the store refuses a duplicate id (PR #34 review). */}
+        {mode.kind === "swap" && mode.planned && (
+          <TouchableOpacity
+            style={[styles.backToPlan, backTaken && styles.rowDisabled]}
+            disabled={backTaken}
+            onPress={() => mode.planned && onPick(mode.planned.exercise)}
+            accessibilityRole="button"
+            accessibilityLabel={`Back to plan: ${mode.planned.title}`}
+            accessibilityState={{ disabled: backTaken }}
+          >
+            <Ionicons name="arrow-undo" size={20} color={t.colors.role.accent} />
+            <View style={styles.rowText}>
+              <TextBase style={styles.name}>{`Back to plan: ${mode.planned.title}`}</TextBase>
+              <TextBase style={styles.detail}>The one your plan has</TextBase>
+            </View>
+            {backTaken && <TextBase style={styles.badge}>{takenLabel(mode, mode.planned.exercise.id)}</TextBase>}
+          </TouchableOpacity>
+        )}
+        {movements === null ? (
+          <TextBase style={[styles.empty, styles.body]}>Exercise catalog not loaded yet. Connect once and reopen.</TextBase>
+        ) : !hasResults ? (
+          <View style={[styles.none, styles.body]}>
+            <TextBase style={styles.noneTitle}>No exercise matches</TextBase>
+            <TextBase style={styles.empty}>
+              {search
+                ? "Every word has to match. Try fewer words, the movement (“low row”) or a muscle (“lats”)."
+                : "Every filter has to match. Clear one to see more."}
+            </TextBase>
+          </View>
+        ) : (
+          <FlatList
+            style={styles.body}
+            data={rows}
+            keyExtractor={(row) => row.key}
+            renderItem={renderRow}
+            keyboardShouldPersistTaps="handled"
+            initialNumToRender={12}
+            windowSize={7}
+          />
+        )}
+
+        <FilterRow filters={filters} onOpen={openMenu} />
+
+        <SearchBox
+          label="Search"
+          placeholder="Name, muscle or equipment"
+          value={query}
+          onChangeText={setQuery}
+          tourStepPrefix={tourStepPrefix}
+          tourPosition="above"
         />
-      )}
-
-      <FilterRow filters={filters} onOpen={openMenu} />
-
-      <SearchBox
-        label="Search"
-        placeholder="Name, muscle or equipment"
-        value={query}
-        onChangeText={setQuery}
-        tourStepPrefix={tourStepPrefix}
-        tourPosition="above"
-      />
+      </KeyboardLift>
 
       {sheet && (
         <VersionSheet
@@ -416,11 +425,12 @@ export default function ExercisePicker({
       {menu && (
         <FilterSheet menu={menu} filters={filters} equipmentByUse={equipmentByUse} onChange={setFilters} onClose={() => setMenu(null)} />
       )}
-    </KeyboardLift>
+    </View>
   );
 }
 
 const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
+  fill: { flex: 1 },
   screen: {
     backgroundColor: t.colors.role.ground,
     paddingHorizontal: SPACING.large,

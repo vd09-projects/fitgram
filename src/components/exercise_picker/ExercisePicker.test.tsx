@@ -110,6 +110,22 @@ describe("ExercisePicker", () => {
     expect(StyleSheet.flatten(screen.getByTestId("version-sheet").props.style)).toMatchObject({ flexShrink: 1 });
   });
 
+  it("the version sheet is not inside the picker's padding, so it spans the screen's width", () => {
+    renderPicker();
+    type("bench");
+    fireEvent.press(screen.getByText("Bench Press"));
+    // The overlay is absoluteFill: inside a padded ancestor it fills the
+    // padding box and sits inset (device, 2026-11-21). Layout is not computed
+    // in jest, so walk up to the picker root and check no ancestor pads.
+    const root = screen.getByTestId("exercise-picker");
+    // The sheet's own composite wrapper carries its style too: skip those.
+    const sheet = screen.getByTestId("version-sheet");
+    for (let node = sheet.parent; node && node !== root.parent; node = node.parent) {
+      if (node.props.style === sheet.props.style) continue;
+      expect(StyleSheet.flatten(node.props.style) ?? {}).not.toHaveProperty("paddingHorizontal");
+    }
+  });
+
   it("what is already in the plan cannot be added: a one-version row reads In plan, a combination is disabled", () => {
     const onPick = renderPicker(["pec_deck__machine", "bench_press__dumbbell__incline"]);
     type("pec deck");
