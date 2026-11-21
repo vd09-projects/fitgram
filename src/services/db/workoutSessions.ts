@@ -100,7 +100,12 @@ const sessionFromDoc = (snapshot: QueryDocumentSnapshot<DocumentData>): WorkoutS
  *     what makes an offline Finish safe.
  *  2. A transaction that folds those sessions into the exercise_stats rollup
  *     and, from the rollups it reads (no extra read), puts each lift's verdict
- *     on the session's `lifts`: one more write, 18 per Finish of 8 lifts.
+ *     on the session's `lifts`: one more write, 18 per Finish of 8 lifts, and
+ *     9 reads (a rollup per lift, and the workout's own doc: if it is a
+ *     `deleted` marker the workout was deleted while the upload waited in a
+ *     queue, TICKET-086, so phase 2 deletes the `exercise_sessions` docs phase 1
+ *     just wrote, folds nothing and returns `{ deleted: true }`; the marker
+ *     itself is merged into by phase 1, so its `lifts` and stamp move once more).
  *     Transactions need a server round trip, so this can fail after phase 1
  *     landed. It then rejects, and the upload queue keeps the workout and runs
  *     both phases again at its next trigger (TICKET-077). Safe to repeat: same
@@ -494,7 +499,6 @@ export const deleteWorkout = async (
   const stampsBefore: (SyncStamp | undefined)[] = [];
   for (const exerciseId of exerciseIds) {
     const statsSnapshot = await getDocFromServer(doc(exerciseStatsRef(userId), exerciseId));
-    if (statsSnapshot.metadata.hasPendingWrites) throw new Error("A workout upload is still queued on this phone");
     stampsBefore.push(toStamp(statsSnapshot.data()?.updatedAt));
     const sessionsOfLift = await getAllSessionsOfExercise(userId, exerciseId);
     docsRead += sessionsOfLift.length;

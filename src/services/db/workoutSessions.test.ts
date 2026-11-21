@@ -464,6 +464,13 @@ describe("deleting a workout", () => {
     expect([tx.update, tx.delete, tx.set].every((m) => m.mock.calls.length === 0)).toBe(true);
   });
 
+  // Pass 2, N5: the summary did not exist when it was read (no stamp), and a Finish created it before the commit.
+  it("refuses when a summary that did not exist at read time has appeared by the commit", async () => {
+    (getDocFromServer as jest.Mock).mockImplementation(async () => ({ metadata: { hasPendingWrites: false }, exists: () => false, data: () => undefined }));
+    await expect(deleteWorkout("u1", typo)).rejects.toMatchObject({ code: "changed" });
+    expect([tx.update, tx.delete, tx.set].every((m) => m.mock.calls.length === 0)).toBe(true);
+  });
+
   // PR #79 review, F5: each lift once, and a lift missing from `exerciseIds` still counted.
   it("handles a lift listed twice once, and a lift in `lifts` that `exerciseIds` leaves out", async () => {
     await deleteWorkout("u1", { sessionId: typo.sessionId, exerciseIds: ["bench", "bench"], lifts: [{ id: "bench" }, { id: "dips" }] });
