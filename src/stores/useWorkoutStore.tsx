@@ -961,7 +961,15 @@ function uploadPendingWorkout(entry: PendingUpload): Promise<boolean> {
 async function attemptUpload(entry: PendingUpload): Promise<boolean> {
   try {
     console.log("Uploading workout to database:", entry.sessionId);
-    const { session, summaries } = await saveWorkoutSession(entry.uid, entry.workout, entry.endedAt);
+    const saved = await saveWorkoutSession(entry.uid, entry.workout, entry.endedAt);
+    if (saved.deleted === true) {
+      // Deleted (here or on another phone) while it waited: the server took its docs back out and folded nothing, so
+      // the phone must not hold it or say "Saved". The entry leaves the queue; nothing is left to upload.
+      updateEntry(entry.sessionId, () => null);
+      await writePendingUploadsOrLog();
+      return true;
+    }
+    const { session, summaries } = saved;
     // TICKET-075: the recent workouts hold it at once, 0 reads. Before the
     // entry leaves the queue below, so no screen shows its plan without it
     // between the two (`buildPlanRows` merges the queue).
@@ -971,8 +979,8 @@ async function attemptUpload(entry: PendingUpload): Promise<boolean> {
     // TICKET-076: "last time" updates at once, with no read.
     useExerciseHistoryStore.getState().applyFinished(entry.uid, summaries);
     updateEntry(entry.sessionId, () => null);
-    // If this write fails the entry comes back on restart and uploads again,
-    // which is safe: same ids, and the rollup folds by replacement.
+    // If this write fails the entry comes back on restart and uploads again, which is safe: same ids, the rollup folds
+    // by replacement, and a workout deleted meanwhile is taken back out by `saveWorkoutSession` (TICKET-086).
     await writePendingUploadsOrLog();
     // Names the workout and its length (TICKET-066): on Finish this is the one
     // message the user gets, on the hub; for a workout queued offline it is

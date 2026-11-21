@@ -700,3 +700,22 @@ No screen yet; nothing to see on a phone. Checked by unit tests only.
 7. Finish a workout offline (waiting to upload): ⋯ shows Delete session switched off with its reason. This also runs 085a's open proof (the "waiting to upload" strip); let it upload, then delete it as in 3.
 8. Run `compareHistory.ts <pinky uid>` (read-only): `exercise_stats`, `exercise_sessions` and orphan lists at 0; only verdict mismatches for the lifts the test workout shared with a later workout (none if it was the newest).
 9. Two phones: not testable on one emulator; the other phone's check is covered by `mergeSummaries` and `addToWindow` marker tests only.
+
+### TICKET-086 device run (emulator, `pinky`, 2026-11-21)
+
+**Writes made (told up front, kept minimal):** two test workouts finished and then deleted: `Test 070` (a 45 s hip stretch, finished offline) and a Freestyle `Deadlift · Barbell` 100 kg x 5 (a lift `pinky` had never done). Left behind: 2 `deleted` markers on `sessions` docs and 1 `deleted` marker on `exercise_stats/deadlift__barbell`. Nothing else was written.
+
+- **[run] Passed:** (2) Keep it closes the dialog, nothing changes. (3) Delete lands on the History home, the workout is not in the list. (5) Offline Delete: "Needs a connection to delete a workout.", the workout stays. (6) Force-stop and relaunch: neither deleted workout comes back. (7) A workout finished offline shows "Not uploaded yet" / "Saved on this phone" and its Delete session is switched off with its reason; after it uploaded, Delete was enabled. This is also 085a's open "waiting to upload" proof.
+- **[run] Server, read-only, after each delete:** `Test 070` run: marker on the session, `exercise_sessions` 129 back to 128, the hip-stretch summary back to 6 sessions with last = 17 Nov. Deadlift run: marker on the session, `exercise_stats/deadlift__barbell` is a marker, its `exercise_sessions` 0. `compareHistory.ts`: 0 mismatches both times (22 and 23 sessions read, 21 live: the marker is not counted). Both deleted workouts were the newest of their lift, so no verdict mismatch was expected and none appeared.
+- **[bug found and fixed] Back after a delete reached a dead Session.** `navigation.navigate(HistoryHome)` pushed a second home on top (React Navigation 7), leaving the deleted Session under it, which showed "Loading data" forever. Now `popTo`. Re-run on the fixed bundle (the Deadlift run, which lands from a Finish: hub, home, Session): delete, History home, Back, hub. The screen test fails with `navigate` and passes with `popTo`.
+- **[pending] Not run:** (4) the lift's history in the app after the delete (covered by `withDeletedSummaries` unit tests and the server marker, not seen on screen); the plan tile's date after deleting the plan's newest workout, in the same app run (unit-tested in `removeFromWindow`; the tile read "3d" after a relaunch, from the server); the read count for a lift with about 100 sessions (the largest lift on `pinky` has 6); another phone's check seeing a delete (one emulator); the dialog and the error line at a phone narrower than the emulator.
+
+### TICKET-086 review fixes (PR #79, pass 1)
+
+**Unit [run], 1051 tests, typecheck clean; each new test seen failing with its line broken** (the F1 guard in the service and in the drain, the F2 stamp compare, both halves of the F5 ids, the F4 focus guard). `measureFinishOps` now pins 9 reads per Finish of 8 lifts (was 8): the F1 guard reads the workout doc.
+
+**Device plan for the fixes [see the run below].** Emulator, `pinky`, writes: two more test workouts finished and deleted.
+1. F1 on a device: finish a workout offline (Freestyle, a never-done lift), and with it still in the queue delete nothing; instead finish it online, delete it, then check the server shows no `exercise_sessions` doc and a marker (the replay path itself needs a second phone or a forced re-upload; unit-tested only).
+2. Cost: Finish still lands "Workout saved"; Reads billed unchanged (the extra read is inside the Finish transaction, not billed to the History stores).
+3. F4: "Deleting…" shows while the delete runs; Back mid-delete does not throw the user to the home.
+4. A delete still lands on History and Back goes to the hub.

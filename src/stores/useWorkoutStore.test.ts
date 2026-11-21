@@ -9,6 +9,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { User } from "firebase/auth";
 import { getAllExerciseStats, getChangedExerciseStats, saveWorkoutSession } from "../services/db/workoutSessions";
 import { useExerciseHistoryStore } from "./useExerciseHistoryStore";
+import { useRecentWorkoutsStore } from "./useRecentWorkoutsStore";
 import type { ExerciseStatsDoc } from "../types/workoutSession";
 import show from "../utils/toastUtils";
 import { drainPendingUploads, useWorkoutStore } from "./useWorkoutStore";
@@ -127,6 +128,25 @@ describe("a Finish and the saved summaries (TICKET-076)", () => {
 
     expect(held().byId?.bench).toEqual(summary("bench"));
     expect(queue()).toHaveLength(0);
+  });
+
+  // TICKET-086 (PR #79 review, F1): deleted, here or on another phone, while it waited in the queue.
+  it("an upload for a workout deleted meanwhile leaves the queue and puts nothing on the phone", async () => {
+    seedWorkout();
+    signIn("u1");
+    save.mockRejectedValueOnce(new Error("rollup failed"));
+    await store().endWorkout("u1");
+    const before = held().byId;
+    const applyFinished = jest.spyOn(useRecentWorkoutsStore.getState(), "applyFinished");
+
+    save.mockResolvedValueOnce({ sessionId: "s", deleted: true });
+    await drainPendingUploads();
+
+    expect(queue()).toHaveLength(0);
+    expect(await storedQueue()).toHaveLength(0);
+    expect(applyFinished).not.toHaveBeenCalled();
+    expect(held().byId).toBe(before);
+    expect(toast.success).not.toHaveBeenCalled();
   });
 });
 

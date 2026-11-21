@@ -23,6 +23,13 @@ jest.mock("firebase/firestore", () => ({
   serverTimestamp: jest.fn(() => "SERVER_STAMP"),
 }));
 
+/** A save that landed: the result narrowed past the deleted-while-queued case, which has its own test. */
+const save = async (...args: Parameters<typeof saveWorkoutSession>) => {
+  const result = await saveWorkoutSession(...args);
+  if (result.deleted === true) throw new Error("the workout was deleted");
+  return result;
+};
+
 const snapshot = (fromCache: boolean) => ({ metadata: { fromCache }, empty: true, docs: [] });
 
 // TICKET-075: the workouts store's change check filters on `updatedAt`, so a
@@ -72,7 +79,7 @@ describe("the server stamp on sessions", () => {
       exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: 65, Reps: 5 }] }] })],
     });
 
-    const { session } = await saveWorkoutSession("u1", workout, 2_000);
+    const { session } = await save("u1", workout, 2_000);
 
     const [, phase1, options] = batchSet.mock.calls.find(([, data]) => data.exerciseIds !== undefined)!;
     expect(options).toEqual({ merge: true });
@@ -98,7 +105,7 @@ describe("the server stamp on sessions", () => {
       return fn(tx);
     });
 
-    const { summaries } = await saveWorkoutSession("u1", workout, 2_000);
+    const { summaries } = await save("u1", workout, 2_000);
     expect(summaries).toHaveLength(1);
     expect(summaries[0].lastPerformedAt).toBe(1_000);
     expect(summaries[0].updatedAt).toBeUndefined();
@@ -126,7 +133,7 @@ describe("the server stamp on sessions", () => {
       })
     );
     await saveWorkoutSession("u1", workout, 2_000);
-    const { summaries } = await saveWorkoutSession("u1", workout, 2_000);
+    const { summaries } = await save("u1", workout, 2_000);
     expect(summaries[0].recentSessions).toHaveLength(1);
   });
 
@@ -168,7 +175,8 @@ describe("the server stamp on sessions", () => {
     const batchSet = jest.fn();
     (writeBatch as jest.Mock).mockReturnValue({ set: batchSet, commit: jest.fn().mockResolvedValue(undefined) });
     const marker = { exists: () => true, data: () => ({ exerciseId: "bench-press", deleted: true }) };
-    const tx = { get: jest.fn().mockResolvedValue(marker), set: jest.fn() };
+    // Only the lift's stats doc is a marker; the workout itself (a `plan-a_1000` doc, not there yet) is live.
+    const tx = { get: jest.fn(async (ref: string) => (ref.startsWith("plan-a") ? { exists: () => false } : marker)), set: jest.fn() };
     (runTransaction as jest.Mock).mockImplementation(async (_db, fn) => fn(tx));
     const workout = buildWorkout([], {
       id: "plan-a",
@@ -176,7 +184,7 @@ describe("the server stamp on sessions", () => {
       exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: 60, Reps: 5 }] }] })],
     });
 
-    const { session, summaries } = await saveWorkoutSession("u1", workout, 2_000);
+    const { session, summaries } = await save("u1", workout, 2_000);
 
     // Folded onto the marker, the name and fields would be undefined, which Firestore refuses.
     expect(summaries[0]).toMatchObject({ exerciseName: "Bench Press", lastPerformedAt: 1_000 });
@@ -185,6 +193,27 @@ describe("the server stamp on sessions", () => {
     expect(summaries[0].recentSessions).toHaveLength(1);
     expect(tx.set.mock.calls.find(([, data]) => data.exerciseId !== undefined)![1]).not.toHaveProperty("deleted");
     expect(session.lifts[0]).toMatchObject({ verdict: null, reason: "first_time" });
+  });
+
+  // TICKET-086 (PR #79 review, F1): an upload that waited in a queue while the workout was deleted.
+  it("a Finish for a workout deleted meanwhile takes its exercise_sessions docs back out and folds nothing", async () => {
+    const batchSet = jest.fn();
+    (writeBatch as jest.Mock).mockReturnValue({ set: batchSet, commit: jest.fn().mockResolvedValue(undefined) });
+    const live = { exists: () => false };
+    const deletedMarker = { exists: () => true, data: () => ({ deleted: true }) };
+    const tx = { get: jest.fn(async (ref: string) => (ref === "plan-a_1000" ? deletedMarker : live)), set: jest.fn(), delete: jest.fn() };
+    (runTransaction as jest.Mock).mockImplementation(async (_db, fn) => fn(tx));
+    const workout = buildWorkout([], {
+      id: "plan-a",
+      startTime: 1_000,
+      exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: 60, Reps: 5 }] }] })],
+    });
+
+    const result = await saveWorkoutSession("u1", workout, 2_000);
+
+    expect(result).toEqual({ sessionId: "plan-a_1000", deleted: true });
+    expect(tx.set).not.toHaveBeenCalled(); // no summary, no verdicts
+    expect(tx.delete.mock.calls.map(([id]) => id)).toEqual([buildExerciseSessionId("plan-a_1000", "bench-press")]);
   });
 
   // A derived value must not block the rollup: the fold goes on and the lifts stay pending.
@@ -203,7 +232,7 @@ describe("the server stamp on sessions", () => {
       exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: 60, Reps: 5 }] }] })],
     });
 
-    const { session, summaries } = await saveWorkoutSession("u1", workout, 2_000);
+    const { session, summaries } = await save("u1", workout, 2_000);
 
     expect(summaries).toHaveLength(1);
     expect(tx.set.mock.calls.some(([, data]) => data.exerciseId !== undefined)).toBe(true);
@@ -396,10 +425,15 @@ describe("deleting a workout", () => {
   const asDoc = (session: object) => ({ data: () => session });
   const serverAnswer = (...sessions: object[]) => ({ metadata: { hasPendingWrites: false }, size: sessions.length, docs: sessions.map(asDoc) });
   const tx = { get: jest.fn(), update: jest.fn(), delete: jest.fn(), set: jest.fn() };
+  // A summary doc as the server holds it: stamped, and the same before the reads and inside the transaction unless a test moves it.
+  const statsDoc = (seconds = 5) => ({ metadata: { hasPendingWrites: false }, exists: () => true, data: () => ({ updatedAt: new Timestamp(seconds, 0) }) });
+  const sessionDoc = { exists: () => true, data: () => ({}) };
+  const heldBy = (sessionRefs: string[]) => async (ref: string) => (sessionRefs.includes(ref) ? sessionDoc : statsDoc());
 
   beforeEach(() => {
-    [tx.get, tx.update, tx.delete, tx.set, runTransaction as jest.Mock, getDocsFromServer as jest.Mock].forEach((m) => m.mockReset());
-    tx.get.mockResolvedValue({ exists: () => true, data: () => ({}) });
+    [tx.get, tx.update, tx.delete, tx.set, runTransaction as jest.Mock, getDocsFromServer as jest.Mock, getDocFromServer as jest.Mock].forEach((m) => m.mockReset());
+    (getDocFromServer as jest.Mock).mockImplementation(async () => statsDoc());
+    tx.get.mockImplementation(heldBy([typo.sessionId]));
     (runTransaction as jest.Mock).mockImplementation(async (_db, fn) => fn(tx));
     // Bench has two sessions, Dips only the deleted one.
     (getDocsFromServer as jest.Mock).mockImplementation(async () => {
@@ -423,6 +457,21 @@ describe("deleting a workout", () => {
     expect(tx.set).toHaveBeenCalledTimes(2);
   });
 
+  // PR #79 review, F2: a Finish's fold landed between the reads and the commit.
+  it("refuses with a code, writing nothing, when a summary changed after it was read", async () => {
+    tx.get.mockImplementation(async (ref: string) => (ref === typo.sessionId ? sessionDoc : statsDoc(9)));
+    await expect(deleteWorkout("u1", typo)).rejects.toMatchObject({ code: "changed" });
+    expect([tx.update, tx.delete, tx.set].every((m) => m.mock.calls.length === 0)).toBe(true);
+  });
+
+  // PR #79 review, F5: each lift once, and a lift missing from `exerciseIds` still counted.
+  it("handles a lift listed twice once, and a lift in `lifts` that `exerciseIds` leaves out", async () => {
+    await deleteWorkout("u1", { sessionId: typo.sessionId, exerciseIds: ["bench", "bench"], lifts: [{ id: "bench" }, { id: "dips" }] });
+    expect(tx.set.mock.calls.map(([id]) => id)).toEqual(["bench", "dips"]);
+    expect(tx.delete).toHaveBeenCalledTimes(2);
+    expect(getDocsFromServer).toHaveBeenCalledTimes(2); // one read of sessions per lift, not per mention
+  });
+
   it("offline, the reads reject and nothing is written", async () => {
     (getDocsFromServer as jest.Mock).mockRejectedValue(new Error("offline"));
     await expect(deleteWorkout("u1", typo)).rejects.toThrow("offline");
@@ -437,10 +486,10 @@ describe("deleting a workout", () => {
   });
 
   it("a workout already marked writes nothing, so a retry after a lost answer is safe; one not on the server rejects not-found", async () => {
-    tx.get.mockResolvedValueOnce({ exists: () => true, data: () => ({ deleted: true }) });
+    tx.get.mockImplementation(async (ref: string) => (ref === typo.sessionId ? { exists: () => true, data: () => ({ deleted: true }) } : statsDoc()));
     await expect(deleteWorkout("u1", typo)).resolves.toMatchObject({ summaries: [] });
     expect([tx.update, tx.delete, tx.set].every((m) => m.mock.calls.length === 0)).toBe(true);
-    tx.get.mockResolvedValueOnce({ exists: () => false });
+    tx.get.mockImplementation(async (ref: string) => (ref === typo.sessionId ? { exists: () => false } : statsDoc()));
     await expect(deleteWorkout("u1", typo)).rejects.toMatchObject({ code: "not-found" });
   });
 

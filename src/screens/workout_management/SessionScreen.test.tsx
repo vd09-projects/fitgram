@@ -12,10 +12,21 @@ import { useExerciseHistoryStore } from "../../stores/useExerciseHistoryStore";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
 
 let mockParams: { sessionId: string; workoutName: string; startedAt: number; finished?: true };
-jest.mock("@react-navigation/native", () => ({
-  ...jest.requireActual("@react-navigation/native"),
-  useRoute: () => ({ params: mockParams }),
-}));
+// Set by the delete test, which asserts how the Session leaves the stack: the harness mounts it alone, so `navigate`
+// and `popTo` would both land on a stub and look the same.
+let mockPopTo: jest.Mock | null = null;
+let mockFocused = true;
+jest.mock("@react-navigation/native", () => {
+  const actual = jest.requireActual("@react-navigation/native");
+  return {
+    ...actual,
+    useRoute: () => ({ params: mockParams }),
+    useNavigation: () => {
+      const navigation = actual.useNavigation();
+      return mockPopTo ? { ...navigation, popTo: mockPopTo, isFocused: () => mockFocused } : navigation;
+    },
+  };
+});
 jest.mock("../../services/db/userDB", () => ({
   ...jest.requireActual("../../services/db/userDB"),
   getAllWorkoutPlans: jest.fn(async () => []),
@@ -69,6 +80,8 @@ const offline = () => Object.assign(new Error("offline"), { code: "unavailable" 
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPopTo = null;
+  mockFocused = true;
   jest.mocked(getWorkoutById).mockResolvedValue(null);
   jest.mocked(setWorkoutNote).mockResolvedValue(undefined);
   jest.mocked(deleteWorkout).mockResolvedValue({ summaries: [], docsRead: 0 });
@@ -243,6 +256,7 @@ describe("SessionScreen", () => {
       const summaries = [{ exerciseId: "bench", deleted: true as const }];
       jest.mocked(deleteWorkout).mockResolvedValue({ summaries, docsRead: 3 });
       const applyDeleted = jest.spyOn(useExerciseHistoryStore.getState(), "applyDeleted");
+      mockPopTo = jest.fn();
       await toConfirm();
       await act(async () => {
         fireEvent.press(screen.getByText("Delete"));
@@ -250,8 +264,31 @@ describe("SessionScreen", () => {
       expect(deleteWorkout).toHaveBeenCalledWith(TEST_USER_ID, expect.objectContaining({ sessionId: "s1" }));
       expect(applyDeleted).toHaveBeenCalledWith(TEST_USER_ID, summaries);
       expect(heldIds()).toEqual([]);
-      expect(await screen.findByText(`route:Workout/${WorkoutRoutes.HistoryHome}`)).toBeOnTheScreen();
+      // Pops to the home in the stack; a `navigate` would push a second home above this deleted Session.
+      expect(mockPopTo).toHaveBeenCalledWith(WorkoutRoutes.HistoryHome);
       expect(getWorkoutById).not.toHaveBeenCalled();
+    });
+
+    it("does not pull the user back to the home when they left this screen during the wait; the workout is still gone from the phone", async () => {
+      mockPopTo = jest.fn();
+      mockFocused = false;
+      await toConfirm();
+      await act(async () => {
+        fireEvent.press(screen.getByText("Delete"));
+      });
+      expect(deleteWorkout).toHaveBeenCalled();
+      expect(heldIds()).toEqual([]);
+      expect(mockPopTo).not.toHaveBeenCalled();
+    });
+
+    it("says to try again when a summary changed under the delete, and keeps the workout", async () => {
+      jest.mocked(deleteWorkout).mockRejectedValue(Object.assign(new Error("moved"), { code: "changed" }));
+      await toConfirm();
+      await act(async () => {
+        fireEvent.press(screen.getByText("Delete"));
+      });
+      expect(await screen.findByText("Something changed while deleting. Try again.")).toBeOnTheScreen();
+      expect(heldIds()).toEqual(["s1"]);
     });
 
     it("offline, says so and leaves the workout on the screen and on the phone", async () => {

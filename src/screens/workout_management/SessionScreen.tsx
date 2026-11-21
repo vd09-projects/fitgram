@@ -162,7 +162,6 @@ export default function SessionScreen() {
       gone.current = true;
       useExerciseHistoryStore.getState().applyDeleted(uid, summaries);
       useRecentWorkoutsStore.getState().applyDeleted(uid, workout.session.sessionId);
-      navigation.navigate(WorkoutRoutes.HistoryHome);
     } catch (error) {
       console.log("Failed to delete workout:", error);
       const code = (error as { code?: string })?.code;
@@ -173,11 +172,20 @@ export default function SessionScreen() {
             ? "This workout is not on the server, so it cannot be deleted."
             : code === "unreadable-history"
               ? "A lift here has an older session in a format that cannot be recounted, so this workout was not deleted."
-              : "Could not delete the workout. Try again."
+              : code === "changed"
+                ? "Something changed while deleting. Try again."
+                : "Could not delete the workout. Try again."
       );
-    } finally {
       setDeleting(false);
+      return;
     }
+    setDeleting(false);
+    // Outside the try: a failure to navigate is not a failed delete (PR #79 review, F4). Only if this screen is still the
+    // one in front: the user may have gone Back during the wait, and `popTo` would pull them away from where they are.
+    // Pop back to the home already in the stack (below this Session whether it was opened from the home or landed here
+    // after a Finish), not `navigate`: React Navigation 7 pushes another home on top, and Back would then return to
+    // this deleted workout (found on the emulator).
+    if (navigation.isFocused()) navigation.popTo(WorkoutRoutes.HistoryHome);
   };
 
   const tryAgain = async () => {
@@ -299,6 +307,11 @@ export default function SessionScreen() {
           {deleteError}
         </TextBase>
       )}
+      {deleting && (
+        <TextBase style={styles.deleteProgress} testID="session-deleting">
+          Deleting…
+        </TextBase>
+      )}
       <ScrollView testID="session-list" contentContainerStyle={styles.listEnd}>
         {session.liftsUnreadable ? (
           <TextBase style={styles.message}>Details not available</TextBase>
@@ -361,6 +374,7 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
     savedText: { fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.accent },
     noticeRow: { flexDirection: "row", alignItems: "center", gap: SPACING.small },
     noticeText: { fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.textSecondary },
+    deleteProgress: { paddingHorizontal: SPACING.medium, paddingTop: SPACING.xSmall, fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.textSecondary },
     deleteError: { paddingHorizontal: SPACING.medium, paddingTop: SPACING.xSmall, fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.danger },
     noticeFailed: { fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.danger },
     action: { fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.accent },
