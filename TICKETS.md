@@ -62,8 +62,8 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 092 | History: what a lift with no weight shows | Small-Medium | Raised 2026-11-20 (user). **Open, after the History build and user testing.** The Exercise screen has no measure for a time or distance lift |
 | 093 | Exercise log: virtualise a long list | Small-Medium | Raised 2026-11-20 (PR #77 review, deferred by the user). **Open; measure first.** "All" with many loaded pages renders every row |
 | 094 | History home: the Exercises tab | Medium | **Lowest priority; open.** Split from 085b (2026-11-20, user): build only if users want to browse lifts and see Better / Lower / Same. Until then no list of lifts exists once 085b removes the old page |
-| 097 | Bug: no sound or buzz when the rest timer ends | Medium | Raised 2026-11-21 (user). **Done 2026-11-22 (PR pending); A2 (wake lock) built, heard on a phone.** Reverses 079's "no sound at 0:00 in v1" |
-| 098 | Choose the rest-over sound | Medium | Raised 2026-11-21 (user). **Open;** stage 1 (logic, native, store) landed with 097; the settings row waits for a canvas design. Stacked on 097: it picks the channel 097's done post goes out on |
+| 097 | Bug: no sound or buzz when the rest timer ends | Medium | Raised 2026-11-21 (user). **Done 2026-11-22, merged in PR #81 (`3b8f4b0`); A2 (wake lock) built, heard on a phone. Open proof listed in the ticket.** Reverses 079's "no sound at 0:00 in v1" |
+| 098 | Choose the rest-over sound | Medium | Raised 2026-11-21 (user). **Open;** stage 1 (logic, native, store) merged with 097 (PR #81); the settings row waits for a canvas design. Stacked on 097: it picks the channel 097's done post goes out on |
 
 ### Not tickets — verification owed
 
@@ -11359,7 +11359,7 @@ Existing Finish tests tap the confirmation; four new screen tests and two for `f
 
 ### TICKET-097: Bug — No Sound or Buzz When the Rest Timer Ends
 
-**Priority:** High | **Effort:** Medium | **Status: DONE 2026-11-22 (PR #81); review fixes pending a device run of the dead-process alarm path, see TESTING_NOTES** — raised 2026-11-21 (user); branch `fix/ticket-097-rest-end-sound`
+**Priority:** High | **Effort:** Medium | **Status: DONE 2026-11-22, merged in PR #81 (`3b8f4b0`, CI green)** — raised 2026-11-21 (user); branch `fix/ticket-097-rest-end-sound`
 
 **Description (bug report, 2026-11-21):** when the rest ends nothing is heard, so the user keeps checking the phone. Away from it, they do not
 know the rest is over and rest longer than planned (a 90 s rest becomes 120 or 150 s). A workout app should not make you watch it.
@@ -11415,12 +11415,13 @@ emulator (an upper bound on the awake case) and, the number that matters, on the
   recreating the same id brings the old one back). After that the user heard it at 0:00 with the screen locked: "working as expected".
   **Not measured:** how late it was (the `SHOW_LATENESS` text was never read back and the phone's log dropped the app's `Log.i` lines), so
   "on time with the CPU asleep" is the user's ear, not a number. `SHOW_LATENESS` is removed.
+- **Open proof after the merge (none of it blocks):** the sound on the phone after the review fixes (the user ran it before them); the dead-process alarm path on any device; the delay in ms with the CPU asleep; silent mode and Do Not Disturb; the B2 race, a module reload, a failed `postCountdown`, a phone whose three sound defaults are all None, and the MediaStore read in `firstInstalled`. Kotlin has no test harness; adding one (JVM or Robolectric) would let the once-only, stale and clear logic be tested.
 - **B:** exact alarm when `SCHEDULE_EXACT_ALARM` is granted, else A2. On time in every case, with a settings detour.
 - **C:** `setAlarmClock`: exact with no permission, but an alarm icon and a "next alarm" on the lock screen for every rest.
 
 ### TICKET-098: Choose the Rest-Over Sound
 
-**Priority:** Medium | **Effort:** Medium | **Status: OPEN, stage 1 landed with 097 (PR pending); stage 2 (UI) needs a design** — raised 2026-11-21 (user); stacked on TICKET-097
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN, stage 1 merged with 097 (PR #81); stage 2 (UI) needs a design** — raised 2026-11-21 (user); stacked on TICKET-097
 
 **Description (user, 2026-11-21):** let the user pick a default sound for the end of a rest, from 2-3 choices. Set once in settings; every
 rest then uses it. Not a per-rest or runtime choice.
