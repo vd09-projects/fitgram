@@ -10,7 +10,7 @@
 // historyCompare.ts. The repair for every difference is
 // `rebuildExerciseStats.ts` (rollups and verdicts, from the sets).
 import { tables } from "../constants/tables";
-import type { ExerciseSessionDoc, ExerciseStatsDoc, WorkoutSessionDoc } from "../types/workoutSession";
+import type { ExerciseSessionDoc, ExerciseStatsDoc, ExerciseStatsMarker, WorkoutSessionDoc } from "../types/workoutSession";
 import { getAdminFirestore } from "./firebaseAdmin";
 import { compareHistory, totalMismatches } from "./historyCompare";
 
@@ -32,7 +32,7 @@ const compare = async (userId: string): Promise<number> => {
   const report = compareHistory(
     sessions.docs.map((d) => d.data() as WorkoutSessionDoc),
     exerciseSessions.docs.map((d) => d.data() as ExerciseSessionDoc),
-    stats.docs.map((d) => d.data() as ExerciseStatsDoc)
+    stats.docs.map((d) => d.data() as ExerciseStatsDoc | ExerciseStatsMarker)
   );
   console.log(`${report.sessions} sessions, ${report.lifts} lifts checked.`);
   if (report.unreadable.length > 0) {

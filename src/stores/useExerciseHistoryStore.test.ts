@@ -96,3 +96,24 @@ it("own Finish reaches the saved copy", async () => {
     expect(readStoredSummaries(await stored(), UID, EXERCISE_SUMMARIES_SHARDS).held?.byId.bench.lastPerformedAt).toBe(2)
   );
 });
+
+it("own delete: nothing held or another user is a no-op; a marker removes the lift, a replacement is held, and both are stored", async () => {
+  store().applyDeleted(UID, [{ exerciseId: "bench", deleted: true, updatedAt: { seconds: 9, nanoseconds: 0 } }]);
+  expect(store().byId).toBeNull();
+
+  jest.mocked(getAllExerciseStats).mockResolvedValue([summary("bench", 5), summary("squat", 5)]);
+  await store().open(UID);
+  store().applyDeleted("someone-else", [{ exerciseId: "bench", deleted: true, updatedAt: { seconds: 9, nanoseconds: 0 } }]);
+  expect(Object.keys(store().byId ?? {}).sort()).toEqual(["bench", "squat"]);
+
+  store().applyDeleted(UID, [
+    { exerciseId: "bench", deleted: true, updatedAt: { seconds: 9, nanoseconds: 0 } },
+    unstamped(summary("squat", 0), 3),
+  ]);
+  expect(Object.keys(store().byId ?? {})).toEqual(["squat"]);
+  expect(store().byId?.squat.lastPerformedAt).toBe(3);
+  await waitFor(async () => {
+    const held = readStoredSummaries(await stored(), UID, EXERCISE_SUMMARIES_SHARDS).held;
+    expect(Object.keys(held?.byId ?? {})).toEqual(["squat"]);
+  });
+});

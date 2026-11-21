@@ -10613,23 +10613,43 @@ which then reuses it.
 - **Floor (TICKET-082):** deleting a plan's newest workout removes that plan's `lastByPlan` entry (`addToWindow` does it on the marker), and the next check looks the plan up again (limit 1). Offline the plan reads "last session unknown" until then. When the marker is for the floor doc, the plan's newest remaining workout in the window becomes its entry with no read (a plan with none in the window is looked up). The lookup itself skips `deleted` markers (`getLastWorkoutOfPlan`, a second page only after a whole page of markers), so no index is needed. What 086 still decides: an already-opened older month (`olderMonths`, memory only) is not touched by checks or a Finish, so a delete of a workout in it must also remove it there.
 - `rebuildExerciseSummary(userId, exerciseId)` as TICKET-032 specifies (a server read of the lift's
   records: `sessions` by `exerciseIds`, 084's index, one stamped replace, no sessions left means a `deleted` marker on the stats doc).
-- One `writeBatch`: a `deleted: true` marker on the `sessions` doc with a server stamp (never a hard
-  delete: a change check cannot see one), (until 085c, also delete that workout's `exercise_sessions` docs) replace each lift's
-  summary, and rewrite each successor session's `lifts` verdict against its new previous session (081 stage 3 built the pure parts: `verdictsFromHistory` and `repairedSessions` recompute from the sets in hand; the successor is the lift's next session in start order).
-- Refused offline. A Finish landing between the read and the write can overwrite the rebuild: decided in
-  the ticket (re-read the stamps, or accept and heal with the rebuild script).
+- One transaction (not a `writeBatch`: a batch offline waits in the cache and applies later, and delete is refused offline; as `setWorkoutNote`): a `deleted: true` marker on the `sessions` doc with a server stamp (never a hard
+  delete: a change check cannot see one), (until 085c, also delete that workout's `exercise_sessions` docs) and replace each lift's
+  summary. **Successor verdicts are NOT rewritten here (user, 2026-11-21; see Deviation).**
+- Refused offline. A Finish landing between the read and the write would overwrite the rebuild: decided (PR #79
+  review, F2) as re-reading the stamps: each lift's summary stamp is read before its sessions, and the
+  transaction refuses (`changed`) if one moved.
 - Enable the option on the Session screen with the confirm; after it, Back to Workouts. A workout opened from the loaded Older
   workouts (085a, memory only) is removed from that list too, not only from the held window.
 
 **Cost, measured on fixtures of 8 lifts (087):** the rebuild reads each lift's records: 370 reads (1.15 MB) at
 150 workouts, 1000 (3.11 MB) at 500, 3000 (9.33 MB) at 1500, with 10 writes after 085c (18 until then). The reads
-could come from the held copy for held months. Acceptable for a rare action that is refused offline.
+could come from the held copy for held months. Plus 1 read per lift before them (the summary's stamp) and 1 + the
+lift count inside the transaction (the workout and the summaries). Acceptable for a rare action that is refused offline.
 
 **Proof:** read and write counts for a lift with about 100 sessions; the 081 compare script reports 0
-mismatches after a delete; two phones: the deleted workout leaves the other phone's list on its next check.
+mismatches in `exercise_stats` and `exercise_sessions` after a delete (its verdict mismatches are expected, see Deviation); two phones: the deleted workout leaves the other phone's list on its next check.
 Also, from TICKET-085a: with delete available, run the History strip's device test (finish a test workout offline: "waiting to upload"; a rejected upload: "didn't upload" with Try again), then delete the test session with the new delete.
 
-**Out of scope:** Edit session (UI parked: the user will decide it later); editing a set (032).
+**Out of scope:** Edit session (UI parked: the user will decide it later); editing a set (032); rewriting the next session's
+Better/Lower/Same verdict (TICKET-095).
+
+**Deviation (user, 2026-11-21):** the verdict logic is going to change, so 086 does not rewrite the successor session's
+`lifts` verdict. Consequence, stated so it is not silent (CLAUDE.md 2.4, 2.6): after a delete, the lift's next session
+still shows the verdict it was given against the deleted session until TICKET-095 or `rebuildExerciseStats.ts` repairs it.
+That is a plausible wrong value, small and bounded to one session per lift (a session after it compares against the one before it, so it is right). It is not the only answer on that card: the lift's tap-through compare is built from the rebuilt summary and shows the earlier sessions without the deleted one, so the verdict chip and the compare can disagree (PR #79 review, F3). The compare script will report it as a verdict
+mismatch. `verdictsFromHistory` / `repairedSessions` stay unused by 086.
+
+**Stages 1 and 2 built 2026-11-21 (committed on `feat/ticket-086-delete-workout`, PR #79):**
+- **Stage 1, the marker for a lift with no session left:** `ExerciseStatsMarker`; `mergeSummaries` drops it by stamp; the two summary reads return it; `saveWorkoutSession` reads a marker as "no rollup" (folded onto it, a Finish got `exerciseName` and `fields` undefined, which Firestore refuses).
+- **Stage 2, the service:** pure `summaryWithout` (liftRecord.ts) and `deleteWorkout` (reads each lift's sessions from the server, then one transaction: marker on the `sessions` doc, delete its `exercise_sessions` docs, replace each lift's summary or write its marker; `dryRun` writes nothing). Refuses offline (the reads reject first), refuses with `unreadable-history` when a lift has a session in the old shape (rebuilding would lower its bests for sets that exist), resolves with nothing written when already deleted. `rebuildExerciseSummary` of 032's text is this pair: 032 reuses them.
+- **Scope grown, found by reading the scripts (2.7):** `compareHistory` and `rebuildExerciseStats.ts` counted a deleted workout as live (its marker keeps its `lifts`), so after a delete the compare reported the delete's own writes as mismatches, and a rebuild would have brought the deleted workout's bests back. Both now pass sessions through `liveSessions`; the compare reads a stats marker as no doc.
+- **Decided, then reversed in the PR #79 review (F2):** a Finish landing between the reads and the commit overwrote the rebuild. First accepted ("needs two phones", healed by `rebuildExerciseStats.ts`); the review showed one phone is enough (the reads take seconds and a queued upload can drain meanwhile) and nothing tells the user to run the script. Now each summary's stamp is read first and the transaction refuses (`changed`, "Try again") if one moved.
+- **Stage 3, the phone side (built 2026-11-21):** `removeFromWindow` (this phone's own delete has no server stamp to give a marker, so it is not `addToWindow`; it moves the plan's floor entry the same way); `useRecentWorkoutsStore.applyDeleted` removes the workout from the window, the floor, `olderWorkouts`, `exerciseOlder` and a read by id (0 reads); `useExerciseHistoryStore.applyDeleted` (`withDeletedSummaries`: a rebuilt summary replaces the held one, a marker removes the lift); the Session screen's Delete session (switched off for a queued workout) asks "Keep it" / "Delete", deletes on the server first, then in both stores, then goes to the History home; a refusal says why and changes nothing.
+- **A bug the screen test found:** a store update re-renders at once, before a state set in the same tick lands, so the screen saw "not on the phone" and read the deleted workout by id (1 wasted read). The guard is a ref set before the stores change.
+- **PR #79 review, pass 1 (fresh sub-agent), handled:** F1 (a queued upload of a deleted workout revived it): the Finish transaction now reads the workout's doc and, if it is a marker, deletes the `exercise_sessions` docs phase 1 just wrote and folds nothing; the drain drops the entry and puts nothing on the phone. **Cost: one more read per Finish (8 lifts: 8 to 9 reads, 18 writes unchanged)**, pinned in `measureFinishOps.test.ts`. F2 (above). F3 (Deviation and 095). F4: navigation moved out of the delete's `try` (a navigation error is not a failed delete), skipped when the user left the screen during the wait, and "Deleting…" shown while it runs. F5: lifts from `lifts` and `exerciseIds` both count, each once (tests). Pass 2 (fresh panel, approve): no blockers; fixed N1 (a `hasPendingWrites` guard on the stamp read that cannot fire: summaries are written only by transactions, so it was dead and untested, removed), N2 (stale comments and text above), N5 (a test that a summary created after it was read refuses). Stated, not changed: N3, phase 1 merges into a deleted marker (its `lifts` and stamp move once more, other phones re-fetch it once) and rewrites the `exercise_sessions` docs until phase 2 takes them out; N4, if the user opens a lift's history during the wait the pop is skipped and Back reaches a Session that says it is not on the phone (rare, benign). F6 **not fixed, stated:** a change check already running when the delete lands can briefly bring the workout and the old summary back; the next check, which finds the marker (its stamp is above `lastSeen`), removes it. Deferred because it fails visibly, for one check, and heals itself. F7: ticket text corrected.
+- **PR #79 review, pass 3 (fresh sub-agent, 2026-11-21), handled:** missed earlier, `importHistory.ts` rebuilt `exercise_stats` from every `sessions` doc, so a deleted workout's lifts (a marker keeps `lifts`) could bring a deleted best back; it now reads through `liveSessions` (no test: the importer has no test seam). Added store tests for `useExerciseHistoryStore.applyDeleted` (guard, replace, marker, saved copy) and the saved-copy assertion in `useRecentWorkoutsStore.applyDeleted`'s test, each seen failing with its line broken. Open: `measureBaseline.ts` and `measureShapes.ts` still count markers in their read-only reports. An already-deleted retry returns no summaries, so the phone's held bests stay stale until the next change check (same self-heal as F6).
+- **Not verified:** nothing has run against Firestore or on a device: the transaction, the marker's server stamp, another phone's change check dropping the workout and the summary, the read count for a lift with about 100 sessions, the dialog and error line at a real width. The `rebuildExerciseStats.ts` change is one line, covered by the `liveSessions` test but not run. The plan is in TESTING_NOTES.md; it writes to `pinky`, so it waits for the user's go-ahead (1.3).
 
 **CLAUDE.md rules skipped:** none.
 
@@ -11284,6 +11304,29 @@ from using the app, not an assumption made now.
 
 ---
 
+### TICKET-095: Better / Lower / Same — Decide Where the Verdict Comes From
+
+**Priority:** Medium | **Effort:** Medium | **Status: OPEN** — raised 2026-11-21 (user), from TICKET-086's scope
+
+**Description:**
+Today a lift's verdict is computed at Finish and stored on the workout's `lifts` (081). The user plans to change that logic,
+and asked whether it could be derived at runtime instead of stored. 086 deletes a workout without rewriting the next session's
+verdict (see 086's Deviation), so after a delete that stored verdict can be stale.
+
+**Analysis first (do not build before the numbers):** a verdict needs the lift's true previous session, however far back
+(`verdictsFromHistory`), and the phone holds only a recent window. Measure what a runtime verdict costs (reads per Session
+open, per lift, for a lift with about 100 sessions) against storing it, and decide: keep stored with a delete rewrite, derive
+at runtime, or derive and cache. Also covers `bestByReps` and `recentSessions` in `exercise_stats` (also stored, also all-time),
+and what it would make obsolete (`rebuildExerciseStats.ts`, the compare script, parts of 076 and 084).
+
+**Also to settle here (from 086's review, F3):** after a delete the successor's verdict chip (stored, against the deleted workout) and its tap-through compare (rebuilt, without it) can disagree on one card; a runtime verdict makes them one answer.
+
+**Out of scope:** any screen.
+
+**Dependencies:** TICKET-086 (leaves the stale verdict this ticket resolves).
+
+---
+
 ## Recommended Execution Order
 
 Finished tickets have been removed — they are not blockers for anything.
@@ -11331,7 +11374,7 @@ parts about the old page and the screens are 085a and 085b, the parts about `exe
 5. TICKET-083  (Session screen, landing)     — DONE (PR #76); open proof: the did-not-upload notice and the read by id on a device
 6. TICKET-084  (Exercise screen)
 7. TICKET-085b (the switch; removes the old page) — DONE (PR #78); the Exercises tab is TICKET-094; open proof: a Finish landing on the home, the empty state's "Start a workout"
-8. TICKET-086  (Delete a workout)            — After 083 and 085a, independent of 084, 085b, 085c
+8. TICKET-086  (Delete a workout)            — After 083 and 085a, independent of 084, 085b, 085c; leaves the next session's verdict to 095
 9. TICKET-085c (Retire exercise_sessions)    — Last; after 085b
 ```
 

@@ -35,6 +35,8 @@ import { tables } from "../../constants/tables";
 import { db } from "../firebase/firebase";
 import {
   ExerciseStatsDoc,
+  ExerciseStatsMarker,
+  isStatsMarker,
   WorkoutSessionDoc,
 } from "../../types/workoutSession";
 import { ActiveWorkout } from "../../types/zustandWorkoutType";
@@ -43,8 +45,8 @@ import {
   buildExerciseSessionId,
   buildSessionDocs,
 } from "../../utils/exerciseStats";
-import { readLifts, withVerdicts } from "../../utils/liftRecord";
-import { toStamp, type SyncStamp } from "../../utils/syncCore";
+import { readLifts, summaryWithout, withVerdicts } from "../../utils/liftRecord";
+import { compareStamps, toStamp, type SyncStamp } from "../../utils/syncCore";
 import { secondQueryStart } from "../../utils/workoutWindow";
 import { localMonthRange } from "../../utils/monthWindow";
 
@@ -98,7 +100,12 @@ const sessionFromDoc = (snapshot: QueryDocumentSnapshot<DocumentData>): WorkoutS
  *     what makes an offline Finish safe.
  *  2. A transaction that folds those sessions into the exercise_stats rollup
  *     and, from the rollups it reads (no extra read), puts each lift's verdict
- *     on the session's `lifts`: one more write, 18 per Finish of 8 lifts.
+ *     on the session's `lifts`: one more write, 18 per Finish of 8 lifts, and
+ *     9 reads (a rollup per lift, and the workout's own doc: if it is a
+ *     `deleted` marker the workout was deleted while the upload waited in a
+ *     queue, TICKET-086, so phase 2 deletes the `exercise_sessions` docs phase 1
+ *     just wrote, folds nothing and returns `{ deleted: true }`; the marker
+ *     itself is merged into by phase 1, so its `lifts` and stamp move once more).
  *     Transactions need a server round trip, so this can fail after phase 1
  *     landed. It then rejects, and the upload queue keeps the workout and runs
  *     both phases again at its next trigger (TICKET-077). Safe to repeat: same
@@ -129,7 +136,11 @@ export const saveWorkoutSession = async (
    * session must record the end, not the upload.
    */
   endedAt: number
-): Promise<{ sessionId: string; session: WorkoutSessionDoc; summaries: ExerciseStatsDoc[] }> => {
+): Promise<
+  | { sessionId: string; session: WorkoutSessionDoc; summaries: ExerciseStatsDoc[]; deleted?: false }
+  /** The workout was deleted before this upload landed: nothing was folded, and the phone must not hold it. */
+  | { sessionId: string; deleted: true }
+> => {
   if (!userId || !workout) throw new Error("Missing userId or workout.");
 
   const { session, exerciseSessions } = buildSessionDocs(workout, endedAt);
@@ -161,11 +172,26 @@ export const saveWorkoutSession = async (
       doc(exerciseStatsRef(userId), e.exerciseId)
     );
     // Firestore requires every read before any write.
-    const snapshots = await Promise.all(refs.map((ref) => tx.get(ref)));
+    const [sessionSnapshot, ...snapshots] = await Promise.all([tx.get(sessionRef), ...refs.map((ref) => tx.get(ref))]);
 
-    const existing = snapshots.map((snapshot) =>
-      snapshot.exists() ? (snapshot.data() as ExerciseStatsDoc) : null
-    );
+    // The workout was deleted (TICKET-086) while this upload waited in a queue, on this phone or another: phase 1
+    // has just written its `exercise_sessions` docs again and merged into the marker (which keeps `deleted`), so
+    // take those docs back out and fold nothing. The marker stays; the stats were rebuilt without this workout.
+    if (sessionSnapshot.exists() && sessionSnapshot.data().deleted === true) {
+      exerciseSessions.forEach((e) =>
+        tx.delete(doc(exerciseSessionsRef(userId), buildExerciseSessionId(e.sessionId, e.exerciseId)))
+      );
+      return { deleted: true as const };
+    }
+
+    // A `deleted` marker (TICKET-086) is no rollup: the lift starts again from nothing, so a deleted
+    // lift's old bests cannot come back and `withVerdicts` says First time. The `set` below replaces
+    // the marker whole, so the flag goes with it.
+    const existing = snapshots.map((snapshot) => {
+      if (!snapshot.exists()) return null;
+      const data = snapshot.data() as ExerciseStatsDoc | ExerciseStatsMarker;
+      return isStatsMarker(data) ? null : data;
+    });
     // Verdicts from the rollups as they stand before this session is folded in.
     const statsById = new Map(exerciseSessions.map((e, index) => [e.exerciseId, existing[index]]));
     // A derived value must not block the rollup: if the verdicts cannot be computed the lifts
@@ -186,13 +212,15 @@ export const saveWorkoutSession = async (
       tx.set(refs[index], { ...summary, updatedAt: serverTimestamp() });
       return summary;
     });
-    return { lifts, summaries };
+    return { deleted: false as const, lifts, summaries };
   });
 
+  if (folded.deleted) return { sessionId: session.sessionId, deleted: true };
   return {
     sessionId: session.sessionId,
     session: { ...session, lifts: folded.lifts },
     summaries: folded.summaries,
+    deleted: false,
   };
 };
 
@@ -415,6 +443,99 @@ export const setWorkoutNote = async (userId: string, sessionId: string, note: st
 };
 
 /**
+ * Every session of one lift, as they stand on the server (`deleted` markers included; the pure
+ * `summaryWithout` skips them): `exerciseIds` array-contains, no limit, so 1 read per workout of the
+ * lift, about 370 reads at 150 workouts of 8 lifts (TICKET-087's fixtures). Automatic index only.
+ * Offline it rejects, as every server read here does.
+ */
+async function getAllSessionsOfExercise(userId: string, exerciseId: string): Promise<WorkoutSessionDoc[]> {
+  const answer = serverOnly(await getDocsFromServer(query(sessionsRef(userId), where("exerciseIds", "array-contains", exerciseId))));
+  return answer.docs.map(sessionFromDoc);
+}
+
+export type DeleteWorkoutResult = {
+  /** What each of the workout's lifts' summary became: a rebuilt summary, or a marker when no session is left. Unstamped, as a Finish's. */
+  summaries: (ExerciseStatsDoc | ExerciseStatsMarker)[];
+  /** Workout docs read to rebuild, for the proof. */
+  docsRead: number;
+};
+
+/**
+ * Delete a workout (TICKET-086). Never a hard delete: a change check cannot see one, so the `sessions` doc stays
+ * with `deleted: true` and a server stamp, and another phone drops it at its next check (`addToWindow`). Its
+ * `exercise_sessions` docs are deleted until TICKET-085c retires them (ids are derived, no read). Each of its
+ * lifts' `exercise_stats` is replaced by a rebuild from the lift's other sessions, or becomes a marker when none
+ * is left (`summaryWithout`), because `bestByReps` cannot be decremented (TICKET-032).
+ *
+ * Reads first (server only, so offline it rejects before anything is written), then one transaction for the writes:
+ * a transaction, as `setWorkoutNote`, because a batch offline would wait in the cache and apply later, and "refused
+ * offline" is the rule. Writes: 1 + 2 per lift. Not in scope, decided with the user (2026-11-21): the next session's
+ * stored verdict is not rewritten (TICKET-095).
+ *
+ * A Finish landing between the reads and the commit (one phone is enough: the reads take seconds and a queued upload
+ * can drain meanwhile) would be overwritten by the rebuild, which never saw it. So each summary's stamp is read first
+ * and the transaction reads them again and refuses (`changed`) if one moved. Rejected: accepting the race and healing
+ * with `rebuildExerciseStats.ts`, which nothing tells the user to run (PR #79 review, F2).
+ *
+ * Rejects with a `code`: `not-found` (not on the server, so there is nothing to delete), `unreadable-history`
+ * (a lift has a session in the old shape, `summaryWithout`) and `changed` (above). Already deleted resolves with nothing written, so a
+ * retry after a lost answer is safe; it returns no summaries, so the phone's held bests stay as they were until the next change check. `dryRun` does the reads and reports, writing nothing (3.3).
+ */
+export const deleteWorkout = async (
+  userId: string,
+  session: Pick<WorkoutSessionDoc, "sessionId" | "exerciseIds"> & { lifts?: readonly { id: string }[] },
+  options: { dryRun?: boolean } = {}
+): Promise<DeleteWorkoutResult> => {
+  if (!userId || !session.sessionId) throw new Error("Missing user or session");
+  const sessionRef = doc(sessionsRef(userId), session.sessionId);
+  // `exerciseIds` is derived from `lifts` and the compare script checks they agree; a lift left out of it would keep
+  // the deleted workout's best, so both are used. Once each: the writes below line up with this list.
+  const exerciseIds = [...new Set([...session.exerciseIds, ...(session.lifts ?? []).map((lift) => lift.id)])];
+
+  let docsRead = 0;
+  const summaries: DeleteWorkoutResult["summaries"] = [];
+  // Each summary's stamp as it stood before the sessions were read: the transaction refuses if one moved (a Finish's
+  // fold landed in between), so a rebuild never overwrites a newer fold.
+  const stampsBefore: (SyncStamp | undefined)[] = [];
+  for (const exerciseId of exerciseIds) {
+    const statsSnapshot = await getDocFromServer(doc(exerciseStatsRef(userId), exerciseId));
+    stampsBefore.push(toStamp(statsSnapshot.data()?.updatedAt));
+    const sessionsOfLift = await getAllSessionsOfExercise(userId, exerciseId);
+    docsRead += sessionsOfLift.length;
+    const rebuilt = summaryWithout(exerciseId, sessionsOfLift, session.sessionId);
+    if (rebuilt.status === "unreadable") {
+      throw Object.assign(new Error(`${exerciseId} has sessions in the old format: ${rebuilt.sessionIds.join(", ")}`), {
+        code: "unreadable-history",
+      });
+    }
+    summaries.push(rebuilt.stats ?? { exerciseId, deleted: true });
+  }
+  if (options.dryRun) return { summaries, docsRead };
+
+  const alreadyDeleted = await runTransaction(db, async (tx) => {
+    const [snapshot, ...statsSnapshots] = await Promise.all([
+      tx.get(sessionRef),
+      ...exerciseIds.map((exerciseId) => tx.get(doc(exerciseStatsRef(userId), exerciseId))),
+    ]);
+    // Coded, as `setWorkoutNote`: a retry cannot make a missing doc appear.
+    if (!snapshot.exists()) throw Object.assign(new Error("This workout is not on the server"), { code: "not-found" });
+    if (snapshot.data().deleted === true) return true;
+    // Coded: a retry rebuilds from what the Finish wrote.
+    if (statsSnapshots.some((stats, index) => compareStamps(toStamp(stats.data()?.updatedAt), stampsBefore[index]) !== 0)) {
+      throw Object.assign(new Error("A summary changed while the workout was being deleted"), { code: "changed" });
+    }
+    tx.update(sessionRef, { deleted: true, updatedAt: serverTimestamp() });
+    exerciseIds.forEach((exerciseId, index) => {
+      tx.delete(doc(exerciseSessionsRef(userId), buildExerciseSessionId(session.sessionId, exerciseId)));
+      // Replace, never merge: a merge would keep the old bests (TICKET-032).
+      tx.set(doc(exerciseStatsRef(userId), exerciseId), { ...summaries[index], updatedAt: serverTimestamp() });
+    });
+    return false;
+  });
+  return alreadyDeleted ? { summaries: [], docsRead } : { summaries, docsRead };
+};
+
+/**
  * One plan's newest workout, or null when it has none: the floor's lookup, for a plan with no
  * workout in the window (TICKET-082). 1 read, billed 1 when the plan was never done. Uses the
  * index `sessions (workoutId, startedAt desc)`. A `deleted` marker is not a workout: it is
@@ -467,20 +588,21 @@ export const getChangedSessions = async (userId: string, after: SyncStamp): Prom
  * (`toStamp` refuses it). A `>` on a Timestamp never returns those docs
  * (Firestore compares within one type), so only a full read sees them.
  */
-const summaryFromDoc = (snapshot: QueryDocumentSnapshot<DocumentData>): ExerciseStatsDoc => {
+// A lift's `deleted` marker comes back as it is (`ExerciseStatsMarker`): the store's merge drops it.
+const summaryFromDoc = (snapshot: QueryDocumentSnapshot<DocumentData>): ExerciseStatsDoc | ExerciseStatsMarker => {
   const { updatedAt, ...data } = snapshot.data();
   const stamp = toStamp(updatedAt);
-  return { ...(data as ExerciseStatsDoc), ...(stamp ? { updatedAt: stamp } : {}) };
+  return { ...(data as ExerciseStatsDoc | ExerciseStatsMarker), ...(stamp ? { updatedAt: stamp } : {}) };
 };
 
 /** Every summary the user has: one query, one read per doc (1 when there are none). */
-export const getAllExerciseStats = async (userId: string): Promise<ExerciseStatsDoc[]> => {
+export const getAllExerciseStats = async (userId: string): Promise<(ExerciseStatsDoc | ExerciseStatsMarker)[]> => {
   if (!userId) throw new Error("Missing user");
   return serverOnly(await getDocsFromServer(exerciseStatsRef(userId))).docs.map(summaryFromDoc);
 };
 
 /** Summaries written after `after`. Nothing changed: no docs, billed 1 read. */
-export const getChangedExerciseStats = async (userId: string, after: SyncStamp): Promise<ExerciseStatsDoc[]> => {
+export const getChangedExerciseStats = async (userId: string, after: SyncStamp): Promise<(ExerciseStatsDoc | ExerciseStatsMarker)[]> => {
   if (!userId) throw new Error("Missing user");
   const snapshot = serverOnly(
     await getDocsFromServer(

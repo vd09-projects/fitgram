@@ -32,10 +32,11 @@
 import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getAllExerciseStats, getChangedExerciseStats } from "../services/db/workoutSessions";
-import type { ExerciseStatsDoc } from "../types/workoutSession";
+import type { ExerciseStatsDoc, ExerciseStatsMarker } from "../types/workoutSession";
 import { changeCheckAfter, type SyncStamp } from "../utils/syncCore";
 import {
   mergeSummaries,
+  withDeletedSummaries,
   withFinishedSummaries,
   readStoredSummaries,
   serializeStoredSummaries,
@@ -71,6 +72,8 @@ interface ExerciseHistoryStoreState extends SyncFields<SummariesCheckKind> {
   check: (options?: CheckOptions) => Promise<void>;
   /** This phone's upload committed these summaries: hold them, 0 reads. */
   applyFinished: (uid: string, summaries: ExerciseStatsDoc[]) => void;
+  /** This phone's delete of a workout committed these summaries (a marker removes a lift): hold them, 0 reads. */
+  applyDeleted: (uid: string, results: (ExerciseStatsDoc | ExerciseStatsMarker)[]) => void;
   /** Sign-out. */
   clear: () => void;
 }
@@ -162,6 +165,15 @@ export const useExerciseHistoryStore = create<ExerciseHistoryStoreState>((set, g
       set({ byId: withFinishedSummaries(state.byId, summaries) });
       runner.persist();
       runner.note("ok", undefined, `own Finish: ${summaries.length} summaries, 0 reads now (${summaries.length} tx.get in the transaction)`);
+    },
+
+    applyDeleted: (uid, results) => {
+      const state = get();
+      // Nothing held: the next check is a first load, which has the server's answer already.
+      if (state.uid !== uid || state.byId === null) return;
+      set({ byId: withDeletedSummaries(state.byId, results) });
+      runner.persist();
+      runner.note("ok", undefined, `own delete: ${results.length} summaries, 0 reads now`);
     },
 
     clear: runner.clear,

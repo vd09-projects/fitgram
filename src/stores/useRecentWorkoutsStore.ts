@@ -18,6 +18,7 @@ import {
   lookUpPlanIds,
   plansToLookUp,
   readStoredWorkouts,
+  removeFromWindow,
   serializeStoredWorkouts,
   shardKeysNamedBy,
   windowFromFirstLoad,
@@ -199,13 +200,15 @@ interface WorkoutsStore extends SyncFields<WorkoutsCheckKind> {
   loadSession: (sessionId: string) => Promise<void>;
   /** A note was saved on the server for `sessionId` (null: removed): show it in every copy this phone holds, 0 reads. */
   applyNote: (uid: string, sessionId: string, note: string | null) => void;
+  /** `sessionId` was deleted on the server by this phone: remove it from every copy this phone holds, 0 reads. */
+  applyDeleted: (uid: string, sessionId: string) => void;
   /** This phone's upload of `session` was confirmed by the server: hold it, 0 reads. */
   applyFinished: (uid: string, session: WorkoutSessionDoc) => void;
   /** Sign-out. */
   clear: () => void;
 }
 
-type State = Omit<WorkoutsStore, "open" | "check" | "loadOlder" | "loadOlderOfExercise" | "loadSession" | "applyNote" | "applyFinished" | "clear">;
+type State = Omit<WorkoutsStore, "open" | "check" | "loadOlder" | "loadOlderOfExercise" | "loadSession" | "applyNote" | "applyDeleted" | "applyFinished" | "clear">;
 
 const initialState = {
   uid: null,
@@ -568,6 +571,24 @@ export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
         ),
       }));
       if (held) runner.persist();
+    },
+
+    applyDeleted: (uid, sessionId) => {
+      const state = get();
+      if (state.uid !== uid) return;
+      const without = (list: OlderWorkouts): OlderWorkouts => ({ ...list, sessions: list.sessions.filter((session) => session.sessionId !== sessionId) });
+      set((s) => ({
+        workoutWindow: s.workoutWindow ? removeFromWindow(s.workoutWindow, sessionId, WORKOUTS_ON_PHONE_MIN) : s.workoutWindow,
+        // The lists the user loaded past the window, and a lift's log: the same workout may be in several.
+        olderWorkouts: Object.fromEntries(Object.entries(s.olderWorkouts).map(([key, older]) => [key, without(older)])),
+        exerciseOlder: Object.fromEntries(Object.entries(s.exerciseOlder).map(([key, older]) => [key, without(older)])),
+        // Read by id and found: now "no longer there", as a workout deleted on another phone reads.
+        fetchedSessions: Object.fromEntries(
+          Object.entries(s.fetchedSessions).map(([key, read]) => [key, read.status === "ready" && read.session?.sessionId === sessionId ? { ...read, session: null } : read])
+        ),
+      }));
+      // The floor can change without the workout being held, so save whenever there is a window.
+      if (state.workoutWindow) runner.persist();
     },
 
     applyFinished: (uid, session) => {

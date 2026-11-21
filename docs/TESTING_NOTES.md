@@ -677,3 +677,51 @@ To run: Workout tab, **History**.
 - **[pending] Not run:** a Finish landing on the home then the Session (a write to the real database, not asked for; the `LayoutScreen` test covers the stack); the empty state's "Start a workout" (`pinky` has workouts, so the empty state cannot be reached without deleting them); a `TypeError: Cannot convert undefined value to object` in the logcat, 3 lines from before this work began, none added by this run; not traced.
 - **[note] The offline cold start repeats what earlier entries recorded:** the Feed reads "Hi, Guest" and a dev-only LogBox shows Firestore's "Could not reach Cloud Firestore backend"; dismissed, not an app error.
 - **[note] No instrument built:** removing code adds nothing to observe (CLAUDE.md 3.3 skipped, said so in the ticket).
+
+## TICKET-086 stages 1 and 2: delete a workout, data layer (2026-11-21)
+
+No screen yet; nothing to see on a phone. Checked by unit tests only.
+
+- **[unit] Passed (1037 tests, typecheck clean):** `mergeSummaries` with a `deleted` marker (newer or equal removes, older ignored, a later Finish restores); a Finish onto a marker starts the lift from nothing; `summaryWithout` (a typo's best gone, only session gives null, markers and the deleted workout left out, an unreadable session refuses); `deleteWorkout` (marker, `exercise_sessions` docs deleted, replace not merge, marker for a lift with none left, offline writes nothing, old shape refuses, already deleted writes nothing, dry run); the compare script reads a deleted workout and a stats marker as absent. Each test was seen failing with its line broken.
+- **[pending] Not run on Firestore:** the transaction, the server stamp on the markers, another phone's change check dropping the workout and the summary, and the read count for a lift with about 100 sessions (the ticket's proof, needs stage 3's button or a dry-run script on `pinky`).
+- **[note] Scripts:** `compareHistory.ts` will report one verdict mismatch per lift the deleted workout touched (the next session's verdict is not rewritten, TICKET-095); the other lists should stay at 0.
+
+## TICKET-086 stage 3: Delete session, the phone side (2026-11-21)
+
+**Unit [run], 1045 tests, typecheck clean.** New: `removeFromWindow` (floor moves to the plan's next newest with no lookup; a plan's only workout sends it to be looked up; a floor entry the window does not hold is dropped; an unheld id returns the same window), `applyDeleted` on both stores (window, floor, older lists, a lift's log, read by id; 0 reads; another user ignored), `withDeletedSummaries`, and the screen (Keep it deletes nothing; Delete calls the service, tells both stores, lands on the History home with no read by id; offline says so and keeps the workout). Each was seen failing with its line broken.
+
+**Device plan [pending, needs the user's go-ahead: it writes to `pinky`'s real data].** Emulator, `pinky`, writes: one test workout finished and then deleted (a `sessions` marker, its `exercise_sessions` docs gone, the summaries of the lifts it used replaced). Pick a lift pinky has no history for, or one whose best the test workout will clearly set, so the record is visible.
+1. Finish a test workout (one lift, one set at a weight above pinky's best for that lift). Session opens; open the lift's history: the new best shows.
+2. ⋯ → **Delete session** → **Keep it**: dialog closes, nothing changes.
+3. ⋯ → **Delete session** → **Delete**: lands on the History home; the workout is not in the list; the plan's date is the previous workout's. Plans Store → Recent workouts: Reads billed did not rise by a read of the deleted workout.
+4. Open the lift's history: the test workout and its best are gone (back to the earlier best, or "First time" if it had none).
+5. Airplane mode, open an older workout → ⋯ → Delete → **Delete**: "Needs a connection to delete a workout." and the workout is still there. Airplane off.
+6. Force-stop, relaunch: the deleted workout does not come back (the marker is on the server and in the saved copy).
+7. Finish a workout offline (waiting to upload): ⋯ shows Delete session switched off with its reason. This also runs 085a's open proof (the "waiting to upload" strip); let it upload, then delete it as in 3.
+8. Run `compareHistory.ts <pinky uid>` (read-only): `exercise_stats`, `exercise_sessions` and orphan lists at 0; only verdict mismatches for the lifts the test workout shared with a later workout (none if it was the newest).
+9. Two phones: not testable on one emulator; the other phone's check is covered by `mergeSummaries` and `addToWindow` marker tests only.
+
+### TICKET-086 device run (emulator, `pinky`, 2026-11-21)
+
+**Writes made (told up front, kept minimal):** two test workouts finished and then deleted: `Test 070` (a 45 s hip stretch, finished offline) and a Freestyle `Deadlift · Barbell` 100 kg x 5 (a lift `pinky` had never done). Left behind: 2 `deleted` markers on `sessions` docs and 1 `deleted` marker on `exercise_stats/deadlift__barbell`. Nothing else was written.
+
+- **[run] Passed:** (2) Keep it closes the dialog, nothing changes. (3) Delete lands on the History home, the workout is not in the list. (5) Offline Delete: "Needs a connection to delete a workout.", the workout stays. (6) Force-stop and relaunch: neither deleted workout comes back. (7) A workout finished offline shows "Not uploaded yet" / "Saved on this phone" and its Delete session is switched off with its reason; after it uploaded, Delete was enabled. This is also 085a's open "waiting to upload" proof.
+- **[run] Server, read-only, after each delete:** `Test 070` run: marker on the session, `exercise_sessions` 129 back to 128, the hip-stretch summary back to 6 sessions with last = 17 Nov. Deadlift run: marker on the session, `exercise_stats/deadlift__barbell` is a marker, its `exercise_sessions` 0. `compareHistory.ts`: 0 mismatches both times (22 and 23 sessions read, 21 live: the marker is not counted). Both deleted workouts were the newest of their lift, so no verdict mismatch was expected and none appeared.
+- **[bug found and fixed] Back after a delete reached a dead Session.** `navigation.navigate(HistoryHome)` pushed a second home on top (React Navigation 7), leaving the deleted Session under it, which showed "Loading data" forever. Now `popTo`. Re-run on the fixed bundle (the Deadlift run, which lands from a Finish: hub, home, Session): delete, History home, Back, hub. The screen test fails with `navigate` and passes with `popTo`.
+- **[pending] Not run:** (4) the lift's history in the app after the delete (covered by `withDeletedSummaries` unit tests and the server marker, not seen on screen); the plan tile's date after deleting the plan's newest workout, in the same app run (unit-tested in `removeFromWindow`; the tile read "3d" after a relaunch, from the server); the read count for a lift with about 100 sessions (the largest lift on `pinky` has 6); another phone's check seeing a delete (one emulator); the dialog and the error line at a phone narrower than the emulator.
+
+### TICKET-086 review fixes (PR #79, pass 1)
+
+**Unit [run], 1051 tests, typecheck clean; each new test seen failing with its line broken** (the F1 guard in the service and in the drain, the F2 stamp compare, both halves of the F5 ids, the F4 focus guard). `measureFinishOps` now pins 9 reads per Finish of 8 lifts (was 8): the F1 guard reads the workout doc.
+
+**Device plan for the fixes [see the run below].** Emulator, `pinky`, writes: two more test workouts finished and deleted.
+1. F1 on a device: finish a workout offline (Freestyle, a never-done lift), and with it still in the queue delete nothing; instead finish it online, delete it, then check the server shows no `exercise_sessions` doc and a marker (the replay path itself needs a second phone or a forced re-upload; unit-tested only).
+2. Cost: Finish still lands "Workout saved"; Reads billed unchanged (the extra read is inside the Finish transaction, not billed to the History stores).
+3. F4: "Deleting…" shows while the delete runs; Back mid-delete does not throw the user to the home.
+4. A delete still lands on History and Back goes to the hub.
+
+**[run] Device run of the review fixes (emulator, `pinky`, 2026-11-21, HEAD 12ce7e8 bundle).** Writes: one more Freestyle `Deadlift · Barbell` 110 kg x 5, finished then deleted (a third `sessions` marker; `exercise_stats/deadlift__barbell` ends as a marker again).
+- **Passed:** a fresh app run reads the deleted lift as "First time on this exercise" (the stats marker, dropped by the full load). **A real Finish onto the stats marker** lands "Workout saved" and the server holds a whole summary (1 session, no flag; the deleted workout is not counted): the stage 1 guard and the new Finish transaction read, on a device. "Deleting…" shows while the delete runs. Delete lands on History, **Back goes to the hub** (the `popTo` fix, from a Finish landing). Server after: marker on the session, `exercise_stats` marker, `exercise_sessions` back to 128; `compareHistory.ts` 0 mismatches.
+- **[pending] Not run on a device:** F1's replay itself (an upload of a workout deleted while it was queued) needs a queue entry that outlives its upload or a second phone: unit-tested in the service and in the drain only. Back mid-delete (F4's focus guard): unit-tested only; the delete is too quick to race by hand.
+
+**PR #79 review pass 3 (2026-11-21).** `importHistory.ts` now filters deleted workouts (`liveSessions`) before rebuilding stats: unit-untested, not run (it writes to a real database; needs a confirmed run on `pinky`). New store tests: `useExerciseHistoryStore.applyDeleted` and the saved copy in `useRecentWorkoutsStore.applyDeleted`, each seen failing with its persist call / uid guard removed. Unit [run]: `tsc` clean.

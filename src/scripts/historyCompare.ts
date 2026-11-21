@@ -12,7 +12,7 @@
 //  - `exerciseIds` that are not the lifts' ids
 //  - `exercise_sessions` that disagree with the lifts, until TICKET-085c drops them
 //  - `exercise_stats` that are not what the sets rebuild
-import type { ExerciseSessionDoc, ExerciseStatsDoc, LiftReason, LiftVerdict, WorkoutSessionDoc } from "../types/workoutSession";
+import { isStatsMarker, type ExerciseSessionDoc, type ExerciseStatsDoc, type ExerciseStatsMarker, type LiftReason, type LiftVerdict, type WorkoutSessionDoc } from "../types/workoutSession";
 import { buildExerciseSessionId, rebuildStatsFromSessions } from "../utils/exerciseStats";
 import { exerciseSessionsOf, judgeableBefore, readLifts, verdictsFromHistory } from "../utils/liftRecord";
 
@@ -59,11 +59,22 @@ export const totalMismatches = (r: HistoryReport) =>
   r.unreadable.length + r.verdictMismatches.length + r.exerciseIdsMismatches.length + r.exerciseSessionsDiffer.length +
   r.exerciseSessionsOrphan.length + r.statsDiffer.length;
 
+/**
+ * The workouts that still exist: a deleted one stays in `sessions` as a marker with its `lifts` (TICKET-086),
+ * and a script that counted it would rebuild its bests back and call the delete's own writes a mismatch.
+ * Every script that reads `sessions` whole passes them through this first.
+ */
+export const liveSessions = (sessions: readonly WorkoutSessionDoc[]): WorkoutSessionDoc[] => sessions.filter((s) => s.deleted !== true);
+
 export function compareHistory(
-  sessions: readonly WorkoutSessionDoc[],
+  allSessions: readonly WorkoutSessionDoc[],
   exerciseSessions: readonly ExerciseSessionDoc[],
-  stats: readonly ExerciseStatsDoc[]
+  allStats: readonly (ExerciseStatsDoc | ExerciseStatsMarker)[]
 ): HistoryReport {
+  const sessions = liveSessions(allSessions);
+  // A lift's marker means "no session left": it is the same as no doc, so a lift that still has sessions
+  // and holds a marker is found as a missing summary, and a marker for a lift with none is not a finding.
+  const stats = allStats.filter((s): s is ExerciseStatsDoc => !isStatsMarker(s));
   const readable = sessions.filter((s) => readLifts(s.lifts) !== null);
   const unreadable = sessions.filter((s) => readLifts(s.lifts) === null).map((s) => s.sessionId);
 

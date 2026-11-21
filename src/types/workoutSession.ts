@@ -289,3 +289,19 @@ export type ExerciseStatsDoc = {
    */
   updatedAt?: SyncStamp;
 };
+
+/**
+ * What a lift's `exercise_stats` doc becomes when its last session is deleted (TICKET-086; the rule is
+ * TICKET-032's): the doc stays with a server stamp, so a change check on another phone can see the delete.
+ * Readers drop it (`mergeSummaries`) and the lift reads "First time" again. Never a hard delete, and never
+ * expires. Holds no bests on purpose: a reader that forgot to drop it would find nothing to show, not a
+ * stale record (CLAUDE.md 2.4).
+ */
+export type ExerciseStatsMarker = {
+  exerciseId: string;
+  deleted: true;
+  updatedAt?: SyncStamp;
+};
+
+export const isStatsMarker = (doc: ExerciseStatsDoc | ExerciseStatsMarker): doc is ExerciseStatsMarker =>
+  "deleted" in doc && doc.deleted === true;

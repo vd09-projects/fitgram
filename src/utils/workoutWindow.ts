@@ -189,17 +189,7 @@ export function addToWindow(current: WorkoutWindow, incoming: readonly WorkoutSe
       byId.delete(session.sessionId);
       const floorDoc = lastByPlan[session.workoutId];
       if (floorDoc && floorDoc.sessionId === session.sessionId && compareStamps(session.updatedAt, floorDoc.updatedAt) >= 0) {
-        // The plan's newest workout is gone. Every workout since `windowStart` is in the window and
-        // anything the window left out is older than all of them, so the plan's newest remaining
-        // workout in the window is its new newest, with no read. Only a workout since `windowStart`
-        // counts: one in this same batch from before it (a late upload) is not the plan's newest,
-        // a newer one may sit in a month the phone does not hold. A plan with none there is not
-        // looked up, and the lookup finds its next newest (`getLastWorkoutOfPlan` skips markers).
-        const next = [...byId.values()]
-          .filter((s) => s.workoutId === session.workoutId && (current.windowStart === null || s.startedAt >= current.windowStart))
-          .sort(compareSessions)[0];
-        if (next) lastByPlan[session.workoutId] = next;
-        else delete lastByPlan[session.workoutId];
+        replaceFloorEntry(byId, lastByPlan, session.workoutId, current.windowStart);
       }
       continue;
     }
@@ -207,6 +197,44 @@ export function addToWindow(current: WorkoutWindow, incoming: readonly WorkoutSe
     const entry = withNewerOf(lastByPlan, session);
     if (entry !== undefined) lastByPlan[session.workoutId] = entry;
   }
+  return dropMonthsOutsideWindow([...byId.values()].sort(compareSessions), current.windowStart, min, lastByPlan);
+}
+
+/**
+ * The plan's newest workout is gone: its floor entry becomes the newest remaining workout in the window, with no
+ * read. Every workout since `windowStart` is in the window and anything the window left out is older than all of
+ * them. Only a workout since `windowStart` counts: one in the same batch from before it (a late upload) is not the
+ * plan's newest, a newer one may sit in a month the phone does not hold. A plan with none there is not looked up
+ * (the entry is dropped), and the lookup finds its next newest (`getLastWorkoutOfPlan` skips markers).
+ */
+function replaceFloorEntry(
+  byId: ReadonlyMap<string, WorkoutSessionDoc>,
+  lastByPlan: WorkoutWindow["lastByPlan"],
+  workoutId: string,
+  windowStart: number | null
+): void {
+  const next = [...byId.values()]
+    .filter((s) => s.workoutId === workoutId && (windowStart === null || s.startedAt >= windowStart))
+    .sort(compareSessions)[0];
+  if (next) lastByPlan[workoutId] = next;
+  else delete lastByPlan[workoutId];
+}
+
+/**
+ * This phone's own delete was confirmed by the server (TICKET-086): the workout leaves the window and the plan's
+ * floor entry follows, at once and with no read. Not `addToWindow` with a marker: the server's stamp is not known
+ * here, and an unstamped marker would lose to the stamped copy held. The marker itself arrives with the next change
+ * check and changes nothing then (a marker for a workout not on the phone). A workout the window does not hold
+ * leaves the window as it is.
+ */
+export function removeFromWindow(current: WorkoutWindow, sessionId: string, min: number): WorkoutWindow {
+  const gone = current.sessions.find((s) => s.sessionId === sessionId);
+  const byId = new Map(current.sessions.filter((s) => s.sessionId !== sessionId).map((s) => [s.sessionId, s]));
+  const lastByPlan = { ...current.lastByPlan };
+  // The floor can name a workout the window does not hold (a plan last done before it), so look at the floor, not only `gone`.
+  const floorOf = Object.entries(lastByPlan).find(([, doc]) => doc?.sessionId === sessionId);
+  if (floorOf) replaceFloorEntry(byId, lastByPlan, floorOf[0], current.windowStart);
+  if (!gone && !floorOf) return current;
   return dropMonthsOutsideWindow([...byId.values()].sort(compareSessions), current.windowStart, min, lastByPlan);
 }
 

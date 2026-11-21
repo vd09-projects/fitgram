@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import { useAuthUser } from "../../hooks/useAuthUser";
@@ -8,7 +8,7 @@ import { useRecentWorkoutsStore } from "../../stores/useRecentWorkoutsStore";
 import { drainPendingUploads, useWorkoutStore } from "../../stores/useWorkoutStore";
 import { Ionicons } from "@expo/vector-icons";
 import { liftCards, liftCompare, normalizeNote, resolveSession, sessionDateLine, sessionSummary, uploadNotice } from "../../utils/sessionView";
-import { setWorkoutNote } from "../../services/db/workoutSessions";
+import { deleteWorkout, setWorkoutNote } from "../../services/db/workoutSessions";
 import type { RailWorkout } from "../../utils/historyRail";
 import { WorkoutRoutes } from "../../constants/routes";
 import { SPACING } from "../../constants/styles";
@@ -19,6 +19,7 @@ import LoadingData from "../../components/LoadingData";
 import MenuSheet from "../../components/MenuSheet";
 import { SessionLiftCard } from "../../components/history/SessionLiftCard";
 import { SessionNoteSheet } from "../../components/history/SessionNoteSheet";
+import { DiscardWorkoutDialog } from "../../components/active_workout/DiscardWorkoutDialog";
 import { ReturnTypeUseThemeTokens } from "../../components/app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 
@@ -35,7 +36,7 @@ import { useThemeStyles } from "../../utils/useThemeStyles";
  * Type sizes, board px through the System board's table: headline 22 → xLarge, title 18 → large, date and counts 14 → xMedium.
  *
  * A tap on a card opens its compare (`liftCompare`, from the held summaries: no read). The ⋯ opens the options:
- * Add a note (or Edit note), and Edit session and Delete session switched off with their reason (086 builds them).
+ * Add a note (or Edit note), Delete session (TICKET-086) and Edit session, which stays switched off with its reason.
  * A note is saved on the server first (`setWorkoutNote`, refused offline) and then shown in every copy the phone
  * holds (`applyNote`); a workout still in the queue has no document to hold one, so the item says so.
  *
@@ -75,6 +76,13 @@ export default function SessionScreen() {
   const [menuOpen, setMenuOpen] = useState(false);
   // Counted up per opening, so the sheet remounts with the saved text and a cancelled draft is not kept.
   const [noteOpening, setNoteOpening] = useState<number | null>(null);
+  // Delete (TICKET-086): the confirm, the wait, and why a delete was refused. `gone` stops the screen reading the
+  // workout by id in the moment between the stores dropping it and the navigation leaving (that read would be wasted).
+  // A ref, not state: a store update re-renders at once, before a state set in the same tick has landed.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const gone = useRef(false);
 
   const lookup = useMemo(
     () =>
@@ -91,7 +99,7 @@ export default function SessionScreen() {
 
   // Read by id only when nothing on the phone has it, and not before the window had its chance to load: a
   // workout held but not yet read from disk would otherwise cost a read. `loadSession` skips what it holds.
-  const needsFetch = lookup.kind === "notOnPhone" && uid !== undefined && (workoutWindow !== null || waitOver);
+  const needsFetch = !gone.current && lookup.kind === "notOnPhone" && uid !== undefined && (workoutWindow !== null || waitOver);
   useEffect(() => {
     if (needsFetch) void useRecentWorkoutsStore.getState().loadSession(sessionId);
   }, [needsFetch, sessionId]);
@@ -138,6 +146,46 @@ export default function SessionScreen() {
     useRecentWorkoutsStore.getState().applyNote(uid, workout.session.sessionId, checked.note);
     setNoteOpening(null);
     return null;
+  };
+
+  /**
+   * Deletes on the server first (`deleteWorkout`, refused offline), then in every copy this phone holds, then back to
+   * Workouts. A refusal leaves the workout where it is and says why; nothing is removed locally on a failure.
+   */
+  const confirmDelete = async () => {
+    setConfirmingDelete(false);
+    if (deleting || !uid || !workout) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const { summaries } = await deleteWorkout(uid, workout.session);
+      gone.current = true;
+      useExerciseHistoryStore.getState().applyDeleted(uid, summaries);
+      useRecentWorkoutsStore.getState().applyDeleted(uid, workout.session.sessionId);
+    } catch (error) {
+      console.log("Failed to delete workout:", error);
+      const code = (error as { code?: string })?.code;
+      setDeleteError(
+        code === "unavailable"
+          ? "Needs a connection to delete a workout."
+          : code === "not-found"
+            ? "This workout is not on the server, so it cannot be deleted."
+            : code === "unreadable-history"
+              ? "A lift here has an older session in a format that cannot be recounted, so this workout was not deleted."
+              : code === "changed"
+                ? "Something changed while deleting. Try again."
+                : "Could not delete the workout. Try again."
+      );
+      setDeleting(false);
+      return;
+    }
+    setDeleting(false);
+    // Outside the try: a failure to navigate is not a failed delete (PR #79 review, F4). Only if this screen is still the
+    // one in front: the user may have gone Back during the wait, and `popTo` would pull them away from where they are.
+    // Pop back to the home already in the stack (below this Session whether it was opened from the home or landed here
+    // after a Finish), not `navigate`: React Navigation 7 pushes another home on top, and Back would then return to
+    // this deleted workout (found on the emulator).
+    if (navigation.isFocused()) navigation.popTo(WorkoutRoutes.HistoryHome);
   };
 
   const tryAgain = async () => {
@@ -226,8 +274,9 @@ export default function SessionScreen() {
         renderIcon: (color: string) => <Ionicons name="trash-outline" size={22} color={color} />,
         title: "Delete session",
         tone: "danger" as const,
-        disabledReason: "Not available yet.",
-        onPress: () => {},
+        // A queued workout has no document to mark: it leaves with the upload, not with a delete.
+        disabledReason: state === "uploaded" ? null : "Available once the workout has uploaded.",
+        onPress: () => setConfirmingDelete(true),
       },
     ],
   ];
@@ -253,6 +302,16 @@ export default function SessionScreen() {
           </View>
         )}
       </View>
+      {deleteError !== null && (
+        <TextBase style={styles.deleteError} testID="session-delete-error">
+          {deleteError}
+        </TextBase>
+      )}
+      {deleting && (
+        <TextBase style={styles.deleteProgress} testID="session-deleting">
+          Deleting…
+        </TextBase>
+      )}
       <ScrollView testID="session-list" contentContainerStyle={styles.listEnd}>
         {session.liftsUnreadable ? (
           <TextBase style={styles.message}>Details not available</TextBase>
@@ -284,6 +343,15 @@ export default function SessionScreen() {
         )}
       </ScrollView>
       <MenuSheet visible={menuOpen} title="Session" groups={options} onClose={() => setMenuOpen(false)} />
+      <DiscardWorkoutDialog
+        visible={confirmingDelete}
+        title="Delete this workout?"
+        message="Its sets leave your history, and any record they set is recounted. This cannot be undone."
+        keepLabel="Keep it"
+        discardLabel="Delete"
+        onKeep={() => setConfirmingDelete(false)}
+        onDiscard={() => void confirmDelete()}
+      />
       {noteOpening !== null && (
         <SessionNoteSheet key={noteOpening} visible initial={session.note ?? ""} onSave={saveNote} onClose={() => setNoteOpening(null)} />
       )}
@@ -306,6 +374,8 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
     savedText: { fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.accent },
     noticeRow: { flexDirection: "row", alignItems: "center", gap: SPACING.small },
     noticeText: { fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.textSecondary },
+    deleteProgress: { paddingHorizontal: SPACING.medium, paddingTop: SPACING.xSmall, fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.textSecondary },
+    deleteError: { paddingHorizontal: SPACING.medium, paddingTop: SPACING.xSmall, fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.danger },
     noticeFailed: { fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.danger },
     action: { fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.accent },
     summary: { paddingHorizontal: SPACING.medium, paddingTop: SPACING.medium, paddingBottom: SPACING.large },
