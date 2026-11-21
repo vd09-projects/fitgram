@@ -10,6 +10,7 @@
 
 import React, { useEffect, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { useIsFocused } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import RestNotification from "../../modules/rest-notification";
 import { REST_SOUNDS, REST_SOUND_LABELS, RestSound, SOUND_PLAY_LABEL, SOUND_ROW_TITLE } from "../config/restNotification";
@@ -25,15 +26,30 @@ export default function RestSoundRow({ state }: { state: RestNotificationState }
   const restSound = useRestSoundStore((s) => s.restSound);
   const setRestSound = useRestSoundStore((s) => s.setRestSound);
   const [open, setOpen] = useState(false);
+  const focused = useIsFocused();
 
   const line = soundRowLine(state, restSound);
   const expanded = open && line.enabled;
 
-  // A preview must not outlive the choices that started it, or the screen that holds them.
+  // Losing the permission closes the choices for good: they do not spring open again when it returns.
   useEffect(() => {
-    if (!expanded) RestNotification.stopPreview();
-  }, [expanded]);
-  useEffect(() => () => void RestNotification.stopPreview(), []);
+    if (!line.enabled) setOpen(false);
+  }, [line.enabled]);
+
+  // A preview must not outlive what started it: the choices closing, this screen being left (a stack screen
+  // stays mounted behind the next one), or the row going away. The cleanup runs on each of those, so no call
+  // is made on a mount where nothing is open.
+  const listening = expanded && focused;
+  useEffect(() => {
+    if (!listening) return;
+    return () => void RestNotification.stopPreview();
+  }, [listening]);
+
+  // Picking a sound while another is playing ends that one: the preview is of what was tapped last.
+  const choose = (sound: RestSound) => {
+    RestNotification.stopPreview();
+    setRestSound(sound);
+  };
 
   return (
     <View testID="rest-sound-row">
@@ -59,7 +75,7 @@ export default function RestSoundRow({ state }: { state: RestNotificationState }
 
       {expanded &&
         REST_SOUNDS.map((sound) => (
-          <Choice key={sound} sound={sound} selected={sound === restSound} onChoose={setRestSound} />
+          <Choice key={sound} sound={sound} selected={sound === restSound} onChoose={choose} />
         ))}
     </View>
   );
@@ -76,19 +92,23 @@ function Choice({
 }) {
   const { styles, t } = useThemeStyles(createStyles);
   const label = REST_SOUND_LABELS[sound];
+  // The choosing area and the play button are siblings, as on the board: a play button inside the radio would
+  // be hidden from a screen reader by its accessible parent, and a press on it could reach the parent.
   return (
-    <TouchableOpacity
-      style={[styles.choice, selected && styles.choiceSelected]}
-      onPress={() => onChoose(sound)}
-      accessibilityRole="radio"
-      accessibilityState={{ selected }}
-      accessibilityLabel={label.name}
-    >
-      <View style={[styles.radio, selected && styles.radioSelected]}>{selected && <View style={styles.radioDot} />}</View>
-      <View style={styles.text}>
-        <TextBase style={[styles.choiceName, selected && styles.choiceNameSelected]}>{label.name}</TextBase>
-        <TextBase style={styles.detail}>{label.detail}</TextBase>
-      </View>
+    <View style={[styles.choice, selected && styles.choiceSelected]}>
+      <TouchableOpacity
+        style={styles.choosing}
+        onPress={() => onChoose(sound)}
+        accessibilityRole="radio"
+        accessibilityState={{ selected }}
+        accessibilityLabel={label.name}
+      >
+        <View style={[styles.radio, selected && styles.radioSelected]}>{selected && <View style={styles.radioDot} />}</View>
+        <View style={styles.text}>
+          <TextBase style={[styles.choiceName, selected && styles.choiceNameSelected]}>{label.name}</TextBase>
+          <TextBase style={styles.detail}>{label.detail}</TextBase>
+        </View>
+      </TouchableOpacity>
       <TouchableOpacity
         style={styles.play}
         onPress={() => RestNotification.previewSound(sound)}
@@ -97,7 +117,7 @@ function Choice({
       >
         <Ionicons name="play" size={16} color={t.colors.role.textPrimary} />
       </TouchableOpacity>
-    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -123,15 +143,24 @@ const createStyles = (t: ReturnTypeUseThemeTokens) =>
     text: { flex: 1, gap: 2 },
     title: { fontSize: t.fonts.xMedium, fontWeight: "bold", color: t.colors.role.textPrimary },
     detail: { fontSize: t.fonts.small, color: t.colors.role.textSecondary },
+    // The selected fill is `role.raised`, the nearest token to the board's #1E2A2D; the dividers are `hairline`
+    // (#2A2F31) where the board's inner ones are #22272A. Both recorded in TICKET-098.
     choice: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      paddingRight: 14,
+      borderTopWidth: 1,
+      borderTopColor: t.colors.role.hairline,
+    },
+    choosing: {
+      flex: 1,
       flexDirection: "row",
       alignItems: "center",
       gap: 12,
       minHeight: 44,
       paddingVertical: 12,
-      paddingHorizontal: 14,
-      borderTopWidth: 1,
-      borderTopColor: t.colors.role.hairline,
+      paddingLeft: 14,
     },
     choiceSelected: { backgroundColor: t.colors.role.raised },
     choiceName: { fontSize: t.fonts.xMedium, color: t.colors.role.textPrimary },

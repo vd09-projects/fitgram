@@ -3,7 +3,8 @@
 // The settings row for the lock-screen rest timer (TICKET-079; board "Lock 4"):
 // On, Off or Blocked, from `restNotificationState`. Off opens the same sheet as
 // the first rest; Blocked opens Android's settings page, the only way back once
-// Android will not show its dialog again. Hidden where there is no native module.
+// Android will not show its dialog again. Shown only by `RestSettingsCard`, which
+// hides the card where there is no native module and refreshes the state (TICKET-098).
 //
 // Drawn from board "Lock 4" with the `role` tokens (surface, hairline, textPrimary,
 // textSecondary), not the legacy colour keys the other Profile sections use: those
@@ -12,10 +13,9 @@
 // Blocked glyph is Ionicons' barbell: the board's pulse-bar path needs
 // react-native-svg, which the app does not have.
 
-import React, { useEffect } from "react";
+import React from "react";
 import { Linking, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import RestNotification from "../../modules/rest-notification";
 import {
   SETTINGS_ACTION_OPEN,
   SETTINGS_ACTION_TURN_ON,
@@ -32,16 +32,10 @@ import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 export default function RestNotificationRow() {
   const { styles, t } = useThemeStyles(createStyles);
   const state = useRestNotificationStore((s) => s.state);
-  const refresh = useRestNotificationStore((s) => s.refresh);
   const openPrompt = useRestNotificationStore((s) => s.openPrompt);
 
-  // Fresh when the row first shows. Coming back from Android's settings page is
-  // handled once for the whole app (`watchRestNotificationForeground`).
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
-  if (!RestNotification.available || state === "unknown") return null;
+  // The card does not mount this row while the state is unknown; this narrows the type.
+  if (state === "unknown") return null;
 
   const detail = state === "on" ? SETTINGS_ROW_ON : state === "off" ? SETTINGS_ROW_OFF : SETTINGS_ROW_BLOCKED;
 

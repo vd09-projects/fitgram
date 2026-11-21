@@ -50,21 +50,42 @@ describe("RestSoundRow", () => {
     expect(await AsyncStorage.getItem(REST_SOUND_KEY)).toBe("alarm");
   });
 
-  it("closing the choices stops a preview", () => {
-    renderScreen(On);
+  it("stops a preview when the choices close or the row goes away, and calls nothing while none are open", () => {
+    const { unmount } = renderScreen(On);
+    const stop = RestNotification.stopPreview as jest.Mock;
     const row = screen.getByRole("button", { name: /^Rest-over sound/ });
-    fireEvent.press(row);
-    (RestNotification.stopPreview as jest.Mock).mockClear();
 
     fireEvent.press(row);
-    expect(RestNotification.stopPreview).toHaveBeenCalled();
+    expect(stop).not.toHaveBeenCalled();
+
+    fireEvent.press(row);
+    expect(stop).toHaveBeenCalledTimes(1);
+
+    fireEvent.press(row);
+    stop.mockClear();
+    unmount();
+    expect(stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("choosing a sound ends a preview that is still playing", async () => {
+    renderScreen(On);
+    fireEvent.press(screen.getByRole("button", { name: /^Rest-over sound/ }));
+    fireEvent.press(screen.getByRole("button", { name: `Play ${names.ringtone.name}` }));
+    (RestNotification.stopPreview as jest.Mock).mockClear();
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole("radio", { name: names.alarm.name }));
+    });
+    expect(RestNotification.stopPreview).toHaveBeenCalledTimes(1);
   });
 
   it("is dimmed, names the step above it, and does not open when the lock-screen row is Off", () => {
     renderScreen(Off);
     expect(screen.getByText(SOUND_ROW_NEEDS_ON)).toBeOnTheScreen();
 
-    fireEvent.press(screen.getByRole("button", { name: /^Rest-over sound/ }));
+    const row = screen.getByRole("button", { name: /^Rest-over sound/ });
+    expect(row).toHaveStyle({ opacity: 0.45 });
+    fireEvent.press(row);
     expect(screen.queryByRole("radio")).toBeNull();
   });
 });

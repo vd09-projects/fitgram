@@ -4,7 +4,7 @@
 // "Lock 4" and "Sound 1"): the permission row, then the sound row below it. Hidden where there is no native
 // module, or before Android has been read, as `RestNotificationRow` was alone.
 
-import React from "react";
+import React, { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import RestNotification from "../../modules/rest-notification";
 import { SPACING } from "../constants/styles";
@@ -17,6 +17,14 @@ import { ReturnTypeUseThemeTokens } from "./app_manager/ThemeContext";
 export default function RestSettingsCard() {
   const { styles } = useThemeStyles(createStyles);
   const state = useRestNotificationStore((s) => s.state);
+  const refresh = useRestNotificationStore((s) => s.refresh);
+
+  // Fresh when the card first shows: the permission rows' own mount-time read, moved here because the card is
+  // what mounts them. Coming back from Android's settings page is handled once for the whole app
+  // (`watchRestNotificationForeground`).
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   if (!RestNotification.available || state === "unknown") return null;
 

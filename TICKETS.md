@@ -11457,6 +11457,21 @@ rest then uses it. Not a per-rest or runtime choice.
 sound (each seen failing when its line was broken). **Not verified:** the audio, the preview (no caller until stage 2), how long the alarm and
 ringtone sounds play on a phone, and whether a deleted-then-recreated channel keeps stale settings.
 
+**Stage 2 decisions and result (2026-11-22):**
+- **Applies from the next rest.** `copyFor` reads the stored sound when a rest starts, so a rest already running keeps the old one. If it is changed
+  mid-rest, the in-app 0:00 post (`announceRestDone` builds its copy then) can use the new sound while the native alarm holds the old; it ends as one
+  post, and the case is rare. Not stated in the UI.
+- **Choosing stops a preview; a preview stops when the choices close, the screen is left, or the row goes away.** The choices also close for good when
+  the permission goes (they do not spring open again when it returns).
+- **Play is a sibling of the choosing area, as on the board**, so a screen reader reaches both and a press on play cannot reach the radio.
+- **Silent mode and Do Not Disturb:** play does nothing audible and gives no sign (the sound is a notification). The board's "follows your volume" line
+  is in the sheet's footnote only, not in the app. Left as is.
+- **Deviations from the boards, by token:** the selected fill is `role.raised` (board #1E2A2D, no token); the inner dividers are `hairline` (#2A2F31,
+  board #22272A). The dimmed row's explanation is at 0.45 opacity, as drawn.
+- **Result (emulator, Android 16):** the card matches the structure of boards Sound 1 and 2; Alarm chosen and kept across a restart; a rest with Alarm
+  chosen posted on `rest_done_alarm`; permission revoked: the row dimmed with the step named; a real touch on Ringtone's play button left Alarm chosen.
+  Not verified: any audio, Blocked, a large system font, TalkBack.
+
 **Not in scope:** bundled sound files; iOS (no channels there; later); overriding silent or Do Not Disturb (a sound choice cannot).
 
 ---
