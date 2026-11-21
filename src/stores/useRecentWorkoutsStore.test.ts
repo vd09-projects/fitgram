@@ -198,6 +198,13 @@ it("own delete: the window, the plan's floor, the older lists, a lift's log and 
   // Another user's sign-in is not this phone's delete.
   useRecentWorkoutsStore.getState().applyDeleted("someone-else", "b");
   expect(sessionIds()).toEqual(["b"]);
+
+  // The saved copy drops it too, so a restart does not show it.
+  await waitFor(async () => {
+    const saved = (await AsyncStorage.multiGet(await savedKeys())).map(([, value]) => value ?? "").join("");
+    expect(saved).toContain('"b"');
+    expect(saved).not.toContain('"a"');
+  });
 });
 
 // TICKET-083: a workout opened by id that the phone does not hold.

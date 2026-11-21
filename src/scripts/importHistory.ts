@@ -45,6 +45,7 @@ import { buildExerciseSessionId, rebuildStatsFromSessions } from "../utils/exerc
 import { exerciseSessionsOf, readLifts } from "../utils/liftRecord";
 import { NO_VERSION, nextVersion, toPlanVersion, versionOf } from "../utils/planVersion";
 import { getAdminFirestore } from "./firebaseAdmin";
+import { liveSessions } from "./historyCompare";
 import { buildImport, settleVerdicts, type ImportFile } from "./historyImport";
 import { isConfirmedRun } from "./wipe";
 
@@ -146,7 +147,7 @@ const run = async () => {
   // before the import keep their place in records and trends. From `sessions`
   // (the sets' one source of truth), so a session without readable `lifts`
   // (the old shape) is not in it: said below, never silent.
-  const stored = (await user.collection(SESSIONS).get()).docs.map((d) => d.data() as WorkoutSessionDoc);
+  const stored = liveSessions((await user.collection(SESSIONS).get()).docs.map((d) => d.data() as WorkoutSessionDoc));
   const readable = stored.filter((s) => readLifts(s.lifts) !== null);
   if (readable.length < stored.length) {
     console.log(`  NOTE: ${stored.length - readable.length} session(s) with no readable lifts are left out of the rollups.`);

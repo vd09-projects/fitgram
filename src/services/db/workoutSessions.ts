@@ -479,7 +479,7 @@ export type DeleteWorkoutResult = {
  *
  * Rejects with a `code`: `not-found` (not on the server, so there is nothing to delete), `unreadable-history`
  * (a lift has a session in the old shape, `summaryWithout`) and `changed` (above). Already deleted resolves with nothing written, so a
- * retry after a lost answer is safe. `dryRun` does the reads and reports, writing nothing (3.3).
+ * retry after a lost answer is safe; it returns no summaries, so the phone's held bests stay as they were until the next change check. `dryRun` does the reads and reports, writing nothing (3.3).
  */
 export const deleteWorkout = async (
   userId: string,
