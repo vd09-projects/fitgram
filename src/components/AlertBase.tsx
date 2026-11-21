@@ -31,6 +31,8 @@ export interface AlertBaseProps {
   containerStyle?: StyleProp<ViewStyle>;
   titleStyle?: StyleProp<TextStyle>;
   messageStyle?: StyleProp<TextStyle>;
+  /** Between the title and the message: the Finish confirmation's summary card (TICKET-096). */
+  children?: React.ReactNode;
 }
 
 const AlertBase: React.FC<AlertBaseProps> = ({
@@ -42,6 +44,7 @@ const AlertBase: React.FC<AlertBaseProps> = ({
   containerStyle,
   titleStyle,
   messageStyle,
+  children,
 }) => {
   const { styles, t } = useThemeStyles(createStyles);
   return (
@@ -56,6 +59,7 @@ const AlertBase: React.FC<AlertBaseProps> = ({
           {title ? (
             <TextBase style={[styles.title, titleStyle]}>{title}</TextBase>
           ) : null}
+          {children}
           <TextBase style={[styles.message, messageStyle]} isDefaultFontFamilyRequired>{message}</TextBase>
 
           <View style={styles.buttonRow}>

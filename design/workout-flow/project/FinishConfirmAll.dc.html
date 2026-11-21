@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Finish confirm, everything logged</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body { margin: 0; }
+button { font: inherit; color: inherit; background: none; border: none; padding: 0; cursor: pointer; }
+.num { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #121414; color: #E8EDEC; font-family: 'Archivo', 'Helvetica Neue', system-ui, sans-serif; position: relative; overflow: hidden">
+  <div aria-hidden="true" style="opacity: 0.35; height: 100%; display: flex; flex-direction: column">
+    <header style="padding: 16px 14px 0; display: flex; align-items: center; gap: 8px">
+      <span style="width: 44px; height: 44px"></span>
+      <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; gap: 2px"><div style="font-size: 14px; font-weight: 700">Push · Chest &amp; Triceps</div><div class="num" style="font-size: 12px; color: #8A9593">52:10 elapsed</div></div>
+      <span style="width: 44px; height: 44px"></span>
+    </header>
+    <section style="padding: 36px 14px 0; display: flex; flex-direction: column; align-items: center; gap: 2px">
+      <div style="text-align: center; font-size: 22px; font-weight: 700; line-height: 1.1">Bench Press</div>
+      <div style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9593">Exercise <span class="num">3</span> of <span class="num">6</span></div>
+    </section>
+    <div style="margin: 12px 14px 0; height: 300px; border-radius: 16px; background: #1A1D1F; border: 1px solid #2A2F31"></div>
+    <div style="flex-grow: 1"></div>
+    <footer style="padding: 12px 14px 22px; background: #16191A; border-top: 1px solid #22272A">
+      <div style="height: 52px; border-radius: 14px; border: 1px solid #3A4245; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center">Finish workout</div>
+    </footer>
+  </div>
+  <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 0 28px; background: rgba(0,0,0,0.5)">
+    <section role="alertdialog" aria-labelledby="ttl" style="width: 100%; box-sizing: border-box; background: #1A1D1F; border: 1px solid #2A2F31; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 10px">
+      <h2 id="ttl" style="margin: 0; font-size: 18px; font-weight: 700; text-align: center">Finish this workout?</h2>
+      <p style="margin: 0; font-size: 14px; line-height: 1.45; color: #8A9593; text-align: center"><span class="num" style="color: #E8EDEC">18 sets in 6 exercises will be saved.</span><br>A finished workout can't be edited.</p>
+
+      <div style="display: flex; gap: 10px; margin-top: 8px">
+        <button type="button" style="flex: 1; min-height: 44px; border-radius: 12px; background: #222628; font-size: 15px; font-weight: 600">Keep logging</button>
+        <button type="button" style="flex: 1; min-height: 44px; border-radius: 12px; background: {{accent}}; color: #121414; font-size: 15px; font-weight: 700">Finish</button>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5FA8B8","options":["#5FA8B8","#B5A3CF","#D8A13B","#8FB573"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#5FA8B8' };
+  }
+}
+</script>
+</body>
+</html>

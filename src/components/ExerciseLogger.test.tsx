@@ -173,8 +173,9 @@ describe("ExerciseLogger", () => {
 
     fireEvent.press(screen.getByRole("button", { name: /^Repeat last session's set 1/ }));
     await logSet();
+    fireEvent.press(screen.getByRole("button", { name: /Finish workout/ }));
     await act(async () => {
-      fireEvent.press(screen.getByRole("button", { name: /Finish workout/ }));
+      fireEvent.press(screen.getByText("Finish"));
     });
 
     expect(save).toHaveBeenCalledTimes(1);

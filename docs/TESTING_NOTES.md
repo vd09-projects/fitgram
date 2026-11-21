@@ -725,3 +725,23 @@ No screen yet; nothing to see on a phone. Checked by unit tests only.
 - **[pending] Not run on a device:** F1's replay itself (an upload of a workout deleted while it was queued) needs a queue entry that outlives its upload or a second phone: unit-tested in the service and in the drain only. Back mid-delete (F4's focus guard): unit-tested only; the delete is too quick to race by hand.
 
 **PR #79 review pass 3 (2026-11-21).** `importHistory.ts` now filters deleted workouts (`liveSessions`) before rebuilding stats: unit-untested, not run (it writes to a real database; needs a confirmed run on `pinky`). New store tests: `useExerciseHistoryStore.applyDeleted` and the saved copy in `useRecentWorkoutsStore.applyDeleted`, each seen failing with its persist call / uid guard removed. Unit [run]: `tsc` clean.
+
+## TICKET-096: Confirm before Finish workout (2026-11-21)
+
+**Unit [run], 1059 tests, typecheck clean.** New: `finishSummary` (counts, nothing logged); the screen (Finish opens the dialog and saves nothing; Keep logging saves nothing; the confirmation's Finish saves once; the summary card counts exercises with no sets without naming them; all-logged shows one sentence and no card; no set logged skips the dialog and reaches the store's refusal). Each seen failing with its line broken (the gate always saving, the gate always opening, the summary counting every exercise as logged). The existing Finish tests now tap the confirmation; the two-taps-in-one-frame test taps the confirmation twice.
+
+**Device plan [pending: the confirm path finishes and uploads a workout, so it writes to `pinky`].** Emulator, `pinky`.
+1. Start a Freestyle workout with two exercises, log one set on one. Tap Finish workout: the dialog shows "Will be saved 1 set · 1 exercise" and "No sets, left out 1 exercise", no yellow, Finish in the accent fill. **Keep logging**: closes, nothing saved, still on the logger.
+2. Android Back while the dialog is open: closes it (as Keep logging), nothing saved. A tap outside the card does nothing, as in the Discard dialog.
+3. Log a set on the second exercise, Finish workout: one sentence, "2 sets in 2 exercises will be saved.", no card. Finish: lands on the Session as before (writes one test workout; delete it after, 086).
+4. A workout with no set logged: Finish workout shows "Could not save workout" with no dialog first.
+5. Phone width narrower than the emulator and a large system font: the dialog text wraps, nothing clips.
+6. Guided tour step "Finish Workout" still points at the button (tour notes go to TICKET-053: its text could now mention the confirmation).
+
+### TICKET-096 device run (emulator, `pinky`, 2026-11-21)
+
+**Writes made:** one test workout (`Test 070` plus an added Arnold Press, 30 s hip stretch and 8 kg x 15), finished through the new dialog and then deleted from History. Left behind: one `deleted` marker on a `sessions` doc and on the summaries of the two lifts. The narrow-phone part finished nothing: a workout started and discarded locally.
+
+- **[run] Passed:** (1) one set on one of two exercises: "Will be saved 1 set · 1 exercise", "No sets, left out 1 exercise", no yellow, Finish in the accent fill; **Keep logging** closes it and nothing is saved. (2) Android Back closes the dialog, nothing saved (seen open, then closed). (3) Both exercises logged: "2 sets in 2 exercises will be saved." with no card; **Finish** lands on the Session with "Workout saved", as before. Deleting it from History (⋯, Delete session, Delete) removed it from the list. (4) No set logged: Finish shows "Nothing to save", no dialog first.
+- **[bug found and fixed] The summary card's label and value touched** at 393 x 851 dp with the system font at 1.3 ("Will be saved1 set · 1 exercise"). The row had no gap. It has `gap: SPACING.medium` and both texts may shrink, so the longer one wraps ("Will be / saved", "1 set · 1 / exercise"). Seen on the device before and after. No unit test: it is layout.
+- **[pending] Not run:** (6) the guided tour step (the tour is rewritten in TICKET-053); the server-side `compareHistory.ts` after the delete (the delete is seen in the app only); iOS.

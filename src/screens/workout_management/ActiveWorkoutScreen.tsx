@@ -7,6 +7,8 @@ import type { ActiveWorkout } from "../../types/zustandWorkoutType";
 import ExerciseLogger from "../../components/ExerciseLogger";
 import ScrollableScreen from "../../components/ScrollableScreen";
 import { DiscardWorkoutDialog } from "../../components/active_workout/DiscardWorkoutDialog";
+import { FinishWorkoutDialog } from "../../components/active_workout/FinishWorkoutDialog";
+import { finishSummary } from "../../utils/finishSummary";
 import WorkoutHeader from "../../components/active_workout/WorkoutHeader";
 import ExerciseNavHeader from "../../components/active_workout/ExerciseNavHeader";
 import WorkoutProgressBar from "../../components/active_workout/WorkoutProgressBar";
@@ -54,6 +56,7 @@ export default function ActiveWorkoutScreen() {
    */
   const [picker, setPicker] = useState<{ kind: "swap"; id: string } | { kind: "add" } | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [confirmFinish, setConfirmFinish] = useState(false);
   /**
    * The last removal (TICKET-069) and the workout object it wrote. The Undo bar
    * shows only while the store still holds that object: every later change to
@@ -183,7 +186,15 @@ export default function ActiveWorkoutScreen() {
     );
   }, [isFocused, activeWorkout, queuedSessionId, navigation]);
 
+  // The Finish button (TICKET-096). With no set logged there is nothing to confirm: the store refuses that Finish
+  // with its own "Nothing to save", and a dialog first would only lead into that error.
+  const requestFinish = () => {
+    if (activeWorkout && finishSummary(activeWorkout).sets > 0) setConfirmFinish(true);
+    else handleFinish();
+  };
+
   const handleFinish = async () => {
+    setConfirmFinish(false);
     if (!activeWorkout) {
       show.alert("No active workout to save.");
       return;
@@ -341,7 +352,7 @@ export default function ActiveWorkoutScreen() {
             {/* Outlined on purpose: the screen's one accent fill belongs to Log set. */}
             <TouchableOpacity
               style={[styles.finishButton, finishing && styles.finishButtonBusy]}
-              onPress={handleFinish}
+              onPress={requestFinish}
               disabled={finishing}
               accessibilityRole="button"
               accessibilityState={{ disabled: finishing, busy: finishing }}
@@ -369,6 +380,15 @@ export default function ActiveWorkoutScreen() {
           exercises={exercises}
           purpose={pickerPurpose}
           onClose={() => setPicker(null)}
+        />
+      )}
+
+      {activeWorkout && (
+        <FinishWorkoutDialog
+          visible={confirmFinish}
+          summary={finishSummary(activeWorkout)}
+          onKeep={() => setConfirmFinish(false)}
+          onFinish={handleFinish}
         />
       )}
 

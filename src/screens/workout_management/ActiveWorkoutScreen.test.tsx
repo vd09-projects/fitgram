@@ -31,6 +31,8 @@ const storedIndex = () => useWorkoutStore.getState().activeWorkout?.currentExerc
 // Found by role, not label: the label changes to "Saving…", and a lookup by the
 // new label would fail for the wrong reason when the relabel broke.
 const finishButton = () => screen.getByRole("button", { name: /Finish workout|Saving…/ });
+// The confirmation's button (TICKET-096): its label is exactly "Finish", the footer's is "Finish workout".
+const confirmFinish = () => fireEvent.press(screen.getByText("Finish"));
 
 describe("ActiveWorkoutScreen", () => {
   it("next then previous returns to the same exercise, and the store follows", () => {
@@ -120,14 +122,73 @@ describe("ActiveWorkoutScreen", () => {
     });
     renderScreen(ActiveWorkoutScreen, { workout });
 
+    fireEvent.press(finishButton());
     await act(async () => {
-      fireEvent.press(finishButton());
-      fireEvent.press(finishButton());
+      confirmFinish();
+      confirmFinish();
     });
 
     expect(save).toHaveBeenCalledTimes(1);
     expect(useWorkoutStore.getState().activeWorkout).toBeNull();
     log.mockRestore();
+  });
+});
+
+// TICKET-096: Finish asks first, because a finished workout cannot be edited.
+describe("Finish confirmation", () => {
+  const loggedSet = { id: 1, segments: [{ Weight: 60, Reps: 5 }] };
+  const renderWith = (exercises: ReturnType<typeof buildExercise>[]) => {
+    const endWorkout = jest.fn(() => new Promise<EndWorkoutResult>(() => {}));
+    renderScreen(ActiveWorkoutScreen, { workout: buildWorkout([], { exercises }), workoutActions: { endWorkout } });
+    return endWorkout;
+  };
+
+  it("saves only after the confirmation's Finish, not on the footer tap or Keep logging", () => {
+    const endWorkout = renderWith([buildExercise("Bench Press", { sets: [loggedSet] })]);
+
+    fireEvent.press(finishButton());
+    expect(screen.getByText("Finish this workout?")).toBeOnTheScreen();
+    expect(endWorkout).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByText("Keep logging"));
+    expect(endWorkout).not.toHaveBeenCalled();
+
+    // The positive half: without it, a Finish wired to nothing passes.
+    fireEvent.press(finishButton());
+    confirmFinish();
+    expect(endWorkout).toHaveBeenCalledTimes(1);
+  });
+
+  it("says what is saved, and counts exercises with no sets without naming them", () => {
+    renderWith([
+      buildExercise("Bench Press", { sets: [loggedSet, { ...loggedSet, id: 2 }] }),
+      buildExercise("Squat"),
+      buildExercise("Row"),
+    ]);
+
+    fireEvent.press(finishButton());
+
+    expect(screen.getByText("2 sets · 1 exercise")).toBeOnTheScreen();
+    expect(screen.getByText("2 exercises")).toBeOnTheScreen();
+    expect(screen.queryByText("Squat")).toBeNull();
+  });
+
+  it("with every exercise logged, one sentence and no summary card", () => {
+    renderWith([buildExercise("Bench Press", { sets: [loggedSet] })]);
+
+    fireEvent.press(finishButton());
+
+    expect(screen.getByText(/1 set in 1 exercise will be saved\./)).toBeOnTheScreen();
+    expect(screen.queryByText("No sets, left out")).toBeNull();
+  });
+
+  it("with no set logged, goes straight to the store's refusal and asks nothing", () => {
+    const endWorkout = renderWith([buildExercise("Bench Press")]);
+
+    fireEvent.press(finishButton());
+
+    expect(screen.queryByText("Finish this workout?")).toBeNull();
+    expect(endWorkout).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -149,7 +210,8 @@ describe("after the workout ends", () => {
     const success = jest.spyOn(show, "success");
     renderScreen(ActiveWorkoutScreen, { workout: loggedWorkout(), workoutRoute });
 
-    await act(async () => fireEvent.press(finishButton()));
+    fireEvent.press(finishButton());
+    await act(async () => confirmFinish());
 
     expect(screen.getByText(`route:Workout/${WorkoutRoutes.Session}`)).toBeOnTheScreen();
     expect(screen.queryByText("route:Workout/WorkoutHome")).toBeNull();
@@ -175,8 +237,9 @@ describe("after the workout ends", () => {
     it("does not navigate while the write is pending, and lands once it is queued", async () => {
       const { workout } = setup();
       // Braces: `press` returns the handler's promise, which here never settles, and `act` would wait for it.
+      fireEvent.press(finishButton());
       await act(async () => {
-        fireEvent.press(finishButton());
+        confirmFinish();
       });
 
       expect(useWorkoutStore.getState().activeWorkout).toBeNull();
@@ -189,8 +252,9 @@ describe("after the workout ends", () => {
     it("a failed write puts the workout back: still on the logger, not on a Session and not on the hub", async () => {
       const { workout, finish } = setup();
       // Braces: `press` returns the handler's promise, which here never settles, and `act` would wait for it.
+      fireEvent.press(finishButton());
       await act(async () => {
-        fireEvent.press(finishButton());
+        confirmFinish();
       });
       expect(screen.queryByText(/^route:/)).toBeNull();
 
