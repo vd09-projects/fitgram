@@ -11559,8 +11559,13 @@ line broken (back to the grey track, no outline, an outline in another colour, a
 **Device run (emulator, `pinky`, 2026-11-22):** the user's own running workout ("Back & Biceps AJ", exercise 4 of 11, one done, nothing logged on the
 current one: the reported state), looked at and not changed. On the logging screen the current segment is clearly the outlined capsule; in the plan
 sheet's bar (`PlanCard`) the same.
-**Not verified:** the purple theme; a state with sets logged on the current exercise (the fill inside the capsule) on a device; a narrow phone or large
-font; the guided tour's step that points at the bar; iOS.
+**PR #84 review (pass 1, approved) fixes [run]:** the header comment says `done` and the outline differ by size and the dark inside, not shade; test 1 compares
+the outline to the accent token (it was the done colour, so recolouring `done` would have failed it for the wrong reason: seen red for an outline in another
+colour and for the old grey, green when `done` is recoloured); `untouched` gets a test ID. The review's one open point, the fill inside the bordered capsule
+never seen on a device, is **closed on the emulator (`pinky`, a fresh "Shoulders AJ", discarded after):** one, two and three sets of a target of three: the
+fill grows from the left, follows the capsule's inner rounding at both ends and stops at the outline; full, it fills the capsule. (The user's own running
+workout had gone from the emulator by then; the cause is unknown, it was not discarded by this work.)
+**Not verified:** the purple theme; the dimmed fill for an assumed target on a device (`targetSource: "default"`); a narrow phone or large font; iOS.
 
 **Not in scope:** the segment states or what "done" and the fill mean (`ProgressSegment`); colours of done and untouched; iOS.
 

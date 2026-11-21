@@ -815,5 +815,7 @@ Emulator results after the fixes (1:30 rest; `logcat -b events` `notification_en
 1. Logging screen: the fourth segment is a larger capsule outlined in the accent, the first is solid and thin, the rest thin and dark; it reads at a glance, unlike the screenshot that was reported.
 2. Workout tab, the plan's sheet: the same bar, the same capsule on the fourth segment.
 
-**[pending] Not run:** the purple theme; a current exercise with sets logged (fill inside the capsule) on a device; a narrow phone and large font; the guided tour step on the bar; iOS.
+**PR #84 review fixes (pass 1) [run].** Comment and test fixes as in TICKET-100 (test 1 now compares to the accent token; mutations re-run: red for another outline colour and for the old grey track, green when `done` is recoloured). **Fill inside the capsule, on the emulator (`pinky`, a fresh "Shoulders AJ" with a target of three sets, discarded after):** 1 of 3, 2 of 3 and 3 of 3 sets logged: the accent fill grows from the left, follows the capsule's inner rounding and stops at the outline; full, it fills the capsule. A faint seam between outline and fill is visible zoomed in, not at normal size. The user's own running workout was no longer on the emulator by then (not discarded by this work, cause unknown).
+
+**[pending] Not run:** the purple theme; the dimmed fill for an assumed target on a device; a narrow phone and large font; iOS.
 

@@ -14,6 +14,8 @@ const CURRENT_OUTLINE = 2;
  * One segment per exercise. `done` is the light accent, thin and solid;
  * `untouched` is the dark `raised` step, thin; `current` is a bigger capsule
  * outlined in the accent with accent showing how far through it the user is.
+ * `done` and the current outline share a colour, so without colour vision they
+ * differ by size and by the dark inside, not by shade.
  *
  * Why the current one is a capsule, not another shade: it was the `hairlineStrong`
  * track, 1.5:1 from an untouched segment in a thin bar, and with no set logged
@@ -47,7 +49,7 @@ export default function WorkoutProgressBar({ segments }: { segments: ProgressSeg
     >
       {segments.map((segment, index) => {
         if (segment.state === "done") return <View key={index} testID="progress-done" style={[styles.segment, styles.done]} />;
-        if (segment.state === "untouched") return <View key={index} style={[styles.segment, styles.untouched]} />;
+        if (segment.state === "untouched") return <View key={index} testID="progress-untouched" style={[styles.segment, styles.untouched]} />;
 
         return (
           <View key={index} testID="progress-current" style={[styles.segment, styles.currentTrack]}>
