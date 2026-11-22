@@ -831,4 +831,9 @@ Emulator results after the fixes (1:30 rest; `logcat -b events` `notification_en
 4. Back to plan: lands on 90/90 Hip Stretch in seconds. **Not a test of the carry**: last time was also seconds, so nothing differs. Decided after the PR #85 review: swap-back restores the plan's own unit (as at Start), not the last one; a store test covers it (plan in kg, last session in lb, swap away and back gives kg).
 5. Force-stop and reopen after step 1: **pass**, resumed on the slot, still PLATES (saved with the swap).
 
-**[pending] Not run:** cold start where the summaries are not yet held (reasoned: keeps the version's unit, notice line still shows); swap-back to a plan exercise whose last unit differs, on a device (unit test only); a field other than weight (distance, e.g. Farmer's Walk); exercises from the plan at Start are not covered by design; the purple theme; iOS.
+**Second device run (emulator, `pinky`, 2026-11-22), after the PR #85 review fixes.** Started "Chest & Triceps AJ" (a real plan: nothing logged, edited or finished; the workout was discarded and the plan still reads "26d since last").
+6. Swap-back where the last unit differs: the plan's Bench Press · Machine was already in plates, so I set the slot to kg with Units (this workout only), which reproduced the original report (KG, "Last time was in plates (8 plates × 15)"). Swapped to Squeeze Press (never done: KG, "First time"), then Back to plan: **pass**, the slot returns in **KG** with the plates notice, the plan's unit at swap time, not the carried plates.
+
+**Not testable on the device, and why:** a non-weight unit field: pinky's only non-weight unit is `time:s` (90/90 Hip Stretch), the same as the catalog default, so nothing differs; making one would mean logging and finishing a session, which writes real data. A cold start with no summaries held: the stored copy loads from the phone, and emptying it means clearing app data and signing in again; covered by the "nothing held" store test only.
+
+**[pending] Not run:** the purple theme; iOS; exercises from the plan at Start are not covered by design.
