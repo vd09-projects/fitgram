@@ -1,5 +1,5 @@
 import type { ExerciseField } from "../types/workoutType";
-import { matchLastField, relabelLine, unitBlocks, unitNotice, unitsSummary } from "./unitChange";
+import { carryLastUnits, matchLastField, relabelLine, unitBlocks, unitNotice, unitsSummary } from "./unitChange";
 
 const bench: ExerciseField[] = [
   { name: "Weight", role: "weight", unit: "kg" },
@@ -116,5 +116,33 @@ describe("unitNotice", () => {
 
   it("quotes no numbers when last session stopped before this set", () => {
     expect(unitNotice(bench, session(benchPlates, [{ Weight: 8, Reps: 15 }]), 3)).toBe("Last time was in plates");
+  });
+});
+
+// TICKET-101. Only what a swap or add can meet: a unit that differs, nothing known, and the
+// refusals that keep a wrong unit out.
+describe("carryLastUnits", () => {
+  it("takes last time's unit by role even under another name, and leaves reps alone", () => {
+    const last: ExerciseField[] = [{ name: "Load", role: "weight", unit: "plates" }, bench[1]];
+    expect(carryLastUnits(bench, last)).toEqual(benchPlates);
+  });
+
+  it("matches the second weight field to the second, by position", () => {
+    const two: ExerciseField[] = [
+      { name: "Weight", role: "weight", unit: "kg" },
+      { name: "Per hand", role: "weight", unit: "kg" },
+    ];
+    const last: ExerciseField[] = [
+      { name: "A", role: "weight", unit: "kg" },
+      { name: "B", role: "weight", unit: "lb" },
+    ];
+    expect(carryLastUnits(two, last).map((f) => f.unit)).toEqual(["kg", "lb"]);
+  });
+
+  it("keeps the version's own unit, and the same array, when last time is unknown or not offered", () => {
+    expect(carryLastUnits(bench, null)).toBe(bench);
+    expect(carryLastUnits(bench, [bench[1]])).toBe(bench);
+    // a time unit is not one a weight offers: no guess
+    expect(carryLastUnits(bench, [{ name: "Weight", role: "weight", unit: "min" as never }, bench[1]])).toBe(bench);
   });
 });

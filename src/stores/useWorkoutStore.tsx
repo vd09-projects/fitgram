@@ -16,6 +16,7 @@ import { useRecentWorkoutsStore } from "./useRecentWorkoutsStore";
 import { useCatalogStore } from "./useCatalogStore";
 import { exerciseDisplayName, type CatalogIndex } from "../utils/catalog";
 import { unitsForRole, type FieldUnit } from "../constants/units";
+import { carryLastUnits } from "../utils/unitChange";
 import { UPLOAD_GRACE_MS } from "../config/workout";
 import { ACTIVE_WORKOUT_KEY, LOCAL_DATA_VERSION, LOCAL_DATA_VERSION_KEY, PENDING_UPLOADS_KEY } from "../config/storageKeys";
 
@@ -119,6 +120,20 @@ const freshSlot = (exercise: Exercise, catalogIndex: CatalogIndex | null): Logge
   fields: exercise.fields,
   sets: [],
 });
+
+/**
+ * `exercise` with the units it was last logged in (TICKET-101), for swap and add
+ * only: the plan's own exercises at start keep the plan's units. Reads the held
+ * summary, never fetches: nothing held yet (a cold start) leaves the version's
+ * own units, and `prefetchHistory` runs after. `planned` is built from the slot
+ * before this, so the plan card still lists the plan's own units; swapping back
+ * to it is a swap like any other and also starts in the last unit.
+ */
+const withLastUnits = (exercise: Exercise): Exercise => {
+  const last = useExerciseHistoryStore.getState().byId?.[exercise.id]?.fields;
+  const fields = carryLastUnits(exercise.fields, last);
+  return fields === exercise.fields ? exercise : { ...exercise, fields };
+};
 
 const catalogIndexNow = () => useCatalogStore.getState().catalog?.index ?? null;
 
@@ -536,7 +551,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
           fields: slot.fields,
         };
     const swapped: LoggedExercise = {
-      ...freshSlot(exercise, catalogIndexNow()),
+      ...freshSlot(withLastUnits(exercise), catalogIndexNow()),
       ...(planned && exercise.id !== planned.id ? { planned } : {}),
       ...(slot.added ? { added: true as const } : {}),
     };
@@ -627,7 +642,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
       return { status: "refused", reason: ALREADY_IN_WORKOUT_REASON };
     }
 
-    const exercises = [...activeWorkout.exercises, { ...freshSlot(exercise, catalogIndexNow()), added: true as const }];
+    const exercises = [...activeWorkout.exercises, { ...freshSlot(withLastUnits(exercise), catalogIndexNow()), added: true as const }];
     const updatedWorkout: ActiveWorkout = {
       ...activeWorkout,
       exercises,
