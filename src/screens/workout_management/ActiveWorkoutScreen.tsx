@@ -14,6 +14,7 @@ import RestChip from "../../components/active_workout/RestChip";
 import ExerciseNavHeader from "../../components/active_workout/ExerciseNavHeader";
 import WorkoutProgressBar from "../../components/active_workout/WorkoutProgressBar";
 import RemovedExerciseBar from "../../components/active_workout/RemovedExerciseBar";
+import { EditFooter } from "../../components/active_workout/EditFooter";
 import { SPACING } from "../../constants/styles";
 import { useAuthUser } from "../../hooks/useAuthUser";
 import { useExerciseHistory } from "../../hooks/useExerciseHistory";
@@ -26,6 +27,8 @@ import { LayoutRoutes, WorkoutRoutes } from "../../constants/routes";
 import { CommonActions, StackActions, useIsFocused, useNavigation } from "@react-navigation/native";
 import { buildSessionId } from "../../utils/exerciseStats";
 import { finishLandingRoutes, type FinishLanding } from "../../utils/finishLanding";
+import { draftChanged } from "../../utils/editSession";
+import { sessionDateLine } from "../../utils/sessionView";
 import { TextBase } from "../../components/TextBase";
 import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
@@ -74,6 +77,14 @@ export default function ActiveWorkoutScreen() {
   const [lastRemoval, setLastRemoval] = useState<{ removed: RemovedExercise; after: ActiveWorkout } | null>(null);
   const undoable = lastRemoval && lastRemoval.after === activeWorkout ? lastRemoval.removed : null;
   const [finishing, setFinishing] = useState(false);
+
+  // An edit of a past workout (TICKET-102): the same screen, with the edit's header and footer. Where to go back to
+  // is kept while the draft is in the slot, so it is still known once Cancel (or, from stage 2, Save) empties it.
+  const editOf = activeWorkout?.editOf;
+  const editReturn = useRef<{ sessionId: string; workoutName: string; startedAt: number } | null>(null);
+  if (activeWorkout && editOf) {
+    editReturn.current = { sessionId: editOf.sessionId, workoutName: activeWorkout.name, startedAt: activeWorkout.startTime };
+  }
 
   // The store's index is the only record of which exercise is in view; there is
   // no local copy to drift from it.
@@ -131,6 +142,12 @@ export default function ActiveWorkoutScreen() {
     layoutNavigation.navigate(LayoutRoutes.Workout, { screen });
 
   const handleBack = () => {
+    // Back leaves an edit the way Cancel edit does (asking first if anything changed): a draft left in the slot
+    // would block every workout until found again.
+    if (editOf) {
+      requestCancelEdit();
+      return;
+    }
     if (navigation.canGoBack()) navigation.goBack();
     else openWorkoutScreen(WorkoutRoutes.WorkoutHome);
   };
@@ -173,6 +190,18 @@ export default function ActiveWorkoutScreen() {
   useEffect(() => {
     if (!isFocused || activeWorkout) return;
     const inWorkoutStack = (navigation.getState().routeNames as string[]).includes(WorkoutRoutes.WorkoutHome);
+    // An edit that ended goes back to the Session it was opened from (TICKET-102). `popTo` finds that Session by its
+    // id (`getId`), or opens it when it is not in the stack (the draft resumed after an app kill, from the footer tab).
+    const editBack = editReturn.current;
+    if (editBack) {
+      editReturn.current = null;
+      navigation.dispatch(
+        inWorkoutStack
+          ? StackActions.popTo(WorkoutRoutes.Session, editBack)
+          : StackActions.popTo(LayoutRoutes.Workout, { screen: WorkoutRoutes.Session, params: editBack })
+      );
+      return;
+    }
     const landing = finished.current;
     if (landing && queuedSessionId !== landing.sessionId) return;
     finished.current = null;
@@ -252,6 +281,14 @@ export default function ActiveWorkoutScreen() {
     await cancelWorkout();
   };
 
+  // Cancel edit (TICKET-102, board ESL7Discard): asks only when the draft differs from the stored workout. The stored
+  // workout is untouched either way; the draft leaves the slot and the redirect above goes back to the Session.
+  const requestCancelEdit = () => {
+    const current = useWorkoutStore.getState().activeWorkout;
+    if (current && draftChanged(current)) setConfirmDiscard(true);
+    else void handleDiscard();
+  };
+
   // Nothing to draw for the moment before the redirect above lands.
   if (!activeWorkout) return null;
 
@@ -266,19 +303,30 @@ export default function ActiveWorkoutScreen() {
       : "Goes at the end of today's list. Your plan stays as it is.",
     onPress: () => setPicker({ kind: "add" }),
   };
-  const discardItem: MenuItem = {
-    key: "discard",
-    renderIcon: (color) => <Ionicons name="trash-outline" size={20} color={color} />,
-    title: "Discard workout",
-    tone: "danger",
-    onPress: () => setConfirmDiscard(true),
-  };
+  const discardItem: MenuItem = editOf
+    ? {
+        key: "discard",
+        renderIcon: (color) => <Ionicons name="close" size={20} color={color} />,
+        title: "Cancel edit",
+        detail: "The workout stays as it was.",
+        onPress: requestCancelEdit,
+      }
+    : {
+        key: "discard",
+        renderIcon: (color) => <Ionicons name="trash-outline" size={20} color={color} />,
+        title: "Discard workout",
+        tone: "danger",
+        onPress: () => setConfirmDiscard(true),
+      };
+  // "Mon 9 Nov": the header's line and the discard question name the workout by its day.
+  const editDate = editOf ? sessionDateLine(activeWorkout.startTime, null) : undefined;
 
   return (
     <View style={styles.screen}>
       <WorkoutHeader
         workoutName={activeWorkout.name}
         startTime={activeWorkout.startTime}
+        editingDate={editDate}
         onBack={handleBack}
         onOpenMenu={() => setWorkoutMenuOpen(true)}
         restChip={
@@ -364,6 +412,9 @@ export default function ActiveWorkoutScreen() {
         </View>
       </GestureDetector>
 
+      {editOf ? (
+        <EditFooter changed={draftChanged(activeWorkout)} onCancel={requestCancelEdit} />
+      ) : (
       <View style={styles.footer}>
         <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.SAVE_CURRENT_WORKOUT_LOGER} positionType="above">
           {/* Plain View: MultiTourSteps splits its child's style, which left the
@@ -382,6 +433,7 @@ export default function ActiveWorkoutScreen() {
           </View>
         </MaybeTourStep>
       </View>
+      )}
 
       {/* Workout ⋯ (TICKET-056 board AddMenu). Discard is its own group, away
           from Add and from Finish, so a stray tap can never lose the session. */}
@@ -412,7 +464,13 @@ export default function ActiveWorkoutScreen() {
 
       <DiscardWorkoutDialog
         visible={confirmDiscard}
-        keepLabel="Keep logging"
+        keepLabel={editOf ? "Keep editing" : "Keep logging"}
+        {...(editOf
+          ? {
+              title: "Discard your changes?",
+              message: `${activeWorkout.name}, ${editDate}, stays as it was.`,
+            }
+          : {})}
         onKeep={() => setConfirmDiscard(false)}
         onDiscard={handleDiscard}
       />

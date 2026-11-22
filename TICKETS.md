@@ -34,7 +34,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 029 | Pending uploads view | Small-Med | A `TEMPORARY` debug screen is currently the only way to see the queue |
 | 030 | Drop unit suffixes from catalogue field names | Small | **Silent data loss:** renaming a field nulls every past value for it, and the session stays `comparable` so nothing flags it |
 | 031 | Contrast guards for the rest of the role palette | Small | Extends the `colors.test.ts` pattern |
-| 032 | Edit or delete an already-uploaded set | Med-Large | Needs a rollup rebuild: `rebuildExerciseSummary`, built with this ticket (moved from TICKET-077) |
+| 032 | Edit or delete an already-uploaded set | Med-Large | **Taken by TICKET-102** (2026-11-23): edit session is this ticket's acceptance criteria; closes when 102 merges |
 | 035 | Measures beyond weight x reps | Med-Large | "Which way is better" is a product decision |
 | 036 | Put a unit on volume trend points | Small-Med | Today the trend over-suppresses; held by an invariant test, not a fix |
 | 037 | Tell apart two sessions on the same day | Small | |
@@ -55,7 +55,8 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 084 | Exercise screen | Med-Large | **Done 2026-11-20, merged in PR #77; open proof listed in the ticket.** Graph drawn from Views (decided in 087) |
 | 085 | History home: Workouts and Exercises tabs | Large | After 081-084. Replaces the old History page; closes 029 |
 | 086 | Delete a workout | Med-Large | After 083. Shares `rebuildExerciseSummary` with 032 |
-| (parked) | Edit session UI | Design only | The option is shown switched off; the user decides the UI later |
+| 102 | Edit a past workout in the logging screen | Large | Raised 2026-11-23 (user). **Design decided** (Drafts canvas, row "Edit a past workout in the logging screen"); four stages, screen first. Closes 032 when merged |
+| 103 | Bug: taps stop working after the Workout tab, then a return | Small-Medium | Raised 2026-11-23 (found in 102's device run). **Pre-existing.** Fix before 102 stage 2: Cancel edit and Save end in the return that triggers it |
 | 079 | Rest time on the Android lock screen: logic and native | Medium | Nice to have, raised 2026-11-10 (user). Spike done: it works on the emulator. Settle two things first (silent channel, staying at 0:00), then build. Wording and permission flow are 080. iOS later |
 | 080 | Lock-screen rest timer: design | Small-Medium | Split from 079 (2026-11-10). Wording, permission flow, buttons; options on the Drafts canvas first |
 | 091 | Change an exercise's units mid-workout | Medium | Raised 2026-11-16 (user). **Design merged, PR #73.** Freestyle, Swap and Add start in kg with no way to switch; hits about 1 lift in 5 every session |
@@ -11602,6 +11603,124 @@ the notice line remains its only cue. Raised for the user to decide (a follow-up
 **Not verified:** a non-weight unit field (pinky has none that differs; needs a logged session);  a cold start before the summaries load; iOS.
 
 **Not in scope:** exercises at workout start; converting values; writing units to the plan; iOS.
+
+---
+
+### TICKET-102: Edit a Past Workout in the Logging Screen
+
+**Priority:** Medium | **Effort:** Large (four stages) | **Status: IN PROGRESS** — raised 2026-11-23 (user); branch `feat/ticket-102-edit-session`
+
+**Description:**
+The Session screen's ⋯ → Edit session (shown switched off since TICKET-083) opens the workout in the **logging screen**, in an
+edit mode: fix a set, mark it, add or delete a set, remove or add an exercise, change units, then Save changes or Cancel edit.
+The main job is a typo: `650` for `65` becomes a `bestByReps` entry no real set displaces, and it feeds every later ghost and
+"last time" pill (TICKET-032). Today the only repair is `rebuildExerciseStats.ts` by hand.
+
+**Design (Drafts canvas, row "Edit a past workout in the logging screen", 2026-11-23):**
+- **Chosen: the logging screen, not new screens** (user, 2026-11-23). It already edits a set, adds and deletes sets with Undo,
+  marks, splits, changes units and adds an exercise. Rejected: a separate edit mode on the Session screen with its own set
+  sheet (round 1 on the canvas): a second copy of the logger to keep in step.
+- **One draft, one Save:** every change goes into the draft; Save writes once and rebuilds the summary of each lift touched.
+  Rejected: save per set (a rebuild per tap, a half-applied edit, no Cancel).
+- Edit mode: header "Editing · <date>" with no elapsed timer; "Today" reads "This workout"; footer Cancel edit | Save changes
+  (off until something changes); logging a set starts no rest; Remove works on a logged exercise ("its N sets go too");
+  Swap and Manage workout are off; the PR banner and "best" are hidden (see Load-bearing facts).
+- Edit session is off for a workout waiting to upload, a workout whose lifts are unreadable, and while a workout is in progress
+  ("Finish or discard <name> first"). While a draft is open, starting a workout is refused the same way.
+
+**Load-bearing facts (checked in code, 2026-11-23):**
+1. "Last time", ghosts and deltas come from the summary's `recentSessions` (`deriveExerciseHistory`), capped at
+   `STATS_RECENT_SESSION_CAP`. Filtering to sessions that started before the edited workout gives the right comparison.
+   A workout older than the cap has no "before" sessions on the phone: it says so, it does not read as First time (2.4).
+2. `bestByReps` is all-time and includes the edited workout and every later one, so the best "as of" this workout cannot be
+   derived. In edit mode the PR banner and best are hidden, not shown wrong.
+3. `deleteWorkout` (TICKET-086) is the write path's shape: stamp read, every session of the lift from the server, one
+   transaction refusing `changed` if a stamp moved. Save is the same with the session replaced (`summaryWithEdited` beside
+   `summaryWithout`), plus a stamp check on the workout doc itself (another phone's edit, delete or note).
+4. `buildSessionDocs` builds lifts, `exerciseIds` and volume from an `ActiveWorkout`; the session id is `workoutId + startTime`,
+   so the draft keeps the original start and writes to the same doc. Gap: "Swapped in for X" comes from `planned` (a whole
+   plan `Exercise`), and the stored record has only `{ id, name }`, so the draft carries `swappedFrom` on the slot.
+5. `activeWorkout` is the one workout slot, and the draft lives in it (`editOf`), so it survives an app kill. Readers outside the
+   logger that take it as "a workout is in progress" branch on `editOf`: Footer, PlanCard, the hub, Start, Manage Workout
+   (`AddExerciseScreen`), the Freestyle-blocked card, the tour.
+
+**Decided:**
+- The next workout's Better / Lower / Same is **not** rewritten after an edit, as after a delete (TICKET-086's deviation),
+  until TICKET-095 decides where verdicts come from. The edited workout's own verdict is recomputed on Save
+  (`verdictsFromHistory`, from the reads the rebuild makes anyway).
+- Save is refused offline and when changed elsewhere; the draft stays.
+- Not in v1: changing the date or time, renaming, swapping a logged exercise.
+
+**Stages (screen first, user 2026-11-23: each stage testable on the emulator):**
+1. **Open, look, cancel; no writes.** Edit session on in the Session menu (off with its reason in the cases above); the stored
+   workout loaded into the logger with `editOf`; header, footer (Save shown, off: "next stage"), Cancel edit with a confirm when
+   changed, back to the Session; history before this workout; no rest; PR banner and best hidden; the outside readers branch;
+   starting a workout refused while a draft is open. Emulator: open the typo workout, last time is the session before, edit
+   set 2 in the draft, no rest, kill and resume, cancel, Session unchanged; hub and Start while the draft is open.
+2. **Save a set edit (first write).** `saveEditedWorkout` (reads, stamp checks, one transaction, `dryRun`), `applyEdited`, "Saved"
+   on the Session; offline and changed refused, draft kept. Emulator: 650 → 65, the debug screen's best back to the real value.
+   Proof: dry-run counts; the compare script reports 0 mismatches.
+3. **Change the shape.** Add / delete a set, remove a logged exercise, add an exercise, units; added and removed lifts in the
+   touched set; a removed lift's last session leaves a marker; all exercises removed is refused.
+4. **Edges.** Two phones; delete or note mid-edit; imported workout with no duration; Freestyle; split set; the device test plan.
+
+**Stage 1 built 2026-11-23 (branch `feat/ticket-102-edit-session`, uncommitted for review):**
+- `ActiveWorkout.editOf` (session id, stored end, the lifts at open) and `LoggedExercise.swappedFrom` (types); `utils/editSession.ts`:
+  `toEditableWorkout` (refuses a deleted or unreadable workout and a set whose segments cannot all be read), `draftLifts`, `draftChanged`.
+- Store: `startEdit` (refused while the slot is taken), `liveWorkoutOf`, `slotTakenReason`; Finish refuses a draft; `startRest` does nothing in a draft;
+  Swap refused in a draft (`EDIT_SWAP_REASON`).
+- History: `deriveExerciseHistory(entry, fields, before)` keeps only sessions before the draft's start, hides bests (`asOf.bestHidden`) and the volume
+  trend, and flags `earlierNotHeld` (a new ghost target and notice) when a full summary holds none before. The hook applies it on the logger's path only.
+- Screens: Session's Edit session (off with its reason; "Continue editing" for a draft of the same workout); the logger's edit header, footer (Save off,
+  TEMPORARY line), Cancel edit with a confirm when changed, Back = Cancel edit, back to the Session; "THIS WORKOUT"; the history sheet's best line;
+  hub, Start, plan card, Freestyle card and Manage read `liveWorkoutOf`; the plan card and Freestyle card say "You are editing X" with "Back to editing X".
+- **Scope edge (2.6):** the plan and Freestyle cards' blocked footer was not in the stage text; found on the emulator (the store's refusal toast was hidden
+  behind the card) and added.
+- Proof: `tsc` clean, 87 suites / 1107 tests, 12 new, each seen red with its line broken. Emulator: steps 1 to 7 of the plan pass (TESTING_NOTES.md).
+- **Open:** dead taps after a Workout-tab rearrange followed by a `popTo` — **pre-existing**, reproduced with a live workout and no draft (Start → Workout tab → Resume → Discard → hub ignores taps); edit hits it more often, since Cancel edit and Save end in a `popTo` (repro in TESTING_NOTES.md). After an app kill, the Session Cancel edit opens has nothing under it.
+- **Skipped rules:** 3.1 (no performance claim in stage 1; Save's cost is stage 2's). 3.3 met by the screen itself (no instrument needed).
+- **Readability pass before stage 2 (user, 2026-11-23):** kept the shape (the draft in the one workout slot, `editOf`; one pure module
+  for stored workout ↔ draft; one history cut-off). Rejected: a separate draft store, which would make the logger read from two places
+  and touch more files. Changed: the slot's wording and "is something running" moved from the store and three components into
+  `utils/workoutSlot.ts` (`liveWorkoutOf`, `slotTakenReason`, `blockedStartReason`, `backToSlotLabel`); the edit footer is its own
+  component (`EditFooter`), so the screen's change shrank from 123 to 66 lines; locals that hold the live workout are named
+  `liveWorkout`, not `activeWorkout`; `FreestyleBlockedCard` takes the slot itself. No behaviour change: 87 suites / 1107 tests,
+  and each `workoutSlot` function, broken, turns a test red. Not re-run on the emulator.
+
+**Cost per Save (from 086's fixtures):** per touched lift about the delete's reads for that lift plus 1 stamp read; in the
+transaction 1 + the lifts touched; writes 1 + 2 per lift touched. A typo fix touches one lift.
+
+**Dependencies:** TICKET-083 (Session), 086 (the rebuild), 040 (edit a set), 091 (units). Takes over TICKET-032.
+
+---
+
+### TICKET-103: Bug — Taps Stop Working After the Workout Tab, Then a Return
+
+**Priority:** High (before TICKET-102 stage 2) | **Effort:** Small-Medium | **Status: OPEN** — raised 2026-11-23, found in TICKET-102's device run
+
+**Description:**
+After the Workout tab moves a screen to the top of the Workout stack, the next return down the stack (`popTo`) leaves a screen
+that ignores every tap in the content area. The footer still works; only a force-stop recovers. Not caused by TICKET-102: it
+reproduces with a live workout and no draft.
+
+**Repro (emulator, `pinky`, 2026-11-23):** Workout tab → Test 070 → Start → logger → **Workout tab** (moves the hub above the
+logger) → **Resume** (moves the logger back on top) → ⋯ → Discard → Discard → the hub shows; History, the tiles and All plans do
+not respond. Control: Start → Discard → History, with no tab press in between, works. TICKET-102's version: Session → Edit session →
+Workout tab → "Back to editing" → Cancel edit → Discard → the Session shows; Back and its cards do not respond.
+
+**What is known:** the view tree has the right screen at the right bounds, so something outside the accessibility tree takes the
+touches. The trigger is a rearrange (Layout `openTab`'s `reset` and the nested `singleCopy` move, `WorkoutNavigator`) followed by a pop.
+`@react-navigation/stack` 7.1.2 treats a rearrange as a push (`StackView.getDerivedStateFromProps`); a card left with
+`pointerEvents="none"` is the likely cause, not pinned to one card.
+
+**To do:**
+1. Find which card holds the touches (the Layout stack or the Workout stack; a temporary log of each card's `pointerEvents` and
+   the stack's opening / closing keys).
+2. Decide the fix from that: candidates are a `reset` instead of `popTo` in the logger's returns (as the Finish landing does), or
+   changing how `openTab` / `singleCopy` move a screen. Rejected without evidence: patching the library.
+3. A test that fails without the fix if the navigator tests can reach it; otherwise the repro above on the emulator, both paths.
+
+**Affects:** the logger's Discard and Finish-less returns (`ActiveWorkoutScreen`'s redirect), TICKET-102's Cancel edit and Save.
 
 ---
 

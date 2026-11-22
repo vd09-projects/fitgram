@@ -837,3 +837,25 @@ Emulator results after the fixes (1:30 rest; `logcat -b events` `notification_en
 **Not testable on the device, and why:** a non-weight unit field: pinky's only non-weight unit is `time:s` (90/90 Hip Stretch), the same as the catalog default, so nothing differs; making one would mean logging and finishing a session, which writes real data. A cold start with no summaries held: the stored copy loads from the phone, and emptying it means clearing app data and signing in again; covered by the "nothing held" store test only.
 
 **[pending] Not run:** the purple theme; iOS; exercises from the plan at Start are not covered by design.
+
+
+## TICKET-102 stage 1: edit a past workout, open / look / cancel (2026-11-23)
+
+**Unit [run], `tsc` clean, full suite 87 suites / 1107 tests.** New: `editSession.test.ts` (5: the stored workout as a draft round-trips to identical lifts, a set that cannot be read whole is refused, change detection both ways, history before the edited workout with bests hidden, "earlier sessions not on the phone" vs First time), 3 store tests (startEdit refused while a workout runs and kept on the phone; Finish refuses a draft and queues nothing; no rest in a draft), 4 screen tests (logger in edit mode; Cancel edit with no change goes back to the Session; Session's Edit session opens the draft and is off with its reason while a workout runs; the plan card blocks Start for a draft with no timer). Each seen failing with its line broken (15 mutations, all red). The round-trip test caught nothing new but pins the "Swapped in for X" caption, which the draft could not carry before (`LoggedExercise.swappedFrom`).
+
+**Device plan [partly run on the emulator, `pinky`, Android 16, 2026-11-23; Metro on this branch].** Stage 1 writes nothing to the server.
+1. Session "Shoulders AJ, Fri 30 Oct" → ⋯: **pass**, Edit session is on, "Fix a set, add or remove one".
+2. Edit session: **pass**, the logger opens with "Editing · Fri 30 Oct" (no timer), "THIS WORKOUT", the workout's 3 sets, deltas and "Last time 7 × 12" from the session before it (17 Oct), Cancel edit | Save changes (off).
+3. Edit set 2 (8 × 11 → 8 × 12) with the existing edit card: **pass**, the draft changes and the TEMPORARY "Saving an edit comes in the next build" line shows.
+4. Log a set 4: **pass**, no rest starts (the card goes straight to set 5).
+5. Hub with the draft open: **pass**, no running tile; the plan card says "You are editing Shoulders AJ. Save or cancel the edit to start this one." with "Back to editing Shoulders AJ" (no timer), after a fix found here: the first build let Start through to the store's refusal, whose toast was hidden behind the card.
+6. Force-stop and reopen: **pass**, the draft is back (Log Workout tab), set 2 still 8 × 12, 4 sets.
+7. Cancel edit with changes: **pass**, "Discard your changes? Shoulders AJ, Fri 30 Oct, stays as it was."; Discard lands on the Session, which still shows 8 × 11 H.
+
+**Found, not fixed (open):**
+- **Dead taps: pre-existing, not caused by edit mode (investigated 2026-11-23, `pinky` signed back in, one tap per screenshot).** Reproduced with a live workout and no draft, all steps pre-existing code: Workout tab → Test 070 → Start → logger → **Workout tab** (moves the hub above the logger) → **Resume** (moves the logger back on top) → ⋯ → Discard → Discard → the hub shows, and **History does not respond**; nothing in the content area does, the footer does. Control: Start → Discard → History, with no tab press in between, works. With a draft, the same shape: Session → Edit → Workout tab → "Back to editing" → Cancel edit → Discard → the Session shows and its Back and cards do not respond. Five draft paths with no `popTo` after a reorder all worked. So the trigger is a screen moved by a rearrange (the Workout tab: Layout `openTab`'s reset and the nested `singleCopy` move) followed by a pop (`popTo` in the logger's redirect). The view tree shows the right screen at the right bounds, so something outside the accessibility tree takes the touches: a stack card left with `pointerEvents="none"` is the likely cause (`@react-navigation/stack` 7.1.2 handles a rearrange as a push, `StackView.getDerivedStateFromProps`), not pinned to one card. Edit makes it more common (Cancel edit and, in stage 2, Save end with a `popTo`). Recovery: force-stop and reopen.
+- **After an app kill, Cancel edit opens the Session with nothing under it**, so its Back goes to Feed, and the footer lit Feed over it.
+
+**Run stopped by me (2026-11-23):** while reproducing the dead taps I sent a blind sequence of taps; one landed on the app menu and signed the emulator out of `pinky`, and the next started "Sign in with Google", which signed in as the user's own Google account. I stopped there and drove nothing on that account. Sign-in may have written its user doc (`initAuth`). Lesson: never chain taps without a screenshot between screens that load at different speeds.
+
+**[pending] Not run:** a workout older than the summary keeps (the "not on this phone" line); a split set and a swapped lift on screen; Freestyle; iOS.

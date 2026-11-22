@@ -24,6 +24,7 @@ import { WorkoutRoutes } from "../../constants/routes";
 import { ReturnTypeUseThemeTokens } from "../app_manager/ThemeContext";
 import { useThemeStyles } from "../../utils/useThemeStyles";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
+import { backToSlotLabel, blockedStartReason, liveWorkoutOf } from "../../utils/workoutSlot";
 import { useExerciseHistoryStore } from "../../stores/useExerciseHistoryStore";
 import { useAuthUser } from "../../hooks/useAuthUser";
 import { useExerciseHistory } from "../../hooks/useExerciseHistory";
@@ -62,13 +63,14 @@ type Props = {
  * unchanged, which is why it reads the store and navigates on its own rather
  * than taking callbacks from the screen.
  *
- * Three footers, decided from `activeWorkout` alone:
- * - nothing running → Start
- * - this plan running (`activeWorkout.id === plan.id`) → the live timer as the
+ * Three footers, decided from the workout slot alone:
+ * - nothing in the slot → Start
+ * - this plan running (`liveWorkout.id === plan.id`) → the live timer as the
  *   big number, the progress bar, Resume
- * - another workout running → no Start; the reason and Back to it. Its name
- *   and timer come from `activeWorkout` itself, never from looking a plan up by
- *   id, so a Freestyle (no plan) needs no change here
+ * - another workout running, or an edit draft (TICKET-102) → no Start; the
+ *   reason and Back to it (`utils/workoutSlot.ts`). Its name and timer come
+ *   from the slot itself, never from looking a plan up by id, so a Freestyle
+ *   (no plan) needs no change here. A draft has no timer.
  *
  * Decisions:
  * - **RN `Modal` + core `Animated`/`PanResponder`**, as `ExerciseHistorySheet`:
@@ -91,7 +93,9 @@ export function PlanCard({ plan, row, onClose }: Props) {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const navigation = useNavigation<WorkoutScreenNavigationProp<typeof WorkoutRoutes.StartWorkout>>();
-  const activeWorkout = useWorkoutStore((state) => state.activeWorkout);
+  // The slot (a workout or an edit draft) blocks a start; only a workout being done runs a clock (TICKET-102).
+  const slot = useWorkoutStore((state) => state.activeWorkout);
+  const liveWorkout = liveWorkoutOf(slot);
   const startWorkout = useWorkoutStore((state) => state.startWorkout);
 
   const [scrolled, setScrolled] = useState(false);
@@ -108,10 +112,10 @@ export function PlanCard({ plan, row, onClose }: Props) {
   useEffect(() => {
     if (!visible) return;
     setNow(Date.now());
-    if (!activeWorkout) return;
+    if (!liveWorkout) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [visible, activeWorkout]);
+  }, [visible, liveWorkout]);
 
   // The summaries' check, made by the card itself so every opener (Start today,
   // the hub in TICKET-066) gets filled rows without having to remember it (PR
@@ -160,8 +164,9 @@ export function PlanCard({ plan, row, onClose }: Props) {
 
   if (!plan) return <Modal visible={false} transparent onRequestClose={onClose} />;
 
-  const isRunning = !!activeWorkout && activeWorkout.id === plan.id;
-  const blockedBy = !!activeWorkout && !isRunning ? activeWorkout : null;
+  const isRunning = !!liveWorkout && liveWorkout.id === plan.id;
+  const blockedBy = !!slot && !isRunning ? slot : null;
+  const blockedEditing = blockedBy?.editOf !== undefined;
   const header = planCardHeader(
     {
       exerciseCount: plan.exercises.length,
@@ -172,7 +177,7 @@ export function PlanCard({ plan, row, onClose }: Props) {
     },
     now
   );
-  const elapsed = activeWorkout ? formatElapsed(activeWorkout.startTime, now) : null;
+  const elapsed = liveWorkout ? formatElapsed(liveWorkout.startTime, now) : null;
 
   const goToLogger = () => {
     onClose();
@@ -256,7 +261,7 @@ export function PlanCard({ plan, row, onClose }: Props) {
                   {plan.name}
                 </TextBase>
                 <PartsText parts={header.meta} style={styles.meta} testID="plan-card-meta" />
-                {isRunning && activeWorkout && <RunningProgress workout={activeWorkout} />}
+                {isRunning && liveWorkout && <RunningProgress workout={liveWorkout} />}
               </View>
             )}
           </View>
@@ -285,19 +290,18 @@ export function PlanCard({ plan, row, onClose }: Props) {
           <View style={styles.footer}>
             {blockedBy ? (
               <>
-                <TextBase style={styles.blockedReason}>
-                  {blockedBy.name} is in progress. Finish or discard it to start this one.
-                </TextBase>
+                <TextBase style={styles.blockedReason}>{blockedStartReason(blockedBy, "this one")}</TextBase>
                 <TouchableOpacity
                   style={styles.secondary}
                   onPress={goToLogger}
                   accessibilityRole="button"
-                  accessibilityLabel={`Back to ${blockedBy.name}`}
+                  accessibilityLabel={backToSlotLabel(blockedBy)}
                 >
-                  <View style={styles.liveDot} />
+                  {/* A draft has no clock: no live dot, no elapsed time (TICKET-102). */}
+                  {!blockedEditing && <View style={styles.liveDot} />}
                   <TextBase style={styles.secondaryText} numberOfLines={1}>
-                    Back to {blockedBy.name}
-                    {elapsed !== null && (
+                    {backToSlotLabel(blockedBy)}
+                    {!blockedEditing && elapsed !== null && (
                       <>
                         {" · "}
                         <TextBase numeric style={styles.secondaryText}>{elapsed}</TextBase>

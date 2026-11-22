@@ -902,3 +902,47 @@ describe("removeExercise and restoreExercise", () => {
     expect(ids()).toEqual(["stationary-bike", "lat-pulldown", "treadmill-walk"]);
   });
 });
+
+describe("an edit draft of a past workout (TICKET-102)", () => {
+  const stored = () => {
+    const workout = buildWorkout([], {
+      id: "push",
+      name: "Push",
+      startTime: 500,
+      exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: 650, Reps: 9 }] }] })],
+    });
+    return buildSessionDocs(workout, 600).session;
+  };
+
+  it("opens in the empty slot and is kept on the phone; refused while a workout is in progress", async () => {
+    const running = seedWorkout();
+    expect(await store().startEdit(stored())).toEqual({ status: "refused", reason: `Finish or discard ${running.name} first.` });
+    expect(store().activeWorkout).toBe(running);
+
+    useWorkoutStore.setState({ activeWorkout: null });
+    expect((await store().startEdit(stored())).status).toBe("started");
+    const draft = store().activeWorkout;
+    expect(draft?.editOf?.sessionId).toBe(stored().sessionId);
+    expect(JSON.parse((await AsyncStorage.getItem("activeWorkout")) ?? "null")).toEqual(draft);
+    // And a workout cannot start over it.
+    expect(await store().startWorkout({ id: "legs", name: "Legs", exercises: [] } as never)).toEqual({
+      status: "refused",
+      reason: "You are editing Push. Save or cancel the edit first.",
+    });
+  });
+
+  it("Finish refuses a draft: nothing is queued or uploaded, and the draft stays", async () => {
+    await store().startEdit(stored());
+    const draft = store().activeWorkout;
+    expect((await store().endWorkout("u1")).status).toBe("refused");
+    expect(queue()).toEqual([]);
+    expect(save).not.toHaveBeenCalled();
+    expect(store().activeWorkout).toBe(draft);
+  });
+
+  it("logging a set in a draft starts no rest", async () => {
+    await store().startEdit(stored());
+    store().startRest("bench-press", 90_000, 2);
+    expect(store().rest).toBeNull();
+  });
+});

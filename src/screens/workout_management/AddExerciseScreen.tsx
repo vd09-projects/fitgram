@@ -53,6 +53,7 @@ import ExercisePicker from '../../components/exercise_picker/ExercisePicker';
 import { preparePicker } from '../../utils/pickerData';
 import { useLastDoneUnknown, useRecentWorkouts } from '../../hooks/useRecentWorkouts';
 import { useWorkoutStore } from '../../stores/useWorkoutStore';
+import { liveWorkoutOf } from '../../utils/workoutSlot';
 import { buildRecentHistory } from '../../utils/recents';
 import { TouchableOpacityBase } from '../../components/TouchableOpacityBase';
 import { makeStepId } from '../../tour_steps/utils';
@@ -112,7 +113,8 @@ export default function AddExerciseScreen() {
   const inPlan = useMemo(() => new Set((draft?.exercises ?? []).map((e) => e.id)), [draft]);
 
   // D5: the banner shows only for the plan that has a workout running.
-  const activeWorkoutId = useWorkoutStore((s) => s.activeWorkout?.id ?? null);
+  // An edit draft of this plan is not it running (TICKET-102): Manage edits the plan only.
+  const activeWorkoutId = useWorkoutStore((s) => liveWorkoutOf(s.activeWorkout)?.id ?? null);
   const runningHere = draft !== null && activeWorkoutId === draft.id;
 
   const dirty = useMemo(() => (saved && draft ? isDraftDirty(saved, draft) : false), [saved, draft]);

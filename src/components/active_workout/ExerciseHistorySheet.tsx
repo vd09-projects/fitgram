@@ -189,6 +189,7 @@ export default function ExerciseHistorySheet({ visible, onClose, exercise, histo
 
                 <BestCard
                   best={best}
+                  bestHidden={history.asOf?.bestHidden === true}
                   show={history.numericComparisonAvailable}
                   unit={unit}
                   iconColor={t.colors.role.signal}
@@ -358,12 +359,15 @@ function rowSpeech(row: SheetRow, dateLabel: string): string {
 
 function BestCard({
   best,
+  bestHidden,
   show,
   unit,
   iconColor,
   styles,
 }: {
   best: SheetBest;
+  /** An edit draft (TICKET-102): the stored bests include this workout and later ones. */
+  bestHidden: boolean;
   show: boolean;
   unit: string | undefined;
   iconColor: string;
@@ -371,6 +375,7 @@ function BestCard({
 }) {
   // A plank has no best set at all; the session notice already says why.
   if (!show) return null;
+  if (bestHidden) return <TextBase style={styles.notice}>Best not shown while editing: it counts this workout too</TextBase>;
   if (best === null) return <TextBase style={styles.notice}>No best set recorded yet</TextBase>;
   const weight = withUnit(formatStepValue(best.set.weight), unit);
   const date = formatSessionDate(best.set.performedAt);

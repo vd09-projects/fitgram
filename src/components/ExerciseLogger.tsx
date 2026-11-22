@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { RemovedSet, REMOVE_LOCKED_REASON, SWAP_LOCKED_REASON, useWorkoutStore } from "../stores/useWorkoutStore";
+import { EDIT_SWAP_REASON, RemovedSet, REMOVE_LOCKED_REASON, SWAP_LOCKED_REASON, useWorkoutStore } from "../stores/useWorkoutStore";
 import { isFreestyle } from "../constants/freestyle";
 import { useRestPreferenceStore } from "../stores/restPreferenceStore";
 import { useExerciseHistoryStore } from "../stores/useExerciseHistoryStore";
@@ -240,6 +240,7 @@ export default function ExerciseLogger({
   // A Freestyle has no plan, so Swap and Remove say nothing about one (as Add,
   // TICKET-067). Swap said "Your plan keeps it." there until TICKET-069.
   const freestyle = useWorkoutStore((s) => isFreestyle(s.activeWorkout?.id));
+  const editDraft = useWorkoutStore((s) => s.activeWorkout?.editOf !== undefined);
   /** The next set as typed: the first segment, then any split rows. Never empty. */
   const [rows, setRows] = useState<SplitRowValues[]>([{}]);
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -376,7 +377,8 @@ export default function ExerciseLogger({
     renderIcon: (color) => <Ionicons name="swap-horizontal" size={20} color={color} />,
     title: "Swap exercise",
     ...planDetail,
-    disabledReason: exercise.sets.length > 0 ? SWAP_LOCKED_REASON : null,
+    // Off in an edit draft whatever the count (TICKET-102): deleting every set would otherwise enable it.
+    disabledReason: editDraft ? EDIT_SWAP_REASON : exercise.sets.length > 0 ? SWAP_LOCKED_REASON : null,
     onPress: onSwap,
   };
 

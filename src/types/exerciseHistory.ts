@@ -132,4 +132,13 @@ export type ExerciseHistory = {
   volumeTrend: VolumePoint[];
   /** Last fetch failure, if any. Present even when cached data is being served. */
   error: string | null;
+  /**
+   * Set only for an exercise of an edit draft (TICKET-102): the history is as it stood before the edited
+   * workout, so "last time" is the session before it, never the workout itself or a later one.
+   * - `earlierNotHeld`: the phone holds none of the sessions before it, but holds as many as a summary keeps,
+   *   so older ones may exist. Not "first time": the targets say the sessions are not here.
+   * - Bests are all-time (`bestByReps`) and include the edited workout and later ones, so "best as of then"
+   *   cannot be derived: `best` is empty and `bestHidden` says why, rather than "no best yet".
+   */
+  asOf?: { before: number; earlierNotHeld: boolean; bestHidden: true };
 };

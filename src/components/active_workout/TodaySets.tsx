@@ -294,7 +294,8 @@ export default function TodaySets({
     <View style={styles.container}>
       <View style={styles.header}>
         <TextBase style={styles.heading} accessibilityRole="header">
-          TODAY
+          {/* An edit draft's sets were not done today (TICKET-102, board ESL2Logger). */}
+          {history.asOf ? "THIS WORKOUT" : "TODAY"}
         </TextBase>
         {exercise.sets.length > 0 && (
           <NumericText style={styles.summary}>

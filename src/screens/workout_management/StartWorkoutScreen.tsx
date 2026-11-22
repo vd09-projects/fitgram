@@ -9,6 +9,7 @@ import ScrollableScreen from "../../components/ScrollableScreen";
 import { BackTitle } from "../../components/BackButton";
 import SearchBox from "../../components/SearchBox";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
+import { liveWorkoutOf } from "../../utils/workoutSlot";
 import { WorkoutRoutes } from "../../constants/routes";
 import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
 import { TextBase } from "../../components/TextBase";
@@ -37,7 +38,9 @@ export default function StartWorkoutScreen() {
   const { user } = useAuthUser();
   const uid = user?.uid;
 
-  const { cancelWorkout, activeWorkout, pendingUploads } = useWorkoutStore();
+  const { cancelWorkout, pendingUploads } = useWorkoutStore();
+  // A workout being done; an edit draft is not one (TICKET-102): no Resume bar and no Discard for it here.
+  const liveWorkout = useWorkoutStore((state) => liveWorkoutOf(state.activeWorkout));
   // Checked on focus: this screen stays mounted under the Workout tab (TICKET-070 D4).
   const { workoutPlans, loadingWorkoutPlans } = useWorkoutPlansOnFocus();
 
@@ -82,7 +85,7 @@ export default function StartWorkoutScreen() {
   );
 
   const setsLogged =
-    activeWorkout?.exercises.reduce(
+    liveWorkout?.exercises.reduce(
       (sum, exercise) => sum + exercise.sets.length,
       0,
     ) ?? 0;
@@ -101,11 +104,11 @@ export default function StartWorkoutScreen() {
         {/* Unfinished-work banners. Only the resume banner is built here;
             TICKET-029's pending-uploads count belongs beside it in this stack,
             which is why this is a stack and not a single slot. */}
-        {activeWorkout && (
+        {liveWorkout && (
           <View style={styles.bannerStack}>
             <ResumeBanner
-              workoutName={activeWorkout.name}
-              startTime={activeWorkout.startTime}
+              workoutName={liveWorkout.name}
+              startTime={liveWorkout.startTime}
               setsLogged={setsLogged}
               onResume={() => navigation.navigate(WorkoutRoutes.LogWorkout)}
               onDiscard={() => setConfirmDiscard(true)}

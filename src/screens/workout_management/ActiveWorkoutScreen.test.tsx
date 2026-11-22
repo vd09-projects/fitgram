@@ -1,7 +1,8 @@
 import { act, fireEvent, screen, within } from "@testing-library/react-native";
 import ActiveWorkoutScreen from "./ActiveWorkoutScreen";
 import { renderScreen } from "../../test/renderScreen";
-import { buildSessionId } from "../../utils/exerciseStats";
+import { buildSessionDocs, buildSessionId } from "../../utils/exerciseStats";
+const buildSessionDocsFor = (workout: Parameters<typeof buildSessionDocs>[0]) => buildSessionDocs(workout, workout.startTime + 60_000).session;
 import { buildExercise, buildStats, buildWorkout, CATALOG_ROW } from "../../test/fixtures";
 import { EndWorkoutResult, useWorkoutStore } from "../../stores/useWorkoutStore";
 import { getAllExerciseStats, saveWorkoutSession } from "../../services/db/workoutSessions";
@@ -10,6 +11,7 @@ import { loadCatalog } from "../../utils/catalog";
 import show from "../../utils/toastUtils";
 import { WorkoutRoutes } from "../../constants/routes";
 import { FREESTYLE_ID } from "../../constants/freestyle";
+import { toEditableWorkout } from "../../utils/editSession";
 
 // Only the Finish tests reach the save, through the real `endWorkout`. The
 // reads are the swap picker's (TICKET-047), mounted only while it is open.
@@ -309,6 +311,38 @@ describe("after the workout ends", () => {
 
     expect(screen.getByText("route:Workout/WorkoutHome")).toBeOnTheScreen();
     expect(screen.queryByText("No active workout")).toBeNull();
+  });
+});
+
+// TICKET-102 stage 1: a past workout opened as an edit draft.
+describe("an edit draft", () => {
+  const draft = () => {
+    const stored = buildWorkout([], {
+      id: "push",
+      name: "Push",
+      startTime: new Date(2026, 10, 9, 18).getTime(),
+      exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: 650, Reps: 9 }] }] })],
+    });
+    const result = toEditableWorkout({ ...buildSessionDocsFor(stored), sessionId: "push_s" });
+    if (result.status !== "ready") throw new Error(result.reason);
+    return result.workout;
+  };
+
+  it("says Editing and the date instead of a timer, and offers Cancel edit and a switched-off Save, not Finish", () => {
+    renderScreen(ActiveWorkoutScreen, { workout: draft(), workoutRoute: WorkoutRoutes.LogWorkout });
+    expect(screen.getByLabelText("Editing, Mon 9 Nov")).toBeOnTheScreen();
+    expect(screen.queryByText(/elapsed/)).toBeNull();
+    expect(screen.getByText("THIS WORKOUT")).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Finish workout/ })).toBeNull();
+  });
+
+  it("Cancel edit with nothing changed asks nothing, empties the slot and goes back to the Session", async () => {
+    renderScreen(ActiveWorkoutScreen, { workout: draft(), workoutRoute: WorkoutRoutes.LogWorkout });
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Cancel edit" })));
+    expect(useWorkoutStore.getState().activeWorkout).toBeNull();
+    expect(screen.queryByText("Discard your changes?")).toBeNull();
+    expect(screen.getByText(`route:Workout/${WorkoutRoutes.Session}`)).toBeOnTheScreen();
   });
 });
 

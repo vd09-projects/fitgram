@@ -10,6 +10,9 @@ import { savedSummary } from "../utils/sessionDuration";
 import { clampExerciseIndex, indexAfterRemoval, resolveCurrentIndex } from "../utils/workoutProgress";
 import { extendRest, RestTimer } from "../utils/restTimer";
 import { buildSessionDocs, buildSessionId } from "../utils/exerciseStats";
+import { toEditableWorkout } from "../utils/editSession";
+import { slotTakenReason } from "../utils/workoutSlot";
+import type { WorkoutSessionDoc } from "../types/workoutSession";
 import { useAuthStore } from "./authStore";
 import { useExerciseHistoryStore } from "./useExerciseHistoryStore";
 import { useRecentWorkoutsStore } from "./useRecentWorkoutsStore";
@@ -66,6 +69,9 @@ export type EndWorkoutResult =
 const refused = (reason: string): EndWorkoutResult => ({ status: "refused", reason });
 
 export type StartWorkoutResult = { status: "started" } | { status: "refused"; reason: string };
+
+/** Swap's reason in an edit draft (TICKET-102): a swap there would rewrite which exercise was done. */
+export const EDIT_SWAP_REASON = "Not while editing a past workout.";
 
 export type SwapExerciseResult = { status: "swapped" } | { status: "refused"; reason: string };
 export type AddExerciseResult = { status: "added" } | { status: "refused"; reason: string };
@@ -214,6 +220,8 @@ interface WorkoutStoreState {
 
   // Actions
   startWorkout: (workout: WorkoutPlan) => Promise<StartWorkoutResult>;
+  /** Open a past workout as an edit draft in the slot (TICKET-102). Refused while the slot is taken. */
+  startEdit: (session: WorkoutSessionDoc) => Promise<StartWorkoutResult>;
   addSetToExercise: (exerciseId: string, newSet: ExerciseSet) => Promise<void>;
   /** Replace a logged set's segments; id, mark and rest untouched (TICKET-040, TICKET-055). */
   updateSet: (exerciseId: string, setId: number, segments: Record<string, string | number>[]) => Promise<void>;
@@ -269,7 +277,9 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     if (current) {
       return {
         status: "refused",
-        reason: `${current.name} is still in progress. Resume or discard it first.`,
+        reason: current.editOf
+          ? slotTakenReason(current)
+          : `${current.name} is still in progress. Resume or discard it first.`,
       };
     }
 
@@ -288,6 +298,24 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     };
 
     await saveActiveWorkout(newWorkout);
+    return { status: "started" };
+  },
+
+  /**
+   * 🔹 Edit a past workout (TICKET-102)
+   *
+   * The stored workout becomes a draft in the active slot (`toEditableWorkout`), so the logger edits it with its own
+   * controls and an app kill keeps it. Refused while the slot holds a workout or another draft: one slot, and
+   * replacing it would lose what is there. Nothing is written to the server here; Save is its own action.
+   * The summaries are checked as at Start, so "last time" (the session before this one) is there to compare with.
+   */
+  startEdit: async (session) => {
+    const current = get().activeWorkout;
+    if (current) return { status: "refused", reason: slotTakenReason(current) };
+    const draft = toEditableWorkout(session);
+    if (draft.status === "refused") return draft;
+    prefetchHistory();
+    await saveActiveWorkout(draft.workout);
     return { status: "started" };
   },
 
@@ -534,6 +562,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
   swapExercise: async (exerciseId, exercise) => {
     const { activeWorkout, rest } = get();
     if (!activeWorkout) return { status: "refused", reason: "No active workout." };
+    if (activeWorkout.editOf) return { status: "refused", reason: EDIT_SWAP_REASON };
 
     const index = activeWorkout.exercises.findIndex((ex) => ex.id === exerciseId);
     if (index === -1) return { status: "refused", reason: "That exercise is not in this workout." };
@@ -757,6 +786,9 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
 
     const { activeWorkout } = get();
     if (!activeWorkout) return refused("No active workout.");
+    // A draft is saved by its own action, never queued as a new workout: Finish would fold it into the summaries
+    // again (bests can only rise there) and stamp it with a new end (TICKET-102).
+    if (activeWorkout.editOf) return refused("This is an edit of a past workout. Use Save changes.");
 
     const endedAt = Date.now();
     if (buildSessionDocs(activeWorkout, endedAt).exerciseSessions.length === 0) {
@@ -896,6 +928,9 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
    * add-time never wait on storage.
    */
   startRest: (exerciseId, durationMs, setNumber) => {
+    // A set logged in an edit draft was done on another day: nothing to rest for (TICKET-102). Here, not at the
+    // logger's call, so no caller can start one.
+    if (get().activeWorkout?.editOf) return;
     set({ rest: { exerciseId, startedAt: Date.now(), durationMs, setNumber } });
   },
 

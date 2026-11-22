@@ -393,7 +393,12 @@ function buildLiftRecord(workoutId: string, exercise: LoggedExercise, doc: Exerc
   return {
     id: doc.exerciseId,
     name: doc.exerciseName,
-    ...(planned ? { swappedFrom: { id: planned.id, name: planned.nameSnapshot?.trim() || planned.name } } : {}),
+    // An edit draft carries the stored caption instead of a `planned` (TICKET-102).
+    ...(planned
+      ? { swappedFrom: { id: planned.id, name: planned.nameSnapshot?.trim() || planned.name } }
+      : exercise.swappedFrom
+        ? { swappedFrom: exercise.swappedFrom }
+        : {}),
     ...(exercise.added && workoutId !== FREESTYLE_ID ? { added: true as const } : {}),
     fields: doc.fields,
     sets: doc.sets,

@@ -23,6 +23,7 @@ import {
 import { computeSessionVolume } from "./exerciseStats";
 import { comparisonSegment, decodeStoredSets } from "./storedSets";
 import { HISTORY_RECENT_SESSION_COUNT, HISTORY_TREND_SESSION_COUNT } from "../config/display";
+import { STATS_RECENT_SESSION_CAP } from "../config/storedData";
 
 // HISTORY_RECENT_SESSION_COUNT, HISTORY_TREND_SESSION_COUNT: value and reason in src/config/display.ts.
 
@@ -100,7 +101,12 @@ export function volumeTrendFromStats(
  */
 export function deriveExerciseHistory(
   entry: ExerciseHistoryEntry | undefined,
-  overrideFields?: ExerciseField[]
+  overrideFields?: ExerciseField[],
+  /**
+   * An edit draft's start (TICKET-102): only sessions that started before it count, so the edited workout and
+   * every later one are left out of "last time", ghosts and deltas, and the bests are hidden (`asOf`).
+   */
+  before?: number
 ): ExerciseHistory {
   const stats = entry?.stats ?? null;
 
@@ -110,15 +116,23 @@ export function deriveExerciseHistory(
   const numericFields = resolveNumericFields(fields);
   const numericAvailable = numericFields !== null;
 
-  const rawSessions = stats?.recentSessions ?? NO_SESSIONS;
+  const heldSessions = stats?.recentSessions ?? NO_SESSIONS;
+  const rawSessions = before === undefined ? heldSessions : heldSessions.filter((session) => session.performedAt < before);
   const allSessions = rawSessions
     .map((session) => buildHistorySession(session, numericFields, fields))
     .sort((a, b) => b.performedAt - a.performedAt);
 
   const lastSession = allSessions[0] ?? null;
-  const best = bestSetsFromStats(stats?.bestByReps, numericFields);
+  const best = before === undefined ? bestSetsFromStats(stats?.bestByReps, numericFields) : [];
+  // The summary keeps the newest sessions only, so a full one with none before the cutoff may still have older
+  // sessions on the server: say they are not here, not "first time" (CLAUDE.md 2.4).
+  const asOf =
+    before === undefined
+      ? undefined
+      : { before, earlierNotHeld: allSessions.length === 0 && heldSessions.length >= STATS_RECENT_SESSION_CAP, bestHidden: true as const };
 
   return {
+    ...(asOf ? { asOf } : {}),
     status: entry?.status ?? "idle",
     loading: entry?.status === "loading",
     hasHistory: allSessions.length > 0,
@@ -132,7 +146,8 @@ export function deriveExerciseHistory(
     sessions: allSessions.slice(0, HISTORY_RECENT_SESSION_COUNT),
     best,
     bestAtReps: (reps: number) => best.find((set) => set.reps === reps) ?? null,
-    volumeTrend: volumeTrendFromStats(stats?.volumeHistory),
+    // A trend to the edited workout's own volume would include it: none while editing.
+    volumeTrend: before === undefined ? volumeTrendFromStats(stats?.volumeHistory) : [],
     error: entry?.error ?? null,
   };
 }
