@@ -127,16 +127,28 @@ describe("carryLastUnits", () => {
     expect(carryLastUnits(bench, last)).toEqual(benchPlates);
   });
 
-  it("matches the second weight field to the second, by position", () => {
-    const two: ExerciseField[] = [
+  it("matches weight fields by position among their role, not by index", () => {
+    const today: ExerciseField[] = [
       { name: "Weight", role: "weight", unit: "kg" },
+      bench[1],
       { name: "Per hand", role: "weight", unit: "kg" },
     ];
+    // Reps comes first last time: matching by index would pair today's Weight with Reps.
     const last: ExerciseField[] = [
-      { name: "A", role: "weight", unit: "kg" },
-      { name: "B", role: "weight", unit: "lb" },
+      bench[1],
+      { name: "A", role: "weight", unit: "lb" },
+      { name: "B", role: "weight", unit: "plates" },
     ];
-    expect(carryLastUnits(two, last).map((f) => f.unit)).toEqual(["kg", "lb"]);
+    expect(carryLastUnits(today, last).map((f) => f.unit)).toEqual(["lb", undefined, "plates"]);
+  });
+
+  it("returns the same array when last time used the same units", () => {
+    expect(carryLastUnits(bench, bench)).toBe(bench);
+  });
+
+  it("gives a field with no unit none, even when last time had one", () => {
+    const unitless: ExerciseField[] = [{ name: "Weight", role: "weight" }, bench[1]];
+    expect(carryLastUnits(unitless, benchPlates)).toBe(unitless);
   });
 
   it("keeps the version's own unit, and the same array, when last time is unknown or not offered", () => {

@@ -126,8 +126,12 @@ const freshSlot = (exercise: Exercise, catalogIndex: CatalogIndex | null): Logge
  * only: the plan's own exercises at start keep the plan's units. Reads the held
  * summary, never fetches: nothing held yet (a cold start) leaves the version's
  * own units, and `prefetchHistory` runs after. `planned` is built from the slot
- * before this, so the plan card still lists the plan's own units; swapping back
- * to it is a swap like any other and also starts in the last unit.
+ * before this, so the plan card still lists the plan's own units.
+ *
+ * Swapping back to the plan's exercise skips this (`swapExercise`): chosen, the
+ * plan's own units, as at Start, so one exercise opens the same way however it
+ * was reached. Rejected: carrying there too, which gave an exercise in kg at
+ * Start and lb after swapping away and back (PR #85 review).
  */
 const withLastUnits = (exercise: Exercise): Exercise => {
   const last = useExerciseHistoryStore.getState().byId?.[exercise.id]?.fields;
@@ -551,7 +555,7 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
           fields: slot.fields,
         };
     const swapped: LoggedExercise = {
-      ...freshSlot(withLastUnits(exercise), catalogIndexNow()),
+      ...freshSlot(exercise.id === planned?.id ? exercise : withLastUnits(exercise), catalogIndexNow()),
       ...(planned && exercise.id !== planned.id ? { planned } : {}),
       ...(slot.added ? { added: true as const } : {}),
     };
