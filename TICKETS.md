@@ -11573,7 +11573,7 @@ workout had gone from the emulator by then; the cause is unknown, it was not dis
 
 ### TICKET-101: Swap and Add Start in the Unit Last Logged
 
-**Priority:** Medium | **Effort:** Small | **Status: IN REVIEW** — raised 2026-11-22 (user, from two screenshots: Incline Machine Bench, last time in plates, today's card in kg); branch `feat/ticket-101-carry-last-unit`
+**Priority:** Medium | **Effort:** Small | **Status: MERGED** — PR #85, 2026-11-22; device run on the emulator; open items listed below — raised 2026-11-22 (user, from two screenshots: Incline Machine Bench, last time in plates, today's card in kg); branch `feat/ticket-101-carry-last-unit`
 
 **Description (user, 2026-11-22):** when an exercise is added or swapped in and history exists, the new slot should start in the unit last logged, so the
 user does not change the unit by hand each time.
@@ -11598,7 +11598,8 @@ the notice line remains its only cue. Raised for the user to decide (a follow-up
 
 **Built and run (2026-11-22):** `carryLastUnits` (`unitChange.ts`) and `withLastUnits` (`useWorkoutStore.tsx`), called from swap and add. 9 new tests; the carry, role check, position match, same-unit check, unit guard and swap-back skip each seen failing with their line broken (the "nothing held" negative and one by-role case not). `tsc` clean; full suite 86 suites / 1095 tests. **Device run (emulator, `pinky`):** swap and add to an exercise last logged in plates open in plates; a never-done exercise keeps its own unit; the unit survives a kill and resume. Details in `docs/TESTING_NOTES.md`.
 **PR #85 review (pass 1) fixes:** swap-back restores the plan's own unit (was: the last unit, so one exercise opened in kg at Start and lb after swapping away and back); position and guard tests strengthened; a swap-back store test added.
-**Not verified:** swap-back on a device where the last unit differs (unit test only); a non-weight unit field; a cold start before the summaries load; iOS.
+**Device, second run (after review):** swap-back to a plan exercise whose last unit differs returns in the plan's unit with the plates notice.
+**Not verified:** a non-weight unit field (pinky has none that differs; needs a logged session);  a cold start before the summaries load; iOS.
 
 **Not in scope:** exercises at workout start; converting values; writing units to the plan; iOS.
 
