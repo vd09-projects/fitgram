@@ -11571,6 +11571,39 @@ workout had gone from the emulator by then; the cause is unknown, it was not dis
 
 ---
 
+### TICKET-101: Swap and Add Start in the Unit Last Logged
+
+**Priority:** Medium | **Effort:** Small | **Status: IN REVIEW** — raised 2026-11-22 (user, from two screenshots: Incline Machine Bench, last time in plates, today's card in kg); branch `feat/ticket-101-carry-last-unit`
+
+**Description (user, 2026-11-22):** when an exercise is added or swapped in and history exists, the new slot should start in the unit last logged, so the
+user does not change the unit by hand each time.
+
+**Feasibility (checked 2026-11-22, in code):**
+- The unit is on the slot: `LoggedExercise.fields[].unit`. `freshSlot` builds it for start, swap and add from the picked catalog version's own fields.
+- Last session's units are held on the phone: `useExerciseHistoryStore.getState().byId[id]` is a summary with `fields: ExerciseField[]`. A synchronous read, no fetch.
+- The matching already exists: `matchLastField` (role + position, never name) and `hasUnitChoice` in `unitChange.ts`; the write already exists:
+  `setExerciseUnits` (TICKET-091), which relabels and converts nothing.
+- So: feasible, small. Swap and add apply last session's unit to the new slot's unit fields, in the same save as the swap/add.
+
+**Decided:**
+- Only a unit field the user can change (`hasUnitChoice`) is carried, and only when last session's unit is one its role offers (as `unitNotice` already does).
+- **Absence, not a guess (2.4):** no summary held, history not loaded yet (`idle`/`loading`), no matching field, or an unoffered unit: the version's own unit stays.
+  History is checked after the swap (`prefetchHistory`) and may be empty on a cold start; the slot then keeps its own unit and the existing "Last time was in …" line still shows. Not
+  awaited: logging never waits on the network (TICKET-076).
+- `planned` is never touched, so "Back to plan" still offers the plan's own units (TICKET-091). Swapping back to it also restores the plan's own unit, not the last one: one exercise opens the same way as at Start however it was reached. Rejected: carrying on swap-back too.
+- Nothing converted, no number carried: 8 plates stays a label change only.
+
+**Scope edge (2.6):** the user said add and swap. An exercise from the plan at Start is the same situation (screenshot: Upper B, exercise 1, "Last time was in plates", card in kg) and is **not** covered here;
+the notice line remains its only cue. Raised for the user to decide (a follow-up ticket if wanted).
+
+**Built and run (2026-11-22):** `carryLastUnits` (`unitChange.ts`) and `withLastUnits` (`useWorkoutStore.tsx`), called from swap and add. 9 new tests; the carry, role check, position match, same-unit check, unit guard and swap-back skip each seen failing with their line broken (the "nothing held" negative and one by-role case not). `tsc` clean; full suite 86 suites / 1095 tests. **Device run (emulator, `pinky`):** swap and add to an exercise last logged in plates open in plates; a never-done exercise keeps its own unit; the unit survives a kill and resume. Details in `docs/TESTING_NOTES.md`.
+**PR #85 review (pass 1) fixes:** swap-back restores the plan's own unit (was: the last unit, so one exercise opened in kg at Start and lb after swapping away and back); position and guard tests strengthened; a swap-back store test added.
+**Not verified:** swap-back on a device where the last unit differs (unit test only); a non-weight unit field; a cold start before the summaries load; iOS.
+
+**Not in scope:** exercises at workout start; converting values; writing units to the plan; iOS.
+
+---
+
 ---
 
 ## Recommended Execution Order

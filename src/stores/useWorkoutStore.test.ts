@@ -736,6 +736,51 @@ describe("setExerciseUnits", () => {
   });
 });
 
+// TICKET-101. A swap or add starts in the unit last logged; nothing held leaves the version's own.
+describe("swap and add start in the last unit (TICKET-101)", () => {
+  const kg = [{ name: "Weight", role: "weight" as const, unit: "kg" as const }, { name: "Reps", role: "reps" as const }];
+  const incline = { id: "incline-machine", name: "Incline Machine", fields: kg };
+  const heldFor = (id: string, unit: "plates" | "lb") =>
+    useExerciseHistoryStore.setState({
+      byId: { [id]: { exerciseId: id, fields: [{ ...kg[0], unit }, kg[1]], recentSessions: [] } as never },
+    });
+  const seed = () => useWorkoutStore.setState({ activeWorkout: buildWorkout(["Lat Pulldown"], { startTime: ++startTime }) });
+
+  it("swap: the slot takes last time's unit, and `planned` keeps the plan's own", async () => {
+    seed();
+    heldFor("incline-machine", "plates");
+    await store().swapExercise("lat-pulldown", incline);
+    const slot = store().activeWorkout!.exercises[0];
+    expect(slot.fields[0].unit).toBe("plates");
+    expect(slot.planned!.fields).toEqual(buildExercise("Lat Pulldown").fields);
+  });
+
+  it("swap back to the plan's exercise restores the plan's own unit, not the last one", async () => {
+    seed();
+    const planned = store().activeWorkout!.exercises[0];
+    heldFor(planned.id, "lb"); // last session in lb; the plan's version is kg
+    await store().swapExercise(planned.id, incline);
+    await store().swapExercise("incline-machine", store().activeWorkout!.exercises[0].planned!);
+    const slot = store().activeWorkout!.exercises[0];
+    expect(slot.id).toBe(planned.id);
+    expect(slot.fields).toEqual(planned.fields);
+    expect(slot.planned).toBeUndefined();
+  });
+
+  it("add: the new slot takes last time's unit", async () => {
+    seed();
+    heldFor("incline-machine", "lb");
+    await store().addExercise(incline);
+    expect(store().activeWorkout!.exercises[1].fields[0].unit).toBe("lb");
+  });
+
+  it("nothing held for the exercise: the version's own unit stays", async () => {
+    seed();
+    await store().addExercise(incline);
+    expect(store().activeWorkout!.exercises[1].fields).toEqual(kg);
+  });
+});
+
 // TICKET-056: add an exercise at the end, for this workout only.
 describe("addExercise", () => {
   const curl = { id: "wrist-curl-cable", name: "", nameSnapshot: "Wrist Curl · Cable", fields: [{ name: "Reps", role: "reps" as const }] };

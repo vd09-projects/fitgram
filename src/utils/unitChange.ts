@@ -154,3 +154,33 @@ export function unitNotice(
       : `Last time ${several ? `${only.field.name.toLowerCase()} ` : ""}was in ${only.lastUnit}`;
   return `${what}${numbers}`;
 }
+
+/**
+ * The fields a swapped-in or added exercise starts with (TICKET-101): the
+ * version's own, with each unit field the user can change set to the unit last
+ * session logged it in. Matched by role and position, never by name
+ * (`matchLastField`), the same match `unitNotice` uses to say "Last time was in
+ * plates".
+ *
+ * Chosen: carry last session's unit. Rejected: the picked version's unit (the
+ * user changed it by hand every time), and the most common unit over several
+ * sessions (only the last session is read, as for the ghosts and the notice).
+ *
+ * A field keeps its own unit, never a guess, when last time is unknown: no
+ * summary, no matching field, no unit, or a unit its role does not offer.
+ * Nothing is converted. The same array comes back when nothing changed.
+ */
+export function carryLastUnits(
+  fields: ExerciseField[],
+  lastFields: ExerciseField[] | undefined | null
+): ExerciseField[] {
+  let changed = false;
+  const carried = fields.map((field, index) => {
+    if (!hasUnitChoice(field)) return field;
+    const lastUnit = matchLastField(fields, index, lastFields)?.unit;
+    if (lastUnit === undefined || lastUnit === field.unit || !unitsForRole(field.role).includes(lastUnit)) return field;
+    changed = true;
+    return { ...field, unit: lastUnit };
+  });
+  return changed ? carried : fields;
+}
