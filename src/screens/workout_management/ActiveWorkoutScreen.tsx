@@ -27,7 +27,10 @@ import { LayoutRoutes, WorkoutRoutes } from "../../constants/routes";
 import { CommonActions, StackActions, useIsFocused, useNavigation } from "@react-navigation/native";
 import { buildSessionId } from "../../utils/exerciseStats";
 import { finishLandingRoutes, type FinishLanding } from "../../utils/finishLanding";
-import { draftChanged } from "../../utils/editSession";
+import { draftChanged, editSaveError } from "../../utils/editSession";
+import { saveEditedWorkout } from "../../services/db/workoutSessions";
+import { useExerciseHistoryStore } from "../../stores/useExerciseHistoryStore";
+import { useRecentWorkoutsStore } from "../../stores/useRecentWorkoutsStore";
 import { sessionDateLine } from "../../utils/sessionView";
 import { TextBase } from "../../components/TextBase";
 import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
@@ -77,6 +80,10 @@ export default function ActiveWorkoutScreen() {
   const [lastRemoval, setLastRemoval] = useState<{ removed: RemovedExercise; after: ActiveWorkout } | null>(null);
   const undoable = lastRemoval && lastRemoval.after === activeWorkout ? lastRemoval.removed : null;
   const [finishing, setFinishing] = useState(false);
+  // Save changes (TICKET-102). A ref beside the state: two taps in one frame both see `savingEdit` false.
+  const [savingEdit, setSavingEdit] = useState(false);
+  const savingEditNow = useRef(false);
+  const [saveError, setSaveError] = useState<{ title: string; detail: string } | null>(null);
 
   // An edit of a past workout (TICKET-102): the same screen, with the edit's header and footer. Where to go back to
   // is kept while the draft is in the slot, so it is still known once Cancel (or, from stage 2, Save) empties it.
@@ -281,6 +288,32 @@ export default function ActiveWorkoutScreen() {
     await cancelWorkout();
   };
 
+  // Save changes (TICKET-102): the server first (`saveEditedWorkout`, refused offline), then every copy this phone holds,
+  // then the draft leaves the slot and the redirect above goes back to the Session. A refusal keeps the draft and says why.
+  const handleSaveEdit = async () => {
+    const draft = useWorkoutStore.getState().activeWorkout;
+    if (savingEditNow.current || !draft?.editOf || !user?.uid) return;
+    savingEditNow.current = true;
+    setSavingEdit(true);
+    setSaveError(null);
+    try {
+      const saved = await saveEditedWorkout(user.uid, draft);
+      useExerciseHistoryStore.getState().applyEdited(user.uid, saved.summaries);
+      useRecentWorkoutsStore.getState().applyEdited(user.uid, saved.session);
+    } catch (error) {
+      console.log("Failed to save edit:", error);
+      setSaveError(editSaveError((error as { code?: string })?.code));
+      savingEditNow.current = false;
+      setSavingEdit(false);
+      return;
+    }
+    savingEditNow.current = false;
+    setSavingEdit(false);
+    show.success("Saved", `${draft.name}, ${sessionDateLine(draft.startTime, null)}`);
+    // `cancelWorkout` empties the slot, which is all that is left to do; the stored workout was replaced above.
+    await cancelWorkout();
+  };
+
   // Cancel edit (TICKET-102, board ESL7Discard): asks only when the draft differs from the stored workout. The stored
   // workout is untouched either way; the draft leaves the slot and the redirect above goes back to the Session.
   const requestCancelEdit = () => {
@@ -413,7 +446,7 @@ export default function ActiveWorkoutScreen() {
       </GestureDetector>
 
       {editOf ? (
-        <EditFooter changed={draftChanged(activeWorkout)} onCancel={requestCancelEdit} />
+        <EditFooter changed={draftChanged(activeWorkout)} saving={savingEdit} error={saveError} onSave={handleSaveEdit} onCancel={requestCancelEdit} />
       ) : (
       <View style={styles.footer}>
         <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.SAVE_CURRENT_WORKOUT_LOGER} positionType="above">

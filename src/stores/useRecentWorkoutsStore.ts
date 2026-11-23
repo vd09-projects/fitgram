@@ -202,13 +202,15 @@ interface WorkoutsStore extends SyncFields<WorkoutsCheckKind> {
   applyNote: (uid: string, sessionId: string, note: string | null) => void;
   /** `sessionId` was deleted on the server by this phone: remove it from every copy this phone holds, 0 reads. */
   applyDeleted: (uid: string, sessionId: string) => void;
+  /** This phone's save of an edit committed this workout (TICKET-102): replace it in every copy held, 0 reads. */
+  applyEdited: (uid: string, session: WorkoutSessionDoc) => void;
   /** This phone's upload of `session` was confirmed by the server: hold it, 0 reads. */
   applyFinished: (uid: string, session: WorkoutSessionDoc) => void;
   /** Sign-out. */
   clear: () => void;
 }
 
-type State = Omit<WorkoutsStore, "open" | "check" | "loadOlder" | "loadOlderOfExercise" | "loadSession" | "applyNote" | "applyDeleted" | "applyFinished" | "clear">;
+type State = Omit<WorkoutsStore, "open" | "check" | "loadOlder" | "loadOlderOfExercise" | "loadSession" | "applyNote" | "applyDeleted" | "applyEdited" | "applyFinished" | "clear">;
 
 const initialState = {
   uid: null,
@@ -386,6 +388,17 @@ const askForExerciseOlder = createOnDemandReads<OlderPage>({
 });
 
 /** `session` with its note set, or removed for null (the key is left out, never `undefined`: Firestore here rejects it). */
+/**
+ * `edited` in the place of the held copy of the same workout (TICKET-102). The held copy's `note` and stamp stay: the save
+ * wrote neither the note nor a stamp the phone knows, so the same stamp replaces itself in the window (`addToWindow`) and
+ * the next check brings the server's stamped copy back, one read.
+ */
+function withEdited(held: WorkoutSessionDoc, edited: WorkoutSessionDoc): WorkoutSessionDoc {
+  const { note, updatedAt } = held;
+  const { note: _dropped, updatedAt: _stamp, ...rest } = edited;
+  return { ...rest, ...(note !== undefined ? { note } : {}), ...(updatedAt ? { updatedAt } : {}) };
+}
+
 function withNote(session: WorkoutSessionDoc, note: string | null): WorkoutSessionDoc {
   const { note: _old, ...rest } = session;
   return note === null ? rest : { ...rest, note };
@@ -567,6 +580,28 @@ export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
           Object.entries(s.fetchedSessions).map(([key, read]) => [
             key,
             read.status === "ready" && read.session?.sessionId === sessionId ? { ...read, session: withNote(read.session, note) } : read,
+          ])
+        ),
+      }));
+      if (held) runner.persist();
+    },
+
+    applyEdited: (uid, edited) => {
+      const state = get();
+      if (state.uid !== uid) return;
+      const held = state.workoutWindow?.sessions.find((session) => session.sessionId === edited.sessionId);
+      const replaced = (list: OlderWorkouts): OlderWorkouts => ({
+        ...list,
+        sessions: list.sessions.map((session) => (session.sessionId === edited.sessionId ? withEdited(session, edited) : session)),
+      });
+      set((s) => ({
+        workoutWindow: held && s.workoutWindow ? addToWindow(s.workoutWindow, [withEdited(held, edited)], WORKOUTS_ON_PHONE_MIN) : s.workoutWindow,
+        olderWorkouts: Object.fromEntries(Object.entries(s.olderWorkouts).map(([key, older]) => [key, replaced(older)])),
+        exerciseOlder: Object.fromEntries(Object.entries(s.exerciseOlder).map(([key, older]) => [key, replaced(older)])),
+        fetchedSessions: Object.fromEntries(
+          Object.entries(s.fetchedSessions).map(([key, read]) => [
+            key,
+            read.status === "ready" && read.session?.sessionId === edited.sessionId ? { ...read, session: withEdited(read.session, edited) } : read,
           ])
         ),
       }));

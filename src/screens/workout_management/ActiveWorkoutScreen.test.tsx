@@ -5,7 +5,7 @@ import { buildSessionDocs, buildSessionId } from "../../utils/exerciseStats";
 const buildSessionDocsFor = (workout: Parameters<typeof buildSessionDocs>[0]) => buildSessionDocs(workout, workout.startTime + 60_000).session;
 import { buildExercise, buildStats, buildWorkout, CATALOG_ROW } from "../../test/fixtures";
 import { EndWorkoutResult, useWorkoutStore } from "../../stores/useWorkoutStore";
-import { getAllExerciseStats, saveWorkoutSession } from "../../services/db/workoutSessions";
+import { getAllExerciseStats, saveEditedWorkout, saveWorkoutSession } from "../../services/db/workoutSessions";
 import { useCatalogStore } from "../../stores/useCatalogStore";
 import { loadCatalog } from "../../utils/catalog";
 import show from "../../utils/toastUtils";
@@ -18,6 +18,7 @@ import { toEditableWorkout } from "../../utils/editSession";
 jest.mock("../../services/db/workoutSessions", () => ({
   ...jest.requireActual("../../services/db/workoutSessions"),
   saveWorkoutSession: jest.fn(),
+  saveEditedWorkout: jest.fn(),
   getAllExerciseStats: jest.fn(async () => []),
   getChangedExerciseStats: jest.fn(async () => []),
   getWorkoutSessions: jest.fn(async () => ({ sessions: [], lastDoc: null })),
@@ -335,6 +336,42 @@ describe("an edit draft", () => {
     expect(screen.getByText("THIS WORKOUT")).toBeOnTheScreen();
     expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
     expect(screen.queryByRole("button", { name: /Finish workout/ })).toBeNull();
+  });
+
+  // Stage 2: Save changes. A draft with set 1 fixed is a change; the service is a double.
+  const changedDraft = () => {
+    const w = draft();
+    return { ...w, exercises: w.exercises.map((e) => ({ ...e, sets: [{ ...e.sets[0], segments: [{ Weight: 65, Reps: 9 }] }] })) };
+  };
+
+  it("Save changes saves the draft once, shows Saved, empties the slot and goes back to the Session", async () => {
+    const summaries = [{ exerciseId: "bench-press" }];
+    (saveEditedWorkout as jest.Mock).mockResolvedValue({ session: { sessionId: "push_s" }, summaries, docsRead: 2 });
+    const success = jest.spyOn(show, "success");
+    renderScreen(ActiveWorkoutScreen, { workout: changedDraft(), workoutRoute: WorkoutRoutes.LogWorkout });
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole("button", { name: "Save changes" }));
+      fireEvent.press(screen.getByRole("button", { name: /Save changes|Saving…/ }));
+    });
+
+    expect(saveEditedWorkout).toHaveBeenCalledTimes(1);
+    expect(success).toHaveBeenCalledWith("Saved", "Push, Mon 9 Nov");
+    expect(useWorkoutStore.getState().activeWorkout).toBeNull();
+    expect(screen.getByText(`route:Workout/${WorkoutRoutes.Session}`)).toBeOnTheScreen();
+    success.mockRestore();
+  });
+
+  it("a refused save keeps the draft and says why, in the footer", async () => {
+    (saveEditedWorkout as jest.Mock).mockRejectedValue(Object.assign(new Error("offline"), { code: "unavailable" }));
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    renderScreen(ActiveWorkoutScreen, { workout: changedDraft(), workoutRoute: WorkoutRoutes.LogWorkout });
+
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Save changes" })));
+
+    expect(screen.getByText("Needs a connection to save")).toBeOnTheScreen();
+    expect(useWorkoutStore.getState().activeWorkout?.editOf).toBeDefined();
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled();
   });
 
   it("Cancel edit with nothing changed asks nothing, empties the slot and goes back to the Session", async () => {

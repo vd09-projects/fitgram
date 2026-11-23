@@ -80,3 +80,49 @@ export function draftChanged(workout: ActiveWorkout): boolean {
   if (!workout.editOf) return false;
   return JSON.stringify(draftLifts(workout)) !== JSON.stringify(workout.editOf.original);
 }
+
+export type DraftDiff = {
+  /** Lifts in the draft and in the stored workout whose sets, fields or captions differ: the ones Save rebuilds. */
+  touched: string[];
+  /** The draft has other exercises than the stored workout, in another order or not the same ones (stage 3's cases). */
+  shapeChanged: boolean;
+};
+
+/**
+ * What differs between the draft and the stored workout, per lift. Both sides are built by `draftLifts`, so verdicts
+ * (always `pending` there) never count, and an edit put back counts for nothing. Untouched lifts are not rebuilt: a
+ * typo fix costs one lift's reads, not the whole workout's.
+ */
+export function draftDiff(workout: ActiveWorkout): DraftDiff {
+  const now = draftLifts(workout);
+  const before = workout.editOf?.original ?? [];
+  const storedById = new Map(before.map((lift) => [lift.id, lift]));
+  return {
+    touched: now.filter((lift) => storedById.has(lift.id) && JSON.stringify(lift) !== JSON.stringify(storedById.get(lift.id))).map((lift) => lift.id),
+    shapeChanged: now.length !== before.length || now.some((lift, index) => lift.id !== before[index].id),
+  };
+}
+
+/**
+ * The footer's refusal for a failed Save: a title and a line, by the error's `code` (`saveEditedWorkout`). A refusal
+ * always keeps the draft, so every line says so or says what to do. Unknown codes read as a plain failure, never as a
+ * guess about the cause.
+ */
+export function editSaveError(code: string | undefined): { title: string; detail: string } {
+  switch (code) {
+    case "unavailable":
+      return { title: "Needs a connection to save", detail: "Your changes are kept on this phone. Tap Save again when you are online." };
+    case "changed":
+      return { title: "Changed elsewhere", detail: "This workout or one of its lifts was updated while you edited. Tap Save again. Your changes are kept." };
+    case "not-found":
+      return { title: "Not on the server", detail: "This workout is not on the server, so it cannot be changed." };
+    case "deleted":
+      return { title: "This workout was deleted", detail: "It was deleted on another phone. Cancel the edit to leave." };
+    case "unreadable-history":
+      return { title: "A lift cannot be recounted", detail: "A lift here has an older session in a format that cannot be recounted, so nothing was saved." };
+    case "shape-not-saved":
+      return { title: "Not in this build", detail: "Adding or removing an exercise, or deleting all of a lift's sets, is saved in the next build. Undo it to save the rest." };
+    default:
+      return { title: "Could not save", detail: "Your changes are kept. Try again." };
+  }
+}

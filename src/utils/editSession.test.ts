@@ -1,6 +1,6 @@
 // TICKET-102 stage 1: a past workout as an edit draft in the logger, and the history it is compared with.
 
-import { draftChanged, draftLifts, toEditableWorkout } from "./editSession";
+import { draftChanged, draftDiff, draftLifts, editSaveError, toEditableWorkout } from "./editSession";
 import { buildSessionDocs } from "./exerciseStats";
 import { deriveExerciseHistory } from "./exerciseHistory";
 import { resolveGhostTarget } from "./setLogger";
@@ -111,5 +111,34 @@ describe("history of an edit draft (deriveExerciseHistory's `before`)", () => {
     // A summary with room to spare and nothing before: the lift really was new then.
     const fewer = buildStats("Bench Press", [{ performedAt: START + DAY, sets: [{ Weight: "60", Reps: "8" }] }]);
     expect(resolveGhostTarget(deriveExerciseHistory({ ...entry, stats: fewer }, undefined, START), 1).kind).toBe("firstTime");
+  });
+});
+
+describe("draftDiff (what Save rebuilds)", () => {
+  const withBench = (change: (sets: ActiveWorkout["exercises"][number]["sets"]) => ActiveWorkout["exercises"][number]["sets"]): ActiveWorkout => {
+    const draft = draftOf(storedWorkout());
+    return { ...draft, exercises: draft.exercises.map((exercise, index) => (index === 0 ? { ...exercise, sets: change(exercise.sets) } : exercise)) };
+  };
+
+  it("names only the lift whose set changed; the other lifts are not touched", () => {
+    const fixed = withBench((sets) => sets.map((set) => (set.id === 2 ? { ...set, segments: [{ Weight: 65, Reps: 9 }] } : set)));
+    expect(draftDiff(fixed)).toEqual({ touched: ["bench-press"], shapeChanged: false });
+    expect(draftDiff(draftOf(storedWorkout()))).toEqual({ touched: [], shapeChanged: false });
+  });
+
+  it("a mark changed counts, a set added counts; deleting every set of a lift is a change of shape, not a touch", () => {
+    const marked = withBench((sets) => sets.map((set) => (set.id === 2 ? { ...set, effort: Effort.Easy } : set)));
+    expect(draftDiff(marked).touched).toEqual(["bench-press"]);
+    expect(draftDiff(withBench((sets) => [...sets, { id: 4, segments: [{ Weight: 50, Reps: 8 }] }])).touched).toEqual(["bench-press"]);
+    expect(draftDiff(withBench(() => []))).toMatchObject({ shapeChanged: true });
+  });
+});
+
+describe("editSaveError", () => {
+  it("says a refusal keeps the changes, and reads an unknown code as a plain failure, not a guessed cause", () => {
+    expect(editSaveError("unavailable").detail).toMatch(/kept/);
+    expect(editSaveError("changed").title).toBe("Changed elsewhere");
+    expect(editSaveError("something-new")).toEqual({ title: "Could not save", detail: "Your changes are kept. Try again." });
+    expect(editSaveError(undefined).title).toBe("Could not save");
   });
 });

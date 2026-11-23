@@ -11687,6 +11687,21 @@ The main job is a typo: `650` for `65` becomes a `bestByReps` entry no real set 
   `liveWorkout`, not `activeWorkout`; `FreestyleBlockedCard` takes the slot itself. No behaviour change: 87 suites / 1107 tests,
   and each `workoutSlot` function, broken, turns a test red. Not re-run on the emulator.
 
+**Stage 2 built 2026-11-23 (uncommitted for review; not yet run against Firestore or on a device):**
+- `summaryWithEdited` (liftRecord.ts, beside `summaryWithout`): the lift's summary and the edited workout's own verdict from the lift's sessions with the
+  edited one swapped in by id; `unreadable` refusal as delete's. `draftDiff` (touched lifts, `shapeChanged`) and `editSaveError` (editSession.ts).
+- `saveEditedWorkout` (workoutSessions.ts): reads the workout doc and, per touched lift, the summary stamp and every session of the lift; one transaction
+  re-reads them and refuses `changed` if any stamp moved; writes `lifts`, `exerciseIds`, `volume` and the stamp on the workout (never note, start, end, name),
+  the touched lifts' `exercise_sessions` docs, and each touched summary replaced. An untouched lift keeps its stored record and verdict. `dryRun`.
+  Codes: `shape-not-saved` (stage 3), `not-found`, `deleted`, `unreadable-history`, `changed`.
+- `applyEdited` in both stores (the summaries store shares one helper with delete). Save in `EditFooter`; the screen saves, applies, toasts "Saved", leaves the
+  draft (`cancelWorkout` empties the slot) and the redirect goes to the Session. A refusal keeps the draft and shows its reason.
+- **Decision:** the workout doc's own stamp is checked too, so a note added on another phone mid-edit refuses once ("Changed elsewhere") and a second Save succeeds.
+  Rejected: merging around it, which would need the note's stamp story.
+- Proof so far: `tsc` clean; 87 suites / 1123 tests; 28 new across the stage; 15 lines broken, each red (one needed a unique pattern: `deleteWorkout` has the same stamp expression).
+- **Not done:** the dry run's read and write counts, the compare script's 0 mismatches, the emulator run (it writes to `pinky`: needs the user's go, dry run first),
+  TICKET-103 (Save ends in the `popTo` that triggers it).
+
 **Cost per Save (from 086's fixtures):** per touched lift about the delete's reads for that lift plus 1 stamp read; in the
 transaction 1 + the lifts touched; writes 1 + 2 per lift touched. A typo fix touches one lift.
 

@@ -74,6 +74,8 @@ interface ExerciseHistoryStoreState extends SyncFields<SummariesCheckKind> {
   applyFinished: (uid: string, summaries: ExerciseStatsDoc[]) => void;
   /** This phone's delete of a workout committed these summaries (a marker removes a lift): hold them, 0 reads. */
   applyDeleted: (uid: string, results: (ExerciseStatsDoc | ExerciseStatsMarker)[]) => void;
+  /** This phone's save of an edit committed these summaries (a marker removes a lift): hold them, 0 reads (TICKET-102). */
+  applyEdited: (uid: string, results: (ExerciseStatsDoc | ExerciseStatsMarker)[]) => void;
   /** Sign-out. */
   clear: () => void;
 }
@@ -142,6 +144,18 @@ export const useExerciseHistoryStore = create<ExerciseHistoryStoreState>((set, g
     label: "exercise summaries",
   });
 
+  /**
+   * This phone's own write that rebuilt summaries (a delete, TICKET-086, or a saved edit, TICKET-102): hold what its
+   * transaction wrote, 0 reads. Nothing held: the next check is a first load, which has the server's answer already.
+   */
+  const applyOwnRebuild = (what: "delete" | "edit", uid: string, results: (ExerciseStatsDoc | ExerciseStatsMarker)[]) => {
+    const state = get();
+    if (state.uid !== uid || state.byId === null) return;
+    set({ byId: withDeletedSummaries(state.byId, results) });
+    runner.persist();
+    runner.note("ok", undefined, `own ${what}: ${results.length} summaries, 0 reads now`);
+  };
+
   return {
     ...initialState,
     epoch: 0,
@@ -167,14 +181,10 @@ export const useExerciseHistoryStore = create<ExerciseHistoryStoreState>((set, g
       runner.note("ok", undefined, `own Finish: ${summaries.length} summaries, 0 reads now (${summaries.length} tx.get in the transaction)`);
     },
 
-    applyDeleted: (uid, results) => {
-      const state = get();
-      // Nothing held: the next check is a first load, which has the server's answer already.
-      if (state.uid !== uid || state.byId === null) return;
-      set({ byId: withDeletedSummaries(state.byId, results) });
-      runner.persist();
-      runner.note("ok", undefined, `own delete: ${results.length} summaries, 0 reads now`);
-    },
+    applyDeleted: (uid, results) => applyOwnRebuild("delete", uid, results),
+
+    // The same rule as a delete's: a rebuilt summary replaces the held one, a marker removes the lift (TICKET-102).
+    applyEdited: (uid, results) => applyOwnRebuild("edit", uid, results),
 
     clear: runner.clear,
   };
