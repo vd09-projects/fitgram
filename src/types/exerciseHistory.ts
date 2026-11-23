@@ -140,5 +140,5 @@ export type ExerciseHistory = {
    * - Bests are all-time (`bestByReps`) and include the edited workout and later ones, so "best as of then"
    *   cannot be derived: `best` is empty and `bestHidden` says why, rather than "no best yet".
    */
-  asOf?: { before: number; earlierNotHeld: boolean; bestHidden: true };
+  asOf?: { earlierNotHeld: boolean; bestHidden: true };
 };

@@ -584,6 +584,29 @@ describe("stored copy", () => {
     await store().cancelWorkout();
     expect(await AsyncStorage.getItem("activeWorkout")).toBeNull();
   });
+
+  // TICKET-102, MPR of PR #86: the saved edit's draft leaves memory even when storage will not let go of it.
+  it("closeSavedEdit tries the removal twice, and empties the slot even when both fail", async () => {
+    await store().startWorkout({ id: "push", name: "Push", exercises: [buildExercise("Bench Press")] });
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    const remove = jest.spyOn(AsyncStorage, "removeItem").mockRejectedValue(new Error("disk"));
+    remove.mockClear();
+    await store().closeSavedEdit();
+    expect(remove).toHaveBeenCalledTimes(2);
+    expect(store().activeWorkout).toBeNull();
+    remove.mockRestore();
+  });
+
+  it("closeSavedEdit stops after a removal that works", async () => {
+    await store().startWorkout({ id: "push", name: "Push", exercises: [buildExercise("Bench Press")] });
+    const remove = jest.spyOn(AsyncStorage, "removeItem").mockRejectedValueOnce(new Error("disk"));
+    remove.mockClear();
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    await store().closeSavedEdit();
+    expect(remove).toHaveBeenCalledTimes(2);
+    expect(store().activeWorkout).toBeNull();
+    remove.mockRestore();
+  });
 });
 
 // TICKET-047. The slot keeps its place, the plan's exercise is kept for "Back

@@ -245,6 +245,18 @@ interface WorkoutStoreState {
   restoreExercise: (removed: RemovedExercise) => Promise<RestoreExerciseResult>;
   endWorkout: (userId : string | undefined) => Promise<EndWorkoutResult>;
   cancelWorkout: () => Promise<void>;
+  /**
+   * An edit's Save is running (TICKET-102). In the store, not in the screen: the screen can be left (hardware Back)
+   * and opened again mid-Save, and a new instance must still see it (MPR of PR #86). Never persisted.
+   */
+  editSaving: boolean;
+  setEditSaving: (saving: boolean) => void;
+  /**
+   * Empty the slot once an edit is saved. Unlike `cancelWorkout`, the draft leaves memory even when storage keeps
+   * failing (the save is done, so the draft must not stay on screen); the removal is tried twice. If both fail, the
+   * stale draft reloads on the next launch and its Save says "Changed elsewhere"; Cancel edit still clears it.
+   */
+  closeSavedEdit: () => Promise<void>;
   loadWorkoutFromStorage: () => Promise<void>;
   /** Start a rest of `durationMs` from now, replacing any rest already running. */
   startRest: (exerciseId: string, durationMs: number, setNumber: number) => void;
@@ -256,6 +268,19 @@ interface WorkoutStoreState {
 
 export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
   activeWorkout: null,
+  editSaving: false,
+  setEditSaving: (saving) => set({ editSaving: saving }),
+  closeSavedEdit: async () => {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        await AsyncStorage.removeItem(ACTIVE_WORKOUT_KEY);
+        break;
+      } catch (error) {
+        console.error("Failed to clear the saved edit's draft:", error);
+      }
+    }
+    set({ activeWorkout: null, rest: null });
+  },
   pendingUploads: [],
   queuedSessionId: null,
   toastedSessionId: null,

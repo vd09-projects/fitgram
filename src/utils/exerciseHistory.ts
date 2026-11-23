@@ -129,7 +129,7 @@ export function deriveExerciseHistory(
   const asOf =
     before === undefined
       ? undefined
-      : { before, earlierNotHeld: allSessions.length === 0 && heldSessions.length >= STATS_RECENT_SESSION_CAP, bestHidden: true as const };
+      : { earlierNotHeld: allSessions.length === 0 && heldSessions.length >= STATS_RECENT_SESSION_CAP, bestHidden: true as const };
 
   return {
     ...(asOf ? { asOf } : {}),

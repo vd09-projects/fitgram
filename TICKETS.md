@@ -56,7 +56,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 085 | History home: Workouts and Exercises tabs | Large | After 081-084. Replaces the old History page; closes 029 |
 | 086 | Delete a workout | Med-Large | After 083. Shares `rebuildExerciseSummary` with 032 |
 | 102 | Edit a past workout in the logging screen | Large | Raised 2026-11-23 (user). **Design decided** (Drafts canvas, row "Edit a past workout in the logging screen"); four stages, screen first. Closes 032 when merged |
-| 103 | Bug: taps stop working after the Workout tab, then a return | Small-Medium | Raised 2026-11-23 (found in 102's device run). **Pre-existing.** Fix before 102 stage 2: Cancel edit and Save end in the return that triggers it |
+| 103 | Bug: taps stop working after the Workout tab, then a return | Small-Medium | Raised 2026-11-23 (found in 102's device run). **Pre-existing.** Was to be fixed before 102 stage 2 (Cancel edit and Save end in the return that triggers it); **decided 2026-11-23 (user): not a blocker, 102 merges first and this is the next ticket**, listed under Known issues in PR #86 |
 | 079 | Rest time on the Android lock screen: logic and native | Medium | Nice to have, raised 2026-11-10 (user). Spike done: it works on the emulator. Settle two things first (silent channel, staying at 0:00), then build. Wording and permission flow are 080. iOS later |
 | 080 | Lock-screen rest timer: design | Small-Medium | Split from 079 (2026-11-10). Wording, permission flow, buttons; options on the Drafts canvas first |
 | 091 | Change an exercise's units mid-workout | Medium | Raised 2026-11-16 (user). **Design merged, PR #73.** Freestyle, Swap and Add start in kg with no way to switch; hits about 1 lift in 5 every session |
@@ -11636,7 +11636,7 @@ The main job is a typo: `650` for `65` becomes a `bestByReps` entry no real set 
    derived. In edit mode the PR banner and best are hidden, not shown wrong.
 3. `deleteWorkout` (TICKET-086) is the write path's shape: stamp read, every session of the lift from the server, one
    transaction refusing `changed` if a stamp moved. Save is the same with the session replaced (`summaryWithEdited` beside
-   `summaryWithout`), plus a stamp check on the workout doc itself (another phone's edit, delete or note).
+   `summaryWithout`), plus a stamp check on the workout doc itself. **Corrected 2026-11-23 (device run):** that stamp covers only a change inside Save's own reads-to-commit window, since Save re-reads the workout fresh; a change made earlier, during the edit, is caught by the content check (`storedStillMatches`, stage 4 fix).
 4. `buildSessionDocs` builds lifts, `exerciseIds` and volume from an `ActiveWorkout`; the session id is `workoutId + startTime`,
    so the draft keeps the original start and writes to the same doc. Gap: "Swapped in for X" comes from `planned` (a whole
    plan `Exercise`), and the stored record has only `{ id, name }`, so the draft carries `swappedFrom` on the slot.
@@ -11664,7 +11664,7 @@ The main job is a typo: `650` for `65` becomes a `bestByReps` entry no real set 
    touched set; a removed lift's last session leaves a marker; all exercises removed is refused.
 4. **Edges.** Two phones; delete or note mid-edit; imported workout with no duration; Freestyle; split set; the device test plan.
 
-**Stage 1 built 2026-11-23 (branch `feat/ticket-102-edit-session`, uncommitted for review):**
+**Stage 1 built 2026-11-23 (branch `feat/ticket-102-edit-session`, committed):**
 - `ActiveWorkout.editOf` (session id, stored end, the lifts at open) and `LoggedExercise.swappedFrom` (types); `utils/editSession.ts`:
   `toEditableWorkout` (refuses a deleted or unreadable workout and a set whose segments cannot all be read), `draftLifts`, `draftChanged`.
 - Store: `startEdit` (refused while the slot is taken), `liveWorkoutOf`, `slotTakenReason`; Finish refuses a draft; `startRest` does nothing in a draft;
@@ -11687,7 +11687,7 @@ The main job is a typo: `650` for `65` becomes a `bestByReps` entry no real set 
   `liveWorkout`, not `activeWorkout`; `FreestyleBlockedCard` takes the slot itself. No behaviour change: 87 suites / 1107 tests,
   and each `workoutSlot` function, broken, turns a test red. Not re-run on the emulator.
 
-**Stage 2 built 2026-11-23 (uncommitted for review; not yet run against Firestore or on a device):**
+**Stage 2 built 2026-11-23 (committed; run against Firestore and on a device later, see the stage 4 notes):**
 - `summaryWithEdited` (liftRecord.ts, beside `summaryWithout`): the lift's summary and the edited workout's own verdict from the lift's sessions with the
   edited one swapped in by id; `unreadable` refusal as delete's. `draftDiff` (touched lifts, `shapeChanged`) and `editSaveError` (editSession.ts).
 - `saveEditedWorkout` (workoutSessions.ts): reads the workout doc and, per touched lift, the summary stamp and every session of the lift; one transaction
@@ -11696,13 +11696,13 @@ The main job is a typo: `650` for `65` becomes a `bestByReps` entry no real set 
   Codes: `shape-not-saved` (stage 3), `not-found`, `deleted`, `unreadable-history`, `changed`.
 - `applyEdited` in both stores (the summaries store shares one helper with delete). Save in `EditFooter`; the screen saves, applies, toasts "Saved", leaves the
   draft (`cancelWorkout` empties the slot) and the redirect goes to the Session. A refusal keeps the draft and shows its reason.
-- **Decision:** the workout doc's own stamp is checked too, so a note added on another phone mid-edit refuses once ("Changed elsewhere") and a second Save succeeds.
+- **Decision:** the workout doc's own stamp is checked too, ~~so a note added on another phone mid-edit refuses once and a second Save succeeds~~ **retracted 2026-11-23:** the device showed it did not refuse. The rule now: a lift Save rewrites, or the list of lifts, changed elsewhere refuses as `conflict` (a retry cannot work); a note change or an untouched lift changed elsewhere does not refuse; `changed` (a stamp moved inside Save) is the retryable one.
   Rejected: merging around it, which would need the note's stamp story.
 - Proof so far: `tsc` clean; 87 suites / 1123 tests; 28 new across the stage; 15 lines broken, each red (one needed a unique pattern: `deleteWorkout` has the same stamp expression).
 - **Not done:** the dry run's read and write counts, the compare script's 0 mismatches, the emulator run (it writes to `pinky`: needs the user's go, dry run first),
   TICKET-103 (Save ends in the `popTo` that triggers it).
 
-**Stage 3 built 2026-11-23 (uncommitted for review; Save of a shape change not yet run against Firestore):**
+**Stage 3 built 2026-11-23 (committed; Save of a shape change run against Firestore in the stage 4 device run):**
 - `draftDiff` now returns `touched`, `added`, `removed` (a lift with every set deleted is `removed`, as `draftLifts` leaves it out); `draftAffected` is their union; the order of lifts is not a difference.
 - `saveEditedWorkout`: every affected lift's summary is rebuilt: touched and added by `summaryWithEdited`, removed by `summaryWithout`, or a `deleted` marker when no session of it is left;
   a removed lift's `exercise_sessions` doc is deleted; all in the same transaction with the same stamp checks. A workout with no lift left is refused before any read (`nothing-left`: a delete has its own path).
@@ -11716,13 +11716,13 @@ The main job is a typo: `650` for `65` becomes a `bestByReps` entry no real set 
 - **Not done:** a unit change saved, a removed lift on another phone, offline Save of a shape change, the dry-run counts (3.1). Nit: Add exercise's menu line says "today's list" in a past workout.
 - **Skipped rules:** 3.1 (no measured counts, as stage 2).
 
-**Stage 4 built 2026-11-23 (uncommitted for review):**
+**Stage 4 built 2026-11-23 (committed):**
 - Fixed the open stage 1 issue: after an app kill, Cancel edit and Save opened the Session with nothing beneath it. When the Session is not in the Workout stack, the return replaces the stack with hub, History home, Session (`editLandingRoutes`: Finish's trail without `finished`). Emulator: kill, resume from the footer tab, Cancel edit, Back lands on History home.
 - Add exercise's menu line reads "this workout's list" in a draft. Imported workouts (`endedAt` is a number on all of pinky's 21 sessions) and a Freestyle round trip: unit tests; an imported workout was edited and saved on the device in stage 2.
-- **MPR of PR #86 (2026-11-23), blocking items fixed:** `volume` computed from the lifts written, not the draft's copy; `draftChanged` and `draftDiff` are one definition (a re-added lift in another position no longer lights Save for a save that writes nothing; `saveEditedWorkout` returns `session: null` then); Save in flight (Back and Cancel refused, flag kept until the slot is empty, cache updates in their own try). Open from that review: Android hardware Back as Cancel edit, tests for dirty Cancel / Back-as-Cancel / the history `before` gate / `useExerciseHistoryStore.applyEdited`, the stale text in the stage 2 decision and load-bearing fact 3, `asOf.before` and `dryRun` with no reader or caller.
+- **MPR of PR #86 (2026-11-23), blocking items fixed:** `volume` computed from the lifts written, not the draft's copy; `draftChanged` and `draftDiff` are one definition (a re-added lift in another position no longer lights Save for a save that writes nothing; `saveEditedWorkout` returns `session: null` then); Save in flight (Back and Cancel refused, flag kept until the slot is empty, cache updates in their own try). **Second MPR pass (same day), fixed:** the stale stage 2 text, TICKET-103's ordering recorded, hardware Back as Cancel edit, the Save flag in the store, the logger locked during a Save, `closeSavedEdit` for a failed slot clear. Also fixed: a Save with no signed-in user says so, `asOf.before` removed, tests for the history `before` gate and `useExerciseHistoryStore.applyEdited`. Still open: `dryRun` has no caller and the per-Save read/write counts are unmeasured (CLAUDE.md 3.1); the "Saved" toast on a Save that wrote nothing (race only).
 - **Correction found on the device (user: "lets test both"):** the stage 2 decision above ("a note added on another phone mid-edit refuses the first Save") was wrong: Save re-reads the workout, so the stamp check only catches a change inside Save's own reads-to-commit window. A lift edited elsewhere while a draft was open would have been overwritten. Now `storedStillMatches` compares stored vs opened by content: a lift Save rewrites, or the list of lifts, changed elsewhere refuses with `conflict` ("Changed elsewhere ... open it again": a retry cannot succeed); a note or an untouched lift changed elsewhere does not refuse (an untouched lift is kept as stored). Offline Save and the same-lift conflict were run on `pinky` (TESTING_NOTES.md); deleted elsewhere is unit-tested only.
 - Device test plan: TESTING_NOTES.md (12 steps, each marked run or not run).
-- Proof: `tsc` clean, 87 suites / 1134 tests; `editLandingRoutes` broken: red.
+- Proof: `tsc` clean, 87 suites / 1134 tests at the time (1139 after the MPR fixes); `editLandingRoutes` broken: red.
 - **Not run:** two phones, offline Save, a unit change saved, a split set, a Freestyle on the device. **Open, own ticket:** TICKET-103.
 
 **Cost per Save (from 086's fixtures):** per touched lift about the delete's reads for that lift plus 1 stamp read; in the
@@ -11734,7 +11734,7 @@ transaction 1 + the lifts touched; writes 1 + 2 per lift touched. A typo fix tou
 
 ### TICKET-103: Bug — Taps Stop Working After the Workout Tab, Then a Return
 
-**Priority:** High (before TICKET-102 stage 2) | **Effort:** Small-Medium | **Status: OPEN** — raised 2026-11-23, found in TICKET-102's device run
+**Priority:** High (was before TICKET-102 stage 2; moved after 102 by the user, 2026-11-23) | **Effort:** Small-Medium | **Status: OPEN** — raised 2026-11-23, found in TICKET-102's device run
 
 **Description:**
 After the Workout tab moves a screen to the top of the Workout stack, the next return down the stack (`popTo`) leaves a screen

@@ -1,3 +1,4 @@
+import { BackHandler } from "react-native";
 import { act, fireEvent, screen, within } from "@testing-library/react-native";
 import ActiveWorkoutScreen from "./ActiveWorkoutScreen";
 import { renderScreen } from "../../test/renderScreen";
@@ -28,6 +29,20 @@ jest.mock("../../services/db/userDB", () => ({
   ...jest.requireActual("../../services/db/userDB"),
   getAllWorkoutPlans: jest.fn(async () => []),
 }));
+
+// The test renderer has no Android Back: collect what the screen registers, and press the latest handler first (the order
+// the platform uses).
+const androidBack = { handlers: [] as Array<() => boolean | null | undefined> };
+const pressAndroidBack = () => {
+  for (const handler of [...androidBack.handlers].reverse()) if (handler()) return;
+};
+beforeEach(() => {
+  androidBack.handlers = [];
+  jest.spyOn(BackHandler, "addEventListener").mockImplementation((_event, handler) => {
+    androidBack.handlers.push(handler);
+    return { remove: () => { androidBack.handlers = androidBack.handlers.filter((h) => h !== handler); } };
+  });
+});
 
 const previousArrow = () => screen.getByRole("button", { name: /^Previous exercise/ });
 const nextArrow = () => screen.getByRole("button", { name: /^Next exercise/ });
@@ -380,6 +395,50 @@ describe("an edit draft", () => {
     await act(async () => finish({ session: null, summaries: [], docsRead: 0 }));
     expect(useWorkoutStore.getState().activeWorkout).toBeNull();
     expect(screen.getByText(`route:Workout/${WorkoutRoutes.Session}`)).toBeOnTheScreen();
+  });
+
+  it("Android's Back asks before leaving a changed draft, as the header's Back does", () => {
+    renderScreen(ActiveWorkoutScreen, { workout: changedDraft(), workoutRoute: WorkoutRoutes.LogWorkout });
+    act(() => pressAndroidBack());
+    expect(screen.getByText("Discard your changes?")).toBeOnTheScreen();
+    expect(useWorkoutStore.getState().activeWorkout?.editOf).toBeDefined();
+  });
+
+  it("while a Save runs, Android's Back does nothing and the logger takes no touch", async () => {
+    let finish: (value: unknown) => void = () => {};
+    (saveEditedWorkout as jest.Mock).mockClear();
+    (saveEditedWorkout as jest.Mock).mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    renderScreen(ActiveWorkoutScreen, { workout: changedDraft(), workoutRoute: WorkoutRoutes.LogWorkout });
+    expect(screen.queryByTestId("edit-saving-lock")).toBeNull();
+
+    fireEvent.press(screen.getByRole("button", { name: "Save changes" }));
+    expect(screen.getByTestId("edit-saving-lock")).toBeOnTheScreen();
+    act(() => pressAndroidBack());
+    expect(screen.queryByText("Discard your changes?")).toBeNull();
+    expect(useWorkoutStore.getState().activeWorkout?.editOf).toBeDefined();
+
+    await act(async () => finish({ session: null, summaries: [], docsRead: 0 }));
+    expect(useWorkoutStore.getState().activeWorkout).toBeNull();
+    expect(useWorkoutStore.getState().editSaving).toBe(false);
+  });
+
+  it("a screen opened again mid-Save still sees the Save running: Cancel edit and a second Save do nothing", async () => {
+    (saveEditedWorkout as jest.Mock).mockClear();
+    useWorkoutStore.getState().setEditSaving(true);
+    renderScreen(ActiveWorkoutScreen, { workout: changedDraft(), workoutRoute: WorkoutRoutes.LogWorkout });
+    await act(async () => fireEvent.press(screen.getByText("Cancel edit")));
+    expect(useWorkoutStore.getState().activeWorkout?.editOf).toBeDefined();
+    expect(saveEditedWorkout).not.toHaveBeenCalled();
+    useWorkoutStore.getState().setEditSaving(false);
+  });
+
+  it("Save with nobody signed in says so, keeps the draft and writes nothing", async () => {
+    (saveEditedWorkout as jest.Mock).mockClear();
+    renderScreen(ActiveWorkoutScreen, { workout: changedDraft(), workoutRoute: WorkoutRoutes.LogWorkout, user: null });
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Save changes" })));
+    expect(screen.getByText("Not signed in")).toBeOnTheScreen();
+    expect(saveEditedWorkout).not.toHaveBeenCalled();
+    expect(useWorkoutStore.getState().activeWorkout?.editOf).toBeDefined();
   });
 
   it("a phone copy that cannot be updated after a committed Save is not reported as a failed save", async () => {

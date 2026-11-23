@@ -130,6 +130,8 @@ export function editSaveError(code: string | undefined): { title: string; detail
       return { title: "Changed elsewhere", detail: "This workout or one of its lifts was updated while you edited. Tap Save again. Your changes are kept." };
     case "conflict":
       return { title: "Changed elsewhere", detail: "This workout was updated on another phone while you edited. Nothing was saved. Cancel the edit and open it again." };
+    case "signed-out":
+      return { title: "Not signed in", detail: "Your changes are kept on this phone. Sign in again, then tap Save." };
     case "not-found":
       return { title: "Not on the server", detail: "This workout is not on the server, so it cannot be changed." };
     case "deleted":

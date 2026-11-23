@@ -123,7 +123,7 @@ describe("history of an edit draft (deriveExerciseHistory's `before`)", () => {
     expect(history.setAt(1)?.weight).toBe(62.5);
     // The stored bests hold the 650 typo: none shown, and the reason is carried.
     expect(history.best).toEqual([]);
-    expect(history.asOf).toEqual({ before: START, earlierNotHeld: false, bestHidden: true });
+    expect(history.asOf).toEqual({ earlierNotHeld: false, bestHidden: true });
     // Outside an edit nothing changes.
     expect(deriveExerciseHistory(entry).lastSession?.performedAt).toBe(START + 7 * DAY);
   });

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, TouchableOpacity, StyleSheet } from "react-native";
+import { BackHandler, View, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector, Directions } from "react-native-gesture-handler";
 import { type RemovedExercise, useWorkoutStore } from "../../stores/useWorkoutStore";
@@ -24,7 +24,7 @@ import { buildProgressSegments, resolveCurrentIndex } from "../../utils/workoutP
 import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
 import { LayoutScreenNavigationProp } from "../../navigation/LayoutNavigator";
 import { LayoutRoutes, WorkoutRoutes } from "../../constants/routes";
-import { CommonActions, StackActions, useIsFocused, useNavigation } from "@react-navigation/native";
+import { CommonActions, StackActions, useFocusEffect, useIsFocused, useNavigation } from "@react-navigation/native";
 import { buildSessionId } from "../../utils/exerciseStats";
 import { editLandingRoutes, finishLandingRoutes, type FinishLanding } from "../../utils/finishLanding";
 import { draftChanged, editSaveError } from "../../utils/editSession";
@@ -52,7 +52,7 @@ export default function ActiveWorkoutScreen() {
   const layoutNavigation = useNavigation<layoutScreenNavigationProp>();
 
   const { user } = useAuthUser();
-  const { activeWorkout, endWorkout, cancelWorkout, setCurrentExerciseIndex, removeExercise, restoreExercise } =
+  const { activeWorkout, endWorkout, cancelWorkout, closeSavedEdit, setCurrentExerciseIndex, removeExercise, restoreExercise } =
     useWorkoutStore();
 
   const [workoutMenuOpen, setWorkoutMenuOpen] = useState(false);
@@ -80,9 +80,9 @@ export default function ActiveWorkoutScreen() {
   const [lastRemoval, setLastRemoval] = useState<{ removed: RemovedExercise; after: ActiveWorkout } | null>(null);
   const undoable = lastRemoval && lastRemoval.after === activeWorkout ? lastRemoval.removed : null;
   const [finishing, setFinishing] = useState(false);
-  // Save changes (TICKET-102). A ref beside the state: two taps in one frame both see `savingEdit` false.
-  const [savingEdit, setSavingEdit] = useState(false);
-  const savingEditNow = useRef(false);
+  // Save changes (TICKET-102). The flag lives in the store and is set before the first await, so two taps in one frame,
+  // and a screen opened again mid-Save, all see it.
+  const savingEdit = useWorkoutStore((s) => s.editSaving);
   const [saveError, setSaveError] = useState<{ title: string; detail: string } | null>(null);
 
   // An edit of a past workout (TICKET-102): the same screen, with the edit's header and footer. Where to go back to
@@ -147,6 +147,22 @@ export default function ActiveWorkoutScreen() {
   // the same way.
   const openWorkoutScreen = (screen: typeof WorkoutRoutes.WorkoutHome) =>
     layoutNavigation.navigate(LayoutRoutes.Workout, { screen });
+
+  // Android's own Back leaves an edit the way the header's does (MPR of PR #86): it would otherwise pop the logger and
+  // leave the draft in the slot, past the guard on Back and Cancel edit while a Save runs. Only while focused and only
+  // for a draft: a live workout's Back is left as it was. A handler added later runs first, so this wins over the
+  // navigator's.
+  useFocusEffect(
+    React.useCallback(() => {
+      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+        if (!useWorkoutStore.getState().activeWorkout?.editOf) return false;
+        requestCancelEdit();
+        return true;
+      });
+      return () => sub.remove();
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- requestCancelEdit reads the store, not render state
+    }, []),
+  );
 
   const handleBack = () => {
     // Back leaves an edit the way Cancel edit does (asking first if anything changed): a draft left in the slot
@@ -301,9 +317,13 @@ export default function ActiveWorkoutScreen() {
   // then the draft leaves the slot and the redirect above goes back to the Session. A refusal keeps the draft and says why.
   const handleSaveEdit = async () => {
     const draft = useWorkoutStore.getState().activeWorkout;
-    if (savingEditNow.current || !draft?.editOf || !user?.uid) return;
-    savingEditNow.current = true;
-    setSavingEdit(true);
+    if (useWorkoutStore.getState().editSaving || !draft?.editOf) return;
+    // Said, not ignored: a Save that does nothing and shows nothing reads as a broken button.
+    if (!user?.uid) {
+      setSaveError(editSaveError("signed-out"));
+      return;
+    }
+    useWorkoutStore.getState().setEditSaving(true);
     setSaveError(null);
     let saved: Awaited<ReturnType<typeof saveEditedWorkout>>;
     try {
@@ -311,8 +331,7 @@ export default function ActiveWorkoutScreen() {
     } catch (error) {
       console.log("Failed to save edit:", error);
       setSaveError(editSaveError((error as { code?: string })?.code));
-      savingEditNow.current = false;
-      setSavingEdit(false);
+      useWorkoutStore.getState().setEditSaving(false);
       return;
     }
     // The server has the edit from here on, so nothing below may report a failed save (MPR of PR #86): a cache that
@@ -325,16 +344,13 @@ export default function ActiveWorkoutScreen() {
       console.log("Saved, but this phone's copies were not updated:", error);
     }
     show.success("Saved", `${draft.name}, ${sessionDateLine(draft.startTime, null)}`);
-    // `cancelWorkout` empties the slot, which is all that is left to do. The saving flag stays up until it has (and
-    // Back, Cancel edit and a second Save stay refused meanwhile): dropping it first let a second Save run against the
-    // workout just saved and flash "Changed elsewhere".
+    // Emptying the slot is all that is left to do. The saving flag stays up until it has (Back, Cancel edit, a second
+    // Save and every touch on the logger stay refused meanwhile): dropping it first let a second Save run against the
+    // workout just saved and flash "Changed elsewhere", and a set logged in between was dropped with the draft.
     try {
-      await cancelWorkout();
-      // `cancelWorkout` keeps the slot when its storage write fails; the save is done, so the draft must not stay.
-      if (useWorkoutStore.getState().activeWorkout?.editOf) useWorkoutStore.setState({ activeWorkout: null, rest: null });
+      await closeSavedEdit();
     } finally {
-      savingEditNow.current = false;
-      setSavingEdit(false);
+      useWorkoutStore.getState().setEditSaving(false);
     }
   };
 
@@ -343,7 +359,7 @@ export default function ActiveWorkoutScreen() {
   const requestCancelEdit = () => {
     // Not while a Save runs: a Discard would empty the slot while the transaction still commits, and a failed Save would
     // have no draft left to keep (MPR of PR #86).
-    if (savingEditNow.current) return;
+    if (useWorkoutStore.getState().editSaving) return;
     const current = useWorkoutStore.getState().activeWorkout;
     if (current && draftChanged(current)) setConfirmDiscard(true);
     else void handleDiscard();
@@ -536,6 +552,8 @@ export default function ActiveWorkoutScreen() {
         onKeep={() => setConfirmDiscard(false)}
         onDiscard={handleDiscard}
       />
+      {/* Nothing on the logger takes a touch while a Save runs: what is logged now would be dropped with the draft. */}
+      {savingEdit && <View style={StyleSheet.absoluteFill} testID="edit-saving-lock" />}
     </View>
   );
 }

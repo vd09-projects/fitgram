@@ -387,7 +387,6 @@ const askForExerciseOlder = createOnDemandReads<OlderPage>({
   retryGapMs: WORKOUTS_OLDER_RETRY_GAP_MS,
 });
 
-/** `session` with its note set, or removed for null (the key is left out, never `undefined`: Firestore here rejects it). */
 /**
  * `edited` in the place of the held copy of the same workout (TICKET-102). The held copy's `note` and stamp stay: the save
  * wrote neither the note nor a stamp the phone knows, so the same stamp replaces itself in the window (`addToWindow`) and
@@ -399,6 +398,7 @@ function withEdited(held: WorkoutSessionDoc, edited: WorkoutSessionDoc): Workout
   return { ...rest, ...(note !== undefined ? { note } : {}), ...(updatedAt ? { updatedAt } : {}) };
 }
 
+/** `session` with its note set, or removed for null (the key is left out, never `undefined`: Firestore here rejects it). */
 function withNote(session: WorkoutSessionDoc, note: string | null): WorkoutSessionDoc {
   const { note: _old, ...rest } = session;
   return note === null ? rest : { ...rest, note };
