@@ -44,8 +44,20 @@ const singleCopy = () => 'single';
 export default function WorkoutNavigator() {
   const t = useThemeTokens();
   return (
+    // TICKET-103 (candidate fix, mechanism not established): taps died after a rearrange (`singleCopy` moves,
+    // `openTab`), with a correct view tree. A native dump of a dead run showed an empty full-size
+    // react-native-screens `Screen` above the hub. By default the stack wraps every card in one and detaches the
+    // inactive ones (`enabled`, CardStack.tsx); `false` renders them without that detach. Why detach on leaves the
+    // empty Screen is a hypothesis, not read from the library: observed with detach on, and not in 5 of 5 scripted
+    // runs with it off (6 of 6 dead with it on). Chosen over leaving the logger mounted on Discard, which changes what
+    // the user sees; rejected: patching the library. Costs: (1) inactive cards stay attached: one per `singleCopy`
+    // screen plus one per distinct Session and per distinct Exercise (own ids below), so unbounded in a long chain;
+    // (2) the screens wrapper's freeze-on-blur sits in its native branch (react-native-screens Screen.tsx), so
+    // inactive cards probably keep rendering on store updates and keep timers and subscriptions running. Neither
+    // is measured.
     <Stack.Navigator
       id={undefined}
+      detachInactiveScreens={false}
       initialRouteName={WorkoutRoutes.WorkoutHome}
       screenOptions={{
         headerStyle: { backgroundColor: t.colors.primary },
