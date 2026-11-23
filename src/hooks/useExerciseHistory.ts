@@ -73,14 +73,19 @@ export function useExerciseHistory(
     )?.fields
   );
 
+  // An exercise of an edit draft (TICKET-102) is compared with the sessions before the edited workout. Only on the
+  // logger's path (no `fields` given): a plan card or the debug screen asks about the exercise as it stands now.
+  const editStart = useWorkoutStore((state) => (state.activeWorkout?.editOf ? state.activeWorkout.startTime : undefined));
+  const before = options?.fields === undefined && liveFields !== undefined ? editStart : undefined;
+
   const overrideFields = options?.fields ?? liveFields;
   // Callers pass array literals, so memoise on contents rather than identity.
   const overrideFieldsKey = JSON.stringify(overrideFields ?? null);
 
   return useMemo(
-    () => deriveExerciseHistory(entry, overrideFields),
+    () => deriveExerciseHistory(entry, overrideFields, before),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [entry, overrideFieldsKey]
+    [entry, overrideFieldsKey, before]
   );
 }
 

@@ -1,21 +1,26 @@
+import { BackHandler } from "react-native";
 import { act, fireEvent, screen, within } from "@testing-library/react-native";
 import ActiveWorkoutScreen from "./ActiveWorkoutScreen";
 import { renderScreen } from "../../test/renderScreen";
-import { buildSessionId } from "../../utils/exerciseStats";
+import { buildSessionDocs, buildSessionId } from "../../utils/exerciseStats";
+const buildSessionDocsFor = (workout: Parameters<typeof buildSessionDocs>[0]) => buildSessionDocs(workout, workout.startTime + 60_000).session;
 import { buildExercise, buildStats, buildWorkout, CATALOG_ROW } from "../../test/fixtures";
 import { EndWorkoutResult, useWorkoutStore } from "../../stores/useWorkoutStore";
-import { getAllExerciseStats, saveWorkoutSession } from "../../services/db/workoutSessions";
+import { getAllExerciseStats, saveEditedWorkout, saveWorkoutSession } from "../../services/db/workoutSessions";
 import { useCatalogStore } from "../../stores/useCatalogStore";
 import { loadCatalog } from "../../utils/catalog";
 import show from "../../utils/toastUtils";
 import { WorkoutRoutes } from "../../constants/routes";
 import { FREESTYLE_ID } from "../../constants/freestyle";
+import { toEditableWorkout } from "../../utils/editSession";
+import { useRecentWorkoutsStore } from "../../stores/useRecentWorkoutsStore";
 
 // Only the Finish tests reach the save, through the real `endWorkout`. The
 // reads are the swap picker's (TICKET-047), mounted only while it is open.
 jest.mock("../../services/db/workoutSessions", () => ({
   ...jest.requireActual("../../services/db/workoutSessions"),
   saveWorkoutSession: jest.fn(),
+  saveEditedWorkout: jest.fn(),
   getAllExerciseStats: jest.fn(async () => []),
   getChangedExerciseStats: jest.fn(async () => []),
   getWorkoutSessions: jest.fn(async () => ({ sessions: [], lastDoc: null })),
@@ -24,6 +29,20 @@ jest.mock("../../services/db/userDB", () => ({
   ...jest.requireActual("../../services/db/userDB"),
   getAllWorkoutPlans: jest.fn(async () => []),
 }));
+
+// The test renderer has no Android Back: collect what the screen registers, and press the latest handler first (the order
+// the platform uses).
+const androidBack = { handlers: [] as Array<() => boolean | null | undefined> };
+const pressAndroidBack = () => {
+  for (const handler of [...androidBack.handlers].reverse()) if (handler()) return;
+};
+beforeEach(() => {
+  androidBack.handlers = [];
+  jest.spyOn(BackHandler, "addEventListener").mockImplementation((_event, handler) => {
+    androidBack.handlers.push(handler);
+    return { remove: () => { androidBack.handlers = androidBack.handlers.filter((h) => h !== handler); } };
+  });
+});
 
 const previousArrow = () => screen.getByRole("button", { name: /^Previous exercise/ });
 const nextArrow = () => screen.getByRole("button", { name: /^Next exercise/ });
@@ -309,6 +328,167 @@ describe("after the workout ends", () => {
 
     expect(screen.getByText("route:Workout/WorkoutHome")).toBeOnTheScreen();
     expect(screen.queryByText("No active workout")).toBeNull();
+  });
+});
+
+// TICKET-102 stage 1: a past workout opened as an edit draft.
+describe("an edit draft", () => {
+  const draft = () => {
+    const stored = buildWorkout([], {
+      id: "push",
+      name: "Push",
+      startTime: new Date(2026, 10, 9, 18).getTime(),
+      exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: 650, Reps: 9 }] }] })],
+    });
+    const result = toEditableWorkout({ ...buildSessionDocsFor(stored), sessionId: "push_s" });
+    if (result.status !== "ready") throw new Error(result.reason);
+    return result.workout;
+  };
+
+  it("says Editing and the date instead of a timer, and offers Cancel edit and a switched-off Save, not Finish", () => {
+    renderScreen(ActiveWorkoutScreen, { workout: draft(), workoutRoute: WorkoutRoutes.LogWorkout });
+    expect(screen.getByLabelText("Editing, Mon 9 Nov")).toBeOnTheScreen();
+    expect(screen.queryByText(/elapsed/)).toBeNull();
+    expect(screen.getByText("THIS WORKOUT")).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Finish workout/ })).toBeNull();
+  });
+
+  // Stage 2: Save changes. A draft with set 1 fixed is a change; the service is a double.
+  const changedDraft = () => {
+    const w = draft();
+    return { ...w, exercises: w.exercises.map((e) => ({ ...e, sets: [{ ...e.sets[0], segments: [{ Weight: 65, Reps: 9 }] }] })) };
+  };
+
+  it("Save changes saves the draft once, shows Saved, empties the slot and goes back to the Session", async () => {
+    const summaries = [{ exerciseId: "bench-press" }];
+    (saveEditedWorkout as jest.Mock).mockResolvedValue({ session: { sessionId: "push_s" }, summaries, docsRead: 2 });
+    const success = jest.spyOn(show, "success");
+    renderScreen(ActiveWorkoutScreen, { workout: changedDraft(), workoutRoute: WorkoutRoutes.LogWorkout });
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole("button", { name: "Save changes" }));
+      fireEvent.press(screen.getByRole("button", { name: /Save changes|Saving…/ }));
+    });
+
+    expect(saveEditedWorkout).toHaveBeenCalledTimes(1);
+    expect(success).toHaveBeenCalledWith("Saved", "Push, Mon 9 Nov");
+    expect(useWorkoutStore.getState().activeWorkout).toBeNull();
+    expect(screen.getByText(`route:Workout/${WorkoutRoutes.Session}`)).toBeOnTheScreen();
+    success.mockRestore();
+  });
+
+  // MPR of PR #86: the Save-in-flight window.
+  it("while a Save runs, Back does nothing and the draft stays; the Save then finishes normally", async () => {
+    let finish: (value: unknown) => void = () => {};
+    (saveEditedWorkout as jest.Mock).mockClear();
+    (saveEditedWorkout as jest.Mock).mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    renderScreen(ActiveWorkoutScreen, { workout: changedDraft(), workoutRoute: WorkoutRoutes.LogWorkout });
+
+    // Sync presses: the Save promise stays pending on purpose, and an async `act` would wait for it.
+    fireEvent.press(screen.getByRole("button", { name: "Save changes" }));
+    fireEvent.press(screen.getByLabelText("Back"));
+    expect(screen.queryByText("Discard your changes?")).toBeNull();
+    expect(useWorkoutStore.getState().activeWorkout?.editOf).toBeDefined();
+    expect(saveEditedWorkout).toHaveBeenCalledTimes(1);
+
+    await act(async () => finish({ session: null, summaries: [], docsRead: 0 }));
+    expect(useWorkoutStore.getState().activeWorkout).toBeNull();
+    expect(screen.getByText(`route:Workout/${WorkoutRoutes.Session}`)).toBeOnTheScreen();
+  });
+
+  it("Android's Back asks before leaving a changed draft, as the header's Back does", () => {
+    renderScreen(ActiveWorkoutScreen, { workout: changedDraft(), workoutRoute: WorkoutRoutes.LogWorkout });
+    act(() => pressAndroidBack());
+    expect(screen.getByText("Discard your changes?")).toBeOnTheScreen();
+    expect(useWorkoutStore.getState().activeWorkout?.editOf).toBeDefined();
+  });
+
+  it("while a Save runs, Android's Back does nothing and the logger takes no touch", async () => {
+    let finish: (value: unknown) => void = () => {};
+    (saveEditedWorkout as jest.Mock).mockClear();
+    (saveEditedWorkout as jest.Mock).mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    renderScreen(ActiveWorkoutScreen, { workout: changedDraft(), workoutRoute: WorkoutRoutes.LogWorkout });
+    expect(screen.queryByTestId("edit-saving-lock")).toBeNull();
+
+    fireEvent.press(screen.getByRole("button", { name: "Save changes" }));
+    expect(screen.getByTestId("edit-saving-lock")).toBeOnTheScreen();
+    act(() => pressAndroidBack());
+    expect(screen.queryByText("Discard your changes?")).toBeNull();
+    expect(useWorkoutStore.getState().activeWorkout?.editOf).toBeDefined();
+
+    await act(async () => finish({ session: null, summaries: [], docsRead: 0 }));
+    expect(useWorkoutStore.getState().activeWorkout).toBeNull();
+    expect(useWorkoutStore.getState().editSaving).toBe(false);
+  });
+
+  it("a screen opened again mid-Save still sees the Save running: Cancel edit and a second Save do nothing", async () => {
+    (saveEditedWorkout as jest.Mock).mockClear();
+    useWorkoutStore.getState().setEditSaving(true);
+    renderScreen(ActiveWorkoutScreen, { workout: changedDraft(), workoutRoute: WorkoutRoutes.LogWorkout });
+    await act(async () => fireEvent.press(screen.getByText("Cancel edit")));
+    expect(useWorkoutStore.getState().activeWorkout?.editOf).toBeDefined();
+    expect(saveEditedWorkout).not.toHaveBeenCalled();
+    useWorkoutStore.getState().setEditSaving(false);
+  });
+
+  it("Save with nobody signed in says so, keeps the draft and writes nothing", async () => {
+    (saveEditedWorkout as jest.Mock).mockClear();
+    renderScreen(ActiveWorkoutScreen, { workout: changedDraft(), workoutRoute: WorkoutRoutes.LogWorkout, user: null });
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Save changes" })));
+    expect(screen.getByText("Not signed in")).toBeOnTheScreen();
+    expect(saveEditedWorkout).not.toHaveBeenCalled();
+    expect(useWorkoutStore.getState().activeWorkout?.editOf).toBeDefined();
+  });
+
+  it("a phone copy that cannot be updated after a committed Save is not reported as a failed save", async () => {
+    (saveEditedWorkout as jest.Mock).mockResolvedValue({ session: { sessionId: "push_s" }, summaries: [], docsRead: 1 });
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    const apply = jest.spyOn(useRecentWorkoutsStore.getState(), "applyEdited").mockImplementation(() => {
+      throw new Error("storage full");
+    });
+    const success = jest.spyOn(show, "success");
+    renderScreen(ActiveWorkoutScreen, { workout: changedDraft(), workoutRoute: WorkoutRoutes.LogWorkout });
+
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Save changes" })));
+
+    expect(success).toHaveBeenCalledWith("Saved", "Push, Mon 9 Nov");
+    expect(screen.queryByText("Could not save")).toBeNull();
+    expect(useWorkoutStore.getState().activeWorkout).toBeNull();
+    apply.mockRestore();
+    success.mockRestore();
+  });
+
+  it("a Save that wrote nothing does not replace the held workout", async () => {
+    (saveEditedWorkout as jest.Mock).mockResolvedValue({ session: null, summaries: [], docsRead: 0 });
+    const apply = jest.spyOn(useRecentWorkoutsStore.getState(), "applyEdited");
+    renderScreen(ActiveWorkoutScreen, { workout: changedDraft(), workoutRoute: WorkoutRoutes.LogWorkout });
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Save changes" })));
+    expect(apply).not.toHaveBeenCalled();
+    apply.mockRestore();
+  });
+
+  it("a refused save keeps the draft and says why, in the footer", async () => {
+    (saveEditedWorkout as jest.Mock).mockRejectedValue(Object.assign(new Error("offline"), { code: "unavailable" }));
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    renderScreen(ActiveWorkoutScreen, { workout: changedDraft(), workoutRoute: WorkoutRoutes.LogWorkout });
+
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Save changes" })));
+
+    expect(screen.getByText("Needs a connection to save")).toBeOnTheScreen();
+    expect(useWorkoutStore.getState().activeWorkout?.editOf).toBeDefined();
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled();
+  });
+
+  it.each([
+    ["the Workout stack", WorkoutRoutes.LogWorkout],
+    ["the footer tab (a draft resumed after an app kill has no Session beneath)", undefined],
+  ])("Cancel edit with nothing changed asks nothing, empties the slot and goes back to the Session, from %s", async (_, workoutRoute) => {
+    renderScreen(ActiveWorkoutScreen, { workout: draft(), workoutRoute });
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Cancel edit" })));
+    expect(useWorkoutStore.getState().activeWorkout).toBeNull();
+    expect(screen.queryByText("Discard your changes?")).toBeNull();
+    expect(screen.getByText(`route:Workout/${WorkoutRoutes.Session}`)).toBeOnTheScreen();
   });
 });
 

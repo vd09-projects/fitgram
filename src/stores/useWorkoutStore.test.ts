@@ -584,6 +584,29 @@ describe("stored copy", () => {
     await store().cancelWorkout();
     expect(await AsyncStorage.getItem("activeWorkout")).toBeNull();
   });
+
+  // TICKET-102, MPR of PR #86: the saved edit's draft leaves memory even when storage will not let go of it.
+  it("closeSavedEdit tries the removal twice, and empties the slot even when both fail", async () => {
+    await store().startWorkout({ id: "push", name: "Push", exercises: [buildExercise("Bench Press")] });
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    const remove = jest.spyOn(AsyncStorage, "removeItem").mockRejectedValue(new Error("disk"));
+    remove.mockClear();
+    await store().closeSavedEdit();
+    expect(remove).toHaveBeenCalledTimes(2);
+    expect(store().activeWorkout).toBeNull();
+    remove.mockRestore();
+  });
+
+  it("closeSavedEdit stops after a removal that works", async () => {
+    await store().startWorkout({ id: "push", name: "Push", exercises: [buildExercise("Bench Press")] });
+    const remove = jest.spyOn(AsyncStorage, "removeItem").mockRejectedValueOnce(new Error("disk"));
+    remove.mockClear();
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    await store().closeSavedEdit();
+    expect(remove).toHaveBeenCalledTimes(2);
+    expect(store().activeWorkout).toBeNull();
+    remove.mockRestore();
+  });
 });
 
 // TICKET-047. The slot keeps its place, the plan's exercise is kept for "Back
@@ -900,5 +923,64 @@ describe("removeExercise and restoreExercise", () => {
 
     expect((await store().restoreExercise(result.removed)).status).toBe("refused");
     expect(ids()).toEqual(["stationary-bike", "lat-pulldown", "treadmill-walk"]);
+  });
+});
+
+describe("an edit draft of a past workout (TICKET-102)", () => {
+  const stored = () => {
+    const workout = buildWorkout([], {
+      id: "push",
+      name: "Push",
+      startTime: 500,
+      exercises: [buildExercise("Bench Press", { sets: [{ id: 1, segments: [{ Weight: 650, Reps: 9 }] }] })],
+    });
+    return buildSessionDocs(workout, 600).session;
+  };
+
+  it("opens in the empty slot and is kept on the phone; refused while a workout is in progress", async () => {
+    const running = seedWorkout();
+    expect(await store().startEdit(stored())).toEqual({ status: "refused", reason: `Finish or discard ${running.name} first.` });
+    expect(store().activeWorkout).toBe(running);
+
+    useWorkoutStore.setState({ activeWorkout: null });
+    expect((await store().startEdit(stored())).status).toBe("started");
+    const draft = store().activeWorkout;
+    expect(draft?.editOf?.sessionId).toBe(stored().sessionId);
+    expect(JSON.parse((await AsyncStorage.getItem("activeWorkout")) ?? "null")).toEqual(draft);
+    // And a workout cannot start over it.
+    expect(await store().startWorkout({ id: "legs", name: "Legs", exercises: [] } as never)).toEqual({
+      status: "refused",
+      reason: "You are editing Push. Save or cancel the edit first.",
+    });
+  });
+
+  it("Finish refuses a draft: nothing is queued or uploaded, and the draft stays", async () => {
+    await store().startEdit(stored());
+    const draft = store().activeWorkout;
+    expect((await store().endWorkout("u1")).status).toBe("refused");
+    expect(queue()).toEqual([]);
+    expect(save).not.toHaveBeenCalled();
+    expect(store().activeWorkout).toBe(draft);
+  });
+
+  it("removes a logged exercise with its sets in a draft, and Undo brings the sets back; a live workout still refuses it", async () => {
+    await store().startEdit(stored());
+    const before = store().activeWorkout!.exercises[0];
+    const result = await store().removeExercise("bench-press");
+    if (result.status !== "removed") throw new Error(result.reason);
+    expect(result.removed).toEqual({ slot: before, index: 0 });
+    expect(store().activeWorkout!.exercises).toEqual([]);
+    await store().restoreExercise(result.removed);
+    expect(store().activeWorkout!.exercises[0].sets).toEqual(before.sets);
+
+    useWorkoutStore.setState({ activeWorkout: null });
+    const live = seedWorkout();
+    const loggedId = live.exercises.find((e) => e.sets.length > 0)!.id;
+    expect((await store().removeExercise(loggedId)).status).toBe("refused");
+  });
+  it("logging a set in a draft starts no rest", async () => {
+    await store().startEdit(stored());
+    store().startRest("bench-press", 90_000, 2);
+    expect(store().rest).toBeNull();
   });
 });

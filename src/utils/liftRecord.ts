@@ -226,3 +226,38 @@ export function summaryWithout(exerciseId: string, sessions: readonly WorkoutSes
   if (unreadable.length > 0) return { status: "unreadable", sessionIds: unreadable };
   return { status: "ready", stats: rebuildStatsFromSessions(exerciseId, exerciseSessionsOf(left)) };
 }
+
+export type SummaryWithEdited =
+  | {
+      status: "ready";
+      /** Null when no session of the lift is left (the edit removed it from `edited`): the caller writes a marker. */
+      stats: ExerciseStatsDoc | null;
+      /** The edited workout's own record of the lift with its verdict recomputed; null when `edited` no longer has the lift. */
+      lift: LiftRecord | null;
+    }
+  | { status: "unreadable"; sessionIds: string[] };
+
+/**
+ * One lift's summary, and the edited workout's verdict for it, as they stand once `edited` replaces the stored copy of
+ * that workout (TICKET-102, `summaryWithout`'s sibling). `sessions` is what a query for the lift returned: the stored
+ * copy of the edited workout is dropped by id, so the caller may pass it as read, markers and all.
+ *
+ * Both answers come from the same sessions: the summary by `rebuildStatsFromSessions` (a best can go down, which a fold
+ * cannot), the verdict by `verdictsFromHistory` over the lift's whole history, against its true previous session. Only
+ * the edited workout's verdict is taken: the next workout's stays as stored, as after a delete (TICKET-095 decides).
+ *
+ * Refuses (`unreadable`) when another session has `lifts` that cannot be read, as `summaryWithout` does: its sets are
+ * not here, so the rebuild would lower bests for sets that exist.
+ */
+export function summaryWithEdited(exerciseId: string, sessions: readonly WorkoutSessionDoc[], edited: WorkoutSessionDoc): SummaryWithEdited {
+  const others = sessions.filter((session) => session.deleted !== true && session.sessionId !== edited.sessionId);
+  const unreadable = others.filter((session) => session.liftsUnreadable === true).map((session) => session.sessionId);
+  if (unreadable.length > 0) return { status: "unreadable", sessionIds: unreadable };
+  const left = [...others, edited];
+  const judged = verdictsFromHistory(left)[left.length - 1];
+  return {
+    status: "ready",
+    stats: rebuildStatsFromSessions(exerciseId, exerciseSessionsOf(left)),
+    lift: judged.lifts.find((lift) => lift.id === exerciseId) ?? null,
+  };
+}

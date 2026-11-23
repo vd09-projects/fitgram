@@ -349,4 +349,24 @@ describe("StartWorkoutScreen, plan card", () => {
     expect(await screen.findByText("route:LogWorkout")).toBeOnTheScreen();
     expect(startWorkout).not.toHaveBeenCalled();
   });
+
+  // TICKET-102: an edit draft blocks a start too, but is no workout in progress: no Resume bar, no clock.
+  it("blocks Start while an edit draft is open, saying so, with no timer and no Resume bar", async () => {
+    mockStats.mockResolvedValue([]);
+    const startWorkout = jest.fn();
+    const draft = buildWorkout(["Row"], {
+      id: "push",
+      name: "Push",
+      startTime: Date.now() - 9 * 24 * 60 * 60_000,
+      editOf: { sessionId: "push_1", endedAt: 1, original: [] },
+    });
+    await renderStart({ workout: draft, workoutActions: { startWorkout } });
+    expect(screen.queryByText(/in progress/)).toBeNull();
+
+    fireEvent.press(screen.getByRole("button", { name: "Push" }));
+    expect(screen.getByText("You are editing Push. Save or cancel the edit to start this one.")).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: /^(Start|Resume) / })).toBeNull();
+    expect(screen.getByRole("button", { name: "Back to editing Push" })).toHaveTextContent(/^Back to editing Push$/);
+    expect(startWorkout).not.toHaveBeenCalled();
+  });
 });

@@ -108,6 +108,8 @@ export function stepFieldValue(
 export type GhostTarget =
   | { kind: "notLoaded" }
   | { kind: "firstTime" }
+  /** An edit draft whose earlier sessions are not on the phone (TICKET-102, `ExerciseHistory.asOf`). */
+  | { kind: "earlierNotHeld" }
   | { kind: "noComparison" }
   | {
       kind: "unitChanged";
@@ -120,11 +122,12 @@ export type GhostTarget =
 export function resolveGhostTarget(
   history: Pick<
     ExerciseHistory,
-    "status" | "hasHistory" | "numericComparisonAvailable" | "lastSession" | "setAt"
+    "status" | "hasHistory" | "numericComparisonAvailable" | "lastSession" | "setAt" | "asOf"
   >,
   setNumber: number
 ): GhostTarget {
   if (history.status !== "ready") return { kind: "notLoaded" };
+  if (history.asOf?.earlierNotHeld) return { kind: "earlierNotHeld" };
   if (!history.hasHistory || !history.lastSession) return { kind: "firstTime" };
   if (!history.numericComparisonAvailable) return { kind: "noComparison" };
   if (!history.lastSession.comparable) {
@@ -336,6 +339,8 @@ export function ghostNotice(
       return "Last session not loaded";
     case "firstTime":
       return "First time on this exercise";
+    case "earlierNotHeld":
+      return "The sessions before this one are not on this phone";
     case "noComparison":
       return "No weight and reps to target";
     case "unitChanged": {

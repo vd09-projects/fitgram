@@ -168,6 +168,52 @@ it("a saved note is shown in the window and the plan's floor entry with no read,
   expect(getWorkoutWindowFromServer).not.toHaveBeenCalled();
 });
 
+// TICKET-102: this phone saved an edit; every copy it holds takes the edited workout, keeping the note and the stamp, with no read.
+it("own edit: the window, the plan's floor, an older list and a read by id take the edited lifts and keep the note and stamp, with no read", async () => {
+  const stamp = { seconds: 5, nanoseconds: 0 };
+  serveRecentWorkouts([session("a", "push", 500, { updatedAt: stamp, note: "Slept badly." })]);
+  usePlansStore.setState({ uid: UID, plans: [plan("push")], storedRead: true });
+  await useRecentWorkoutsStore.getState().open(UID);
+  await waitFor(() => expect(sessionIds()).toEqual(["a"]));
+  const windowStart = useRecentWorkoutsStore.getState().workoutWindow!.windowStart;
+  useRecentWorkoutsStore.setState({
+    olderWorkouts: { all: { windowStart, sessions: [session("a", "push", 500, { note: "old copy" })], reachedStart: false, read: null } },
+    fetchedSessions: { a: { status: "ready", session: session("a", "push", 500) } },
+  });
+  jest.clearAllMocks();
+
+  const edited = session("a", "push", 500, { exerciseIds: ["bench"], updatedAt: undefined });
+  useRecentWorkoutsStore.getState().applyEdited(UID, edited);
+
+  const held = useRecentWorkoutsStore.getState().workoutWindow!.sessions[0];
+  expect(held.exerciseIds).toEqual(["bench"]);
+  expect(held.note).toBe("Slept badly.");
+  expect(held.updatedAt).toEqual(stamp);
+  expect(floor()?.push?.exerciseIds).toEqual(["bench"]);
+  expect(useRecentWorkoutsStore.getState().olderWorkouts.all.sessions[0]).toMatchObject({ exerciseIds: ["bench"], note: "old copy" });
+  const fetched = useRecentWorkoutsStore.getState().fetchedSessions.a;
+  expect(fetched.status === "ready" && fetched.session?.exerciseIds).toEqual(["bench"]);
+  expect(getChangedSessions).not.toHaveBeenCalled();
+  expect(getWorkoutWindowFromServer).not.toHaveBeenCalled();
+});
+
+// TICKET-102 stage 3: an edit that removed a lift takes this workout out of that lift's older list, not out of the others'.
+it("own edit that removed a lift: the lift's older list drops the workout, the kept lift's older list takes the edit", async () => {
+  serveRecentWorkouts([session("a", "push", 500, { updatedAt: { seconds: 5, nanoseconds: 0 } })]);
+  usePlansStore.setState({ uid: UID, plans: [plan("push")], storedRead: true });
+  await useRecentWorkoutsStore.getState().open(UID);
+  await waitFor(() => expect(sessionIds()).toEqual(["a"]));
+  const windowStart = useRecentWorkoutsStore.getState().workoutWindow!.windowStart;
+  const older = { windowStart, sessions: [session("a", "push", 500, { exerciseIds: ["bench", "dips"] })], reachedStart: false, read: null };
+  useRecentWorkoutsStore.setState({ exerciseOlder: { bench: older, dips: older } });
+
+  useRecentWorkoutsStore.getState().applyEdited(UID, session("a", "push", 500, { exerciseIds: ["bench"], updatedAt: undefined }));
+
+  const held = useRecentWorkoutsStore.getState().exerciseOlder;
+  expect(held.dips.sessions).toEqual([]);
+  expect(held.bench.sessions[0].exerciseIds).toEqual(["bench"]);
+});
+
 // TICKET-086: this phone deleted a workout on the server; every copy it holds drops it, with no read.
 it("own delete: the window, the plan's floor, the older lists, a lift's log and a read by id all drop it, with no read", async () => {
   serveRecentWorkouts([session("a", "push", 500, { updatedAt: { seconds: 5, nanoseconds: 0 } }), session("b", "push", 400, { updatedAt: { seconds: 5, nanoseconds: 0 } })]);

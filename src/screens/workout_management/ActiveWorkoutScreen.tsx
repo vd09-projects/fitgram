@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, TouchableOpacity, StyleSheet } from "react-native";
+import { BackHandler, View, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector, Directions } from "react-native-gesture-handler";
 import { type RemovedExercise, useWorkoutStore } from "../../stores/useWorkoutStore";
@@ -14,6 +14,7 @@ import RestChip from "../../components/active_workout/RestChip";
 import ExerciseNavHeader from "../../components/active_workout/ExerciseNavHeader";
 import WorkoutProgressBar from "../../components/active_workout/WorkoutProgressBar";
 import RemovedExerciseBar from "../../components/active_workout/RemovedExerciseBar";
+import { EditFooter } from "../../components/active_workout/EditFooter";
 import { SPACING } from "../../constants/styles";
 import { useAuthUser } from "../../hooks/useAuthUser";
 import { useExerciseHistory } from "../../hooks/useExerciseHistory";
@@ -23,9 +24,14 @@ import { buildProgressSegments, resolveCurrentIndex } from "../../utils/workoutP
 import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
 import { LayoutScreenNavigationProp } from "../../navigation/LayoutNavigator";
 import { LayoutRoutes, WorkoutRoutes } from "../../constants/routes";
-import { CommonActions, StackActions, useIsFocused, useNavigation } from "@react-navigation/native";
+import { CommonActions, StackActions, useFocusEffect, useIsFocused, useNavigation } from "@react-navigation/native";
 import { buildSessionId } from "../../utils/exerciseStats";
-import { finishLandingRoutes, type FinishLanding } from "../../utils/finishLanding";
+import { editLandingRoutes, finishLandingRoutes, type FinishLanding } from "../../utils/finishLanding";
+import { draftChanged, editSaveError } from "../../utils/editSession";
+import { saveEditedWorkout } from "../../services/db/workoutSessions";
+import { useExerciseHistoryStore } from "../../stores/useExerciseHistoryStore";
+import { useRecentWorkoutsStore } from "../../stores/useRecentWorkoutsStore";
+import { sessionDateLine } from "../../utils/sessionView";
 import { TextBase } from "../../components/TextBase";
 import { ReturnTypeUseThemeTokens } from '../../components/app_manager/ThemeContext';
 import { useThemeStyles } from '../../utils/useThemeStyles';
@@ -46,7 +52,7 @@ export default function ActiveWorkoutScreen() {
   const layoutNavigation = useNavigation<layoutScreenNavigationProp>();
 
   const { user } = useAuthUser();
-  const { activeWorkout, endWorkout, cancelWorkout, setCurrentExerciseIndex, removeExercise, restoreExercise } =
+  const { activeWorkout, endWorkout, cancelWorkout, closeSavedEdit, setCurrentExerciseIndex, removeExercise, restoreExercise } =
     useWorkoutStore();
 
   const [workoutMenuOpen, setWorkoutMenuOpen] = useState(false);
@@ -74,6 +80,18 @@ export default function ActiveWorkoutScreen() {
   const [lastRemoval, setLastRemoval] = useState<{ removed: RemovedExercise; after: ActiveWorkout } | null>(null);
   const undoable = lastRemoval && lastRemoval.after === activeWorkout ? lastRemoval.removed : null;
   const [finishing, setFinishing] = useState(false);
+  // Save changes (TICKET-102). The flag lives in the store and is set before the first await, so two taps in one frame,
+  // and a screen opened again mid-Save, all see it.
+  const savingEdit = useWorkoutStore((s) => s.editSaving);
+  const [saveError, setSaveError] = useState<{ title: string; detail: string } | null>(null);
+
+  // An edit of a past workout (TICKET-102): the same screen, with the edit's header and footer. Where to go back to
+  // is kept while the draft is in the slot, so it is still known once Cancel (or, from stage 2, Save) empties it.
+  const editOf = activeWorkout?.editOf;
+  const editReturn = useRef<{ sessionId: string; workoutName: string; startedAt: number } | null>(null);
+  if (activeWorkout && editOf) {
+    editReturn.current = { sessionId: editOf.sessionId, workoutName: activeWorkout.name, startedAt: activeWorkout.startTime };
+  }
 
   // The store's index is the only record of which exercise is in view; there is
   // no local copy to drift from it.
@@ -130,7 +148,29 @@ export default function ActiveWorkoutScreen() {
   const openWorkoutScreen = (screen: typeof WorkoutRoutes.WorkoutHome) =>
     layoutNavigation.navigate(LayoutRoutes.Workout, { screen });
 
+  // Android's own Back leaves an edit the way the header's does (MPR of PR #86): it would otherwise pop the logger and
+  // leave the draft in the slot, past the guard on Back and Cancel edit while a Save runs. Only while focused and only
+  // for a draft: a live workout's Back is left as it was. A handler added later runs first, so this wins over the
+  // navigator's.
+  useFocusEffect(
+    React.useCallback(() => {
+      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+        if (!useWorkoutStore.getState().activeWorkout?.editOf) return false;
+        requestCancelEdit();
+        return true;
+      });
+      return () => sub.remove();
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- requestCancelEdit reads the store, not render state
+    }, []),
+  );
+
   const handleBack = () => {
+    // Back leaves an edit the way Cancel edit does (asking first if anything changed): a draft left in the slot
+    // would block every workout until found again.
+    if (editOf) {
+      requestCancelEdit();
+      return;
+    }
     if (navigation.canGoBack()) navigation.goBack();
     else openWorkoutScreen(WorkoutRoutes.WorkoutHome);
   };
@@ -173,6 +213,27 @@ export default function ActiveWorkoutScreen() {
   useEffect(() => {
     if (!isFocused || activeWorkout) return;
     const inWorkoutStack = (navigation.getState().routeNames as string[]).includes(WorkoutRoutes.WorkoutHome);
+    // An edit that ended goes back to the Session it was opened from (TICKET-102). `popTo` finds that Session by its
+    // id (`getId`), or opens it when it is not in the stack (the draft resumed after an app kill, from the footer tab).
+    const editBack = editReturn.current;
+    if (editBack) {
+      editReturn.current = null;
+      // The Session is beneath only when this screen is in the Workout stack and that stack holds it: then `popTo` finds
+      // it by its id. Otherwise (the footer tab, or a draft resumed after an app kill) the stack is replaced by the
+      // trail a Finish lands on, so Back from the Session goes to the History home and not out of the app.
+      const sessionBeneath =
+        inWorkoutStack &&
+        navigation.getState().routes.some((route) => route.name === WorkoutRoutes.Session && (route.params as { sessionId?: string } | undefined)?.sessionId === editBack.sessionId);
+      const trail = editLandingRoutes(editBack);
+      navigation.dispatch(
+        sessionBeneath
+          ? StackActions.popTo(WorkoutRoutes.Session, editBack)
+          : inWorkoutStack
+            ? CommonActions.reset({ index: trail.length - 1, routes: trail })
+            : StackActions.popTo(LayoutRoutes.Workout, { state: { index: trail.length - 1, routes: trail } })
+      );
+      return;
+    }
     const landing = finished.current;
     if (landing && queuedSessionId !== landing.sessionId) return;
     finished.current = null;
@@ -252,6 +313,58 @@ export default function ActiveWorkoutScreen() {
     await cancelWorkout();
   };
 
+  // Save changes (TICKET-102): the server first (`saveEditedWorkout`, refused offline), then every copy this phone holds,
+  // then the draft leaves the slot and the redirect above goes back to the Session. A refusal keeps the draft and says why.
+  const handleSaveEdit = async () => {
+    const draft = useWorkoutStore.getState().activeWorkout;
+    if (useWorkoutStore.getState().editSaving || !draft?.editOf) return;
+    // Said, not ignored: a Save that does nothing and shows nothing reads as a broken button.
+    if (!user?.uid) {
+      setSaveError(editSaveError("signed-out"));
+      return;
+    }
+    useWorkoutStore.getState().setEditSaving(true);
+    setSaveError(null);
+    let saved: Awaited<ReturnType<typeof saveEditedWorkout>>;
+    try {
+      saved = await saveEditedWorkout(user.uid, draft);
+    } catch (error) {
+      console.log("Failed to save edit:", error);
+      setSaveError(editSaveError((error as { code?: string })?.code));
+      useWorkoutStore.getState().setEditSaving(false);
+      return;
+    }
+    // The server has the edit from here on, so nothing below may report a failed save (MPR of PR #86): a cache that
+    // cannot be updated is healed by the next check, and the draft's own refusal would say "nothing was saved".
+    try {
+      useExerciseHistoryStore.getState().applyEdited(user.uid, saved.summaries);
+      // No session: the draft differed in nothing, nothing was written, and no held copy is replaced.
+      if (saved.session) useRecentWorkoutsStore.getState().applyEdited(user.uid, saved.session);
+    } catch (error) {
+      console.log("Saved, but this phone's copies were not updated:", error);
+    }
+    show.success("Saved", `${draft.name}, ${sessionDateLine(draft.startTime, null)}`);
+    // Emptying the slot is all that is left to do. The saving flag stays up until it has (Back, Cancel edit, a second
+    // Save and every touch on the logger stay refused meanwhile): dropping it first let a second Save run against the
+    // workout just saved and flash "Changed elsewhere", and a set logged in between was dropped with the draft.
+    try {
+      await closeSavedEdit();
+    } finally {
+      useWorkoutStore.getState().setEditSaving(false);
+    }
+  };
+
+  // Cancel edit (TICKET-102, board ESL7Discard): asks only when the draft differs from the stored workout. The stored
+  // workout is untouched either way; the draft leaves the slot and the redirect above goes back to the Session.
+  const requestCancelEdit = () => {
+    // Not while a Save runs: a Discard would empty the slot while the transaction still commits, and a failed Save would
+    // have no draft left to keep (MPR of PR #86).
+    if (useWorkoutStore.getState().editSaving) return;
+    const current = useWorkoutStore.getState().activeWorkout;
+    if (current && draftChanged(current)) setConfirmDiscard(true);
+    else void handleDiscard();
+  };
+
   // Nothing to draw for the moment before the redirect above lands.
   if (!activeWorkout) return null;
 
@@ -261,24 +374,37 @@ export default function ActiveWorkoutScreen() {
     renderIcon: (color) => <Ionicons name="add" size={20} color={color} />,
     title: "Add exercise",
     // A Freestyle has no plan to stay as it is (TICKET-067).
-    detail: isFreestyle(activeWorkout.id)
-      ? "Goes at the end of today's list."
-      : "Goes at the end of today's list. Your plan stays as it is.",
+    detail: editOf
+      ? "Goes at the end of this workout's list."
+      : isFreestyle(activeWorkout.id)
+        ? "Goes at the end of today's list."
+        : "Goes at the end of today's list. Your plan stays as it is.",
     onPress: () => setPicker({ kind: "add" }),
   };
-  const discardItem: MenuItem = {
-    key: "discard",
-    renderIcon: (color) => <Ionicons name="trash-outline" size={20} color={color} />,
-    title: "Discard workout",
-    tone: "danger",
-    onPress: () => setConfirmDiscard(true),
-  };
+  const discardItem: MenuItem = editOf
+    ? {
+        key: "discard",
+        renderIcon: (color) => <Ionicons name="close" size={20} color={color} />,
+        title: "Cancel edit",
+        detail: "The workout stays as it was.",
+        onPress: requestCancelEdit,
+      }
+    : {
+        key: "discard",
+        renderIcon: (color) => <Ionicons name="trash-outline" size={20} color={color} />,
+        title: "Discard workout",
+        tone: "danger",
+        onPress: () => setConfirmDiscard(true),
+      };
+  // "Mon 9 Nov": the header's line and the discard question name the workout by its day.
+  const editDate = editOf ? sessionDateLine(activeWorkout.startTime, null) : undefined;
 
   return (
     <View style={styles.screen}>
       <WorkoutHeader
         workoutName={activeWorkout.name}
         startTime={activeWorkout.startTime}
+        editingDate={editDate}
         onBack={handleBack}
         onOpenMenu={() => setWorkoutMenuOpen(true)}
         restChip={
@@ -364,6 +490,9 @@ export default function ActiveWorkoutScreen() {
         </View>
       </GestureDetector>
 
+      {editOf ? (
+        <EditFooter changed={draftChanged(activeWorkout)} saving={savingEdit} error={saveError} onSave={handleSaveEdit} onCancel={requestCancelEdit} />
+      ) : (
       <View style={styles.footer}>
         <MaybeTourStep stepId={ACTIVE_WORKOUT_STEP_NAMES.SAVE_CURRENT_WORKOUT_LOGER} positionType="above">
           {/* Plain View: MultiTourSteps splits its child's style, which left the
@@ -382,6 +511,7 @@ export default function ActiveWorkoutScreen() {
           </View>
         </MaybeTourStep>
       </View>
+      )}
 
       {/* Workout ⋯ (TICKET-056 board AddMenu). Discard is its own group, away
           from Add and from Finish, so a stray tap can never lose the session. */}
@@ -412,10 +542,18 @@ export default function ActiveWorkoutScreen() {
 
       <DiscardWorkoutDialog
         visible={confirmDiscard}
-        keepLabel="Keep logging"
+        keepLabel={editOf ? "Keep editing" : "Keep logging"}
+        {...(editOf
+          ? {
+              title: "Discard your changes?",
+              message: `${activeWorkout.name}, ${editDate}, stays as it was.`,
+            }
+          : {})}
         onKeep={() => setConfirmDiscard(false)}
         onDiscard={handleDiscard}
       />
+      {/* Nothing on the logger takes a touch while a Save runs: what is logged now would be dropped with the draft. */}
+      {savingEdit && <View style={StyleSheet.absoluteFill} testID="edit-saving-lock" />}
     </View>
   );
 }

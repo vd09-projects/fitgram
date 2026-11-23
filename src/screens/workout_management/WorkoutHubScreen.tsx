@@ -5,6 +5,7 @@ import { useAuthUser } from "../../hooks/useAuthUser";
 import { useLastDoneUnknown, useRecentWorkouts } from "../../hooks/useRecentWorkouts";
 import { useWorkoutPlansOnFocus } from "../../hooks/useWorkoutPlansOnFocus";
 import { useWorkoutStore } from "../../stores/useWorkoutStore";
+import { liveWorkoutOf } from "../../utils/workoutSlot";
 import { SPACING } from "../../constants/styles";
 import { WorkoutRoutes } from "../../constants/routes";
 import { WorkoutScreenNavigationProp } from "../../navigation/WorkoutNavigator";
@@ -61,7 +62,10 @@ export default function WorkoutHubScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { user } = useAuthUser();
   const uid = user?.uid;
-  const activeWorkout = useWorkoutStore((state) => state.activeWorkout);
+  // The slot holds a workout being done or an edit draft (TICKET-102). Either blocks a start; only the live workout
+  // gets a running tile, a Resume and a clock.
+  const slot = useWorkoutStore((state) => state.activeWorkout);
+  const liveWorkout = liveWorkoutOf(slot);
   const pendingUploads = useWorkoutStore((state) => state.pendingUploads);
 
   const { workoutPlans, loadingWorkoutPlans, failedToLoad, retry } = useWorkoutPlansOnFocus();
@@ -97,8 +101,8 @@ export default function WorkoutHubScreen() {
     return () => subscription.remove();
   }, []);
 
-  const setsLogged = activeWorkout?.exercises.reduce((sum, exercise) => sum + exercise.sets.length, 0) ?? 0;
-  const freestyleRunning = isFreestyle(activeWorkout?.id);
+  const setsLogged = liveWorkout?.exercises.reduce((sum, exercise) => sum + exercise.sets.length, 0) ?? 0;
+  const freestyleRunning = isFreestyle(liveWorkout?.id);
   const goToLogger = () => navigation.navigate(WorkoutRoutes.LogWorkout);
 
   // Freestyle never opens a card: idle starts at once, running resumes, and
@@ -110,10 +114,10 @@ export default function WorkoutHubScreen() {
   // The card shows only while something blocks; once nothing runs, its flag
   // is cleared too, so it cannot reopen by itself when the next workout starts.
   useEffect(() => {
-    if (!activeWorkout) setFreestyleBlockedOpen(false);
-  }, [activeWorkout]);
+    if (!slot) setFreestyleBlockedOpen(false);
+  }, [slot]);
   const onFreestyle = async () => {
-    if (activeWorkout) {
+    if (slot) {
       if (freestyleRunning) goToLogger();
       else setFreestyleBlockedOpen(true);
       return;
@@ -139,8 +143,8 @@ export default function WorkoutHubScreen() {
   const freestyleRow = (
     <HubFreestyleRow
       running={
-        freestyleRunning && activeWorkout
-          ? { startTime: activeWorkout.startTime, exerciseCount: activeWorkout.exercises.length }
+        freestyleRunning && liveWorkout
+          ? { startTime: liveWorkout.startTime, exerciseCount: liveWorkout.exercises.length }
           : null
       }
       onPress={onFreestyle}
@@ -152,7 +156,7 @@ export default function WorkoutHubScreen() {
       key={row.id}
       row={row}
       now={now}
-      running={activeWorkout?.id === row.id ? { startTime: activeWorkout.startTime, setsLogged } : null}
+      running={liveWorkout?.id === row.id ? { startTime: liveWorkout.startTime, setsLogged } : null}
       onPress={() => setSelectedId(row.id)}
     />
   );
@@ -214,10 +218,10 @@ export default function WorkoutHubScreen() {
           onPlans={() => navigation.navigate(WorkoutRoutes.AddExercise)}
           onHistory={() => navigation.navigate(WorkoutRoutes.HistoryHome)}
         />
-        {activeWorkout && (
+        {liveWorkout && (
           <HubResumeBar
-            workoutName={activeWorkout.name}
-            startTime={activeWorkout.startTime}
+            workoutName={liveWorkout.name}
+            startTime={liveWorkout.startTime}
             setsLogged={setsLogged}
             onResume={goToLogger}
           />
@@ -237,7 +241,7 @@ export default function WorkoutHubScreen() {
         onClose={() => setSelectedId(null)}
       />
       <FreestyleBlockedCard
-        blockedBy={freestyleBlockedOpen && activeWorkout && !freestyleRunning ? activeWorkout : null}
+        blockedBy={freestyleBlockedOpen && slot && !freestyleRunning ? slot : null}
         onBack={() => {
           setFreestyleBlockedOpen(false);
           goToLogger();

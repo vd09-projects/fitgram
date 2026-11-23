@@ -1,5 +1,5 @@
 import { Exercise, ExerciseField } from "./workoutType";
-import { Effort } from "./workoutSession";
+import { Effort, LiftRecord } from "./workoutSession";
 
 // Type for a single set in an exercise
 export interface ExerciseSet {
@@ -84,6 +84,13 @@ export interface LoggedExercise {
    * field instead of two, but a meaning hidden in null.
    */
   added?: true;
+  /**
+   * The stored record's "Swapped in for X" (`LiftRecord.swappedFrom`), on a slot of an edit draft only
+   * (TICKET-102). A draft is built from the stored workout, which keeps only the plan exercise's id and name,
+   * not the whole `Exercise` that `planned` holds, so the caption travels here and `buildLiftRecord` writes it
+   * back. Rejected: a `planned` made up from the id and name, which would offer a "Back to plan" with no fields.
+   */
+  swappedFrom?: { id: string; name: string };
 }
 
 // Type for active workout
@@ -93,6 +100,26 @@ export interface ActiveWorkout {
   startTime: number;
   exercises: LoggedExercise[];
   currentExerciseIndex: number | null; // Track the current exercise index
+  /**
+   * Set when the slot holds an edit of a past workout (TICKET-102), not a workout in progress. The draft keeps
+   * the workout's own `id`, `name` and `startTime`, so `buildSessionId` names the same stored doc. Every reader
+   * that takes the slot as "a workout is running" reads `liveWorkoutOf` instead; Finish refuses a draft.
+   * In the slot, so a draft survives an app kill like a workout does. Optional: a workout saved before it
+   * loads unchanged.
+   */
+  editOf?: EditOf;
+}
+
+/** What an edit draft remembers of the workout it edits (TICKET-102). */
+export interface EditOf {
+  sessionId: string;
+  /** The stored end, kept on Save: an edit is not the end of a workout. */
+  endedAt: number;
+  /**
+   * The draft's lifts as they were when the edit opened (`draftLifts`), to tell whether anything changed:
+   * Cancel asks first only then, and Save is on only then.
+   */
+  original: LiftRecord[];
 }
 /**
  * A finished workout that has not reached the server yet (TICKET-028). Lives in

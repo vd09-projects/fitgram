@@ -37,6 +37,7 @@ import {
   ExerciseStatsDoc,
   ExerciseStatsMarker,
   isStatsMarker,
+  LiftRecord,
   WorkoutSessionDoc,
 } from "../../types/workoutSession";
 import { ActiveWorkout } from "../../types/zustandWorkoutType";
@@ -44,8 +45,10 @@ import {
   applySessionToStats,
   buildExerciseSessionId,
   buildSessionDocs,
+  computeSessionTotalVolume,
 } from "../../utils/exerciseStats";
-import { readLifts, summaryWithout, withVerdicts } from "../../utils/liftRecord";
+import { exerciseSessionsOf, readLifts, summaryWithEdited, summaryWithout, withVerdicts } from "../../utils/liftRecord";
+import { draftAffected, draftDiff, toEditableWorkout } from "../../utils/editSession";
 import { compareStamps, toStamp, type SyncStamp } from "../../utils/syncCore";
 import { secondQueryStart } from "../../utils/workoutWindow";
 import { localMonthRange } from "../../utils/monthWindow";
@@ -533,6 +536,161 @@ export const deleteWorkout = async (
     return false;
   });
   return alreadyDeleted ? { summaries: [], docsRead } : { summaries, docsRead };
+};
+
+/**
+ * Whether Save may write the draft over what is stored now (TICKET-102): false when something the draft builds on was
+ * changed elsewhere while it was open, so Save refuses (`changed`) instead of overwriting it with an older copy. That is:
+ * the workout's list of lifts is not the one the draft opened with (a lift added or removed elsewhere would be dropped
+ * from the written list), or a lift Save rewrites (`affected`: touched, added or removed here) is not as it was opened.
+ * A lift this draft did not touch may have changed elsewhere: Save keeps it as stored (`withStoredVerdicts`), so it is
+ * not a conflict. Compared on content, not on the stamp: a note added elsewhere moves the stamp but changes nothing
+ * Save writes, so it does not refuse; a stamp alone only catches a change landing between Save's own reads and its
+ * commit, which is the other check. Found on the device: a note added elsewhere mid-edit did not refuse.
+ */
+function storedStillMatches(data: DocumentData, editOf: NonNullable<ActiveWorkout["editOf"]>, affected: string[]): boolean {
+  const lifts = readLifts(data.lifts);
+  if (!lifts) return false;
+  const reopened = toEditableWorkout({ ...(data as WorkoutSessionDoc), lifts });
+  if (reopened.status !== "ready") return false;
+  const stored = reopened.workout.editOf?.original ?? [];
+  if (stored.map((lift) => lift.id).join("\n") !== editOf.original.map((lift) => lift.id).join("\n")) return false;
+  const opened = new Map(editOf.original.map((lift) => [lift.id, JSON.stringify(lift)]));
+  return stored.every((lift) => !affected.includes(lift.id) || JSON.stringify(lift) === opened.get(lift.id));
+}
+
+export type SaveEditedWorkoutResult = {
+  /**
+   * The workout as the server now holds it (its stamp is not known here, as a Finish's): what the phone's copies take.
+   * Null when the draft differed from the stored workout in nothing, so nothing was written and no copy may be replaced.
+   */
+  session: WorkoutSessionDoc | null;
+  /** What each affected lift's summary became, unstamped: a rebuilt summary, or a marker for a lift no session has any more. */
+  summaries: (ExerciseStatsDoc | ExerciseStatsMarker)[];
+  /** Workout docs read to rebuild, for the proof. */
+  docsRead: number;
+};
+
+/**
+ * Save an edit draft of a past workout (TICKET-102 stage 2). The draft is built into docs as a Finish builds them
+ * (`buildSessionDocs`, keeping the workout's own id, start and end), so the stored workout is replaced in place: its
+ * `lifts`, `exerciseIds` and `volume`, and its `exercise_sessions` docs until TICKET-085c retires them. `note`,
+ * `startedAt`, `endedAt` and the name are not written. Only touched lifts are rebuilt (`draftDiff`): each one's
+ * `exercise_stats` is replaced by a rebuild from the lift's sessions with the edited one swapped in
+ * (`summaryWithEdited`), because a best cannot be lowered by a fold. An untouched lift keeps its stored record and verdict.
+ *
+ * Same shape as `deleteWorkout`, for the same reasons: reads first (server only, so offline it rejects before any
+ * write), then one transaction (never a batch, which waits offline and applies later). Reads per touched lift: its
+ * summary's stamp, then every session of the lift; writes: 1 + 2 per touched lift. The transaction re-reads the
+ * workout's doc and each summary and refuses (`changed`) if a stamp moved, so a Finish or an edit landing between the
+ * reads and the commit is never overwritten by a rebuild that did not see it. The workout's own stamp moves with a
+ * note too: that refuses harmlessly, and a second Save succeeds. Separately, a lift this Save rewrites that was changed
+ * elsewhere since the draft opened refuses with `conflict`, by content (`storedStillMatches`): a note does not. Unlike
+ * `changed`, a retry cannot succeed: the draft is older than what is stored, so the screen says to open it again.
+ *
+ * Exercises added or removed (stage 3) are lifts too: an added lift's summary is rebuilt with this workout in it; a
+ * removed one (or one whose every set was deleted) is rebuilt without it (`summaryWithout`), or becomes a marker when no
+ * session of it is left, as a delete's, and its `exercise_sessions` doc is deleted. A workout with no lift left is refused
+ * (`nothing-left`): that is a delete, which has its own path.
+ *
+ * Rejects with a `code`: `nothing-left`, `not-found`, `deleted`, `unreadable-history` (`summaryWithEdited`,
+ * `summaryWithout`), `conflict` and `changed`. Nothing differing resolves with nothing written. The next
+ * workout's stored verdict is not rewritten (TICKET-095), as in `deleteWorkout`. `dryRun` reads and reports (3.3).
+ */
+export const saveEditedWorkout = async (
+  userId: string,
+  workout: ActiveWorkout,
+  options: { dryRun?: boolean } = {}
+): Promise<SaveEditedWorkoutResult> => {
+  const editOf = workout.editOf;
+  if (!userId || !editOf) throw new Error("Missing user, or not an edit draft");
+  const { session, exerciseSessions } = buildSessionDocs(workout, editOf.endedAt);
+  if (session.sessionId !== editOf.sessionId) throw new Error("The draft does not name the workout it edits");
+  const diff = draftDiff(workout);
+  const affected = draftAffected(diff);
+  if (affected.length === 0) return { session: null, summaries: [], docsRead: 0 };
+  if (session.lifts.length === 0) throw Object.assign(new Error("Every exercise was removed"), { code: "nothing-left" });
+
+  const sessionRef = doc(sessionsRef(userId), session.sessionId);
+  const sessionBefore = await getDocFromServer(sessionRef);
+  if (!sessionBefore.exists()) throw Object.assign(new Error("This workout is not on the server"), { code: "not-found" });
+  if (sessionBefore.data().deleted === true) throw Object.assign(new Error("This workout was deleted"), { code: "deleted" });
+  if (!storedStillMatches(sessionBefore.data(), editOf, affected)) {
+    throw Object.assign(new Error("The workout was changed elsewhere while it was being edited"), { code: "conflict" });
+  }
+  const sessionStampBefore = toStamp(sessionBefore.data().updatedAt);
+
+  let docsRead = 0;
+  const rebuilt = new Map<string, { stats: ExerciseStatsDoc; lift: LiftRecord }>();
+  const summaries: SaveEditedWorkoutResult["summaries"] = [];
+  const stampsBefore: (SyncStamp | undefined)[] = [];
+  for (const exerciseId of affected) {
+    const statsSnapshot = await getDocFromServer(doc(exerciseStatsRef(userId), exerciseId));
+    stampsBefore.push(toStamp(statsSnapshot.data()?.updatedAt));
+    const sessionsOfLift = await getAllSessionsOfExercise(userId, exerciseId);
+    docsRead += sessionsOfLift.length;
+    if (diff.removed.includes(exerciseId)) {
+      const without = summaryWithout(exerciseId, sessionsOfLift, session.sessionId);
+      if (without.status === "unreadable") {
+        throw Object.assign(new Error(`${exerciseId} has sessions in the old format: ${without.sessionIds.join(", ")}`), { code: "unreadable-history" });
+      }
+      summaries.push(without.stats ?? { exerciseId, deleted: true });
+      continue;
+    }
+    const answer = summaryWithEdited(exerciseId, sessionsOfLift, session);
+    if (answer.status === "unreadable") {
+      throw Object.assign(new Error(`${exerciseId} has sessions in the old format: ${answer.sessionIds.join(", ")}`), { code: "unreadable-history" });
+    }
+    // A touched or added lift is in the draft and has sets, so both exist; a missing one is a bug, not data to write.
+    if (!answer.stats || !answer.lift) throw new Error(`Rebuild of ${exerciseId} found no session with it`);
+    rebuilt.set(exerciseId, { stats: answer.stats, lift: answer.lift });
+    summaries.push(answer.stats);
+  }
+
+  // The lifts as written: a touched lift with its recomputed verdict, an untouched one exactly as stored (the draft
+  // holds its sets but not its verdict). Built inside the transaction from the doc it just read, for the verdicts.
+  const withStoredVerdicts = (storedLifts: unknown): LiftRecord[] => {
+    const stored = new Map((readLifts(storedLifts) ?? []).map((lift) => [lift.id, lift]));
+    return session.lifts.map((lift) => rebuilt.get(lift.id)?.lift ?? stored.get(lift.id) ?? lift);
+  };
+  // The session's total from the lifts as written, not from the draft's copy of them: an untouched lift is kept as
+  // stored, so a draft-built total would disagree with the lifts beside it when that lift changed elsewhere.
+  const volumeOf = (written: LiftRecord[]) => computeSessionTotalVolume(exerciseSessionsOf([{ ...session, lifts: written }]));
+  if (options.dryRun) {
+    const lifts = withStoredVerdicts(sessionBefore.data().lifts);
+    return { session: { ...session, lifts, volume: volumeOf(lifts) }, summaries, docsRead };
+  }
+
+  let lifts: LiftRecord[] = [];
+  await runTransaction(db, async (tx) => {
+    const [sessionSnapshot, ...statsSnapshots] = await Promise.all([
+      tx.get(sessionRef),
+      ...affected.map((exerciseId) => tx.get(doc(exerciseStatsRef(userId), exerciseId))),
+    ]);
+    if (!sessionSnapshot.exists()) throw Object.assign(new Error("This workout is not on the server"), { code: "not-found" });
+    if (sessionSnapshot.data().deleted === true) throw Object.assign(new Error("This workout was deleted"), { code: "deleted" });
+    if (!storedStillMatches(sessionSnapshot.data(), editOf, affected)) {
+      throw Object.assign(new Error("The workout was changed elsewhere while it was being edited"), { code: "conflict" });
+    }
+    const moved =
+      compareStamps(toStamp(sessionSnapshot.data().updatedAt), sessionStampBefore) !== 0 ||
+      statsSnapshots.some((stats, index) => compareStamps(toStamp(stats.data()?.updatedAt), stampsBefore[index]) !== 0);
+    if (moved) throw Object.assign(new Error("The workout or a summary changed while the edit was saved"), { code: "changed" });
+
+    lifts = withStoredVerdicts(sessionSnapshot.data().lifts);
+    // Update, not set: `note`, `startedAt`, `endedAt` and the name stay as stored.
+    tx.update(sessionRef, { lifts, exerciseIds: session.exerciseIds, volume: volumeOf(lifts), updatedAt: serverTimestamp() });
+    exerciseSessions
+      .filter((exerciseSession) => rebuilt.has(exerciseSession.exerciseId))
+      .forEach((exerciseSession) =>
+        tx.set(doc(exerciseSessionsRef(userId), buildExerciseSessionId(exerciseSession.sessionId, exerciseSession.exerciseId)), exerciseSession)
+      );
+    // A removed lift's record of this workout goes (ids are derived, no read).
+    diff.removed.forEach((exerciseId) => tx.delete(doc(exerciseSessionsRef(userId), buildExerciseSessionId(session.sessionId, exerciseId))));
+    // Replace, never merge: a merge would keep the old bests (TICKET-032).
+    affected.forEach((exerciseId, index) => tx.set(doc(exerciseStatsRef(userId), exerciseId), { ...summaries[index], updatedAt: serverTimestamp() }));
+  });
+  return { session: { ...session, lifts, volume: volumeOf(lifts) }, summaries, docsRead };
 };
 
 /**

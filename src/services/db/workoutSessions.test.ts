@@ -1,8 +1,9 @@
 import { Timestamp, getDocFromServer, getDocs, getDocsFromServer, limit, runTransaction, serverTimestamp, startAfter, where, writeBatch } from "firebase/firestore";
-import { deleteWorkout, getAllExerciseStats, getLastWorkoutOfPlan, getOlderWorkoutsPage, getSessionsOfExercisePage, getWorkoutById, getWorkoutSessions, saveWorkoutSession, setWorkoutNote } from "./workoutSessions";
+import { deleteWorkout, saveEditedWorkout, getAllExerciseStats, getLastWorkoutOfPlan, getOlderWorkoutsPage, getSessionsOfExercisePage, getWorkoutById, getWorkoutSessions, saveWorkoutSession, setWorkoutNote } from "./workoutSessions";
 import { buildExercise, buildStats, buildWorkout } from "../../test/fixtures";
 import * as liftRecord from "../../utils/liftRecord";
 import { buildExerciseSessionId, buildSessionDocs } from "../../utils/exerciseStats";
+import { toEditableWorkout } from "../../utils/editSession";
 
 jest.mock("../firebase/firebase", () => ({ db: {} }));
 jest.mock("firebase/firestore", () => ({
@@ -503,6 +504,193 @@ describe("deleting a workout", () => {
   it("a dry run reads and reports what it would write, and writes nothing", async () => {
     const { summaries } = await deleteWorkout("u1", typo, { dryRun: true });
     expect(summaries).toHaveLength(2);
+    expect(runTransaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("saving an edited workout (TICKET-102)", () => {
+  const made = (startTime: number, weight: number) =>
+    buildSessionDocs(
+      buildWorkout([], {
+        id: "push",
+        startTime,
+        exercises: [
+          buildExercise("Bench", { sets: [{ id: 1, segments: [{ Weight: weight, Reps: 5 }] }] }),
+          buildExercise("Dips", { sets: [{ id: 1, segments: [{ Weight: 20, Reps: 8 }] }] }),
+        ],
+      }),
+      startTime + 1
+    ).session;
+  const real = made(1_000, 60);
+  // The stored typo workout, with verdicts as a Finish wrote them.
+  const typo = { ...made(2_000, 650), lifts: made(2_000, 650).lifts.map((lift) => ({ ...lift, verdict: "same" as const, reason: null })) };
+
+  /** The draft of the typo workout with Bench set 1 fixed to 65, or with nothing changed. */
+  const draft = (weight?: number) => {
+    const result = toEditableWorkout(typo);
+    if (result.status !== "ready") throw new Error(result.reason);
+    const w = result.workout;
+    if (weight === undefined) return w;
+    return { ...w, exercises: w.exercises.map((e) => (e.id === "bench" ? { ...e, sets: [{ ...e.sets[0], segments: [{ Weight: weight, Reps: 5 }] }] } : e)) };
+  };
+  const asDoc = (session: object) => ({ data: () => session });
+  const serverAnswer = (...sessions: object[]) => ({ metadata: { hasPendingWrites: false }, size: sessions.length, docs: sessions.map(asDoc) });
+  const tx = { get: jest.fn(), update: jest.fn(), delete: jest.fn(), set: jest.fn() };
+  const statsDoc = (seconds = 5) => ({ metadata: { hasPendingWrites: false }, exists: () => true, data: () => ({ updatedAt: new Timestamp(seconds, 0) }) });
+  const storedDoc = (seconds = 7, extra: object = {}) => ({
+    metadata: { hasPendingWrites: false },
+    exists: () => true,
+    data: () => ({ ...typo, updatedAt: new Timestamp(seconds, 0), ...extra }),
+  });
+
+  beforeEach(() => {
+    [tx.get, tx.update, tx.delete, tx.set, runTransaction as jest.Mock, getDocsFromServer as jest.Mock, getDocFromServer as jest.Mock].forEach((m) => m.mockReset());
+    // Before the reads: the workout's doc, then each summary's stamp. Inside the transaction the same unless a test moves one.
+    (getDocFromServer as jest.Mock).mockImplementation(async (ref: string) => (ref === typo.sessionId ? storedDoc() : statsDoc()));
+    tx.get.mockImplementation(async (ref: string) => (ref === typo.sessionId ? storedDoc() : statsDoc()));
+    (runTransaction as jest.Mock).mockImplementation(async (_db, fn) => fn(tx));
+    (getDocsFromServer as jest.Mock).mockImplementation(async () => {
+      const lift = (where as jest.Mock).mock.calls.at(-1)![2];
+      return lift === "bench" ? serverAnswer(real, typo) : serverAnswer(typo);
+    });
+  });
+  const noWrites = () => [tx.update, tx.delete, tx.set].every((m) => m.mock.calls.length === 0);
+
+  it("rebuilds only the touched lift: the fixed 65 replaces the 650, its own verdict is recomputed, the untouched lift keeps its stored one", async () => {
+    const { session, summaries, docsRead } = await saveEditedWorkout("u1", draft(65));
+
+    expect(docsRead).toBe(2); // Bench's two sessions; Dips is not read
+    expect(getDocsFromServer).toHaveBeenCalledTimes(1);
+    expect(summaries).toHaveLength(1);
+    const [, update] = tx.update.mock.calls[0];
+    expect(tx.update.mock.calls[0][0]).toBe(typo.sessionId);
+    // Only what an edit changes: never the note, the start, the end or the name.
+    expect(Object.keys(update).sort()).toEqual(["exerciseIds", "lifts", "updatedAt", "volume"]);
+    expect(update.updatedAt).toBe("SERVER_STAMP");
+    const bench = update.lifts.find((l: { id: string }) => l.id === "bench");
+    const dips = update.lifts.find((l: { id: string }) => l.id === "dips");
+    expect(bench.sets[0].segments[0].Weight).toBe(65);
+    expect(bench.verdict).toBe("better"); // 65 over the earlier 60
+    expect(dips.verdict).toBe("same"); // as stored, not "pending"
+    const writes = Object.fromEntries(tx.set.mock.calls.map(([id, data, options]) => [id, { data, options }]));
+    expect(Object.keys(writes).sort()).toEqual([buildExerciseSessionId(typo.sessionId, "bench"), "bench"].sort());
+    // Replace, never merge: a merge would keep the 650.
+    expect(writes.bench.options).toBeUndefined();
+    expect(writes.bench.data).toMatchObject({ updatedAt: "SERVER_STAMP", bestByReps: { "5|kg": { weight: 65 } } });
+    expect(session.lifts.map((l) => l.verdict)).toEqual(["better", "same"]);
+  });
+
+  it("refuses when a lift this Save rewrites, or the list of lifts, was changed elsewhere while the draft was open; a note or an untouched lift changed elsewhere does not", async () => {
+    const asStored = (doc: object, seconds = 7) => ({ metadata: { hasPendingWrites: false }, exists: () => true, data: () => ({ ...doc, updatedAt: new Timestamp(seconds, 0) }) });
+    const editedElsewhere = (id: string) => ({ ...typo, lifts: typo.lifts.map((l) => (l.id === id ? { ...l, sets: [{ segments: [{ Weight: 25, Reps: 8 }], effort: null }] } : l)) });
+    const serveStored = (doc: object, inTx = false) => {
+      (getDocFromServer as jest.Mock).mockImplementation(async (ref: string) => (ref === typo.sessionId ? asStored(inTx ? typo : doc) : statsDoc()));
+      tx.get.mockImplementation(async (ref: string) => (ref === typo.sessionId ? asStored(doc) : statsDoc()));
+    };
+
+    // The lift being fixed (bench) was changed elsewhere: refuse, before any transaction.
+    serveStored(editedElsewhere("bench"));
+    await expect(saveEditedWorkout("u1", draft(65))).rejects.toMatchObject({ code: "conflict" });
+    expect(runTransaction).not.toHaveBeenCalled();
+    // The same, landing between the reads and the commit: the transaction refuses and writes nothing.
+    serveStored(editedElsewhere("bench"), true);
+    await expect(saveEditedWorkout("u1", draft(65))).rejects.toMatchObject({ code: "conflict" });
+    expect(noWrites()).toBe(true);
+    // A lift added elsewhere would be dropped from the written list: refuse.
+    serveStored({ ...typo, lifts: [...typo.lifts, { ...typo.lifts[1], id: "row", name: "Row" }] });
+    await expect(saveEditedWorkout("u1", draft(65))).rejects.toMatchObject({ code: "conflict" });
+
+    // An untouched lift (dips) changed elsewhere is kept as stored, and a note changes nothing Save writes: both save.
+    serveStored({ ...editedElsewhere("dips"), note: "Slept badly." });
+    const { session } = await saveEditedWorkout("u1", draft(65));
+    expect(session!.lifts.find((l) => l.id === "dips")?.sets[0].segments).toEqual([{ Weight: 25, Reps: 8 }]);
+    // The total is of the lifts as written (bench 65 x 5 = 325, dips as stored 25 x 8 = 200), not the draft's copy of dips (20 x 8).
+    const { volume } = tx.update.mock.calls[0][1];
+    expect(volume.totals).toEqual([{ unit: "kg", value: 525 }]);
+    expect(session!.volume).toEqual(volume);
+    expect(Object.keys(tx.update.mock.calls[0][1]).sort()).toEqual(["exerciseIds", "lifts", "updatedAt", "volume"]);
+  });
+
+  it("with nothing changed, reads and writes nothing", async () => {
+    // No session either: nothing was written, so no copy may be replaced by a draft-built one.
+    await expect(saveEditedWorkout("u1", draft())).resolves.toEqual({ session: null, summaries: [], docsRead: 0 });
+    expect(getDocFromServer).not.toHaveBeenCalled();
+    expect(runTransaction).not.toHaveBeenCalled();
+  });
+
+  it("refuses with a code, writing nothing, when a summary or the workout's own stamp moved after the reads", async () => {
+    tx.get.mockImplementation(async (ref: string) => (ref === typo.sessionId ? storedDoc() : statsDoc(9)));
+    await expect(saveEditedWorkout("u1", draft(65))).rejects.toMatchObject({ code: "changed" });
+    expect(noWrites()).toBe(true);
+    tx.get.mockImplementation(async (ref: string) => (ref === typo.sessionId ? storedDoc(8) : statsDoc()));
+    await expect(saveEditedWorkout("u1", draft(65))).rejects.toMatchObject({ code: "changed" });
+    expect(noWrites()).toBe(true);
+  });
+
+  it("rejects not-found and deleted before any read of sessions", async () => {
+    (getDocFromServer as jest.Mock).mockImplementation(async () => ({ exists: () => false, data: () => undefined }));
+    await expect(saveEditedWorkout("u1", draft(65))).rejects.toMatchObject({ code: "not-found" });
+    (getDocFromServer as jest.Mock).mockImplementation(async () => storedDoc(7, { deleted: true }));
+    await expect(saveEditedWorkout("u1", draft(65))).rejects.toMatchObject({ code: "deleted" });
+    expect(getDocsFromServer).not.toHaveBeenCalled();
+    expect(runTransaction).not.toHaveBeenCalled();
+  });
+
+  it("a removed exercise leaves a marker when no session of it is left, its record of this workout is deleted, and the other lift is not read", async () => {
+    const withoutDips = { ...draft(), exercises: draft().exercises.filter((e) => e.id !== "dips") };
+    const { session, summaries, docsRead } = await saveEditedWorkout("u1", withoutDips);
+
+    expect(docsRead).toBe(1); // Dips' one session; Bench is not read
+    expect(summaries).toEqual([{ exerciseId: "dips", deleted: true }]);
+    const [, update] = tx.update.mock.calls[0];
+    expect(update.lifts.map((l: { id: string }) => l.id)).toEqual(["bench"]);
+    expect(update.exerciseIds).toEqual(["bench"]);
+    expect(tx.delete.mock.calls.map(([id]) => id)).toEqual([buildExerciseSessionId(typo.sessionId, "dips")]);
+    // Replaced by the marker, never merged.
+    expect(tx.set.mock.calls.map(([id, data, options]) => [id, data, options])).toEqual([["dips", { exerciseId: "dips", deleted: true, updatedAt: "SERVER_STAMP" }, undefined]]);
+    expect(session.lifts.map((l) => l.id)).toEqual(["bench"]);
+  });
+
+  it("a removed exercise with other sessions left is rebuilt without this one, so its typo stops counting", async () => {
+    const withoutBench = { ...draft(), exercises: draft().exercises.filter((e) => e.id !== "bench") };
+    const { summaries } = await saveEditedWorkout("u1", withoutBench);
+    // The earlier 60 stays; the 650 of this workout goes.
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]).toMatchObject({ exerciseId: "bench", bestByReps: { "5|kg": { weight: 60 } } });
+  });
+
+  it("an exercise added is rebuilt with this workout in it, and its record is written", async () => {
+    const base = draft();
+    const added = { ...base, exercises: [...base.exercises, buildExercise("Row", { added: true, sets: [{ id: 1, segments: [{ Weight: 40, Reps: 10 }] }] })] };
+    const { summaries } = await saveEditedWorkout("u1", added);
+
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]).toMatchObject({ exerciseId: "row", bestByReps: { "10|kg": { weight: 40 } } });
+    const [, update] = tx.update.mock.calls[0];
+    expect(update.lifts.map((l: { id: string }) => l.id)).toEqual(["bench", "dips", "row"]);
+    expect(tx.set.mock.calls.map(([id]) => id).sort()).toEqual([buildExerciseSessionId(typo.sessionId, "row"), "row"].sort());
+    expect(tx.delete).not.toHaveBeenCalled();
+  });
+
+  it("refuses with nothing left, before any read, when every exercise is removed or emptied", async () => {
+    const base = draft();
+    const none = { ...base, exercises: base.exercises.map((e) => ({ ...e, sets: [] })) };
+    await expect(saveEditedWorkout("u1", none)).rejects.toMatchObject({ code: "nothing-left" });
+    expect(getDocFromServer).not.toHaveBeenCalled();
+    expect(runTransaction).not.toHaveBeenCalled();
+  });
+
+  it("offline the reads reject and nothing is written; a lift with an old-shape session refuses before any write", async () => {
+    (getDocsFromServer as jest.Mock).mockRejectedValueOnce(new Error("offline"));
+    await expect(saveEditedWorkout("u1", draft(65))).rejects.toThrow("offline");
+    (getDocsFromServer as jest.Mock).mockResolvedValue(serverAnswer({ ...real, lifts: "old shape" }, typo));
+    await expect(saveEditedWorkout("u1", draft(65))).rejects.toMatchObject({ code: "unreadable-history" });
+    expect(runTransaction).not.toHaveBeenCalled();
+  });
+
+  it("a dry run reads and reports, and writes nothing", async () => {
+    const { summaries, docsRead } = await saveEditedWorkout("u1", draft(65), { dryRun: true });
+    expect([summaries.length, docsRead]).toEqual([1, 2]);
     expect(runTransaction).not.toHaveBeenCalled();
   });
 });

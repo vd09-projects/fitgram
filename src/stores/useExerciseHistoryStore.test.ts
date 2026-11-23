@@ -117,3 +117,26 @@ it("own delete: nothing held or another user is a no-op; a marker removes the li
     expect(Object.keys(held?.byId ?? {})).toEqual(["squat"]);
   });
 });
+
+// TICKET-102: a saved edit's rebuilt summaries, held as a delete's are; an added lift's new summary is held too.
+it("own edit: a replacement and a new lift are held and stored, a marker removes the lift; another user or nothing held is a no-op", async () => {
+  store().applyEdited(UID, [unstamped(summary("bench", 0), 3)]);
+  expect(store().byId).toBeNull();
+
+  jest.mocked(getAllExerciseStats).mockResolvedValue([summary("bench", 5), summary("squat", 5)]);
+  await store().open(UID);
+  store().applyEdited("someone-else", [unstamped(summary("bench", 0), 3)]);
+  expect(store().byId?.bench.lastPerformedAt).toBe(1);
+
+  store().applyEdited(UID, [
+    unstamped(summary("bench", 0), 3),
+    unstamped(summary("row", 0), 4),
+    { exerciseId: "squat", deleted: true, updatedAt: { seconds: 9, nanoseconds: 0 } },
+  ]);
+  expect(Object.keys(store().byId ?? {}).sort()).toEqual(["bench", "row"]);
+  expect(store().byId?.bench.lastPerformedAt).toBe(3);
+  await waitFor(async () => {
+    const held = readStoredSummaries(await stored(), UID, EXERCISE_SUMMARIES_SHARDS).held;
+    expect(Object.keys(held?.byId ?? {}).sort()).toEqual(["bench", "row"]);
+  });
+});

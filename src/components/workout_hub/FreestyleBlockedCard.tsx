@@ -1,3 +1,5 @@
+import type { ActiveWorkout } from "../../types/zustandWorkoutType";
+import { backToSlotLabel, blockedStartReason } from "../../utils/workoutSlot";
 import React from "react";
 import { Modal, Pressable, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,7 +18,7 @@ const HIT = 44;
  * Freestyle tapped while another workout runs (TICKET-067, board Busy 3): a
  * short card with the reason and Back to <name>, the plan card's blocked
  * footer in its own sheet. The name and timer come from the running workout
- * (`blockedBy`, the screen's `activeWorkout`), never from a plan lookup.
+ * (`blockedBy`, the workout slot), never from a plan lookup.
  *
  * Decisions:
  * - **Its own card, not the plan card's blocked state**: there is no plan to
@@ -35,8 +37,8 @@ export function FreestyleBlockedCard({
   onBack,
   onClose,
 }: {
-  /** The running workout; null hides the card. */
-  blockedBy: { name: string; startTime: number } | null;
+  /** What holds the workout slot: a running workout or an edit draft (TICKET-102); null hides the card. */
+  blockedBy: ActiveWorkout | null;
   onBack: () => void;
   onClose: () => void;
 }) {
@@ -58,7 +60,7 @@ export function FreestyleBlockedCard({
           <View style={styles.handle} />
           <Header onClose={onClose} />
           <TextBase style={styles.reason}>
-            {blockedBy.name} is in progress. Finish or discard it to start a {FREESTYLE_NAME}.
+            {blockedStartReason(blockedBy, `a ${FREESTYLE_NAME}`)}
           </TextBase>
           <BackButton blockedBy={blockedBy} onPress={onBack} />
         </View>
@@ -87,20 +89,21 @@ function Header({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** Back to <name> · 23:14, ticking on its own clock so the hub does not. */
-function BackButton({ blockedBy, onPress }: { blockedBy: { name: string; startTime: number }; onPress: () => void }) {
+/** Back to <name> · 23:14, ticking on its own clock so the hub does not. A draft has no clock (TICKET-102): no dot, no time. */
+function BackButton({ blockedBy, onPress }: { blockedBy: ActiveWorkout; onPress: () => void }) {
   const { styles } = useThemeStyles(createStyles);
-  const elapsed = formatElapsed(blockedBy.startTime, useNow(1000));
+  const now = useNow(1000);
+  const elapsed = blockedBy.editOf ? null : formatElapsed(blockedBy.startTime, now);
   return (
     <TouchableOpacity
       style={styles.back}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Back to ${blockedBy.name}`}
+      accessibilityLabel={backToSlotLabel(blockedBy)}
     >
-      <View style={styles.liveDot} />
+      {!blockedBy.editOf && <View style={styles.liveDot} />}
       <TextBase style={styles.backText} numberOfLines={1}>
-        Back to {blockedBy.name}
+        {backToSlotLabel(blockedBy)}
         {elapsed !== null && (
           <>
             {" · "}

@@ -1,5 +1,5 @@
 import { buildSessionDocs } from "./exerciseStats";
-import { previousSessionOf, readLifts, summaryWithout, withVerdicts } from "./liftRecord";
+import { previousSessionOf, readLifts, summaryWithEdited, summaryWithout, withVerdicts } from "./liftRecord";
 import { STATS_RECENT_SESSION_CAP } from "../config/storedData";
 import { FREESTYLE_ID } from "../constants/freestyle";
 import { buildExercise, buildStats, buildWorkout } from "../test/fixtures";
@@ -121,5 +121,35 @@ describe("summaryWithout", () => {
     expect(summaryWithout("bench", [old, real, typo], typo.sessionId)).toEqual({ status: "unreadable", sessionIds: [old.sessionId] });
     // The deleted workout itself being unreadable does not matter: nothing of it is kept.
     expect(summaryWithout("bench", [real, { ...typo, lifts: [], liftsUnreadable: true as const }], typo.sessionId).status).toBe("ready");
+  });
+});
+
+describe("summaryWithEdited (TICKET-102)", () => {
+  const bench = (startTime: number, weight: number) =>
+    buildSessionDocs(buildWorkout([], { id: "push", startTime, exercises: [buildExercise("Bench", { sets: [set(weight, 5)] })] }), startTime + 1).session;
+  const typo = bench(2_000, 650);
+  const real = bench(1_000, 60);
+  const fixed = bench(2_000, 65);
+
+  it("replaces the stored copy, not adds to it: the typo's 650 is gone and the fixed 65 is the best", () => {
+    const result = summaryWithEdited("bench", [real, typo], fixed);
+    expect(result.status === "ready" && result.stats?.bestByReps["5|kg"]?.weight).toBe(65);
+    expect(result.status === "ready" && result.stats?.recentSessions).toHaveLength(2);
+  });
+
+  it("gives the edited workout's own verdict against the lift's true previous session", () => {
+    const result = summaryWithEdited("bench", [real, typo], fixed);
+    // 65 over the earlier 60: better, where the typo's 650 was better by a wrong margin.
+    expect(result.status === "ready" && result.lift?.verdict).toBe("better");
+  });
+
+  it("is null for both when the edit no longer has the lift and no other session does", () => {
+    const without = { ...fixed, lifts: [], exerciseIds: [] };
+    expect(summaryWithEdited("bench", [typo], without)).toEqual({ status: "ready", stats: null, lift: null });
+  });
+
+  it("refuses, naming the session, when another session's lifts are unreadable", () => {
+    const old = { ...bench(500, 100), lifts: [], liftsUnreadable: true as const };
+    expect(summaryWithEdited("bench", [old, real, typo], fixed)).toEqual({ status: "unreadable", sessionIds: [old.sessionId] });
   });
 });

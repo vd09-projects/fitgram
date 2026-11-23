@@ -41,13 +41,18 @@ function ElapsedTime({ startTime }: { startTime: number }) {
 type Props = {
   workoutName: string;
   startTime: number;
+  /**
+   * An edit draft's date ("Mon 9 Nov", TICKET-102, board ESL2Logger): shown as "Editing · <date>" in place of the
+   * elapsed time, which would count from a start days ago.
+   */
+  editingDate?: string;
   onBack: () => void;
   onOpenMenu: () => void;
   /** Under the elapsed time: the rest running on another exercise (TICKET-099). */
   restChip?: React.ReactNode;
 };
 
-export default function WorkoutHeader({ workoutName, startTime, onBack, onOpenMenu, restChip }: Props) {
+export default function WorkoutHeader({ workoutName, startTime, editingDate, onBack, onOpenMenu, restChip }: Props) {
   const { styles, t } = useThemeStyles(createStyles);
 
   return (
@@ -56,7 +61,14 @@ export default function WorkoutHeader({ workoutName, startTime, onBack, onOpenMe
 
       <View style={styles.titleBlock}>
         <TextBase style={styles.workoutName} numberOfLines={1}>{workoutName}</TextBase>
-        <ElapsedTime startTime={startTime} />
+        {editingDate !== undefined ? (
+          <View style={styles.elapsedRow} accessible accessibilityLabel={`Editing, ${editingDate}`}>
+            <TextBase style={styles.editingLabel}>Editing</TextBase>
+            <TextBase style={styles.elapsedLabel}>· {editingDate}</TextBase>
+          </View>
+        ) : (
+          <ElapsedTime startTime={startTime} />
+        )}
         {restChip}
       </View>
 
@@ -121,5 +133,10 @@ const createStyles = (t: ReturnTypeUseThemeTokens) => StyleSheet.create({
   elapsedLabel: {
     fontSize: t.fonts.small,
     color: t.colors.role.textSecondary,
+  },
+  editingLabel: {
+    fontSize: t.fonts.small,
+    fontWeight: "bold",
+    color: t.colors.role.accent,
   },
 });

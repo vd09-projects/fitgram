@@ -6,6 +6,8 @@ import { useRecentWorkouts } from "../../hooks/useRecentWorkouts";
 import { useExerciseHistoryStore } from "../../stores/useExerciseHistoryStore";
 import { useRecentWorkoutsStore } from "../../stores/useRecentWorkoutsStore";
 import { drainPendingUploads, useWorkoutStore } from "../../stores/useWorkoutStore";
+import { slotTakenReason } from "../../utils/workoutSlot";
+import show from "../../utils/toastUtils";
 import { Ionicons } from "@expo/vector-icons";
 import { liftCards, liftCompare, normalizeNote, resolveSession, sessionDateLine, sessionSummary, uploadNotice } from "../../utils/sessionView";
 import { deleteWorkout, setWorkoutNote } from "../../services/db/workoutSessions";
@@ -68,6 +70,8 @@ export default function SessionScreen() {
   const waitOver = useRecentWorkoutsStore((s) => s.waitOver);
   const fetched = useRecentWorkoutsStore((s) => s.fetchedSessions[sessionId]);
   const pending = useWorkoutStore((s) => s.pendingUploads);
+  // The workout slot, for Edit session (TICKET-102): one slot, so a workout or another edit there turns it off.
+  const slot = useWorkoutStore((s) => s.activeWorkout);
   const summaries = useExerciseHistoryStore((s) => (s.uid === uid ? s.byId : null));
   const [retrying, setRetrying] = useState(false);
   // True when this workout's upload showed the "Saved" toast, which then says what the banner would (PR #76 review).
@@ -188,6 +192,22 @@ export default function SessionScreen() {
     if (navigation.isFocused()) navigation.popTo(WorkoutRoutes.HistoryHome);
   };
 
+  /**
+   * Edit session (TICKET-102): the workout becomes a draft in the logger (`startEdit`), nothing is written. A draft
+   * of this same workout already open is continued, not refused.
+   */
+  const openEdit = async () => {
+    if (!workout) return;
+    if (slot?.editOf?.sessionId !== workout.session.sessionId) {
+      const result = await useWorkoutStore.getState().startEdit(workout.session);
+      if (result.status === "refused") {
+        show.alert("Could not edit", result.reason);
+        return;
+      }
+    }
+    navigation.navigate(WorkoutRoutes.LogWorkout);
+  };
+
   const tryAgain = async () => {
     if (retrying) return;
     setRetrying(true);
@@ -250,6 +270,17 @@ export default function SessionScreen() {
   const notice = uploadNotice(state);
   const summary = sessionSummary(session);
   const noteReason = state === "uploaded" ? null : "Available once the workout has uploaded.";
+  // Board ESL8Blocked. A queued workout has no stored doc to edit; unreadable lifts have nothing to load; the slot holds
+  // one workout or draft at a time.
+  const editingThis = slot?.editOf?.sessionId === session.sessionId;
+  const editReason =
+    state !== "uploaded"
+      ? "Available once the workout has uploaded."
+      : session.liftsUnreadable
+        ? "Its details could not be read."
+        : slot && !editingThis
+          ? slotTakenReason(slot)
+          : null;
   const options = [
     [
       {
@@ -265,9 +296,10 @@ export default function SessionScreen() {
       {
         key: "edit",
         renderIcon: (color: string) => <Ionicons name="pencil-outline" size={22} color={color} />,
-        title: "Edit session",
-        disabledReason: "Not available yet.",
-        onPress: () => {},
+        title: editingThis ? "Continue editing" : "Edit session",
+        detail: editingThis ? undefined : "Fix a set, add or remove one",
+        disabledReason: editReason,
+        onPress: () => void openEdit(),
       },
       {
         key: "delete",

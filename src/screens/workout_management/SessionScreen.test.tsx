@@ -233,6 +233,23 @@ describe("SessionScreen", () => {
     expect(screen.getByRole("button", { name: /^Delete session/, disabled: true })).toBeOnTheScreen();
   });
 
+  // TICKET-102 stage 1: Edit session opens the workout as a draft in the logger; nothing is written.
+  it("Edit session opens the workout as a draft in the logger; off with its reason while a workout is in progress", async () => {
+    await open([session("s1", [lift("Bench")])], "s1");
+    await act(async () => useWorkoutStore.setState({ activeWorkout: buildWorkout(["Squat"], { name: "Legs" }) }));
+    fireEvent.press(await screen.findByRole("button", { name: "Session options" }));
+    expect(await screen.findByRole("button", { name: /^Edit session, Finish or discard Legs first/, disabled: true })).toBeOnTheScreen();
+    fireEvent.press(screen.getByRole("button", { name: "Close" }));
+
+    await act(async () => useWorkoutStore.setState({ activeWorkout: null }));
+    fireEvent.press(screen.getByRole("button", { name: "Session options" }));
+    await act(async () => fireEvent.press(await screen.findByRole("button", { name: /^Edit session/ })));
+    expect(useWorkoutStore.getState().activeWorkout?.editOf?.sessionId).toBe("s1");
+    expect(await screen.findByText(`route:Workout/${WorkoutRoutes.LogWorkout}`)).toBeOnTheScreen();
+    expect(setWorkoutNote).not.toHaveBeenCalled();
+    expect(deleteWorkout).not.toHaveBeenCalled();
+  });
+
   // TICKET-086
   describe("Delete session", () => {
     const toConfirm = async () => {
