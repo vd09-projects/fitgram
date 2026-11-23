@@ -595,14 +595,56 @@ describe("saving an edited workout (TICKET-102)", () => {
     expect(noWrites()).toBe(true);
   });
 
-  it("rejects not-found and deleted before any read of sessions, and refuses a changed list of exercises", async () => {
+  it("rejects not-found and deleted before any read of sessions", async () => {
     (getDocFromServer as jest.Mock).mockImplementation(async () => ({ exists: () => false, data: () => undefined }));
     await expect(saveEditedWorkout("u1", draft(65))).rejects.toMatchObject({ code: "not-found" });
     (getDocFromServer as jest.Mock).mockImplementation(async () => storedDoc(7, { deleted: true }));
     await expect(saveEditedWorkout("u1", draft(65))).rejects.toMatchObject({ code: "deleted" });
     expect(getDocsFromServer).not.toHaveBeenCalled();
-    const dropped = draft(65);
-    await expect(saveEditedWorkout("u1", { ...dropped, exercises: dropped.exercises.slice(0, 1) })).rejects.toMatchObject({ code: "shape-not-saved" });
+    expect(runTransaction).not.toHaveBeenCalled();
+  });
+
+  it("a removed exercise leaves a marker when no session of it is left, its record of this workout is deleted, and the other lift is not read", async () => {
+    const withoutDips = { ...draft(), exercises: draft().exercises.filter((e) => e.id !== "dips") };
+    const { session, summaries, docsRead } = await saveEditedWorkout("u1", withoutDips);
+
+    expect(docsRead).toBe(1); // Dips' one session; Bench is not read
+    expect(summaries).toEqual([{ exerciseId: "dips", deleted: true }]);
+    const [, update] = tx.update.mock.calls[0];
+    expect(update.lifts.map((l: { id: string }) => l.id)).toEqual(["bench"]);
+    expect(update.exerciseIds).toEqual(["bench"]);
+    expect(tx.delete.mock.calls.map(([id]) => id)).toEqual([buildExerciseSessionId(typo.sessionId, "dips")]);
+    // Replaced by the marker, never merged.
+    expect(tx.set.mock.calls.map(([id, data, options]) => [id, data, options])).toEqual([["dips", { exerciseId: "dips", deleted: true, updatedAt: "SERVER_STAMP" }, undefined]]);
+    expect(session.lifts.map((l) => l.id)).toEqual(["bench"]);
+  });
+
+  it("a removed exercise with other sessions left is rebuilt without this one, so its typo stops counting", async () => {
+    const withoutBench = { ...draft(), exercises: draft().exercises.filter((e) => e.id !== "bench") };
+    const { summaries } = await saveEditedWorkout("u1", withoutBench);
+    // The earlier 60 stays; the 650 of this workout goes.
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]).toMatchObject({ exerciseId: "bench", bestByReps: { "5|kg": { weight: 60 } } });
+  });
+
+  it("an exercise added is rebuilt with this workout in it, and its record is written", async () => {
+    const base = draft();
+    const added = { ...base, exercises: [...base.exercises, buildExercise("Row", { added: true, sets: [{ id: 1, segments: [{ Weight: 40, Reps: 10 }] }] })] };
+    const { summaries } = await saveEditedWorkout("u1", added);
+
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]).toMatchObject({ exerciseId: "row", bestByReps: { "10|kg": { weight: 40 } } });
+    const [, update] = tx.update.mock.calls[0];
+    expect(update.lifts.map((l: { id: string }) => l.id)).toEqual(["bench", "dips", "row"]);
+    expect(tx.set.mock.calls.map(([id]) => id).sort()).toEqual([buildExerciseSessionId(typo.sessionId, "row"), "row"].sort());
+    expect(tx.delete).not.toHaveBeenCalled();
+  });
+
+  it("refuses with nothing left, before any read, when every exercise is removed or emptied", async () => {
+    const base = draft();
+    const none = { ...base, exercises: base.exercises.map((e) => ({ ...e, sets: [] })) };
+    await expect(saveEditedWorkout("u1", none)).rejects.toMatchObject({ code: "nothing-left" });
+    expect(getDocFromServer).not.toHaveBeenCalled();
     expect(runTransaction).not.toHaveBeenCalled();
   });
 

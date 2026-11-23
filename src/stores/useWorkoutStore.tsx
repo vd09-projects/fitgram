@@ -716,7 +716,9 @@ export const useWorkoutStore = create<WorkoutStoreState>((set, get) => ({
     const index = activeWorkout.exercises.findIndex((ex) => ex.id === exerciseId);
     if (index === -1) return { status: "refused", reason: "That exercise is not in this workout." };
     const slot = activeWorkout.exercises[index];
-    if (slot.sets.length > 0) return { status: "refused", reason: REMOVE_LOCKED_REASON };
+    // In an edit draft a logged exercise can go, with its sets (TICKET-102): a past workout's mistake is often a whole
+    // lift. Undo brings the whole slot back, sets included. Save drops the lift from the stored workout.
+    if (slot.sets.length > 0 && !activeWorkout.editOf) return { status: "refused", reason: REMOVE_LOCKED_REASON };
 
     const exercises = activeWorkout.exercises.filter((_, i) => i !== index);
     const current = resolveCurrentIndex(activeWorkout.currentExerciseIndex, activeWorkout.exercises.length);

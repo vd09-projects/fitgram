@@ -389,9 +389,13 @@ export default function ExerciseLogger({
   const removeItem: MenuItem = {
     key: "remove",
     renderIcon: (color) => <Ionicons name="remove-circle-outline" size={20} color={color} />,
-    title: "Remove from today",
+    title: editDraft ? "Remove from this workout" : "Remove from today",
     ...planDetail,
-    disabledReason: exercise.sets.length > 0 ? REMOVE_LOCKED_REASON : null,
+    // In an edit draft it works at any count and says what goes with it (TICKET-102); Undo brings the sets back.
+    ...(editDraft && exercise.sets.length > 0
+      ? { detail: `Its ${exercise.sets.length} ${exercise.sets.length === 1 ? "set goes" : "sets go"} too. Undo brings them back.` }
+      : {}),
+    disabledReason: exercise.sets.length > 0 && !editDraft ? REMOVE_LOCKED_REASON : null,
     onPress: onRemove,
   };
 

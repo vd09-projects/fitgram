@@ -82,26 +82,37 @@ export function draftChanged(workout: ActiveWorkout): boolean {
 }
 
 export type DraftDiff = {
-  /** Lifts in the draft and in the stored workout whose sets, fields or captions differ: the ones Save rebuilds. */
+  /** Lifts in the draft and in the stored workout whose sets, fields or captions differ. */
   touched: string[];
-  /** The draft has other exercises than the stored workout, in another order or not the same ones (stage 3's cases). */
-  shapeChanged: boolean;
+  /** Lifts the draft has and the stored workout does not (an exercise added). */
+  added: string[];
+  /**
+   * Lifts the stored workout has and the draft does not: an exercise removed, or one whose every set was deleted
+   * (`draftLifts` leaves a lift with no sets out, as a Finish does, so the two are the same thing).
+   */
+  removed: string[];
 };
 
 /**
  * What differs between the draft and the stored workout, per lift. Both sides are built by `draftLifts`, so verdicts
- * (always `pending` there) never count, and an edit put back counts for nothing. Untouched lifts are not rebuilt: a
- * typo fix costs one lift's reads, not the whole workout's.
+ * (always `pending` there) never count, and an edit put back counts for nothing. Lifts in none of the three lists are
+ * not rebuilt: a typo fix costs one lift's reads, not the whole workout's. The order of lifts is not a difference: the
+ * logger cannot reorder, and an added lift goes last.
  */
 export function draftDiff(workout: ActiveWorkout): DraftDiff {
   const now = draftLifts(workout);
   const before = workout.editOf?.original ?? [];
   const storedById = new Map(before.map((lift) => [lift.id, lift]));
+  const nowIds = new Set(now.map((lift) => lift.id));
   return {
     touched: now.filter((lift) => storedById.has(lift.id) && JSON.stringify(lift) !== JSON.stringify(storedById.get(lift.id))).map((lift) => lift.id),
-    shapeChanged: now.length !== before.length || now.some((lift, index) => lift.id !== before[index].id),
+    added: now.filter((lift) => !storedById.has(lift.id)).map((lift) => lift.id),
+    removed: before.filter((lift) => !nowIds.has(lift.id)).map((lift) => lift.id),
   };
 }
+
+/** Every lift whose summary Save rebuilds. */
+export const draftAffected = (diff: DraftDiff): string[] => [...diff.touched, ...diff.added, ...diff.removed];
 
 /**
  * The footer's refusal for a failed Save: a title and a line, by the error's `code` (`saveEditedWorkout`). A refusal
@@ -120,8 +131,8 @@ export function editSaveError(code: string | undefined): { title: string; detail
       return { title: "This workout was deleted", detail: "It was deleted on another phone. Cancel the edit to leave." };
     case "unreadable-history":
       return { title: "A lift cannot be recounted", detail: "A lift here has an older session in a format that cannot be recounted, so nothing was saved." };
-    case "shape-not-saved":
-      return { title: "Not in this build", detail: "Adding or removing an exercise, or deleting all of a lift's sets, is saved in the next build. Undo it to save the rest." };
+    case "nothing-left":
+      return { title: "No exercise left", detail: "A workout needs at least one exercise with a set. To remove the whole workout, delete the session instead." };
     default:
       return { title: "Could not save", detail: "Your changes are kept. Try again." };
   }

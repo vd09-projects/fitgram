@@ -597,7 +597,13 @@ export const useRecentWorkoutsStore = create<WorkoutsStore>((set, get) => {
       set((s) => ({
         workoutWindow: held && s.workoutWindow ? addToWindow(s.workoutWindow, [withEdited(held, edited)], WORKOUTS_ON_PHONE_MIN) : s.workoutWindow,
         olderWorkouts: Object.fromEntries(Object.entries(s.olderWorkouts).map(([key, older]) => [key, replaced(older)])),
-        exerciseOlder: Object.fromEntries(Object.entries(s.exerciseOlder).map(([key, older]) => [key, replaced(older)])),
+        // Keyed by exercise: a lift the edit removed no longer has this workout among its sessions.
+        exerciseOlder: Object.fromEntries(
+          Object.entries(s.exerciseOlder).map(([key, older]) => [
+            key,
+            edited.exerciseIds.includes(key) ? replaced(older) : { ...older, sessions: older.sessions.filter((session) => session.sessionId !== edited.sessionId) },
+          ])
+        ),
         fetchedSessions: Object.fromEntries(
           Object.entries(s.fetchedSessions).map(([key, read]) => [
             key,

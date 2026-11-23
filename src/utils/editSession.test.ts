@@ -122,15 +122,22 @@ describe("draftDiff (what Save rebuilds)", () => {
 
   it("names only the lift whose set changed; the other lifts are not touched", () => {
     const fixed = withBench((sets) => sets.map((set) => (set.id === 2 ? { ...set, segments: [{ Weight: 65, Reps: 9 }] } : set)));
-    expect(draftDiff(fixed)).toEqual({ touched: ["bench-press"], shapeChanged: false });
-    expect(draftDiff(draftOf(storedWorkout()))).toEqual({ touched: [], shapeChanged: false });
+    expect(draftDiff(fixed)).toEqual({ touched: ["bench-press"], added: [], removed: [] });
+    expect(draftDiff(draftOf(storedWorkout()))).toEqual({ touched: [], added: [], removed: [] });
   });
 
-  it("a mark changed counts, a set added counts; deleting every set of a lift is a change of shape, not a touch", () => {
+  it("a mark changed counts, a set added counts; deleting every set of a lift removes the lift, as removing it does", () => {
     const marked = withBench((sets) => sets.map((set) => (set.id === 2 ? { ...set, effort: Effort.Easy } : set)));
     expect(draftDiff(marked).touched).toEqual(["bench-press"]);
     expect(draftDiff(withBench((sets) => [...sets, { id: 4, segments: [{ Weight: 50, Reps: 8 }] }])).touched).toEqual(["bench-press"]);
-    expect(draftDiff(withBench(() => []))).toMatchObject({ shapeChanged: true });
+    expect(draftDiff(withBench(() => []))).toEqual({ touched: [], added: [], removed: ["bench-press"] });
+  });
+
+  it("an exercise added is named, and the order of lifts is not a difference", () => {
+    const draft = draftOf(storedWorkout());
+    const added = { ...draft, exercises: [...draft.exercises, buildExercise("Row", { added: true, sets: [{ id: 1, segments: [{ Weight: 40, Reps: 10 }] }] })] };
+    expect(draftDiff(added)).toEqual({ touched: [], added: ["row"], removed: [] });
+    expect(draftDiff({ ...draft, exercises: [...draft.exercises].reverse() })).toEqual({ touched: [], added: [], removed: [] });
   });
 });
 
@@ -138,6 +145,7 @@ describe("editSaveError", () => {
   it("says a refusal keeps the changes, and reads an unknown code as a plain failure, not a guessed cause", () => {
     expect(editSaveError("unavailable").detail).toMatch(/kept/);
     expect(editSaveError("changed").title).toBe("Changed elsewhere");
+    expect(editSaveError("nothing-left").detail).toMatch(/delete the session/);
     expect(editSaveError("something-new")).toEqual({ title: "Could not save", detail: "Your changes are kept. Try again." });
     expect(editSaveError(undefined).title).toBe("Could not save");
   });

@@ -11702,6 +11702,20 @@ The main job is a typo: `650` for `65` becomes a `bestByReps` entry no real set 
 - **Not done:** the dry run's read and write counts, the compare script's 0 mismatches, the emulator run (it writes to `pinky`: needs the user's go, dry run first),
   TICKET-103 (Save ends in the `popTo` that triggers it).
 
+**Stage 3 built 2026-11-23 (uncommitted for review; Save of a shape change not yet run against Firestore):**
+- `draftDiff` now returns `touched`, `added`, `removed` (a lift with every set deleted is `removed`, as `draftLifts` leaves it out); `draftAffected` is their union; the order of lifts is not a difference.
+- `saveEditedWorkout`: every affected lift's summary is rebuilt: touched and added by `summaryWithEdited`, removed by `summaryWithout`, or a `deleted` marker when no session of it is left;
+  a removed lift's `exercise_sessions` doc is deleted; all in the same transaction with the same stamp checks. A workout with no lift left is refused before any read (`nothing-left`: a delete has its own path).
+  `shape-not-saved` is gone.
+- Logger: **Remove from this workout** works at any set count in a draft ("Its N sets go too. Undo brings them back."); Undo restores the whole slot. Add exercise already worked in a draft (it appends and is
+  refused for an id already in the workout, so a lift emptied but still in the list cannot be added twice). Units change the lift's `fields`, so a unit change is a touch.
+- `useRecentWorkoutsStore.applyEdited`: a lift the edit removed drops this workout from its older list.
+- Proof so far: `tsc` clean; 1129 pass, 1 fail that is not this change (`WorkoutHubScreen` "idle for longer than the window" expects 400d and gets 399d: fails identically at the committed stage 2, a day-boundary clock dependence).
+  8 new tests; 7 lines broken, each red. Emulator, UI only: Remove on a 3-set lift in a draft (count 6 → 5, Undo banner, Save on), Undo (back to 6, Save off), Cancel edit.
+- **Run on `pinky` (user's go, 2026-11-23):** remove a one-session lift (marker written, its `exercise_sessions` doc deleted) and add it back (marker replaced, doc back): `compareHistory.ts` 0 mismatches after each (TESTING_NOTES.md). The restored lift sits last in the workout, not 4th.
+- **Not done:** a unit change saved, a removed lift on another phone, offline Save of a shape change, the dry-run counts (3.1). Nit: Add exercise's menu line says "today's list" in a past workout.
+- **Skipped rules:** 3.1 (no measured counts, as stage 2).
+
 **Cost per Save (from 086's fixtures):** per touched lift about the delete's reads for that lift plus 1 stamp read; in the
 transaction 1 + the lifts touched; writes 1 + 2 per lift touched. A typo fix touches one lift.
 
@@ -11727,6 +11741,23 @@ Workout tab → "Back to editing" → Cancel edit → Discard → the Session sh
 touches. The trigger is a rearrange (Layout `openTab`'s `reset` and the nested `singleCopy` move, `WorkoutNavigator`) followed by a pop.
 `@react-navigation/stack` 7.1.2 treats a rearrange as a push (`StackView.getDerivedStateFromProps`); a card left with
 `pointerEvents="none"` is the likely cause, not pinned to one card.
+
+**Attempt 1, 2026-11-23 (not a fix; reverted):** replaced the logger's `popTo` returns (Workout stack only) by a `CommonActions.reset` to the same routes.
+Result on the emulator, `pinky`, edit draft: Session → Edit → Workout tab → plan card → "Back to editing" → Cancel edit. Run 1 (before a
+temp log proved the new code was live): Cancel edit worked, then the Session ignored ⋯. Run 2 (fresh launch, temp log in the reset branch):
+the logger itself ignored every tap, **including its own Cancel edit footer, straight after "Back to editing"**, so before any return; the log
+never fired. The tab footer still worked, the app was not frozen (`isFrozen` false for the app), the view tree held only the visible
+screen's nodes (no overlay in it). So: `popTo` is not the only trigger, and `reset` does not cure it. A screen reached by
+`navigation.navigate(LogWorkout)` from the plan card's blocked footer (`PlanCard.goToLogger`: `onClose()` then `navigate`, which moves the
+one logger copy to the top, `singleCopy`) can come up dead, not every time. The same draft opened from the footer's Log Workout tab (Layout
+stack) answered normally, Cancel edit and then ⋯ both worked. Not yet tried: whether a dead screen recovers with time; whether closing the
+sheet first (the `onClose()`) matters; the same with a live workout and no draft.
+
+**Attempt 2, 2026-11-23 (the sheet and `reset` compared on the original repro; neither is the cause):**
+- **The sheet is not involved.** Start (plan sheet, then `navigate`) and "Resume" from the sheet left the logger responsive both times, with a live workout and no draft. The repro dies after **Discard**, and it died the same way whether Resume came from the sheet (run today) or the hub's Resume bar (the first repro). Closing the sheet before the `navigate` is therefore not a fix; not built.
+- **`popTo` is not the cause either.** Original repro (Workout tab → Test 070 → Start → Workout tab → Resume → ⋯ → Discard → Discard → tap History): dead with `popTo(WorkoutHome)`, with a temp log showing the Workout stack before `["WorkoutHome", "LogWorkout"]`, index 1 and 1.5 s after `["WorkoutHome"]`, index 0: **the stack state is right and the hub is drawn, and History ignores the tap.** Same repro with the Discard return as a `CommonActions.reset` to the same routes (log confirmed the branch ran): **dead the same way.** Attempt 1's edit-draft run 2 had a dead logger before any return.
+- So the touches are lost somewhere other than the Workout stack's state or how the logger leaves it. Left to test: the **Layout** stack (its `openTab` `reset` re-orders its cards, `LayoutScreen`; its state was `["Home","Workout","Feed","LogWorkout"]` at one dump), whether a dead hub is a Layout card marked closing/inactive, and a run with the Workout tab press removed to confirm that press is required (the ticket's control says so, with one run). A timing dependence is possible: the same steps answered normally in some runs (edit-draft run 1; Start, Resume from the sheet).
+- Reverted; no code change for 103 in this PR.
 
 **To do:**
 1. Find which card holds the touches (the Layout stack or the Workout stack; a temporary log of each card's `pointerEvents` and

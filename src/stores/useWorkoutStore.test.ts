@@ -940,6 +940,21 @@ describe("an edit draft of a past workout (TICKET-102)", () => {
     expect(store().activeWorkout).toBe(draft);
   });
 
+  it("removes a logged exercise with its sets in a draft, and Undo brings the sets back; a live workout still refuses it", async () => {
+    await store().startEdit(stored());
+    const before = store().activeWorkout!.exercises[0];
+    const result = await store().removeExercise("bench-press");
+    if (result.status !== "removed") throw new Error(result.reason);
+    expect(result.removed).toEqual({ slot: before, index: 0 });
+    expect(store().activeWorkout!.exercises).toEqual([]);
+    await store().restoreExercise(result.removed);
+    expect(store().activeWorkout!.exercises[0].sets).toEqual(before.sets);
+
+    useWorkoutStore.setState({ activeWorkout: null });
+    const live = seedWorkout();
+    const loggedId = live.exercises.find((e) => e.sets.length > 0)!.id;
+    expect((await store().removeExercise(loggedId)).status).toBe("refused");
+  });
   it("logging a set in a draft starts no rest", async () => {
     await store().startEdit(stored());
     store().startRest("bench-press", 90_000, 2);
