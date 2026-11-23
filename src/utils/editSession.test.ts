@@ -163,6 +163,7 @@ describe("editSaveError", () => {
   it("says a refusal keeps the changes, and reads an unknown code as a plain failure, not a guessed cause", () => {
     expect(editSaveError("unavailable").detail).toMatch(/kept/);
     expect(editSaveError("changed").title).toBe("Changed elsewhere");
+    expect(editSaveError("conflict").detail).toMatch(/open it again/);
     expect(editSaveError("nothing-left").detail).toMatch(/delete the session/);
     expect(editSaveError("something-new")).toEqual({ title: "Could not save", detail: "Your changes are kept. Try again." });
     expect(editSaveError(undefined).title).toBe("Could not save");

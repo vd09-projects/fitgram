@@ -580,6 +580,33 @@ describe("saving an edited workout (TICKET-102)", () => {
     expect(session.lifts.map((l) => l.verdict)).toEqual(["better", "same"]);
   });
 
+  it("refuses when a lift this Save rewrites, or the list of lifts, was changed elsewhere while the draft was open; a note or an untouched lift changed elsewhere does not", async () => {
+    const asStored = (doc: object, seconds = 7) => ({ metadata: { hasPendingWrites: false }, exists: () => true, data: () => ({ ...doc, updatedAt: new Timestamp(seconds, 0) }) });
+    const editedElsewhere = (id: string) => ({ ...typo, lifts: typo.lifts.map((l) => (l.id === id ? { ...l, sets: [{ segments: [{ Weight: 25, Reps: 8 }], effort: null }] } : l)) });
+    const serveStored = (doc: object, inTx = false) => {
+      (getDocFromServer as jest.Mock).mockImplementation(async (ref: string) => (ref === typo.sessionId ? asStored(inTx ? typo : doc) : statsDoc()));
+      tx.get.mockImplementation(async (ref: string) => (ref === typo.sessionId ? asStored(doc) : statsDoc()));
+    };
+
+    // The lift being fixed (bench) was changed elsewhere: refuse, before any transaction.
+    serveStored(editedElsewhere("bench"));
+    await expect(saveEditedWorkout("u1", draft(65))).rejects.toMatchObject({ code: "conflict" });
+    expect(runTransaction).not.toHaveBeenCalled();
+    // The same, landing between the reads and the commit: the transaction refuses and writes nothing.
+    serveStored(editedElsewhere("bench"), true);
+    await expect(saveEditedWorkout("u1", draft(65))).rejects.toMatchObject({ code: "conflict" });
+    expect(noWrites()).toBe(true);
+    // A lift added elsewhere would be dropped from the written list: refuse.
+    serveStored({ ...typo, lifts: [...typo.lifts, { ...typo.lifts[1], id: "row", name: "Row" }] });
+    await expect(saveEditedWorkout("u1", draft(65))).rejects.toMatchObject({ code: "conflict" });
+
+    // An untouched lift (dips) changed elsewhere is kept as stored, and a note changes nothing Save writes: both save.
+    serveStored({ ...editedElsewhere("dips"), note: "Slept badly." });
+    const { session } = await saveEditedWorkout("u1", draft(65));
+    expect(session.lifts.find((l) => l.id === "dips")?.sets[0].segments).toEqual([{ Weight: 25, Reps: 8 }]);
+    expect(Object.keys(tx.update.mock.calls[0][1]).sort()).toEqual(["exerciseIds", "lifts", "updatedAt", "volume"]);
+  });
+
   it("with nothing changed, reads and writes nothing", async () => {
     await expect(saveEditedWorkout("u1", draft())).resolves.toMatchObject({ summaries: [], docsRead: 0 });
     expect(getDocFromServer).not.toHaveBeenCalled();

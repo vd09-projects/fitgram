@@ -47,7 +47,7 @@ import {
   buildSessionDocs,
 } from "../../utils/exerciseStats";
 import { readLifts, summaryWithEdited, summaryWithout, withVerdicts } from "../../utils/liftRecord";
-import { draftAffected, draftDiff } from "../../utils/editSession";
+import { draftAffected, draftDiff, toEditableWorkout } from "../../utils/editSession";
 import { compareStamps, toStamp, type SyncStamp } from "../../utils/syncCore";
 import { secondQueryStart } from "../../utils/workoutWindow";
 import { localMonthRange } from "../../utils/monthWindow";
@@ -537,6 +537,27 @@ export const deleteWorkout = async (
   return alreadyDeleted ? { summaries: [], docsRead } : { summaries, docsRead };
 };
 
+/**
+ * Whether Save may write the draft over what is stored now (TICKET-102): false when something the draft builds on was
+ * changed elsewhere while it was open, so Save refuses (`changed`) instead of overwriting it with an older copy. That is:
+ * the workout's list of lifts is not the one the draft opened with (a lift added or removed elsewhere would be dropped
+ * from the written list), or a lift Save rewrites (`affected`: touched, added or removed here) is not as it was opened.
+ * A lift this draft did not touch may have changed elsewhere: Save keeps it as stored (`withStoredVerdicts`), so it is
+ * not a conflict. Compared on content, not on the stamp: a note added elsewhere moves the stamp but changes nothing
+ * Save writes, so it does not refuse; a stamp alone only catches a change landing between Save's own reads and its
+ * commit, which is the other check. Found on the device: a note added elsewhere mid-edit did not refuse.
+ */
+function storedStillMatches(data: DocumentData, editOf: NonNullable<ActiveWorkout["editOf"]>, affected: string[]): boolean {
+  const lifts = readLifts(data.lifts);
+  if (!lifts) return false;
+  const reopened = toEditableWorkout({ ...(data as WorkoutSessionDoc), lifts });
+  if (reopened.status !== "ready") return false;
+  const stored = reopened.workout.editOf?.original ?? [];
+  if (stored.map((lift) => lift.id).join("\n") !== editOf.original.map((lift) => lift.id).join("\n")) return false;
+  const opened = new Map(editOf.original.map((lift) => [lift.id, JSON.stringify(lift)]));
+  return stored.every((lift) => !affected.includes(lift.id) || JSON.stringify(lift) === opened.get(lift.id));
+}
+
 export type SaveEditedWorkoutResult = {
   /** The workout as the server now holds it (its stamp is not known here, as a Finish's): what the phone's copies take. */
   session: WorkoutSessionDoc;
@@ -559,7 +580,9 @@ export type SaveEditedWorkoutResult = {
  * summary's stamp, then every session of the lift; writes: 1 + 2 per touched lift. The transaction re-reads the
  * workout's doc and each summary and refuses (`changed`) if a stamp moved, so a Finish or an edit landing between the
  * reads and the commit is never overwritten by a rebuild that did not see it. The workout's own stamp moves with a
- * note too: that refuses harmlessly, and a second Save succeeds.
+ * note too: that refuses harmlessly, and a second Save succeeds. Separately, a lift this Save rewrites that was changed
+ * elsewhere since the draft opened refuses with `conflict`, by content (`storedStillMatches`): a note does not. Unlike
+ * `changed`, a retry cannot succeed: the draft is older than what is stored, so the screen says to open it again.
  *
  * Exercises added or removed (stage 3) are lifts too: an added lift's summary is rebuilt with this workout in it; a
  * removed one (or one whose every set was deleted) is rebuilt without it (`summaryWithout`), or becomes a marker when no
@@ -567,7 +590,7 @@ export type SaveEditedWorkoutResult = {
  * (`nothing-left`): that is a delete, which has its own path.
  *
  * Rejects with a `code`: `nothing-left`, `not-found`, `deleted`, `unreadable-history` (`summaryWithEdited`,
- * `summaryWithout`) and `changed`. Nothing differing resolves with nothing written. The next
+ * `summaryWithout`), `conflict` and `changed`. Nothing differing resolves with nothing written. The next
  * workout's stored verdict is not rewritten (TICKET-095), as in `deleteWorkout`. `dryRun` reads and reports (3.3).
  */
 export const saveEditedWorkout = async (
@@ -588,6 +611,9 @@ export const saveEditedWorkout = async (
   const sessionBefore = await getDocFromServer(sessionRef);
   if (!sessionBefore.exists()) throw Object.assign(new Error("This workout is not on the server"), { code: "not-found" });
   if (sessionBefore.data().deleted === true) throw Object.assign(new Error("This workout was deleted"), { code: "deleted" });
+  if (!storedStillMatches(sessionBefore.data(), editOf, affected)) {
+    throw Object.assign(new Error("The workout was changed elsewhere while it was being edited"), { code: "conflict" });
+  }
   const sessionStampBefore = toStamp(sessionBefore.data().updatedAt);
 
   let docsRead = 0;
@@ -633,6 +659,9 @@ export const saveEditedWorkout = async (
     ]);
     if (!sessionSnapshot.exists()) throw Object.assign(new Error("This workout is not on the server"), { code: "not-found" });
     if (sessionSnapshot.data().deleted === true) throw Object.assign(new Error("This workout was deleted"), { code: "deleted" });
+    if (!storedStillMatches(sessionSnapshot.data(), editOf, affected)) {
+      throw Object.assign(new Error("The workout was changed elsewhere while it was being edited"), { code: "conflict" });
+    }
     const moved =
       compareStamps(toStamp(sessionSnapshot.data().updatedAt), sessionStampBefore) !== 0 ||
       statsSnapshots.some((stats, index) => compareStamps(toStamp(stats.data()?.updatedAt), stampsBefore[index]) !== 0);
