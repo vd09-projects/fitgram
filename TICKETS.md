@@ -34,7 +34,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 029 | Pending uploads view | Small-Med | A `TEMPORARY` debug screen is currently the only way to see the queue |
 | 030 | Drop unit suffixes from catalogue field names | Small | **Silent data loss:** renaming a field nulls every past value for it, and the session stays `comparable` so nothing flags it |
 | 031 | Contrast guards for the rest of the role palette | Small | Extends the `colors.test.ts` pattern |
-| 032 | Edit or delete an already-uploaded set | Med-Large | **Taken by TICKET-102** (2026-11-23): edit session is this ticket's acceptance criteria; closes when 102 merges |
+| 032 | Edit or delete an already-uploaded set | Med-Large | **Done by TICKET-102** (merged 2026-11-23, PR #86); delete was 086 |
 | 035 | Measures beyond weight x reps | Med-Large | "Which way is better" is a product decision |
 | 036 | Put a unit on volume trend points | Small-Med | Today the trend over-suppresses; held by an invariant test, not a fix |
 | 037 | Tell apart two sessions on the same day | Small | |
@@ -55,7 +55,7 @@ Order is *not* decided here — see Recommended Execution Order at the end.
 | 084 | Exercise screen | Med-Large | **Done 2026-11-20, merged in PR #77; open proof listed in the ticket.** Graph drawn from Views (decided in 087) |
 | 085 | History home: Workouts and Exercises tabs | Large | After 081-084. Replaces the old History page; closes 029 |
 | 086 | Delete a workout | Med-Large | After 083. Shares `rebuildExerciseSummary` with 032 |
-| 102 | Edit a past workout in the logging screen | Large | Raised 2026-11-23 (user). **Design decided** (Drafts canvas, row "Edit a past workout in the logging screen"); four stages, screen first. Closes 032 when merged |
+| 102 | Edit a past workout in the logging screen | Large | **Merged 2026-11-23, PR #86; open proof listed in the ticket.** Four stages, screen first (Drafts canvas design). Closed 032 |
 | 103 | Bug: taps stop working after the Workout tab, then a return | Small-Medium | Raised 2026-11-23 (found in 102's device run). **Pre-existing.** Was to be fixed before 102 stage 2 (Cancel edit and Save end in the return that triggers it); **decided 2026-11-23 (user): not a blocker, 102 merges first and this is the next ticket**, listed under Known issues in PR #86 |
 | 079 | Rest time on the Android lock screen: logic and native | Medium | Nice to have, raised 2026-11-10 (user). Spike done: it works on the emulator. Settle two things first (silent channel, staying at 0:00), then build. Wording and permission flow are 080. iOS later |
 | 080 | Lock-screen rest timer: design | Small-Medium | Split from 079 (2026-11-10). Wording, permission flow, buttons; options on the Drafts canvas first |
@@ -11608,7 +11608,7 @@ the notice line remains its only cue. Raised for the user to decide (a follow-up
 
 ### TICKET-102: Edit a Past Workout in the Logging Screen
 
-**Priority:** Medium | **Effort:** Large (four stages) | **Status: IN PROGRESS** — raised 2026-11-23 (user); branch `feat/ticket-102-edit-session`
+**Priority:** Medium | **Effort:** Large (four stages) | **Status: MERGED** — PR #86, 2026-11-23 (squash `d01a703`); device run on the emulator (`pinky`), two MPR passes fixed; open items: per-Save read/write counts unmeasured (CLAUDE.md 3.1) and `dryRun` has no caller, the "Saved" toast on a Save that wrote nothing (race only), hardware Back / lock layer / "Not signed in" not run on a device, a saved unit change, a split set, a Freestyle workout and deleted-elsewhere not run on a device; TICKET-103 is the known bug it ships with — raised 2026-11-23 (user); branch `feat/ticket-102-edit-session` (deleted)
 
 **Description:**
 The Session screen's ⋯ → Edit session (shown switched off since TICKET-083) opens the workout in the **logging screen**, in an
