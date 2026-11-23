@@ -305,10 +305,9 @@ export default function ActiveWorkoutScreen() {
     savingEditNow.current = true;
     setSavingEdit(true);
     setSaveError(null);
+    let saved: Awaited<ReturnType<typeof saveEditedWorkout>>;
     try {
-      const saved = await saveEditedWorkout(user.uid, draft);
-      useExerciseHistoryStore.getState().applyEdited(user.uid, saved.summaries);
-      useRecentWorkoutsStore.getState().applyEdited(user.uid, saved.session);
+      saved = await saveEditedWorkout(user.uid, draft);
     } catch (error) {
       console.log("Failed to save edit:", error);
       setSaveError(editSaveError((error as { code?: string })?.code));
@@ -316,16 +315,35 @@ export default function ActiveWorkoutScreen() {
       setSavingEdit(false);
       return;
     }
-    savingEditNow.current = false;
-    setSavingEdit(false);
+    // The server has the edit from here on, so nothing below may report a failed save (MPR of PR #86): a cache that
+    // cannot be updated is healed by the next check, and the draft's own refusal would say "nothing was saved".
+    try {
+      useExerciseHistoryStore.getState().applyEdited(user.uid, saved.summaries);
+      // No session: the draft differed in nothing, nothing was written, and no held copy is replaced.
+      if (saved.session) useRecentWorkoutsStore.getState().applyEdited(user.uid, saved.session);
+    } catch (error) {
+      console.log("Saved, but this phone's copies were not updated:", error);
+    }
     show.success("Saved", `${draft.name}, ${sessionDateLine(draft.startTime, null)}`);
-    // `cancelWorkout` empties the slot, which is all that is left to do; the stored workout was replaced above.
-    await cancelWorkout();
+    // `cancelWorkout` empties the slot, which is all that is left to do. The saving flag stays up until it has (and
+    // Back, Cancel edit and a second Save stay refused meanwhile): dropping it first let a second Save run against the
+    // workout just saved and flash "Changed elsewhere".
+    try {
+      await cancelWorkout();
+      // `cancelWorkout` keeps the slot when its storage write fails; the save is done, so the draft must not stay.
+      if (useWorkoutStore.getState().activeWorkout?.editOf) useWorkoutStore.setState({ activeWorkout: null, rest: null });
+    } finally {
+      savingEditNow.current = false;
+      setSavingEdit(false);
+    }
   };
 
   // Cancel edit (TICKET-102, board ESL7Discard): asks only when the draft differs from the stored workout. The stored
   // workout is untouched either way; the draft leaves the slot and the redirect above goes back to the Session.
   const requestCancelEdit = () => {
+    // Not while a Save runs: a Discard would empty the slot while the transaction still commits, and a failed Save would
+    // have no draft left to keep (MPR of PR #86).
+    if (savingEditNow.current) return;
     const current = useWorkoutStore.getState().activeWorkout;
     if (current && draftChanged(current)) setConfirmDiscard(true);
     else void handleDiscard();

@@ -75,10 +75,13 @@ export function draftLifts(workout: ActiveWorkout): LiftRecord[] {
  * Whether the draft differs from the workout it edits: what turns Save on and makes Cancel ask first. Compared on
  * what a lift records (exercise, name, fields, sets with their marks, captions), both sides built the same way, so a
  * page or an opened menu is not a change. A mark set and cleared again, or a set deleted and undone, is no change.
+ * One definition with what Save writes (`draftDiff`): Save is on exactly when something would be written. Lift order is
+ * not a difference, so a lift removed and added back as it was is no change (a stricter test here lit Save for a save
+ * that wrote nothing: MPR of PR #86).
  */
 export function draftChanged(workout: ActiveWorkout): boolean {
   if (!workout.editOf) return false;
-  return JSON.stringify(draftLifts(workout)) !== JSON.stringify(workout.editOf.original);
+  return draftAffected(draftDiff(workout)).length > 0;
 }
 
 export type DraftDiff = {

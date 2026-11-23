@@ -45,8 +45,9 @@ import {
   applySessionToStats,
   buildExerciseSessionId,
   buildSessionDocs,
+  computeSessionTotalVolume,
 } from "../../utils/exerciseStats";
-import { readLifts, summaryWithEdited, summaryWithout, withVerdicts } from "../../utils/liftRecord";
+import { exerciseSessionsOf, readLifts, summaryWithEdited, summaryWithout, withVerdicts } from "../../utils/liftRecord";
 import { draftAffected, draftDiff, toEditableWorkout } from "../../utils/editSession";
 import { compareStamps, toStamp, type SyncStamp } from "../../utils/syncCore";
 import { secondQueryStart } from "../../utils/workoutWindow";
@@ -559,8 +560,11 @@ function storedStillMatches(data: DocumentData, editOf: NonNullable<ActiveWorkou
 }
 
 export type SaveEditedWorkoutResult = {
-  /** The workout as the server now holds it (its stamp is not known here, as a Finish's): what the phone's copies take. */
-  session: WorkoutSessionDoc;
+  /**
+   * The workout as the server now holds it (its stamp is not known here, as a Finish's): what the phone's copies take.
+   * Null when the draft differed from the stored workout in nothing, so nothing was written and no copy may be replaced.
+   */
+  session: WorkoutSessionDoc | null;
   /** What each affected lift's summary became, unstamped: a rebuilt summary, or a marker for a lift no session has any more. */
   summaries: (ExerciseStatsDoc | ExerciseStatsMarker)[];
   /** Workout docs read to rebuild, for the proof. */
@@ -604,7 +608,7 @@ export const saveEditedWorkout = async (
   if (session.sessionId !== editOf.sessionId) throw new Error("The draft does not name the workout it edits");
   const diff = draftDiff(workout);
   const affected = draftAffected(diff);
-  if (affected.length === 0) return { session, summaries: [], docsRead: 0 };
+  if (affected.length === 0) return { session: null, summaries: [], docsRead: 0 };
   if (session.lifts.length === 0) throw Object.assign(new Error("Every exercise was removed"), { code: "nothing-left" });
 
   const sessionRef = doc(sessionsRef(userId), session.sessionId);
@@ -649,7 +653,13 @@ export const saveEditedWorkout = async (
     const stored = new Map((readLifts(storedLifts) ?? []).map((lift) => [lift.id, lift]));
     return session.lifts.map((lift) => rebuilt.get(lift.id)?.lift ?? stored.get(lift.id) ?? lift);
   };
-  if (options.dryRun) return { session: { ...session, lifts: withStoredVerdicts(sessionBefore.data().lifts) }, summaries, docsRead };
+  // The session's total from the lifts as written, not from the draft's copy of them: an untouched lift is kept as
+  // stored, so a draft-built total would disagree with the lifts beside it when that lift changed elsewhere.
+  const volumeOf = (written: LiftRecord[]) => computeSessionTotalVolume(exerciseSessionsOf([{ ...session, lifts: written }]));
+  if (options.dryRun) {
+    const lifts = withStoredVerdicts(sessionBefore.data().lifts);
+    return { session: { ...session, lifts, volume: volumeOf(lifts) }, summaries, docsRead };
+  }
 
   let lifts: LiftRecord[] = [];
   await runTransaction(db, async (tx) => {
@@ -669,7 +679,7 @@ export const saveEditedWorkout = async (
 
     lifts = withStoredVerdicts(sessionSnapshot.data().lifts);
     // Update, not set: `note`, `startedAt`, `endedAt` and the name stay as stored.
-    tx.update(sessionRef, { lifts, exerciseIds: session.exerciseIds, volume: session.volume, updatedAt: serverTimestamp() });
+    tx.update(sessionRef, { lifts, exerciseIds: session.exerciseIds, volume: volumeOf(lifts), updatedAt: serverTimestamp() });
     exerciseSessions
       .filter((exerciseSession) => rebuilt.has(exerciseSession.exerciseId))
       .forEach((exerciseSession) =>
@@ -680,7 +690,7 @@ export const saveEditedWorkout = async (
     // Replace, never merge: a merge would keep the old bests (TICKET-032).
     affected.forEach((exerciseId, index) => tx.set(doc(exerciseStatsRef(userId), exerciseId), { ...summaries[index], updatedAt: serverTimestamp() }));
   });
-  return { session: { ...session, lifts }, summaries, docsRead };
+  return { session: { ...session, lifts, volume: volumeOf(lifts) }, summaries, docsRead };
 };
 
 /**

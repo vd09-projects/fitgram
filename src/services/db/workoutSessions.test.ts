@@ -603,12 +603,17 @@ describe("saving an edited workout (TICKET-102)", () => {
     // An untouched lift (dips) changed elsewhere is kept as stored, and a note changes nothing Save writes: both save.
     serveStored({ ...editedElsewhere("dips"), note: "Slept badly." });
     const { session } = await saveEditedWorkout("u1", draft(65));
-    expect(session.lifts.find((l) => l.id === "dips")?.sets[0].segments).toEqual([{ Weight: 25, Reps: 8 }]);
+    expect(session!.lifts.find((l) => l.id === "dips")?.sets[0].segments).toEqual([{ Weight: 25, Reps: 8 }]);
+    // The total is of the lifts as written (bench 65 x 5 = 325, dips as stored 25 x 8 = 200), not the draft's copy of dips (20 x 8).
+    const { volume } = tx.update.mock.calls[0][1];
+    expect(volume.totals).toEqual([{ unit: "kg", value: 525 }]);
+    expect(session!.volume).toEqual(volume);
     expect(Object.keys(tx.update.mock.calls[0][1]).sort()).toEqual(["exerciseIds", "lifts", "updatedAt", "volume"]);
   });
 
   it("with nothing changed, reads and writes nothing", async () => {
-    await expect(saveEditedWorkout("u1", draft())).resolves.toMatchObject({ summaries: [], docsRead: 0 });
+    // No session either: nothing was written, so no copy may be replaced by a draft-built one.
+    await expect(saveEditedWorkout("u1", draft())).resolves.toEqual({ session: null, summaries: [], docsRead: 0 });
     expect(getDocFromServer).not.toHaveBeenCalled();
     expect(runTransaction).not.toHaveBeenCalled();
   });

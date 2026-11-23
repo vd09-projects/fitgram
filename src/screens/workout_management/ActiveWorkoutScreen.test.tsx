@@ -12,6 +12,7 @@ import show from "../../utils/toastUtils";
 import { WorkoutRoutes } from "../../constants/routes";
 import { FREESTYLE_ID } from "../../constants/freestyle";
 import { toEditableWorkout } from "../../utils/editSession";
+import { useRecentWorkoutsStore } from "../../stores/useRecentWorkoutsStore";
 
 // Only the Finish tests reach the save, through the real `endWorkout`. The
 // reads are the swap picker's (TICKET-047), mounted only while it is open.
@@ -360,6 +361,52 @@ describe("an edit draft", () => {
     expect(useWorkoutStore.getState().activeWorkout).toBeNull();
     expect(screen.getByText(`route:Workout/${WorkoutRoutes.Session}`)).toBeOnTheScreen();
     success.mockRestore();
+  });
+
+  // MPR of PR #86: the Save-in-flight window.
+  it("while a Save runs, Back does nothing and the draft stays; the Save then finishes normally", async () => {
+    let finish: (value: unknown) => void = () => {};
+    (saveEditedWorkout as jest.Mock).mockClear();
+    (saveEditedWorkout as jest.Mock).mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    renderScreen(ActiveWorkoutScreen, { workout: changedDraft(), workoutRoute: WorkoutRoutes.LogWorkout });
+
+    // Sync presses: the Save promise stays pending on purpose, and an async `act` would wait for it.
+    fireEvent.press(screen.getByRole("button", { name: "Save changes" }));
+    fireEvent.press(screen.getByLabelText("Back"));
+    expect(screen.queryByText("Discard your changes?")).toBeNull();
+    expect(useWorkoutStore.getState().activeWorkout?.editOf).toBeDefined();
+    expect(saveEditedWorkout).toHaveBeenCalledTimes(1);
+
+    await act(async () => finish({ session: null, summaries: [], docsRead: 0 }));
+    expect(useWorkoutStore.getState().activeWorkout).toBeNull();
+    expect(screen.getByText(`route:Workout/${WorkoutRoutes.Session}`)).toBeOnTheScreen();
+  });
+
+  it("a phone copy that cannot be updated after a committed Save is not reported as a failed save", async () => {
+    (saveEditedWorkout as jest.Mock).mockResolvedValue({ session: { sessionId: "push_s" }, summaries: [], docsRead: 1 });
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    const apply = jest.spyOn(useRecentWorkoutsStore.getState(), "applyEdited").mockImplementation(() => {
+      throw new Error("storage full");
+    });
+    const success = jest.spyOn(show, "success");
+    renderScreen(ActiveWorkoutScreen, { workout: changedDraft(), workoutRoute: WorkoutRoutes.LogWorkout });
+
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Save changes" })));
+
+    expect(success).toHaveBeenCalledWith("Saved", "Push, Mon 9 Nov");
+    expect(screen.queryByText("Could not save")).toBeNull();
+    expect(useWorkoutStore.getState().activeWorkout).toBeNull();
+    apply.mockRestore();
+    success.mockRestore();
+  });
+
+  it("a Save that wrote nothing does not replace the held workout", async () => {
+    (saveEditedWorkout as jest.Mock).mockResolvedValue({ session: null, summaries: [], docsRead: 0 });
+    const apply = jest.spyOn(useRecentWorkoutsStore.getState(), "applyEdited");
+    renderScreen(ActiveWorkoutScreen, { workout: changedDraft(), workoutRoute: WorkoutRoutes.LogWorkout });
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Save changes" })));
+    expect(apply).not.toHaveBeenCalled();
+    apply.mockRestore();
   });
 
   it("a refused save keeps the draft and says why, in the footer", async () => {

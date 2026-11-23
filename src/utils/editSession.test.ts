@@ -84,6 +84,15 @@ describe("toEditableWorkout", () => {
 });
 
 describe("draftChanged", () => {
+  it("a lift removed and added back as it was is no change: Save is on exactly when something would be written", () => {
+    const draft = draftOf(storedWorkout());
+    const [first, ...rest] = draft.exercises;
+    // The order differs (the lift is now last), the content does not: `draftDiff` says nothing is written.
+    const reordered = { ...draft, exercises: [...rest, first] };
+    expect(draftDiff(reordered)).toEqual({ touched: [], added: [], removed: [] });
+    expect(draftChanged(reordered)).toBe(false);
+  });
+
   it("is true once a set's value changes, and false again when it is put back", () => {
     const draft = draftOf(storedWorkout());
     const withSet2 = (weight: number): ActiveWorkout => ({
