@@ -11716,6 +11716,14 @@ The main job is a typo: `650` for `65` becomes a `bestByReps` entry no real set 
 - **Not done:** a unit change saved, a removed lift on another phone, offline Save of a shape change, the dry-run counts (3.1). Nit: Add exercise's menu line says "today's list" in a past workout.
 - **Skipped rules:** 3.1 (no measured counts, as stage 2).
 
+**Stage 4 built 2026-11-23 (uncommitted for review):**
+- Fixed the open stage 1 issue: after an app kill, Cancel edit and Save opened the Session with nothing beneath it. When the Session is not in the Workout stack, the return replaces the stack with hub, History home, Session (`editLandingRoutes`: Finish's trail without `finished`). Emulator: kill, resume from the footer tab, Cancel edit, Back lands on History home.
+- Add exercise's menu line reads "this workout's list" in a draft. Imported workouts (`endedAt` is a number on all of pinky's 21 sessions) and a Freestyle round trip: unit tests; an imported workout was edited and saved on the device in stage 2.
+- Delete or a note elsewhere mid-edit: covered by the `deleted` / `not-found` codes and the workout-stamp `changed` refusal (stage 2 tests); not run on a second device.
+- Device test plan: TESTING_NOTES.md (12 steps, each marked run or not run).
+- Proof: `tsc` clean, 87 suites / 1134 tests; `editLandingRoutes` broken: red.
+- **Not run:** two phones, offline Save, a unit change saved, a split set, a Freestyle on the device. **Open, own ticket:** TICKET-103.
+
 **Cost per Save (from 086's fixtures):** per touched lift about the delete's reads for that lift plus 1 stamp read; in the
 transaction 1 + the lifts touched; writes 1 + 2 per lift touched. A typo fix touches one lift.
 

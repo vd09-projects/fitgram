@@ -878,3 +878,23 @@ Emulator results after the fixes (1:30 rest; `logcat -b events` `notification_en
 
 **[run] Stage 3 Save on the emulator + real Firestore, `pinky`, 2026-11-23 (user: "lets test changes").** Read-only snapshot of Shoulders AJ (30 Oct) first. (1) Edit → Rear Delt Fly · Dumbbell (a "New lift", one session) → Remove from this workout (Exercise 4 of 6 → "4 of 5", Undo banner) → Save changes → "Saved", Session shows "1 new" and no Rear Delt Fly. Server: `compareHistory.ts` **0 mismatches**; the lift's `exercise_stats` doc is `{ exerciseId, deleted: true, updatedAt }` (the marker); its `exercise_sessions` doc is gone (128 → 127); the workout's `lifts` and `exerciseIds` list 5 lifts; `note` untouched. (2) Edit → ⋯ → Add exercise → Rear Delt Fly · Dumbbell: "First time on this exercise" (the marker is honoured) → logged 4×15, 6×10, 6×12 → Save changes → "Saved", "2 new". Server: **0 mismatches**; the marker replaced by a real summary; `exercise_sessions` 127 → 128; the lift is back in `lifts` / `exerciseIds`. **Not byte-identical to the original:** the lift is now last (was 4th, an added lift goes at the end), and its sets carry no `effort` key (originally `effort: null`). Data otherwise as before; `updatedAt` stamps moved.
 **[pending]** a unit change saved, another phone, offline Save of a shape change, the read/write counts (3.1). Nit: the ⋯ menu's Add exercise says "Goes at the end of today's list" in a past workout.
+
+## TICKET-102 stage 4: edges and the device test plan (2026-11-23)
+
+**Unit [run], `tsc` clean, 87 suites / 1134 tests (the `WorkoutHubScreen` 400d/399d failure of stage 3 did not repeat: a clock dependence).** New: `editLandingRoutes` (the trail, no `finished`), a navigator test that the real stacks take it and Back walks it, the footer-tab Cancel edit, a Freestyle round trip. Broke `editLandingRoutes`' History home: red.
+**Fixed in this stage:** after an app kill, Cancel edit (and Save) opened the Session with nothing beneath it, so Back left the Workout area. When the Session is not in the Workout stack the stack becomes hub, History home, Session (Finish's trail, without "Workout saved"). **[run] Emulator:** Edit → force-stop → relaunch → Log Workout tab (draft resumed) → Cancel edit → Session → Back → History home. Copy: the ⋯ menu's Add exercise says "this workout's list" in a draft.
+
+### Device test plan: edit a past workout (TICKET-102)
+Account `pinky` (a test account; plans named "test…" and its imported history may be edited; Saves rewrite its data, so restore after). After every Save: `GOOGLE_APPLICATION_CREDENTIALS=~/.config/fitgram/service-account.json npx tsx src/scripts/compareHistory.ts <uid>` reads 0 mismatches.
+1. **Open.** History → a workout → ⋯ → Edit session. Header "Editing · date", no timer, "This workout", Cancel edit | Save changes (off), no PR banner. [run, stage 1]
+2. **Fix a set (the typo).** Edit set 1, Save: "Saved", the Session shows it, compare 0. [run, stage 2]
+3. **Remove, then add a lift.** Remove from this workout ("Its N sets go too"), Undo, Save; a one-session lift becomes a marker and its record goes; re-add it with its sets. [run, stage 3]
+4. **Cancel.** Unchanged: no question; changed: "Discard your changes?" / "Keep editing". [run, stages 1 and 2]
+5. **Kill and resume.** Edit, force-stop, relaunch, Log Workout tab, Cancel edit, Back lands on History home. [run, stage 4]
+6. **Blocked while a draft is open.** Hub, Start and plan cards say "You are editing X", Back to editing. [run, stage 1]
+7. **Not editable:** a workout waiting to upload, an unreadable one, while a workout runs (Session menu says why). [run for "workout running"; the other two unit only]
+8. **Offline Save:** airplane mode, change a set, Save: "Needs a connection to save", the draft kept, Save works when back online. [**not run**]
+9. **Changed elsewhere (two phones):** with a draft open, change the same workout's note (or a lift's summary) from another phone or the Session on a second device; Save refuses once with "Changed elsewhere", the second Save succeeds. Delete it elsewhere: "This workout was deleted", Cancel edit to leave. [**not run**: needs a second device or an admin write to `pinky`; unit-tested against the mocked transaction]
+10. **Units:** change a lift's unit in the draft, Save; the lift reads in the new unit and compare reads 0. [**not run**]
+11. **Imported, split and Freestyle workouts:** edit one set of an imported workout [run: Shoulders AJ], a split set [**not run**], a Freestyle [round trip unit only; **not run** on device].
+12. **Known failing: TICKET-103.** Edit → Workout tab → a plan card → Back to editing → Cancel edit or Save: the Session can ignore taps until a force-stop. Not caused by this ticket.

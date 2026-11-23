@@ -26,7 +26,7 @@ import { LayoutScreenNavigationProp } from "../../navigation/LayoutNavigator";
 import { LayoutRoutes, WorkoutRoutes } from "../../constants/routes";
 import { CommonActions, StackActions, useIsFocused, useNavigation } from "@react-navigation/native";
 import { buildSessionId } from "../../utils/exerciseStats";
-import { finishLandingRoutes, type FinishLanding } from "../../utils/finishLanding";
+import { editLandingRoutes, finishLandingRoutes, type FinishLanding } from "../../utils/finishLanding";
 import { draftChanged, editSaveError } from "../../utils/editSession";
 import { saveEditedWorkout } from "../../services/db/workoutSessions";
 import { useExerciseHistoryStore } from "../../stores/useExerciseHistoryStore";
@@ -202,10 +202,19 @@ export default function ActiveWorkoutScreen() {
     const editBack = editReturn.current;
     if (editBack) {
       editReturn.current = null;
+      // The Session is beneath only when this screen is in the Workout stack and that stack holds it: then `popTo` finds
+      // it by its id. Otherwise (the footer tab, or a draft resumed after an app kill) the stack is replaced by the
+      // trail a Finish lands on, so Back from the Session goes to the History home and not out of the app.
+      const sessionBeneath =
+        inWorkoutStack &&
+        navigation.getState().routes.some((route) => route.name === WorkoutRoutes.Session && (route.params as { sessionId?: string } | undefined)?.sessionId === editBack.sessionId);
+      const trail = editLandingRoutes(editBack);
       navigation.dispatch(
-        inWorkoutStack
+        sessionBeneath
           ? StackActions.popTo(WorkoutRoutes.Session, editBack)
-          : StackActions.popTo(LayoutRoutes.Workout, { screen: WorkoutRoutes.Session, params: editBack })
+          : inWorkoutStack
+            ? CommonActions.reset({ index: trail.length - 1, routes: trail })
+            : StackActions.popTo(LayoutRoutes.Workout, { state: { index: trail.length - 1, routes: trail } })
       );
       return;
     }
@@ -331,9 +340,11 @@ export default function ActiveWorkoutScreen() {
     renderIcon: (color) => <Ionicons name="add" size={20} color={color} />,
     title: "Add exercise",
     // A Freestyle has no plan to stay as it is (TICKET-067).
-    detail: isFreestyle(activeWorkout.id)
-      ? "Goes at the end of today's list."
-      : "Goes at the end of today's list. Your plan stays as it is.",
+    detail: editOf
+      ? "Goes at the end of this workout's list."
+      : isFreestyle(activeWorkout.id)
+        ? "Goes at the end of today's list."
+        : "Goes at the end of today's list. Your plan stays as it is.",
     onPress: () => setPicker({ kind: "add" }),
   };
   const discardItem: MenuItem = editOf

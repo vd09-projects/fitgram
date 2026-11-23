@@ -374,8 +374,11 @@ describe("an edit draft", () => {
     expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled();
   });
 
-  it("Cancel edit with nothing changed asks nothing, empties the slot and goes back to the Session", async () => {
-    renderScreen(ActiveWorkoutScreen, { workout: draft(), workoutRoute: WorkoutRoutes.LogWorkout });
+  it.each([
+    ["the Workout stack", WorkoutRoutes.LogWorkout],
+    ["the footer tab (a draft resumed after an app kill has no Session beneath)", undefined],
+  ])("Cancel edit with nothing changed asks nothing, empties the slot and goes back to the Session, from %s", async (_, workoutRoute) => {
+    renderScreen(ActiveWorkoutScreen, { workout: draft(), workoutRoute });
     await act(async () => fireEvent.press(screen.getByRole("button", { name: "Cancel edit" })));
     expect(useWorkoutStore.getState().activeWorkout).toBeNull();
     expect(screen.queryByText("Discard your changes?")).toBeNull();

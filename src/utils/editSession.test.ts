@@ -1,5 +1,6 @@
 // TICKET-102 stage 1: a past workout as an edit draft in the logger, and the history it is compared with.
 
+import { editLandingRoutes } from "./finishLanding";
 import { draftChanged, draftDiff, draftLifts, editSaveError, toEditableWorkout } from "./editSession";
 import { buildSessionDocs } from "./exerciseStats";
 import { deriveExerciseHistory } from "./exerciseHistory";
@@ -8,6 +9,7 @@ import { buildExercise, buildStats, buildWorkout } from "../test/fixtures";
 import { Effort, type WorkoutSessionDoc } from "../types/workoutSession";
 import type { ActiveWorkout } from "../types/zustandWorkoutType";
 import { STATS_RECENT_SESSION_CAP } from "../config/storedData";
+import { FREESTYLE_ID } from "../constants/freestyle";
 
 const DAY = 24 * 60 * 60 * 1000;
 const START = Date.UTC(2026, 10, 9, 18);
@@ -52,6 +54,22 @@ describe("toEditableWorkout", () => {
     expect(draft.editOf).toEqual({ sessionId: session.sessionId, endedAt: session.endedAt, original: session.lifts });
     expect(draft.startTime).toBe(session.startedAt);
     expect(draft.exercises[1].swappedFrom).toEqual({ id: "rear-delt-fly", name: "Rear Delt Fly" });
+    expect(draftChanged(draft)).toBe(false);
+  });
+
+  it("a Freestyle round-trips too: no plan, no 'Added' caption, and an untouched draft is no change", () => {
+    const freestyle = buildSessionDocs(
+      buildWorkout([], {
+        id: FREESTYLE_ID,
+        name: "Freestyle",
+        startTime: START,
+        exercises: [buildExercise("Face Pull", { added: true, sets: [{ id: 1, segments: [{ Weight: 25, Reps: 15 }] }] })],
+      }),
+      START + 30 * 60 * 1000
+    ).session;
+    const draft = draftOf(freestyle);
+    expect(draftLifts(draft)).toEqual(freestyle.lifts);
+    expect(draft.exercises[0].added).toBeUndefined();
     expect(draftChanged(draft)).toBe(false);
   });
 
@@ -148,5 +166,13 @@ describe("editSaveError", () => {
     expect(editSaveError("nothing-left").detail).toMatch(/delete the session/);
     expect(editSaveError("something-new")).toEqual({ title: "Could not save", detail: "Your changes are kept. Try again." });
     expect(editSaveError(undefined).title).toBe("Could not save");
+  });
+});
+
+describe("editLandingRoutes", () => {
+  it("is Finish's trail (hub, History home, Session) without the 'Workout saved' flag", () => {
+    const routes = editLandingRoutes({ sessionId: "s1", workoutName: "Push", startedAt: 1 });
+    expect(routes.map((route) => route.name)).toEqual(["WorkoutHome", "HistoryHome", "Session"]);
+    expect(routes[2].params).toEqual({ sessionId: "s1", workoutName: "Push", startedAt: 1 });
   });
 });

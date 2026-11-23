@@ -13,7 +13,7 @@ import { ThemeProvider } from "../components/app_manager/ThemeContext";
 import { TourGuideProvider } from "../components/guide_tour/TourGuideProvider";
 import { resetStores } from "../test/renderScreen";
 import { useWorkoutStore } from "../stores/useWorkoutStore";
-import { finishLandingRoutes } from "../utils/finishLanding";
+import { editLandingRoutes, finishLandingRoutes } from "../utils/finishLanding";
 import LayoutScreen from "./LayoutScreen";
 
 jest.mock("./HomeScreen", () => () => require("react").createElement(require("react-native").Text, null, "screen:Home"));
@@ -259,6 +259,20 @@ describe("the Finish landing from the Log Workout tab", () => {
     expect(screen.getByText("screen:HistoryHome")).toBeOnTheScreen();
     back();
     expect(screen.getByText("screen:Workout")).toBeOnTheScreen();
+  });
+
+  // TICKET-102: a draft resumed from the footer tab has no Session beneath it; the edit lands on the same trail.
+  it("an ended edit lands on the Session with the History home and the hub beneath it", () => {
+    renderLayout();
+    openLogger();
+    act(() => navigationRef.dispatch({ ...StackActions.push("LogWorkout"), target: navigationRef.getRootState().key }));
+
+    const routes = editLandingRoutes({ sessionId: "s1", workoutName: "Push", startedAt: 1 });
+    act(() => navigationRef.dispatch(StackActions.popTo("Workout", { state: { index: 2, routes } })));
+
+    expect(workoutStack()).toEqual({ names: ["WorkoutHome", "HistoryHome", "Session"], focused: "Session" });
+    back();
+    expect(screen.getByText("screen:HistoryHome")).toBeOnTheScreen();
   });
 
   it("lights Workout afterwards, not the Log Workout tab it came from", () => {
